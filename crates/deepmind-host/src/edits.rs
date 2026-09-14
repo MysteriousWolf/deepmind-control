@@ -62,9 +62,7 @@ impl Edits {
     /// What already went stays where it went. There is no message in the
     /// protocol that would take it back.
     pub(crate) fn clear(&mut self) {
-        for slot in &mut self.values {
-            *slot = None;
-        }
+        self.values.fill(None);
         self.order.clear();
     }
 
