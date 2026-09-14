@@ -1,0 +1,17 @@
+[package]
+name = "control"
+description = "The DeepMind editor and librarian, on the desktop"
+publish = false
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+control-ui = { path = "../control-ui" }
+deepmind-host = { path = "../deepmind-host" }
+deepmind-midi = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,32 @@
+[package]
+name = "deepmind-host"
+description = "Port ownership and the device loop for Behringer DeepMind synthesizers: a MIDI backend, a thread, commands in and events out"
+categories = ["multimedia::audio", "hardware-support"]
+keywords = ["midi", "synthesizer", "deepmind", "behringer"]
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[features]
+default = ["sim"]
+## Puts the library's simulated synthesizer in the port list, so the rest of
+## this repository can be built and tested with nothing plugged in.
+sim = ["deepmind-midi/sim"]
+
+[dependencies]
+deepmind-midi = { workspace = true }
+midir = { workspace = true }
+
+[dev-dependencies]
+deepmind-midi = { workspace = true, features = ["sim"] }
+
+[lints]
+workspace = true
+
+# The simulator is what these are driven against, so they are skipped rather
+# than failed when the feature is off.
+[[test]]
+name = "simulator"
+required-features = ["sim"]

@@ -3,7 +3,8 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-planning-orange" alt="Status: planning">
+  <img src="https://img.shields.io/badge/status-stage%201-orange" alt="Status: stage 1">
+  <a href="https://github.com/MysteriousWolf/deepmind-control/actions/workflows/ci.yml"><img src="https://github.com/MysteriousWolf/deepmind-control/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/MysteriousWolf/deepmind-midi"><img src="https://img.shields.io/badge/built%20on-deepmind--midi-blue" alt="Built on deepmind-midi"></a>
   <a href="https://github.com/MysteriousWolf/deepmind-control/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-green" alt="License: Apache-2.0"></a>
 </p>
@@ -20,8 +21,11 @@ DeepMind <--MIDI--> port <--bytes--> deepmind-midi <--events--> the interface
               midir, or the DAW
 ```
 
-**Status: nothing here yet.** The plan is written down; the code is not. See
-[the plan](docs/plan.md) for what is being built and in what order. Not usable.
+**Status: the port works, the window does not.** `deepmind-host` owns a port,
+finds the synthesizer, edits it, reads banks with progress and cancel, and can be
+driven against a simulated unit with nothing plugged in. There is no interface
+yet: the window is the next stage. See [the plan](docs/plan.md) for what is being
+built and in what order. Not usable as an editor.
 
 ## What it is
 
@@ -29,8 +33,9 @@ DeepMind <--MIDI--> port <--bytes--> deepmind-midi <--events--> the interface
 live, and reads and writes `.syx` files. Every parameter the instrument exposes,
 laid out as the instrument lays it out.
 
-**A plugin**, so that patches travel with a project. AU and VST3, wrapped around
-a CLAP that ships too and arrives first. Two modes:
+**A plugin**, after the desktop application, so that patches travel with a
+project. AU and VST3, wrapped around a CLAP that ships too and arrives first.
+Two modes:
 
 - *Simple*, which selects programs and nothing else.
 - *Advanced*, which is the desktop editing surface in a plugin window.
@@ -58,10 +63,10 @@ Nothing here has been run against a synthesizer yet.
 
 ```
 crates/
-  deepmind-host/    port ownership and the device loop. No interface.
-  control-ui/       every view and widget. No runtime, no window.
-  control/          the desktop application.
-  control-plugin/   the plugin.
+  deepmind-host/    port ownership and the device loop. No interface.   written
+  control-ui/       every view and widget. No runtime, no window.       stage 2
+  control/          the desktop application.                            stage 2
+  control-plugin/   the plugin.                                         stage 6
 ```
 
 `deepmind-host` is the only crate here that would be useful to somebody else, so
@@ -78,8 +83,12 @@ cargo clippy --workspace --all-targets
 cargo fmt --all --check
 ```
 
-The plugin is built and bundled separately. The CLAP is what the other two
-formats are made from:
+`cargo test --workspace` needs no hardware: the library ships a simulated
+synthesizer, and `deepmind-host` puts it in the port list as an ordinary choice
+alongside the real ones.
+
+The plugin comes after the desktop application and is built and bundled
+separately. The CLAP is what the other two formats are made from:
 
 ```
 cargo nih-plug bundle control-plugin --release
@@ -89,8 +98,10 @@ The AU and the VST3 are wrapped around that CLAP with
 [clap-wrapper](https://github.com/free-audio/clap-wrapper), which needs CMake
 and a C++ toolchain. AU is macOS only.
 
-Linux needs the usual X11 and GL development headers for baseview. macOS and
-Windows need nothing beyond the toolchain and CMake.
+Linux needs ALSA's development headers for midir (`libasound2-dev`, or
+`alsa-lib` on Arch), and the usual X11 and GL development headers for baseview.
+macOS and Windows need nothing beyond the toolchain and CMake: midir talks to
+CoreMIDI and WinMM, which are already there.
 
 The iced version is pinned, and it is pinned to whatever the baseview adapter
 supports rather than to the newest release. The two builds share a view layer

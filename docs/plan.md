@@ -1,7 +1,8 @@
 # Plan
 
 What this repository builds, in what order, and what has already been decided.
-None of it is written yet.
+Stages 0 and 1 are written; the rest is not. The [order](#order) says which is
+which.
 
 [`deepmind-midi`](https://github.com/MysteriousWolf/deepmind-midi) owns the
 protocol and refuses to own anything else: it never opens a port, never spawns a
@@ -75,9 +76,9 @@ The device thread holds the truth. The interface holds a copy it builds out of
 events, and there is no lock between them.
 
 ```rust
-let ports = host::ports();                       // what midir sees, and the simulator
+let ports = host::ports()?;                      // what midir sees, and the simulator
 let link = host::open(&ports[0])?;               // one thread, two channels
-link.send(Command::ReadEditBuffer);
+link.send(Command::ReadEditBuffer)?;
 for event in link.drain() { /* iced update */ }
 ```
 
@@ -117,6 +118,13 @@ one is a desynchronised instrument, so the last one is always sent.
 Coalescing lives in the host crate rather than in the views, because the plugin
 and the desktop build have the same problem and the views should not know that a
 wire has a speed.
+
+It costs one ordering rule. A read asked for while edits are still going out
+waits for them, because a dump that arrived first would confirm the values those
+edits are replacing, and the interface would draw the old sound as the
+instrument's own answer. "Put it there, then tell me where it is" has one honest
+order. Edits themselves never queue behind each other: that is what coalescing
+is, and a drag that queued would grow without end.
 
 For the same reason, loading a patch sends the difference and not the program.
 `Program::changes` is the whole implementation. Sending all 242 parameters is
@@ -207,7 +215,14 @@ are true. The `Device` is rebuilt with that identity, which costs nothing and is
 more honest than mutating it.
 
 A port that does not answer within the timeout is not a DeepMind, and that is
-how the port list is filtered rather than by matching names.
+how the port list is filtered rather than by matching names. The port stays open
+either way: a synthesizer that was switched on late is a likelier explanation
+than a host that should give up, and asking again costs one message.
+
+Rebuilding happens when the address actually changes, because a rebuilt device
+is a device with nothing outstanding. A second inquiry into a unit that has
+already answered is then free, which is what makes it the way to look for one
+that was not there a moment ago.
 
 Until an identity arrives, lookups use the library's default firmware and the
 interface says which one it is assuming.
@@ -253,6 +268,12 @@ different instrument, or on the same instrument after a pack was loaded, and it
 would do it silently, months later, to somebody's finished record.
 
 ## AU and VST3 are what ships, and CLAP is what is written
+
+**The first thing that ships is not a plugin.** The desktop application is the
+whole editor and the whole librarian, it owns its own port, and it can be handed
+to somebody the day it works: no SDK agreement, no developer account, no host
+that has to agree to load it. So the standalone desktop build is the first
+release, and everything in this section is about what comes after it.
 
 A DeepMind owner with a DAW open is in Logic or Ableton or Cubase, and what
 those load on the machine in front of them is an Audio Unit or a VST3. CLAP is
@@ -339,6 +360,32 @@ generated from `logo.svg` in the stage that first needs one. Nothing here is
 traced from Behringer's artwork; it is the same drawing the library already
 publishes, with a different thing on the panel.
 
+## Versioning is the year and the release
+
+`Cargo.toml` holds the version and nothing else does, and the scheme is
+`deepmind-midi`'s: `YY.RELEASE.PATCH`. `26.1.0` is the first release of 2026,
+`26.1.1` its first patch, `26.2.0` the second release of the year. Cargo reads
+that as semver, so the year is the major version and a release is a minor one.
+A release within a year must not break the public API of the one crate here that
+somebody else could depend on, and a breaking change is a new year.
+
+That crate is `deepmind-host`. `control`, `control-ui` and `control-plugin` are
+`publish = false`: two of them are binaries and the third is this repository's
+own furniture. They carry the same number anyway, because one repository
+releasing several numbers is a support question nobody needs.
+
+A person edits that one line, not the release job. CI fails when the number in
+the tree is not ahead of the newest release tag, so the first change merged
+after a release has to move it and the tree always states what it will release
+next. `cargo-semver-checks` holds the compatibility promise against the same
+tag. Both checks pass trivially until a release tag exists, which is the state
+this repository is in.
+
+The workflow that tags and publishes arrives with the first desktop release,
+not before it. A release job for an application is not the library's: it builds
+binaries for three platforms and signs two of them, and writing it against a
+release that has not been designed yet is writing it twice.
+
 ## Order
 
 Each stage ends somewhere usable. Nothing is built two stages before it is
@@ -346,8 +393,8 @@ needed.
 
 | | | |
 | --- | --- | --- |
-| 0 | Workspace | Four crates, pinned dependencies, CI running the four commands in the README, licence and notice files. |
-| 1 | `deepmind-host` | Port enumeration, `Port` over midir, `Clock`, the device thread, commands in and events out, the simulator as a selectable port. Tested against `sim` with no hardware. |
+| 0 | Workspace | **Done.** Four crates, pinned dependencies, CI running the four commands in the README, licence and notice files. |
+| 1 | `deepmind-host` | **Done.** Port enumeration, `Port` over midir, `Clock`, the device thread, commands in and events out, the simulator as a selectable port. Tested against `sim` with no hardware. |
 | 2 | First light | Desktop window, port picker, identity, read the edit buffer, one group (VCF) editable end to end with assumed and confirmed drawn differently. |
 | 3 | Every parameter | The remaining thirteen groups. Generated from `Group::parameters` first, because a complete ugly editor beats a beautiful partial one, then laid out by hand group by group. |
 | 4 | The librarian | Read and write `.syx`, read a bank with progress and cancel, browse a pack, load a program into the edit buffer as a difference. |
@@ -358,6 +405,11 @@ needed.
 Stage 5 can move ahead of stage 4 if the library gets there first. Stage 7 can
 start the day a synthesizer is available and will change something in every
 stage before it.
+
+**The first release is the desktop application**, once stage 4 has made it an
+editor and a librarian rather than one of the two. Stage 6 is the first build a
+DAW can load, and it is deliberately the later of the two: a plugin nobody can
+run is worth less than an application somebody can.
 
 ## Not planned
 

@@ -1,0 +1,20 @@
+[package]
+name = "control-ui"
+description = "Views and widgets for the DeepMind editor. No runtime, no window"
+publish = false
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+# `iced_core` and `iced_widget` rather than `iced`: this crate carries no
+# runtime and opens no window, so that one view layer compiles into the desktop
+# build and into the plugin's baseview window alike.
+[dependencies]
+deepmind-midi = { workspace = true }
+iced_core = { workspace = true }
+iced_widget = { workspace = true }
+
+[lints]
+workspace = true

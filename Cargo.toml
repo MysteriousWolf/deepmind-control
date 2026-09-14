@@ -1,0 +1,48 @@
+[workspace]
+members = ["crates/*"]
+resolver = "3"
+
+[workspace.package]
+# `YY.RELEASE.PATCH`, the scheme deepmind-midi uses: `26.1.0` is the first
+# release of 2026, `26.1.1` its first patch, `26.2.0` the second release of the
+# year. Cargo reads it as semver, so the year is the major version and a release
+# is a minor one, and a release within a year must not break a published crate's
+# public API. A human edits this one line; CI fails when it is not ahead of the
+# newest release tag, so the first change merged after a release has to move it.
+version = "26.1.0"
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/MysteriousWolf/deepmind-control"
+authors = ["MysteriousWolf"]
+
+# The library this repository is built on. Pinned to a minor version rather than
+# tracked: a parameter table or a value table that changes is a change to what
+# the interface draws, and that arrives when the pin is moved rather than on
+# whatever day `cargo update` is run.
+[workspace.dependencies]
+deepmind-midi = { version = "26.1", default-features = false, features = [
+    "std",
+    "transport",
+] }
+midir = "0.10"
+
+# The view layer is pinned to what the baseview adapter supports rather than to
+# the newest release, because the desktop build and the plugin share a view
+# layer only for as long as they share an iced. `iced_baseview` 0.5 is on 0.14,
+# so 0.14 is the pin, and moving it is a decision about both builds at once.
+iced = "0.14"
+iced_core = "0.14"
+iced_widget = "0.14"
+
+[workspace.lints.rust]
+missing_docs = "warn"
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+panic = "warn"
+unwrap_used = "warn"
+expect_used = "warn"
+indexing_slicing = "warn"
