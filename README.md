@@ -33,8 +33,9 @@ built and in what order. Not usable as an editor.
 live, and reads and writes `.syx` files. Every parameter the instrument exposes,
 laid out as the instrument lays it out.
 
-**A plugin**, so that patches travel with a project. AU and VST3, wrapped around
-a CLAP that ships too and arrives first. Two modes:
+**A plugin**, after the desktop application, so that patches travel with a
+project. AU and VST3, wrapped around a CLAP that ships too and arrives first.
+Two modes:
 
 - *Simple*, which selects programs and nothing else.
 - *Advanced*, which is the desktop editing surface in a plugin window.
@@ -86,8 +87,8 @@ cargo fmt --all --check
 synthesizer, and `deepmind-host` puts it in the port list as an ordinary choice
 alongside the real ones.
 
-The plugin is built and bundled separately. The CLAP is what the other two
-formats are made from:
+The plugin comes after the desktop application and is built and bundled
+separately. The CLAP is what the other two formats are made from:
 
 ```
 cargo nih-plug bundle control-plugin --release

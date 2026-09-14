@@ -3,7 +3,13 @@ members = ["crates/*"]
 resolver = "3"
 
 [workspace.package]
-version = "0.1.0"
+# `YY.RELEASE.PATCH`, the scheme deepmind-midi uses: `26.1.0` is the first
+# release of 2026, `26.1.1` its first patch, `26.2.0` the second release of the
+# year. Cargo reads it as semver, so the year is the major version and a release
+# is a minor one, and a release within a year must not break a published crate's
+# public API. A human edits this one line; CI fails when it is not ahead of the
+# newest release tag, so the first change merged after a release has to move it.
+version = "26.1.0"
 edition = "2024"
 license = "Apache-2.0"
 repository = "https://github.com/MysteriousWolf/deepmind-control"

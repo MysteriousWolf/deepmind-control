@@ -269,6 +269,12 @@ would do it silently, months later, to somebody's finished record.
 
 ## AU and VST3 are what ships, and CLAP is what is written
 
+**The first thing that ships is not a plugin.** The desktop application is the
+whole editor and the whole librarian, it owns its own port, and it can be handed
+to somebody the day it works: no SDK agreement, no developer account, no host
+that has to agree to load it. So the standalone desktop build is the first
+release, and everything in this section is about what comes after it.
+
 A DeepMind owner with a DAW open is in Logic or Ableton or Cubase, and what
 those load on the machine in front of them is an Audio Unit or a VST3. CLAP is
 the better format and almost nothing they already own reads it. So AU and VST3
@@ -354,6 +360,32 @@ generated from `logo.svg` in the stage that first needs one. Nothing here is
 traced from Behringer's artwork; it is the same drawing the library already
 publishes, with a different thing on the panel.
 
+## Versioning is the year and the release
+
+`Cargo.toml` holds the version and nothing else does, and the scheme is
+`deepmind-midi`'s: `YY.RELEASE.PATCH`. `26.1.0` is the first release of 2026,
+`26.1.1` its first patch, `26.2.0` the second release of the year. Cargo reads
+that as semver, so the year is the major version and a release is a minor one.
+A release within a year must not break the public API of the one crate here that
+somebody else could depend on, and a breaking change is a new year.
+
+That crate is `deepmind-host`. `control`, `control-ui` and `control-plugin` are
+`publish = false`: two of them are binaries and the third is this repository's
+own furniture. They carry the same number anyway, because one repository
+releasing several numbers is a support question nobody needs.
+
+A person edits that one line, not the release job. CI fails when the number in
+the tree is not ahead of the newest release tag, so the first change merged
+after a release has to move it and the tree always states what it will release
+next. `cargo-semver-checks` holds the compatibility promise against the same
+tag. Both checks pass trivially until a release tag exists, which is the state
+this repository is in.
+
+The workflow that tags and publishes arrives with the first desktop release,
+not before it. A release job for an application is not the library's: it builds
+binaries for three platforms and signs two of them, and writing it against a
+release that has not been designed yet is writing it twice.
+
 ## Order
 
 Each stage ends somewhere usable. Nothing is built two stages before it is
@@ -373,6 +405,11 @@ needed.
 Stage 5 can move ahead of stage 4 if the library gets there first. Stage 7 can
 start the day a synthesizer is available and will change something in every
 stage before it.
+
+**The first release is the desktop application**, once stage 4 has made it an
+editor and a librarian rather than one of the two. Stage 6 is the first build a
+DAW can load, and it is deliberately the later of the two: a plugin nobody can
+run is worth less than an application somebody can.
 
 ## Not planned
 

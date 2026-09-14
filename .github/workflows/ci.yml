@@ -15,6 +15,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          # The version guard below reads release tags from the local checkout.
+          fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -52,6 +55,39 @@ jobs:
       # promise in a manifest is only true while something checks it.
       - name: The host crate builds without the simulator
         run: cargo check -p deepmind-host --no-default-features --all-targets
+
+      # The version scheme promises that a release within a year keeps the
+      # public API of what this repository publishes, which is `deepmind-host`.
+      # Nothing to compare against before the first release.
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-semver-checks
+      - name: Public API is compatible with the last release
+        run: |
+          set -euo pipefail
+          latest=$(git tag --list 'v*' | sort -V | tail -1)
+          if [ -z "$latest" ]; then
+            echo "no release tags yet"
+            exit 0
+          fi
+          cargo semver-checks --package deepmind-host --baseline-rev "$latest"
+
+      # The first change merged after a release has to move the version.
+      # A repository with no release tags yet passes: nothing to be behind.
+      - name: Version is ahead of the last release
+        run: |
+          set -euo pipefail
+          current=$(grep -m1 -E '^version = ' Cargo.toml | cut -d'"' -f2)
+          latest=$(git tag --list 'v*' | sed 's/^v//' | sort -V | tail -1)
+          if [ -z "$latest" ]; then
+            echo "$current (no release tags yet)"
+            exit 0
+          fi
+          if [ "$(printf '%s\n%s\n' "$current" "$latest" | sort -V | head -1)" = "$current" ]; then
+            echo "::error::Cargo.toml is at $current but v$latest is already released. Bump the version in Cargo.toml before merging."
+            exit 1
+          fi
+          echo "$current is ahead of the last release, v$latest"
 
   platforms:
     name: ${{ matrix.os }}
