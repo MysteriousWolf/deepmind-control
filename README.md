@@ -1,4 +1,12 @@
-# deepmind-control
+<p align="center">
+  <img src="https://raw.githubusercontent.com/MysteriousWolf/deepmind-control/main/docs/banner.svg" alt="deepmind-control" width="800">
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/status-planning-orange" alt="Status: planning">
+  <a href="https://github.com/MysteriousWolf/deepmind-midi"><img src="https://img.shields.io/badge/built%20on-deepmind--midi-blue" alt="Built on deepmind-midi"></a>
+  <a href="https://github.com/MysteriousWolf/deepmind-control/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-green" alt="License: Apache-2.0"></a>
+</p>
 
 An editor and librarian for the Behringer DeepMind, on the desktop and in a DAW.
 

@@ -274,6 +274,28 @@ wondering why its instrument stopped responding. The plugin does not own a port
 either: in advanced mode its MIDI output is the port, and the DAW decides where
 that goes.
 
+## The mark is the library's, one bench over
+
+`docs/logo.svg` and `docs/banner.svg` are drawn on the same construction as
+`deepmind-midi`'s: the same case, the same wooden end cheeks, the same panel and
+seams, the same metal, and the same horizontal lines of the DeepMind wordmark
+slicing through it. Only the object on the panel changes. The library's mark is
+the socket the bytes arrive through; this one is the surface a player puts their
+hands on. Three faders, and the cap heights are chosen so that each cap is
+crossed by one of those lines through its middle rather than at its edge, with
+the highest cap standing clear of them.
+
+The name is outlined from Liberation Sans Bold rather than set in a font
+reference, so that it renders identically wherever the file is shown. The recipe
+is in the file: tracked -20 units of the 2048 em, fitted so the ink runs from x
+244.5 to x 884.5 on a baseline of 130, which is the box the library's own name
+occupies. A longer name in the same box is a smaller name.
+
+The same mark becomes the desktop application's window icon and the plugin's,
+generated from `logo.svg` in the stage that first needs one. Nothing here is
+traced from Behringer's artwork; it is the same drawing the library already
+publishes, with a different thing on the panel.
+
 ## Order
 
 Each stage ends somewhere usable. Nothing is built two stages before it is
