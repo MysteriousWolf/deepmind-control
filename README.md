@@ -29,7 +29,8 @@ DeepMind <--MIDI--> port <--bytes--> deepmind-midi <--events--> the interface
 live, and reads and writes `.syx` files. Every parameter the instrument exposes,
 laid out as the instrument lays it out.
 
-**A plugin**, so that patches travel with a project. CLAP first. Two modes:
+**A plugin**, so that patches travel with a project. AU and VST3 first, then
+CLAP. Two modes:
 
 - *Simple*, which selects programs and nothing else.
 - *Advanced*, which is the desktop editing surface in a plugin window.
@@ -76,14 +77,19 @@ cargo clippy --workspace --all-targets
 cargo fmt --all --check
 ```
 
-The plugin is built and bundled separately:
+The plugin is built and bundled separately. The CLAP is what the other two
+formats are made from:
 
 ```
 cargo nih-plug bundle control-plugin --release
 ```
 
+The AU and the VST3 are wrapped around that CLAP with
+[clap-wrapper](https://github.com/free-audio/clap-wrapper), which needs CMake
+and a C++ toolchain. AU is macOS only.
+
 Linux needs the usual X11 and GL development headers for baseview. macOS and
-Windows need nothing beyond the toolchain.
+Windows need nothing beyond the toolchain and CMake.
 
 The iced version is pinned, and it is pinned to whatever the baseview adapter
 supports rather than to the newest release. The two builds share a view layer

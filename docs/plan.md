@@ -51,7 +51,8 @@ both builds.
 `control` is the desktop application: the window, the file dialogs, the
 librarian.
 
-`control-plugin` is the CLAP plugin, with the same views in a baseview window.
+`control-plugin` is the plugin: the same views in a baseview window, built as a
+CLAP and wrapped into an AU and a VST3.
 
 ## The device loop lives on its own thread
 
@@ -251,13 +252,45 @@ A plugin that stored "bank C, program 41" would restore a different sound on a
 different instrument, or on the same instrument after a pack was loaded, and it
 would do it silently, months later, to somebody's finished record.
 
-## CLAP first
+## AU and VST3 are what ships, and CLAP is what is written
 
-nih-plug builds both CLAP and VST3, and its VST3 exporter carries GPL-3.0 terms
-from the Steinberg SDK bindings. This repository is Apache-2.0, and an
-Apache-2.0 repository cannot ship that binary without relicensing what it ships.
-CLAP has no such constraint. So CLAP is the format, and VST3 is a question for
-later and for a lawyer, not a checkbox in a build script.
+A DeepMind owner with a DAW open is in Logic or Ableton or Cubase, and what
+those load on the machine in front of them is an Audio Unit or a VST3. CLAP is
+the better format and almost nothing they already own reads it. So AU and VST3
+are the formats this project supports, and CLAP is not a third build: it is the
+one the other two are made from.
+
+[clap-wrapper](https://github.com/free-audio/clap-wrapper) takes a CLAP and
+produces an AUv2 and a VST3 around it. One plugin is written, once, against one
+API, and three bundles come out of it. Writing three plugins against three APIs
+to ship the same synthesizer editor is how a project ends up with three sets of
+bugs.
+
+**The licence is the part to settle before the first binary leaves the
+machine.** nih-plug's own VST3 exporter carries GPL-3.0 terms from its
+`vst3-sys` bindings, and an Apache-2.0 repository cannot ship that binary
+without relicensing what it ships, so that exporter is not used. The wrapper
+takes a different route: it links Steinberg's VST3 SDK, which is dual-licensed
+under GPL-3.0 or Steinberg's own agreement, with no third-party GPL binding in
+the path. Shipping an Apache-2.0 VST3 therefore means accepting Steinberg's
+terms, which is paperwork and a decision, not a checkbox in a build script. It
+is answered before a release, not after one.
+
+AU is macOS and AUv2: what Logic and GarageBand load. `auval` has to pass before
+Logic will look at it, so passing `auval` is what "AU is supported" means here,
+and the bundle is signed and notarised like any other macOS binary. AUv3, iOS
+and the App Store are not planned.
+
+The build grows a step that is not Cargo. `cargo nih-plug bundle` builds the
+CLAP; the wrapper is CMake and a C++ toolchain around that. Windows and Linux
+get VST3 and CLAP, macOS gets all three, and the CLAP is shipped rather than
+thrown away because it costs nothing to keep and is the best of the three where
+a host reads it.
+
+What none of this changes: the plugin is one crate, editing is the same
+`control-ui` in every build, and the window is the same baseview window. Whether
+that window survives the wrapper on AU is the first thing checked in the stage
+that builds it, because everything after it depends on the answer.
 
 ## The plugin does the editing and not the library work
 
@@ -309,7 +342,7 @@ needed.
 | 3 | Every parameter | The remaining thirteen groups. Generated from `Group::parameters` first, because a complete ugly editor beats a beautiful partial one, then laid out by hand group by group. |
 | 4 | The librarian | Read and write `.syx`, read a bank with progress and cancel, browse a pack, load a program into the edit buffer as a difference. |
 | 5 | The effects | Waits on the library publishing the panel tables. Four engines, 35 algorithms, the routing graph. |
-| 6 | The plugin | Simple mode, then state, then advanced mode in the same window. |
+| 6 | The plugin | Simple mode, then state, then advanced mode in the same window. The CLAP is built first because the wrapper eats one; AU and VST3 come out of it, and `auval` passes before AU is called supported. |
 | 7 | Hardware | The questions below, answered with a cable. Findings go to the library. |
 
 Stage 5 can move ahead of stage 4 if the library gets there first. Stage 7 can
