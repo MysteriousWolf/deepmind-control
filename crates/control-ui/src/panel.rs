@@ -27,7 +27,11 @@ use crate::{Confidence, Element, Patch, tint};
 const SLOT: f32 = 88.0;
 
 /// Height of the name, so that slots in a row line up whatever their names do.
-const NAME: f32 = 30.0;
+///
+/// Three lines of it. `VCF Envelope Velocity Sensitivity` is the longest name
+/// in the instrument once its group is taken off the front, and a box that
+/// clips it is a box that lies about which fader is which.
+const NAME: f32 = 44.0;
 
 /// Longest named set that is drawn as lit legends rather than as a list.
 ///
@@ -71,7 +75,10 @@ where
             // The face plate the library's own panels draw their slots on.
             let material = materials(theme);
             container::Style {
-                background: Some(Background::Color(material.recess)),
+                // Raised off the panel, so the recesses cut into it read as
+                // cut into something. A plate the colour of its own slots is a
+                // plate with invisible slots.
+                background: Some(Background::Color(material.plate)),
                 border: Border {
                     color: material.recess_edge,
                     width: 1.0,

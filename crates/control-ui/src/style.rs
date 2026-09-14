@@ -53,6 +53,8 @@ const PALETTE: Palette = Palette {
 pub struct Materials {
     /// The panel a control is cut into.
     pub panel: Color,
+    /// The face plate a group's slots sit on, which is raised off the panel.
+    pub plate: Color,
     /// The body of a recess.
     pub recess: Color,
     /// The near edge of a recess.
@@ -79,7 +81,8 @@ pub fn materials(theme: &Theme) -> Materials {
     let palette = theme.extended_palette();
     Materials {
         panel: palette.background.base.color,
-        recess: color!(0x11141a),
+        plate: color!(0x1b1f26),
+        recess: color!(0x080a0e),
         recess_edge: color!(0x242932),
         lit: color!(0x7d838f),
         scale: palette.background.strong.color,
