@@ -698,9 +698,9 @@ dependencies = [
 
 [[package]]
 name = "deepmind-midi"
-version = "26.1.1"
+version = "26.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "98d78c9b0958f8e3f7b79c7a79c95a3a3b58bea7430375b6c85ef0c84eca6e71"
+checksum = "f18473c3db3a65d720a89970a616e098e57ef8e528b6e75b34a16a1afd5e7223"
 
 [[package]]
 name = "dispatch"
@@ -1134,7 +1134,7 @@ dependencies = [
  "log",
  "presser",
  "thiserror 1.0.69",
- "windows 0.56.0",
+ "windows 0.58.0",
 ]
 
 [[package]]
