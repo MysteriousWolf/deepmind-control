@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  check:
+    name: format, lint, test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+
+      # midir talks to ALSA on Linux, and the desktop build will want X11 and GL
+      # headers once there is a window to put on the screen.
+      - name: System libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libasound2-dev
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --all-features
+
+      # What a contributor sees from `cargo doc` on stable, with broken links as
+      # errors.
+      - name: Rustdoc
+        run: cargo doc --workspace --all-features --no-deps
+        env:
+          RUSTDOCFLAGS: -D warnings
+
+      - name: Test
+        run: cargo test --workspace --all-features
+
+      # The application is `cargo run -p control`, which CI builds rather than
+      # runs: there is a window in it from stage 2 onwards and no screen here.
+      - name: Build
+        run: cargo build --workspace --all-features
+
+      # `deepmind-host` promises it is useful without the simulator in it, and a
+      # promise in a manifest is only true while something checks it.
+      - name: The host crate builds without the simulator
+        run: cargo check -p deepmind-host --no-default-features --all-targets
+
+  platforms:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      # The other two backends midir has: CoreMIDI and WinMM. Nothing to
+      # install for either, and both are where this application is meant to run.
+      - name: Test
+        run: cargo test --workspace --all-features
