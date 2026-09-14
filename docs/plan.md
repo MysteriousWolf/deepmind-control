@@ -287,6 +287,16 @@ get VST3 and CLAP, macOS gets all three, and the CLAP is shipped rather than
 thrown away because it costs nothing to keep and is the best of the three where
 a host reads it.
 
+**What matters most and what arrives first are different questions.** AU and
+VST3 are what a DeepMind owner needs; the CLAP is what the wrapper eats, so it
+exists before either of them whether or not anybody loads it. It is also the one
+with nothing to settle: no SDK agreement, no developer account, no notarisation.
+So it is released as soon as it works, and the other two follow as their
+paperwork clears, AU once the bundle signs and `auval` passes and VST3 once
+Steinberg's terms are accepted. Releasing in that order costs nothing and keeps
+a licence question from standing between a working plugin and the people who
+want one.
+
 What none of this changes: the plugin is one crate, editing is the same
 `control-ui` in every build, and the window is the same baseview window. Whether
 that window survives the wrapper on AU is the first thing checked in the stage
@@ -342,7 +352,7 @@ needed.
 | 3 | Every parameter | The remaining thirteen groups. Generated from `Group::parameters` first, because a complete ugly editor beats a beautiful partial one, then laid out by hand group by group. |
 | 4 | The librarian | Read and write `.syx`, read a bank with progress and cancel, browse a pack, load a program into the edit buffer as a difference. |
 | 5 | The effects | Waits on the library publishing the panel tables. Four engines, 35 algorithms, the routing graph. |
-| 6 | The plugin | Simple mode, then state, then advanced mode in the same window. The CLAP is built first because the wrapper eats one; AU and VST3 come out of it, and `auval` passes before AU is called supported. |
+| 6 | The plugin | Simple mode, then state, then advanced mode in the same window. The CLAP comes out first, having nothing to settle; then the AU, once the bundle signs and `auval` passes; then the VST3, once Steinberg's terms are. |
 | 7 | Hardware | The questions below, answered with a cable. Findings go to the library. |
 
 Stage 5 can move ahead of stage 4 if the library gets there first. Stage 7 can

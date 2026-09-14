@@ -1,0 +1,11 @@
+deepmind-control
+Copyright 2026 Matej Pevec.
+Licensed under the Apache License, Version 2.0. See LICENSE.
+
+This project is not affiliated with, endorsed by, or sponsored by Behringer or
+Music Tribe. "Behringer" and "DeepMind" are trademarks of their respective
+owners and are used here only to say which hardware this software talks to.
+
+The marks in `docs/` are original drawings. They are built on the same
+construction as deepmind-midi's, which is this project's own work, and nothing
+in them is traced from or reproduces Behringer's artwork.

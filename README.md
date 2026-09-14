@@ -29,8 +29,8 @@ DeepMind <--MIDI--> port <--bytes--> deepmind-midi <--events--> the interface
 live, and reads and writes `.syx` files. Every parameter the instrument exposes,
 laid out as the instrument lays it out.
 
-**A plugin**, so that patches travel with a project. AU and VST3 first, then
-CLAP. Two modes:
+**A plugin**, so that patches travel with a project. AU and VST3, wrapped around
+a CLAP that ships too and arrives first. Two modes:
 
 - *Simple*, which selects programs and nothing else.
 - *Advanced*, which is the desktop editing surface in a plugin window.
@@ -52,6 +52,7 @@ Nothing here has been run against a synthesizer yet.
 | --- | --- |
 | [Plan](docs/plan.md) | What is being built, the decisions behind it, and the order |
 | [Protocol](https://github.com/MysteriousWolf/deepmind-midi/blob/main/docs/midi-spec.md) | Lives in the library, along with the specification it is generated from |
+| [NOTICE](NOTICE) | Trademarks, and where the marks come from |
 
 ## Layout
 
