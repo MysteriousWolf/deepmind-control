@@ -79,7 +79,7 @@ fn read_edit_buffer(link: &Link) -> Program {
 
 #[test]
 fn a_port_that_answers_says_who_it_is() {
-    let link = open_simulator(Pack::empty(), Options::default());
+    let (link, _panel) = open_simulator(Pack::empty(), Options::default());
 
     let events = until(&link, |event| matches!(event, Event::Identified { .. }));
 
@@ -99,14 +99,14 @@ fn a_port_that_answers_says_who_it_is() {
 
 #[test]
 fn the_edit_buffer_comes_back_as_a_program() {
-    let link = open_simulator(Pack::empty(), Options::default());
+    let (link, _panel) = open_simulator(Pack::empty(), Options::default());
 
     assert_eq!(read_edit_buffer(&link).name().as_str(), "Simulator");
 }
 
 #[test]
 fn an_edit_reaches_the_synthesizer() {
-    let link = open_simulator(Pack::empty(), Options::default());
+    let (link, _panel) = open_simulator(Pack::empty(), Options::default());
     let before = read_edit_buffer(&link);
     assert_ne!(before.get(ParamId::Lfo1Rate), 64);
 
@@ -127,7 +127,7 @@ fn a_drag_sends_its_last_value_and_not_its_middle() {
         edit_interval_ms: 50,
         ..Options::default()
     };
-    let link = open_simulator(Pack::empty(), options);
+    let (link, _panel) = open_simulator(Pack::empty(), options);
     read_edit_buffer(&link);
 
     for value in 0..=60 {
@@ -143,7 +143,7 @@ fn a_drag_sends_its_last_value_and_not_its_middle() {
 
 #[test]
 fn an_edit_before_anything_is_known_is_refused() {
-    let link = open_simulator(Pack::empty(), Options::default());
+    let (link, _panel) = open_simulator(Pack::empty(), Options::default());
     until(&link, |event| matches!(event, Event::Identified { .. }));
 
     link.send(Command::SetParameter {
@@ -166,7 +166,7 @@ fn an_edit_before_anything_is_known_is_refused() {
 
 #[test]
 fn loading_a_program_sends_the_difference() {
-    let link = open_simulator(Pack::empty(), Options::default());
+    let (link, _panel) = open_simulator(Pack::empty(), Options::default());
     let mut target = read_edit_buffer(&link);
     target.set(ParamId::Lfo1Rate, 12).expect("in range");
     target.set(ParamId::VcfFrequency, 34).expect("in range");
@@ -184,7 +184,7 @@ fn loading_a_program_sends_the_difference() {
 
 #[test]
 fn a_bank_read_reports_every_dump_and_then_ends() {
-    let link = open_simulator(pack(4), Options::default());
+    let (link, _panel) = open_simulator(pack(4), Options::default());
     until(&link, |event| matches!(event, Event::Identified { .. }));
 
     link.send(Command::ReadBank {
@@ -228,7 +228,7 @@ fn a_bank_read_reports_every_dump_and_then_ends() {
 fn a_bank_read_can_be_called_off() {
     // One slot filled and a run over two: the unit answers the first and has
     // nothing to say about the second, so the transfer is still open.
-    let link = open_simulator(pack(1), Options::default());
+    let (link, _panel) = open_simulator(pack(1), Options::default());
 
     link.send(Command::ReadBank {
         bank: Bank::A,
@@ -261,7 +261,7 @@ fn a_unit_that_stops_partway_ends_the_transfer() {
         timeout_ms: 200,
         ..Options::default()
     };
-    let link = open_simulator(pack(1), options);
+    let (link, _panel) = open_simulator(pack(1), options);
 
     link.send(Command::ReadBank {
         bank: Bank::A,
@@ -283,7 +283,7 @@ fn a_unit_that_stops_partway_ends_the_transfer() {
 
 #[test]
 fn a_stored_program_is_reported_and_not_tracked() {
-    let link = open_simulator(pack(1), Options::default());
+    let (link, _panel) = open_simulator(pack(1), Options::default());
     let playing = read_edit_buffer(&link);
 
     link.send(Command::ReadProgram(slot(0)))
@@ -302,9 +302,54 @@ fn a_stored_program_is_reported_and_not_tracked() {
 
 #[test]
 fn dropping_the_link_stops_the_thread() {
-    let link = open_simulator(Pack::empty(), Options::default());
+    let (link, _panel) = open_simulator(Pack::empty(), Options::default());
     until(&link, |event| matches!(event, Event::Identified { .. }));
     assert!(link.is_open());
 
     link.close();
+}
+
+#[test]
+fn a_knob_turned_at_the_unit_is_reported_and_confirmed() {
+    let (link, panel) = open_simulator(Pack::empty(), Options::default());
+    // A dump is what makes the tracked sound confirmed, and an exact report
+    // arriving afterwards is what leaves it that way.
+    let before = read_edit_buffer(&link);
+    assert_ne!(before.get(ParamId::VcfFrequency), 200);
+
+    panel
+        .turn(ParamId::VcfFrequency, 200)
+        .expect("the port is open");
+
+    let events = until(&link, |event| matches!(event, Event::Parameter { .. }));
+    let Some(Event::Parameter {
+        parameter,
+        value,
+        confirmed,
+    }) = events.last()
+    else {
+        panic!("a parameter report: {events:#?}");
+    };
+    assert_eq!(*parameter, ParamId::VcfFrequency);
+    assert_eq!(*value, 200);
+    // An NRPN carries the whole value, so the sound is still the sound the
+    // synthesizer described.
+    assert!(*confirmed, "an NRPN is the whole value");
+}
+
+#[test]
+fn a_knob_turned_before_anything_is_read_confirms_nothing() {
+    let (link, panel) = open_simulator(Pack::empty(), Options::default());
+    until(&link, |event| matches!(event, Event::Identified { .. }));
+
+    panel
+        .turn(ParamId::VcfFrequency, 200)
+        .expect("the port is open");
+
+    let events = until(&link, |event| matches!(event, Event::Parameter { .. }));
+    let Some(Event::Parameter { confirmed, .. }) = events.last() else {
+        panic!("a parameter report: {events:#?}");
+    };
+    // One parameter of a sound nobody has read is not a sound anybody knows.
+    assert!(!*confirmed, "nothing has confirmed this program");
 }

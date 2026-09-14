@@ -23,8 +23,8 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
 
-      # midir talks to ALSA on Linux, and the desktop build will want X11 and GL
-      # headers once there is a window to put on the screen.
+      # midir talks to ALSA on Linux. The window needs nothing here: winit and
+      # wgpu find X11, Wayland and GL at runtime, and nothing in CI runs it.
       - name: System libraries
         run: |
           sudo apt-get update
@@ -47,7 +47,7 @@ jobs:
         run: cargo test --workspace --all-features
 
       # The application is `cargo run -p control`, which CI builds rather than
-      # runs: there is a window in it from stage 2 onwards and no screen here.
+      # runs: there is a window in it and no screen here.
       - name: Build
         run: cargo build --workspace --all-features
 

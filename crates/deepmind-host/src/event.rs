@@ -4,6 +4,7 @@ use core::fmt;
 
 use deepmind_midi::device::Event as DeviceEvent;
 use deepmind_midi::ids::Bank;
+use deepmind_midi::param::ParamId;
 use deepmind_midi::sysex::inquiry::Identity;
 use deepmind_midi::wire::Channel;
 
@@ -57,7 +58,37 @@ pub enum Event {
     ///
     /// Passed through rather than re-described. Nothing in this crate re-decodes
     /// a frame or re-tabulates a parameter.
+    ///
+    /// Every library event but one arrives this way. A parameter report is
+    /// published as [`Parameter`](Event::Parameter) instead, because on its own
+    /// the library's event does not say how much of the value arrived.
     Device(DeviceEvent),
+    /// One parameter moved at the synthesizer, by NRPN or by its controller.
+    ///
+    /// The instrument is the other editor: a hand on the front panel raises this
+    /// and the view follows it. Last writer wins, and nothing here echoes the
+    /// value back, because the synthesizer already has it and the echo is a
+    /// loop.
+    Parameter {
+        /// The parameter the synthesizer named.
+        parameter: ParamId,
+        /// The value it now holds, as the library read the message.
+        value: u16,
+        /// Whether the sound this thread tracks is still confirmed with it.
+        ///
+        /// An NRPN carries the whole value and a control change carries seven
+        /// bits of it, and the library says which arrived by what it does to the
+        /// program it tracks: an exact report leaves a confirmed program
+        /// confirmed, and a coarse one leaves it assumed. That answer is only
+        /// readable at the moment the report lands, so it is read here and
+        /// published with it.
+        ///
+        /// `false` is also what a program nobody has read yet says, and what a
+        /// program the host has edited since the last dump says. Both are the
+        /// same claim honestly made: nothing has confirmed this sound, so
+        /// nothing in it is confirmed.
+        confirmed: bool,
+    },
     /// How far a bank read has got.
     ///
     /// Raised as each dump lands, so twelve seconds of transfer is something to
@@ -144,6 +175,14 @@ impl fmt::Display for Event {
             ),
             Self::Silent => f.write_str("nothing answered the inquiry"),
             Self::Device(event) => write!(f, "{event}"),
+            Self::Parameter {
+                parameter,
+                value,
+                confirmed,
+            } => {
+                let claim = if *confirmed { "confirmed" } else { "assumed" };
+                write!(f, "{parameter} = {value}, {claim}")
+            }
             Self::Progress {
                 bank,
                 received,

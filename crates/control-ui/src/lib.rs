@@ -5,54 +5,55 @@
 //! than on `iced`, so the same views compile into the desktop application and
 //! into the plugin's baseview window.
 //!
-//! It takes [`Known<Program>`](deepmind_midi::Known) and not `Program`, because
-//! a value the host sent and a value the synthesizer reported are not the same
-//! claim, and this is the layer where that distinction finally means something
-//! to a person.
+//! # What it is given
 //!
-//! The views themselves are stage 2 and stage 3 of [the plan]; what is here now
-//! is the crate they arrive into.
+//! A [`Patch`]: the interface's copy of the sound, built out of the events the
+//! host crate publishes and carrying, for every parameter, how it came to hold
+//! the value it holds. A value the host put there and a value the synthesizer
+//! reported are not the same claim, and this is the layer where that finally
+//! means something to a person: [`Confidence`] is what the views draw
+//! differently.
 //!
-//! [the plan]: https://github.com/MysteriousWolf/deepmind-control/blob/main/docs/plan.md
+//! # What it produces
+//!
+//! [`Message`], which says a parameter should move and nothing else. What that
+//! costs on a wire, when it is sent, and what it is sent behind is the host
+//! crate's problem: the views do not know that a wire has a speed.
+//!
+//! ```
+//! use control_ui::{Confidence, Patch};
+//! use deepmind_midi::param::ParamId;
+//! use deepmind_midi::program::Program;
+//! use deepmind_midi::ids::ProtocolVersion;
+//!
+//! let mut patch = Patch::new();
+//! patch.confirm(Program::new(ProtocolVersion::V7));      // a dump arrived
+//! assert_eq!(patch.claim(ParamId::VcfFrequency), Confidence::Confirmed);
+//!
+//! patch.edit(ParamId::VcfFrequency, 200);                // somebody dragged it
+//! assert_eq!(patch.claim(ParamId::VcfFrequency), Confidence::Assumed);
+//! assert_eq!(patch.claim(ParamId::VcfResonance), Confidence::Confirmed);
+//! ```
+//!
+//! # The theme is shared and the renderer is not
+//!
+//! Views are generic over the renderer, because the desktop build and the plugin
+//! do not have to agree on one, and concrete in the theme, because
+//! [`iced_core::Theme`] is what both of them have.
 
-// The view layer is pinned to what the baseview adapter supports, and the pin
-// is only a pin while something in the workspace resolves it.
-use iced_core as _;
-use iced_widget as _;
+mod confidence;
+mod panel;
+mod patch;
+mod style;
 
-use deepmind_midi::Known;
-use deepmind_midi::program::Program;
+pub use confidence::Confidence;
+pub use panel::{Message, group, legend};
+pub use patch::Patch;
+pub use style::tint;
 
-/// How a value is drawn depends on whether anything confirmed it.
+/// A piece of interface, produced by the views in this crate.
 ///
-/// The one piece of the view layer that exists before the views do, because it
-/// is the rule the rest of them are written against: a knob showing where you
-/// put it and a knob showing where the instrument says it is are different
-/// drawings of the same number.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Confidence {
-    /// Nothing has been read back yet. Nothing is known about the sound.
-    Unknown,
-    /// The host put the value there and the synthesizer has not said so.
-    Assumed,
-    /// The synthesizer reported it.
-    Confirmed,
-}
-
-impl Confidence {
-    /// Reads the confidence of whatever the device is tracking.
-    #[must_use]
-    pub const fn of(program: &Known<Program>) -> Self {
-        match program {
-            Known::Unknown => Self::Unknown,
-            Known::Assumed { .. } => Self::Assumed,
-            Known::Confirmed { .. } => Self::Confirmed,
-        }
-    }
-
-    /// Returns whether a synthesizer reported this value.
-    #[must_use]
-    pub const fn is_confirmed(self) -> bool {
-        matches!(self, Self::Confirmed)
-    }
-}
+/// The message type is [`Message`] throughout: a view here asks for a parameter
+/// to move, and the application it is embedded in maps that into whatever its
+/// own message type is.
+pub type Element<'a, Renderer> = iced_core::Element<'a, Message, iced_core::Theme, Renderer>;
