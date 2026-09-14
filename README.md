@@ -29,6 +29,10 @@ thirteen groups are the next stage, and the librarian the one after. See
 [the plan](docs/plan.md) for what is being built and in what order. Not usable as
 an editor yet.
 
+It is dark, in the instrument's own colours: the palette is read off the mark in
+`docs/logo.svg`, which draws the same panel, metal and wood, and one file holds
+it for both builds.
+
 Everything above runs against the library's simulated synthesizer, which is in
 the port list as an ordinary choice, so none of it needs hardware.
 

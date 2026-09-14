@@ -121,10 +121,23 @@ where
         return Space::new().width(Length::Fill).into();
     };
     match parameter.kind() {
-        Kind::Switch => container(toggler(value != 0).on_toggle(move |on| Message::Edit {
-            parameter,
-            value: u8::from(on),
-        }))
+        Kind::Switch => container(
+            toggler(value != 0)
+                .on_toggle(move |on| Message::Edit {
+                    parameter,
+                    value: u8::from(on),
+                })
+                .style(move |theme: &Theme, status| {
+                    let mut style = toggler::default(theme, status);
+                    // On in the colour of the claim, like a slider's handle. The
+                    // theme's own on-colour is the one every other control uses,
+                    // which on a panel of greys leaves on and off too alike.
+                    if value != 0 {
+                        style.background = Background::Color(tint(theme, claim));
+                    }
+                    style
+                }),
+        )
         .width(Length::Fill)
         .into(),
         Kind::Enumerated(table) => match choices(table, parameter, firmware, value) {

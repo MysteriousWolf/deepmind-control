@@ -8,7 +8,7 @@ use deepmind_midi::param::Group;
 use iced::futures::Stream;
 use iced::futures::channel::mpsc;
 use iced::widget::{button, column, container, pick_list, row, scrollable, space, text};
-use iced::{Center, Element, Fill, Length, Subscription};
+use iced::{Center, Element, Fill, Length, Subscription, Theme};
 
 use crate::app::{App, Message};
 
@@ -28,9 +28,19 @@ const FRAME: Duration = Duration::from_millis(16);
 pub fn run() -> iced::Result {
     iced::application(App::booted, App::update, view)
         .title(title)
+        .theme(theme)
         .subscription(subscription)
         .window_size((900.0, 760.0))
         .run()
+}
+
+/// What the window is drawn in.
+///
+/// The instrument is a dark panel, so the window is one. Every colour in it
+/// comes from this theme, which lives in `control-ui` because the plugin is
+/// drawn in the same one.
+fn theme(_app: &App) -> Theme {
+    control_ui::deepmind()
 }
 
 /// What the title bar says.

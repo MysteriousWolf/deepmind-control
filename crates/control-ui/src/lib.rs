@@ -35,6 +35,14 @@
 //! assert_eq!(patch.claim(ParamId::VcfResonance), Confidence::Confirmed);
 //! ```
 //!
+//! # One palette, in one file
+//!
+//! [`deepmind`] is the theme both builds are drawn in, and `style.rs` is the
+//! only file in this repository that writes down a colour. It is dark because
+//! the instrument is: a `DeepMind` is a dark panel between wooden end cheeks
+//! with metal fader caps on it, and the palette is read off the mark that draws
+//! exactly those materials.
+//!
 //! # The theme is shared and the renderer is not
 //!
 //! Views are generic over the renderer, because the desktop build and the plugin
@@ -49,7 +57,7 @@ mod style;
 pub use confidence::Confidence;
 pub use panel::{Message, group, legend};
 pub use patch::Patch;
-pub use style::tint;
+pub use style::{deepmind, tint};
 
 /// A piece of interface, produced by the views in this crate.
 ///

@@ -390,6 +390,24 @@ generated from `logo.svg` in the stage that first needs one. Nothing here is
 traced from Behringer's artwork; it is the same drawing the library already
 publishes, with a different thing on the panel.
 
+## The window is the instrument's colours
+
+Dark, because a `DeepMind` is a dark panel between wooden end cheeks with metal
+fader caps on it, and an editor for it that opens white is an editor for
+something else. The palette is read off `docs/logo.svg`, which draws exactly
+those materials: the panel is the ground, the metal of a cap is anything that can
+be touched, and the copper edge of the wood is a claim rather than a fact. Green
+and red are not on the instrument and are chosen to sit with it, because a
+confirmed value has to be told apart from an assumed one at a glance and two
+greys would not do it.
+
+One file holds it. `control-ui/src/style.rs` is the only place in this repository
+that writes down a colour: the theme is built there, both builds ask for it
+there, and every widget that colours anything asks `tint` what the claim is
+worth. A control that hard-coded a colour would be a control that stops matching
+the instrument the day the palette moves, and there is nowhere in this
+repository to hard-code one.
+
 ## Versioning is the year and the release
 
 `Cargo.toml` holds the version and nothing else does, and the scheme is
