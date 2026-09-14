@@ -1,26 +1,39 @@
-//! One section of the instrument, laid out as rows.
+//! One section of the instrument, laid out as the instrument lays it out.
 //!
-//! A row per parameter, in the order the protocol numbers them, which is the
-//! order the instrument's own display walks. What a row draws depends on what
-//! the library says the parameter is: a sweep gets a slider, a named set gets a
-//! list of its names, and two states get a switch. Nothing here decides what a
-//! value means; that is the library's table and this is the pixels.
+//! A rack of slots rather than a list of rows. Each slot is one parameter: its
+//! address, the control, the value, and the name, in that order down the panel,
+//! wrapping onto the next line when the window runs out of room. It is the
+//! arrangement the library's own effect panels use, and the arrangement the
+//! synthesizer's display uses, because they are drawings of the same thing.
+//!
+//! What a slot draws depends on what the library says the parameter is: a sweep
+//! gets a fader, two states get a lamp, a named set gets its names. Nothing here
+//! decides what a value means; that is the library's table and this is the
+//! pixels.
 
 use core::fmt;
 
 use deepmind_midi::param::{Group, Kind, ParamId, TableId};
 use deepmind_midi::sysex::inquiry::Version;
-use iced_core::alignment::Vertical;
-use iced_core::{Background, Length, Theme, border, text::Renderer as TextRenderer};
-use iced_widget::{Space, column, container, pick_list, row, slider, text, toggler};
+use iced_core::alignment::{Horizontal, Vertical};
+use iced_core::{Background, Border, Font, Length, Theme, border, text::Renderer as TextRenderer};
+use iced_widget::{Space, button, column, container, pick_list, row, text};
 
+use crate::fader::{self, fader};
+use crate::style::materials;
 use crate::{Confidence, Element, Patch, tint};
 
-/// Width of the parameter name column.
-const NAME: f32 = 230.0;
+/// Width of one slot, which is the fader plus the room a name needs either side.
+const SLOT: f32 = 88.0;
 
-/// Width of the value column.
-const READING: f32 = 70.0;
+/// Height of the name, so that slots in a row line up whatever their names do.
+const NAME: f32 = 30.0;
+
+/// Longest named set that is drawn as lit legends rather than as a list.
+///
+/// Beyond this a list is the honest control: the modulation matrix has 130
+/// destinations, and a column of 130 legends is a joke at the reader's expense.
+const LEGENDS: usize = 6;
 
 /// What a view in this crate asks for.
 ///
@@ -47,64 +60,105 @@ pub enum Message {
 #[must_use]
 pub fn group<'a, Renderer>(patch: &Patch, group: Group, firmware: Version) -> Element<'a, Renderer>
 where
-    Renderer: TextRenderer + 'a,
+    Renderer: TextRenderer<Font = Font> + 'a,
 {
-    let rows = group
+    let slots = group
         .parameters()
-        .map(|parameter| row_for(patch, parameter, firmware));
-    column(rows).spacing(6).into()
+        .map(|parameter| slot(patch, group, parameter, firmware));
+    container(row(slots).spacing(0).wrap())
+        .padding(8)
+        .style(|theme: &Theme| {
+            // The face plate the library's own panels draw their slots on.
+            let material = materials(theme);
+            container::Style {
+                background: Some(Background::Color(material.recess)),
+                border: Border {
+                    color: material.recess_edge,
+                    width: 1.0,
+                    radius: 3.into(),
+                },
+                ..container::Style::default()
+            }
+        })
+        .into()
 }
 
-/// Draws what the two colours mean, for a window that uses them.
+/// Draws what the three drawings of a value mean.
 #[must_use]
 pub fn legend<'a, Renderer>() -> Element<'a, Renderer>
 where
-    Renderer: TextRenderer + 'a,
+    Renderer: TextRenderer<Font = Font> + 'a,
 {
     row![
         dot(Confidence::Confirmed),
-        muted(Confidence::Confirmed.name()),
+        muted("reported"),
         Space::new().width(Length::Fixed(14.0)),
         dot(Confidence::Assumed),
-        muted(Confidence::Assumed.name()),
+        muted("claimed"),
+        Space::new().width(Length::Fixed(14.0)),
+        dot(Confidence::Unknown),
+        muted("unread"),
     ]
     .spacing(6)
     .align_y(Vertical::Center)
     .into()
 }
 
-/// Draws one parameter.
-fn row_for<'a, Renderer>(
+/// Draws one parameter: its address, its control, its value and its name.
+fn slot<'a, Renderer>(
     patch: &Patch,
+    group: Group,
     parameter: ParamId,
     firmware: Version,
 ) -> Element<'a, Renderer>
 where
-    Renderer: TextRenderer + 'a,
+    Renderer: TextRenderer<Font = Font> + 'a,
 {
     let claim = patch.claim(parameter);
     let value = patch.value(parameter);
-    row![
-        text(parameter.name()).size(14).width(Length::Fixed(NAME)),
+    column![
+        // The NRPN number, which is also the parameter's byte offset in a dump,
+        // so one number is both its name on the wire and its address in memory.
+        text(parameter.offset().to_string())
+            .size(10)
+            .font(Font::MONOSPACE)
+            .style(move |theme: &Theme| text::Style {
+                color: Some(tint(theme, Confidence::Unknown)),
+            }),
         control(parameter, value, claim, firmware),
         text(reading(parameter, value, firmware))
-            .size(14)
-            .width(Length::Fixed(READING))
+            .size(13)
+            .font(Font::MONOSPACE)
             .style(move |theme: &Theme| text::Style {
                 color: Some(tint(theme, claim)),
             }),
-        dot(claim),
+        container(text(short(group, parameter)).size(11).center())
+            .height(Length::Fixed(NAME))
+            .width(Length::Fill)
+            .align_x(Horizontal::Center),
     ]
-    .spacing(12)
-    .align_y(Vertical::Center)
+    .spacing(5)
+    .width(Length::Fixed(SLOT))
+    .align_x(Horizontal::Center)
     .into()
+}
+
+/// The parameter's name without the group's, which is printed above the rack.
+///
+/// `VCF Envelope Depth` in the VCF panel is `Envelope Depth`: the group is the
+/// panel's own heading, and repeating it in every slot costs the width the rest
+/// of the name needs. A name that does not start with its group is left alone.
+fn short(group: Group, parameter: ParamId) -> &'static str {
+    let name = parameter.name();
+    name.strip_prefix(group.name())
+        .map_or(name, |rest| rest.trim_start())
 }
 
 /// Draws the control a parameter is edited with.
 ///
-/// A parameter of a sound nobody has read has nothing to edit: there is no value
-/// to move away from, and the host would refuse the edit anyway, so the row says
-/// so instead of offering a control that lies about where the knob is.
+/// A parameter of a sound nobody has read still draws its control, because an
+/// empty slot in a rack of forty is harder to read than a fader with no cap on
+/// it. The control says so by having nothing to take hold of.
 fn control<'a, Renderer>(
     parameter: ParamId,
     value: Option<u8>,
@@ -112,76 +166,178 @@ fn control<'a, Renderer>(
     firmware: Version,
 ) -> Element<'a, Renderer>
 where
-    Renderer: TextRenderer + 'a,
-{
-    let Some(value) = value else {
-        // Nothing to move, and nothing to move it from. The reading column says
-        // so once per row, which is once more than a control that would lie
-        // about where the knob is.
-        return Space::new().width(Length::Fill).into();
-    };
-    match parameter.kind() {
-        Kind::Switch => container(
-            toggler(value != 0)
-                .on_toggle(move |on| Message::Edit {
-                    parameter,
-                    value: u8::from(on),
-                })
-                .style(move |theme: &Theme, status| {
-                    let mut style = toggler::default(theme, status);
-                    // On in the colour of the claim, like a slider's handle. The
-                    // theme's own on-colour is the one every other control uses,
-                    // which on a panel of greys leaves on and off too alike.
-                    if value != 0 {
-                        style.background = Background::Color(tint(theme, claim));
-                    }
-                    style
-                }),
-        )
-        .width(Length::Fill)
-        .into(),
-        Kind::Enumerated(table) => match choices(table, parameter, firmware, value) {
-            Some((options, selected)) => {
-                pick_list(options, Some(selected), move |choice: Choice| {
-                    Message::Edit {
-                        parameter,
-                        value: choice.byte(),
-                    }
-                })
-                .text_size(14)
-                .width(Length::Fill)
-                .into()
-            }
-            // A table that does not name this value is a table that would drop
-            // the value on the next click, so the raw number stays editable.
-            None => sweep(parameter, value, claim),
-        },
-        // A sweep, and anything a later library adds that this build has not
-        // heard of: every parameter is a number underneath.
-        _ => sweep(parameter, value, claim),
-    }
-}
-
-/// Draws a slider over a parameter's whole range.
-fn sweep<'a, Renderer>(parameter: ParamId, value: u8, claim: Confidence) -> Element<'a, Renderer>
-where
-    Renderer: TextRenderer + 'a,
+    Renderer: TextRenderer<Font = Font> + 'a,
 {
     let low = u8::try_from(parameter.min()).unwrap_or(u8::MIN);
     let high = u8::try_from(parameter.max()).unwrap_or(u8::MAX);
-    slider(low..=high, value.clamp(low, high), move |value| {
+    let Some(value) = value else {
+        return fader(low..=high, low, Confidence::Unknown, move |value| {
+            Message::Edit { parameter, value }
+        })
+        .into();
+    };
+    match parameter.kind() {
+        Kind::Switch => lamp(
+            parameter,
+            value != 0,
+            claim,
+            u8::from(value == 0),
+            if value == 0 { "off" } else { "on" },
+        ),
+        Kind::Enumerated(table) => match choices(table, parameter, firmware, value) {
+            Some(options) if options.len() <= LEGENDS => legends(parameter, &options, value, claim),
+            Some(options) => list(parameter, options, value),
+            // A table that does not name this value is a table that would drop
+            // the value on the next click, so the raw number stays draggable.
+            None => sweep(parameter, low..=high, value, claim),
+        },
+        // A sweep, and anything a later library adds that this build has not
+        // heard of: every parameter is a number underneath.
+        _ => sweep(parameter, low..=high, value, claim),
+    }
+}
+
+/// Draws a fader over a parameter's whole range.
+fn sweep<'a, Renderer>(
+    parameter: ParamId,
+    range: core::ops::RangeInclusive<u8>,
+    value: u8,
+    claim: Confidence,
+) -> Element<'a, Renderer>
+where
+    Renderer: iced_core::Renderer + 'a,
+{
+    let low = *range.start();
+    let high = *range.end();
+    fader(range, value.clamp(low, high), claim, move |value| {
         Message::Edit { parameter, value }
     })
-    .style(move |theme: &Theme, status| {
-        let mut style = slider::default(theme, status);
-        // The handle is where the claim shows: a knob standing where the
-        // instrument says it stands looks different from one standing where
-        // this window put it.
-        style.handle.background = Background::Color(tint(theme, claim));
-        style
-    })
-    .width(Length::Fill)
     .into()
+}
+
+/// Draws a lamp: lit for on, and what it says under it.
+///
+/// Not a checkbox and not something that slides. An instrument says *on* with a
+/// light, and this is the only place a saturated colour appears.
+fn lamp<'a, Renderer>(
+    parameter: ParamId,
+    on: bool,
+    claim: Confidence,
+    next: u8,
+    label: &'a str,
+) -> Element<'a, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    let live = !matches!(claim, Confidence::Unknown);
+    let face = button(
+        container(text(label).size(11).font(Font::MONOSPACE).center())
+            .width(Length::Fixed(fader::WIDTH))
+            .align_x(Horizontal::Center),
+    )
+    .padding(6)
+    .style(move |theme: &Theme, _status| lit(theme, on, claim));
+    let face = if live {
+        face.on_press(Message::Edit {
+            parameter,
+            value: next,
+        })
+    } else {
+        face
+    };
+    container(face)
+        .height(Length::Fixed(fader::HEIGHT))
+        .align_y(Vertical::Center)
+        .into()
+}
+
+/// Draws a named set as a column of legends, one of them lit.
+fn legends<'a, Renderer>(
+    parameter: ParamId,
+    options: &[Choice],
+    value: u8,
+    claim: Confidence,
+) -> Element<'a, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    let live = !matches!(claim, Confidence::Unknown);
+    let rows = options.iter().map(|choice| {
+        let on = choice.byte() == value;
+        let byte = choice.byte();
+        let face = button(text(choice.name).size(10).font(Font::MONOSPACE))
+            .padding([1, 5])
+            .width(Length::Fill)
+            .style(move |theme: &Theme, _status| lit(theme, on, claim));
+        if live {
+            face.on_press(Message::Edit {
+                parameter,
+                value: byte,
+            })
+            .into()
+        } else {
+            Element::from(face)
+        }
+    });
+    container(
+        column(rows)
+            .spacing(2)
+            .width(Length::Fixed(fader::WIDTH + 28.0)),
+    )
+    .height(Length::Fixed(fader::HEIGHT))
+    .align_y(Vertical::Center)
+    .into()
+}
+
+/// Draws a named set too long for legends as the list it is.
+fn list<'a, Renderer>(parameter: ParamId, options: Vec<Choice>, value: u8) -> Element<'a, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    let selected = options
+        .iter()
+        .find(|choice| choice.byte() == value)
+        .copied();
+    container(
+        pick_list(options, selected, move |choice: Choice| Message::Edit {
+            parameter,
+            value: choice.byte(),
+        })
+        .text_size(11)
+        .padding([2, 6])
+        .width(Length::Fixed(fader::WIDTH + 28.0)),
+    )
+    .height(Length::Fixed(fader::HEIGHT))
+    .align_y(Vertical::Center)
+    .into()
+}
+
+/// The style a lamp is drawn in: lit, outlined, or dark.
+///
+/// The same rule the fader's cap follows. Filled for what the synthesizer
+/// reported, an outline for what this window claims, and neither for a value
+/// nobody has read, so the fill carries the difference and the colour agrees
+/// with it.
+fn lit(theme: &Theme, on: bool, claim: Confidence) -> button::Style {
+    let material = materials(theme);
+    let colour = tint(theme, claim);
+    let confirmed = claim.is_confirmed();
+    button::Style {
+        background: Some(Background::Color(if on && confirmed {
+            colour
+        } else {
+            material.panel
+        })),
+        text_color: if on {
+            if confirmed { material.panel } else { colour }
+        } else {
+            material.metal_low
+        },
+        border: border::rounded(2)
+            .width(1.0)
+            .color(if on { colour } else { material.recess_edge }),
+        ..button::Style::default()
+    }
 }
 
 /// Draws the dot that says what backs a value.
@@ -253,18 +409,18 @@ impl fmt::Display for Choice {
     }
 }
 
-/// The names a table gives, and the one the parameter is sitting on.
+/// The names a table gives, in the order the table gives them.
 ///
 /// `None` when the table does not name every value the parameter accepts, or
 /// does not name the one it holds. Some tables list only the start of a
-/// documented run, and a list that silently drops the values it has no name for
-/// is a list that moves the sound when somebody opens it.
+/// documented run, and a control that silently drops the values it has no name
+/// for is a control that moves the sound when somebody opens it.
 fn choices(
     table: TableId,
     parameter: ParamId,
     firmware: Version,
     value: u8,
-) -> Option<(Vec<Choice>, Choice)> {
+) -> Option<Vec<Choice>> {
     let table = table.table_for(firmware);
     let options: Vec<Choice> = table
         .entries
@@ -280,9 +436,8 @@ fn choices(
     if named != span {
         return None;
     }
-    let selected = options
+    options
         .iter()
-        .find(|choice| choice.value == u16::from(value))
-        .copied()?;
-    Some((options, selected))
+        .find(|choice| choice.value == u16::from(value))?;
+    Some(options)
 }

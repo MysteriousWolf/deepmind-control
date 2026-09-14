@@ -50,14 +50,16 @@
 //! [`iced_core::Theme`] is what both of them have.
 
 mod confidence;
+mod fader;
 mod panel;
 mod patch;
 mod style;
 
 pub use confidence::Confidence;
+pub use fader::{Fader, fader};
 pub use panel::{Message, group, legend};
 pub use patch::Patch;
-pub use style::{deepmind, tint};
+pub use style::{Materials, deepmind, materials, tint};
 
 /// A piece of interface, produced by the views in this crate.
 ///
