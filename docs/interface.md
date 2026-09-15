@@ -126,12 +126,23 @@ on the hardware.
 - **The row of twelve lamps over `POLY` is not drawn.** It says how many voices
   are sounding, and nothing on a MIDI port says that. A lamp that cannot be lit
   honestly is not drawn at all.
-- **What is on the panel is the one thing this repository transcribes.** Which
-  parameters have a fader, and what is silkscreened over them, is a fact about
-  the hardware that the library does not publish
-  ([deepmind-midi#26](https://github.com/MysteriousWolf/deepmind-midi/issues/26)).
-  The table is written as parameter identifiers so a rename fails the build, it
-  is in one file, and that file says it is there until the library answers.
+- **Nothing on the panel is transcribed any more.** Which parameters have a
+  fader, what is silkscreened over them and which row they are in was the one
+  table this repository kept; `deepmind-midi` 26.3 publishes it
+  ([#26](https://github.com/MysteriousWolf/deepmind-midi/issues/26)) and the
+  table is deleted. What is left in `home.rs` is layout, which is this window's
+  to decide.
+- **Two sections are drawn as more than one plate**, and both are the same
+  trade as the screens: a window has room the front of a synthesizer does not.
+  `OSC 1` and `OSC 2` are the brackets the instrument prints inside its own
+  `DCO 1 & 2` plate, promoted to a plate each. The envelopes become one plate
+  each with their own four faders and their own screen, because the hardware
+  has four envelope faders and three envelopes and a button pointing one set at
+  the other — and they get a row of their own, which is what the instrument had
+  no room to give them. Both splits are derived through the library: an
+  oscillator's bracket is a slice of its parameters' own names, and an
+  envelope's four faders are the parameters whose short names match the four
+  the section carries.
 
 ## Fourteen panels, one press behind it
 
@@ -359,17 +370,16 @@ Four faders and the shape they make, drawn above them. An envelope is the one
 group whose meaning is a picture, and four numbers that do not draw it are four
 numbers.
 
-**All three at once, laid out and not stacked.** A `DeepMind` has three
-envelopes, one display and three buttons choosing which of them the four faders
-address, so comparing the filter's decay with the amplifier's means comparing
-one with a memory of the other. The `ENVELOPES` plate shows all three, which is
-the drawing no hardware can make — and it shows them as three named panes across
-one screen rather than three curves sharing a band. On a grid of dots two lines
-crossing are the same dots, and *which of these decays first* is the question an
-overlay answers worst. Each pane carries the legend the hardware prints on the
-button that selects it, over its own baseline; the amplifier's is filled,
-because it is the one you hear. A display too narrow to divide falls back to the
-overlay, told apart by `Ink`, rather than to nothing.
+**All three at once, as three plates.** A `DeepMind` has three envelopes, one
+display and three buttons choosing which of them the four faders address, so
+comparing the filter's decay with the amplifier's means comparing one with a
+memory of the other. All three are on screen here, which is the drawing no
+hardware can make — and each is a plate with its own four faders and its own
+full screen rather than a third of one shared drawing. That went through two
+answers: three curves sharing a band told apart by a dash pattern (on a grid of
+dots, two lines crossing are the same dots), then three named panes of one
+strip, and now three plates. Each was the best available given how much room
+the layout had, and unfolding the section is what finally gave them room.
 
 ### Footer
 

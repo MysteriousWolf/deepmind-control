@@ -121,10 +121,16 @@ pub(crate) enum Scene {
     Filter,
     /// Where the high-pass corner is, and whether there is a boost under it.
     HighPass,
-    /// The shapes the two oscillators and the noise are making.
-    Oscillators,
-    /// All three envelopes, on one screen.
-    Envelopes,
+    /// The shapes one oscillator is making.
+    ///
+    /// Carries which, because the panel draws the two on plates of their own
+    /// and `OSC 1` is two shapes that may both be switched on where `OSC 2` is
+    /// one shape at a level with the noise scattered over it.
+    Oscillator(Which),
+    /// One envelope, filling the plate it is drawn on.
+    ///
+    /// Carries the group, because there are three of them and each has a plate.
+    Envelope(Group),
     /// The amplifier's own envelope, under the level it is played at.
     Amplifier,
     /// How far apart a unison's voices are detuned, and what mode is playing.
@@ -138,6 +144,29 @@ pub(crate) enum Scene {
         /// The one setting how fast it runs.
         rate: ParamId,
     },
+}
+
+/// Which of the two oscillators a drawing is of.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Which {
+    /// The one whose saw and pulse can both be switched on.
+    First,
+    /// The one that is a shape at a level, with the noise beside it.
+    Second,
+}
+
+/// Returns which oscillator `parameter` belongs to, out of the library's own
+/// name for it.
+///
+/// `OSC 1 PWM Depth` is the first and `OSC 2 Level` the second. A parameter of
+/// the group that names neither — the noise — is the second's, which is where
+/// the panel prints it and which is the plate this window puts it on.
+fn which(parameter: ParamId) -> Which {
+    if parameter.name().starts_with("OSC 1") {
+        Which::First
+    } else {
+        Which::Second
+    }
 }
 
 /// Returns the scene a plate holding `controls` draws, when it draws one.
@@ -158,7 +187,7 @@ fn from(control: ParamId) -> Option<Scene> {
         _ => {}
     }
     if envelope::of(control.group()).is_some() {
-        return Some(Scene::Envelopes);
+        return Some(Scene::Envelope(control.group()));
     }
     if control.short_name() == "Shape" {
         let rate = control
@@ -171,7 +200,7 @@ fn from(control: ParamId) -> Option<Scene> {
         });
     }
     match control.group() {
-        Group::Oscillators => Some(Scene::Oscillators),
+        Group::Oscillators => Some(Scene::Oscillator(which(control))),
         Group::Vca => Some(Scene::Amplifier),
         Group::Voicing => Some(Scene::Voicing),
         Group::Arpeggiator => Some(Scene::Arpeggiator),
@@ -194,16 +223,15 @@ impl Scene {
                 ParamId::VcfEnvelopePolarity,
             ],
             Self::HighPass => vec![ParamId::VcfHighPassFrequency, ParamId::VcfBassBoost],
-            Self::Oscillators => vec![
+            Self::Oscillator(Which::First) => vec![
                 ParamId::Osc1SawEnable,
                 ParamId::Osc1PulseEnable,
                 ParamId::Osc1PwmDepth,
-                ParamId::Osc2Level,
-                ParamId::NoiseLevel,
             ],
-            Self::Envelopes => envelopes()
+            Self::Oscillator(Which::Second) => vec![ParamId::Osc2Level, ParamId::NoiseLevel],
+            Self::Envelope(group) => envelope::of(group)
+                .map(envelope::Envelope::parameters)
                 .into_iter()
-                .filter_map(|group| envelope::of(group).map(envelope::Envelope::parameters))
                 .flatten()
                 .collect(),
             Self::Amplifier => envelope::of(Group::VcaEnvelope)
@@ -234,8 +262,8 @@ impl Scene {
         match self {
             Self::Filter => filter(&mut screen, patch, firmware),
             Self::HighPass => high_pass(&mut screen, patch),
-            Self::Oscillators => oscillators(&mut screen, patch),
-            Self::Envelopes => envelopes_on(&mut screen, patch),
+            Self::Oscillator(which) => oscillator(&mut screen, patch, which),
+            Self::Envelope(group) => envelope_on(&mut screen, patch, group),
             Self::Amplifier => amplifier(&mut screen, patch),
             Self::Voicing => voicing(&mut screen, patch, firmware),
             Self::Arpeggiator => arpeggiator(&mut screen, patch),
@@ -246,6 +274,7 @@ impl Scene {
 }
 
 /// Returns every group that is an envelope, in the instrument's own order.
+#[cfg(test)]
 fn envelopes() -> Vec<Group> {
     Group::ORDER
         .iter()
@@ -359,19 +388,25 @@ fn high_pass(screen: &mut Screen, patch: &Patch) {
     }
 }
 
-/// Draws the shapes the oscillators are making.
+/// Draws the shapes one oscillator is making.
 ///
-/// Two lanes, because the instrument has two oscillators and they are not
-/// drawn added together: how the saw and the pulse of `DCO 1` sum, and at what
-/// weight, is not something the manual gives, and a single waveform drawn out
-/// of a mix law this window invented would be the most confident wrong picture
-/// on the panel. So each shape is drawn as the shape it is, and what is on the
-/// screen is what is switched on.
-fn oscillators(screen: &mut Screen, patch: &Patch) {
-    let lanes = screen.all().lanes(2, 2);
-    let (Some(upper), Some(lower)) = (lanes.first().copied(), lanes.get(1).copied()) else {
-        return;
-    };
+/// A plate each, because the instrument has two oscillators and this window has
+/// a plate for each of them. They are not drawn added together on either: how
+/// the saw and the pulse of the first sum, and at what weight, is not something
+/// the manual gives, and a single waveform drawn out of a mix law this window
+/// invented would be the most confident wrong picture on the panel. So each
+/// shape is drawn as the shape it is, and what is on the screen is what is
+/// switched on.
+fn oscillator(screen: &mut Screen, patch: &Patch, which: Which) {
+    let band = screen.all();
+    match which {
+        Which::First => first(screen, patch, band),
+        Which::Second => second(screen, patch, band),
+    }
+}
+
+/// The oscillator whose saw and pulse can both be switched on.
+fn first(screen: &mut Screen, patch: &Patch, upper: Band) {
     let saw = is_on(patch, ParamId::Osc1SawEnable).unwrap_or_default();
     let pulse = is_on(patch, ParamId::Osc1PulseEnable).unwrap_or_default();
     let shapes = i32::from(saw) + i32::from(pulse);
@@ -400,9 +435,15 @@ fn oscillators(screen: &mut Screen, patch: &Patch) {
         }
         drawn += 1;
     }
-    // `DCO 2` is a shape at a level, which is the one oscillator on this
-    // instrument whose loudness is a parameter, so the drawing is as tall as
-    // the level is. Noise is the same reading, scattered rather than shaped.
+}
+
+/// The oscillator that is a shape at a level, with the noise beside it.
+///
+/// The one oscillator on this instrument whose loudness is a parameter, so the
+/// drawing is as tall as the level is. Noise is the same reading, scattered
+/// rather than shaped, and it is on this plate because it is where the panel
+/// prints it.
+fn second(screen: &mut Screen, patch: &Patch, lower: Band) {
     if let Some(level) = travel(patch, ParamId::Osc2Level) {
         screen.curve(lower, Ink::Solid, |x| {
             0.5 + level / 2.0 * if (x * 2.0).fract() < 0.5 { 1.0 } else { -1.0 }
@@ -437,88 +478,31 @@ fn swing(screen: &mut Screen, patch: &Patch, band: Band) {
     }
 }
 
-/// How much glass there is between two panes of one display.
-const GUTTER: i32 = 3;
-
-/// Draws all three envelopes side by side, each in a pane with its name on it.
+/// Draws one envelope, filling the plate it is on.
 ///
-/// The one thing on this panel the instrument itself cannot show. A `DeepMind`
-/// has three envelopes, one display and three buttons that choose which of them
-/// the four faders under it are addressing, so a player comparing the filter's
-/// attack with the amplifier's is comparing one of them with their memory of
-/// the other.
+/// The instrument has three envelopes, one display and a `VCA`, `VCF` and `MOD`
+/// button choosing which of its four faders address — so a player comparing the
+/// filter's decay with the amplifier's is comparing one with a memory of the
+/// other. This window unfolds that into three plates, and this is what each of
+/// them draws: its own envelope, at the size of its own screen, with the four
+/// faders that move it underneath.
 ///
-/// They are laid out rather than stacked. Three curves sharing one band and
-/// told apart by a dash pattern is a drawing that has all three envelopes in it
-/// and shows you none of them: on a grid of dots two lines crossing are the
-/// same dots, and the question anybody asks this display — which of these
-/// decays first — is the question an overlay answers worst. A pane each, named,
-/// is the whole of what the room is for.
-///
-/// Where the room is not there, the overlay is still the right drawing, and
-/// [`stacked`] is it. A plate whose display is too narrow to divide gets the
-/// three curves in one band rather than nothing.
-fn envelopes_on(screen: &mut Screen, patch: &Patch) {
-    let groups = envelopes();
-    // One pane per envelope the library has, and not three: an instrument with
-    // a fourth gets a fourth pane with nothing here to edit.
-    let panes = screen
-        .all()
-        .columns(i32::try_from(groups.len()).unwrap_or_default(), GUTTER);
-    if panes.is_empty() {
-        stacked(screen, patch);
-        return;
-    }
-    let named = Screen::height_of(Size::Small);
-    for (pane, group) in panes.into_iter().zip(groups) {
-        screen.write(pane.x, pane.y, button(group), Size::Small);
-        let under = Band::new(
-            pane.x,
-            pane.y + named + 1,
-            pane.width,
-            pane.height - named - 1,
-        );
-        // The floor, so that a pane whose envelope has not been read is still a
-        // pane rather than a gap, and so that three curves at three heights are
-        // read against three baselines rather than against each other.
-        screen.across(under.x, under.row(0.0), under.width, Ink::Dotted);
-        let Some(corners) = envelope::corners(patch, group) else {
-            continue;
-        };
-        // The amplifier's is filled, because it is the one you hear. The other
-        // two are the line, because a filter's envelope is a shape and not an
-        // amount of anything.
-        if group == Group::VcaEnvelope {
-            screen.under(under, |x| corners.height_at(x));
-        }
-        screen.curve(under, Ink::Solid, |x| corners.height_at(x));
-    }
-}
-
-/// The three envelopes in one band, for a display with no room to divide.
-fn stacked(screen: &mut Screen, patch: &Patch) {
+/// Which is the better answer to the same problem three panes of one strip were
+/// solving. All three are still on screen at once, which is the thing no
+/// `DeepMind` can show, and each of them is now a drawing rather than a third of
+/// one.
+fn envelope_on(screen: &mut Screen, patch: &Patch, group: Group) {
     let band = screen.all();
-    for (index, group) in envelopes().into_iter().enumerate() {
-        let Some(corners) = envelope::corners(patch, group) else {
-            continue;
-        };
-        let ink = match index {
-            0 => Ink::Solid,
-            1 => Ink::Dashed,
-            _ => Ink::Dotted,
-        };
-        screen.curve(band, ink, |x| corners.height_at(x));
-    }
-}
-
-/// What the instrument prints on the button that chooses this envelope.
-///
-/// The first word of the library's own name for the group, which is `VCA`,
-/// `VCF` and `Mod` — the three legends the hardware prints under its own three
-/// buttons. Taken off the name rather than written down beside it, so a library
-/// that renames a group renames the pane.
-fn button(group: Group) -> &'static str {
-    group.name().split_whitespace().next().unwrap_or_default()
+    // The floor, so that a plate whose envelope has not been read is still a
+    // drawing of an envelope rather than an empty screen.
+    screen.across(band.x, band.row(0.0), band.width, Ink::Dotted);
+    let Some(corners) = envelope::corners(patch, group) else {
+        return;
+    };
+    // Filled, because a plate showing one envelope has the room to say what
+    // shape it is rather than only where its line runs.
+    screen.under(band, |x| corners.height_at(x));
+    screen.curve(band, Ink::Solid, |x| corners.height_at(x));
 }
 
 /// Draws the amplifier's envelope, under the level it is played at.
@@ -694,7 +678,7 @@ where
 )]
 mod tests {
     use super::{Scene, envelopes, of, travel, wave};
-    use crate::home::ROWS;
+    use crate::home::rows;
     use crate::{Confidence, Patch};
     use deepmind_midi::ids::ProtocolVersion;
     use deepmind_midi::param::{DEFAULT_FIRMWARE, Group, Kind, ParamId};
@@ -712,7 +696,7 @@ mod tests {
         // The panel is ten plates and each of them is a section of the
         // instrument, so a plate with no drawing is a section this window has
         // nothing to say about.
-        for plate in ROWS.iter().flat_map(|row| row.iter()) {
+        for plate in rows().iter().flat_map(|row| row.iter()) {
             assert!(
                 of(plate.parameters()).is_some(),
                 "the {} plate draws nothing",
@@ -747,46 +731,75 @@ mod tests {
     }
 
     #[test]
-    fn the_envelope_screen_reads_all_three_of_them() {
-        let parameters = Scene::Envelopes.parameters();
-
+    fn each_envelope_is_its_own_screen_reading_only_its_own_four() {
+        // The whole of what unfolding the section bought. Three envelopes
+        // sharing one screen were three sets of dots in the same place, and the
+        // question the display is for — which of these decays first — is the
+        // one an overlay answers worst. Three plates answer it by being three
+        // drawings.
         assert_eq!(envelopes().len(), 3);
-        assert_eq!(parameters.len(), 12, "four values from each of three");
-        for group in [Group::VcaEnvelope, Group::VcfEnvelope, Group::ModEnvelope] {
+        for group in envelopes() {
+            let parameters = Scene::Envelope(group).parameters();
+
+            assert_eq!(parameters.len(), 4, "{group} is an A, D, S and R");
             assert!(
                 parameters
                     .iter()
-                    .any(|parameter| parameter.group() == group),
-                "{group} is not on the screen that draws all three"
+                    .all(|parameter| parameter.group() == group),
+                "{group}'s screen reads another envelope's values"
             );
         }
     }
 
     #[test]
-    fn the_three_envelopes_are_three_panes_and_not_three_curves_in_one() {
-        // The point of the drawing. Three envelopes sharing a band are three
-        // sets of dots in the same place, and the question this display is for
-        // — which of these decays first — is the one an overlay answers worst.
-        let mut screen = super::super::Screen::new(90, 20);
-        super::envelopes_on(&mut screen, &read());
-
-        // Each pane is named after the button the hardware chooses it with.
-        for group in super::envelopes() {
-            let named = super::button(group);
-            assert!(!named.is_empty(), "{group:?} names no button");
-            assert!(!named.contains(' '), "{named} is a name and not a legend");
+    fn an_envelope_plate_draws_its_own_envelope_and_not_another() {
+        for group in envelopes() {
+            assert_eq!(
+                of(group.parameters()),
+                Some(Scene::Envelope(group)),
+                "{group} does not put its own drawing on its own plate"
+            );
         }
-        assert!(!screen.is_blank(), "three panes and nothing drawn");
     }
 
     #[test]
-    fn a_display_too_narrow_to_divide_still_draws_all_three() {
-        // The fallback is the old drawing, not an empty pane: a plate whose
-        // display cannot hold three panes is still a plate about envelopes.
-        let mut screen = super::super::Screen::new(12, 12);
-        super::envelopes_on(&mut screen, &read());
+    fn an_envelope_screen_is_a_drawing_before_anything_is_read() {
+        // The floor is drawn whatever is known, because a plate about an
+        // envelope with an empty screen on it reads as a plate that is broken.
+        let mut screen = super::super::Screen::new(40, 20);
+        super::envelope_on(&mut screen, &Patch::new(), Group::VcaEnvelope);
 
-        assert!(!screen.is_blank(), "a narrow display drew nothing");
+        assert!(!screen.is_blank(), "an envelope plate drew nothing at all");
+    }
+
+    #[test]
+    fn the_two_oscillators_are_two_drawings() {
+        use super::Which;
+
+        // `OSC 1` is two shapes that may both be switched on; `OSC 2` is one
+        // shape at a level with the noise over it. One plate each, so one
+        // drawing each, and neither reads the other's values.
+        assert_eq!(
+            of([ParamId::Osc1PwmDepth]),
+            Some(Scene::Oscillator(Which::First))
+        );
+        assert_eq!(
+            of([ParamId::Osc2Level]),
+            Some(Scene::Oscillator(Which::Second))
+        );
+        // The noise names no oscillator and is printed at the second's end of
+        // the panel, which is the plate this window puts it on.
+        assert_eq!(
+            of([ParamId::NoiseLevel]),
+            Some(Scene::Oscillator(Which::Second))
+        );
+
+        let first = Scene::Oscillator(Which::First).parameters();
+        let second = Scene::Oscillator(Which::Second).parameters();
+        assert!(
+            first.iter().all(|parameter| !second.contains(parameter)),
+            "the two oscillator screens read the same values"
+        );
     }
 
     #[test]

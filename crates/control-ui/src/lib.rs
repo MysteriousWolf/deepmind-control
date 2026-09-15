@@ -143,7 +143,7 @@ mod style;
 pub use confidence::Confidence;
 pub use fader::{Axis, Fader, fader};
 pub use footer::footer;
-pub use home::{panel, panelled, screen};
+pub use home::{panel, panel_width, panelled, screen};
 pub use lcd::{Band, Ink, PITCH, Screen, Size, lcd};
 pub use name::characters as name_characters;
 pub use panel::{Message, group};

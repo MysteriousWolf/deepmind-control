@@ -25,7 +25,7 @@
 
 use core::fmt;
 
-use deepmind_midi::param::{Group, Kind, ParamId};
+use deepmind_midi::param::{Group, Kind, ParamId, Shape};
 use deepmind_midi::program::ProgramName;
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::alignment::{Horizontal, Vertical};
@@ -654,10 +654,88 @@ fn shown(parameter: ParamId, value: Option<u8>, firmware: Version) -> String {
     };
     match parameter.kind() {
         // The control already carries the name, so this carries the byte.
-        Kind::Switch | Kind::Enumerated(_) => value.to_string(),
+        Kind::Switch | Kind::Enumerated(_) => sits_at(parameter, value),
         _ => parameter
             .label_for(u16::from(value), firmware)
-            .map_or_else(|| value.to_string(), str::to_owned),
+            .map_or_else(|| sits_at(parameter, value), str::to_owned),
+    }
+}
+
+/// What the raw byte reads as, which is not always the raw byte.
+///
+/// Two things the library publishes about a value beyond the range it sits in,
+/// and both of them change what a number means rather than how it is drawn:
+///
+/// - A **bipolar** parameter is read about a centre, so `128` on a modulation
+///   depth is not "half way up" but *no modulation at all*, and the reading is
+///   the signed distance from there. A matrix of eight depths set to nothing
+///   reading `128` eight times is a panel stating the wrong musical fact in the
+///   most confident way available to it.
+/// - An **inactive** value means "not set" rather than the smallest setting.
+///   Zero on a sequencer step skips the step; it is not the quietest one.
+///
+/// Both are [`ParamId::shape`] and [`ParamId::inactive`], published by
+/// `deepmind-midi` 26.3, and until then this printed the byte and the strip's
+/// own documentation said which fact it was getting wrong.
+pub(crate) fn sits_at(parameter: ParamId, value: u8) -> String {
+    if parameter.inactive() == Some(u16::from(value)) {
+        return "skip".to_owned();
+    }
+    match parameter.shape() {
+        Shape::Bipolar { centre } => {
+            let from = i32::from(value) - i32::from(centre);
+            // A sign on every reading of a bipolar control, the zero included:
+            // `0` and `+0` are the same number and only one of them says the
+            // control it is under has two directions.
+            format!("{from:+}")
+        }
+        _ => value.to_string(),
+    }
+}
+
+#[cfg(test)]
+#[expect(clippy::panic, reason = "a failed expectation is the test failure")]
+mod readings {
+    use super::sits_at;
+    use deepmind_midi::param::{ParamId, Shape};
+
+    #[test]
+    fn a_bipolar_value_is_read_about_its_centre_and_not_from_the_floor() {
+        // The fact the library published and this used to get wrong: a
+        // modulation depth at 128 is no modulation, and eight of them reading
+        // `128` was a matrix stating the wrong musical fact eight times.
+        let depth = ParamId::Mod1Depth;
+        let Shape::Bipolar { centre } = depth.shape() else {
+            panic!("{depth} is the bipolar one this guards");
+        };
+
+        assert_eq!(
+            sits_at(depth, u8::try_from(centre).unwrap_or_default()),
+            "+0"
+        );
+        assert_eq!(
+            sits_at(depth, u8::try_from(centre).unwrap_or_default() + 40),
+            "+40"
+        );
+        assert_eq!(
+            sits_at(depth, u8::try_from(centre).unwrap_or_default() - 12),
+            "-12"
+        );
+    }
+
+    #[test]
+    fn a_unipolar_value_is_still_the_byte() {
+        assert_eq!(sits_at(ParamId::VcfFrequency, 200), "200");
+        assert_eq!(sits_at(ParamId::VcfFrequency, 0), "0");
+    }
+
+    #[test]
+    fn a_step_of_nothing_is_a_skipped_step_and_not_the_quietest_one() {
+        let step = ParamId::SeqStepValue1;
+
+        assert_eq!(step.inactive(), Some(0), "the library says zero skips it");
+        assert_eq!(sits_at(step, 0), "skip");
+        assert_ne!(sits_at(step, 1), "skip", "and only zero does");
     }
 }
 

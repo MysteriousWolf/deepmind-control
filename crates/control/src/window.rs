@@ -38,7 +38,11 @@ pub fn run() -> iced::Result {
         .default_font(control_ui::printed())
         .theme(theme)
         .subscription(subscription)
-        .window_size((1120.0, 900.0))
+        // As wide as the panel measures, plus the ground it stands on, so a
+        // window opens on the instrument's own arrangement rather than on a
+        // wrapped one. Narrower than this and the rows wrap, which is readable
+        // and is no longer two rows and a screen.
+        .window_size((control_ui::panel_width() + 16.0 * 2.0, 940.0))
         .run()
 }
 

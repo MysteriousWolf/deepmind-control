@@ -15,22 +15,25 @@
 //! controls themselves are drawn under: what a parameter *is* is the library's
 //! table, and this crate is the pixels.
 //!
-//! # What it cannot say yet
+//! # And what it does
 //!
-//! What the manual says a parameter *does* — the paragraph, not the name — is
-//! the one thing here that has no getter to ask. The library carries the
-//! specification and deliberately not the prose: `param/mod.rs` says it "does
-//! not carry the manual's prose", and that value tables carry "names and not
-//! descriptions for the same reason", which is that the targets it is built for
-//! do not want the kilobytes.
+//! The sixth question, and the one somebody points at a control to ask. It had
+//! no getter when this file was written: the library carries the specification
+//! and deliberately not the prose, to keep 31 kB of sentences out of the binary
+//! on the microcontrollers it is also built for.
 //!
-//! That is the right decision for a `no_std` library and it leaves a window
-//! with nowhere to look, so
 //! [deepmind-midi#28](https://github.com/MysteriousWolf/deepmind-midi/issues/28)
-//! asks for it behind a feature: a `ParamId::description` that is `None` when
-//! the feature is off, so a host that wants the prose pays for it and a
-//! synthesizer on a microcontroller does not. The day it lands this footer
-//! gains a sentence and nothing else here changes.
+//! asked for it behind a feature rather than asking for that decision to be
+//! reversed, and 26.3 answers with exactly that: `ParamId::description` returns
+//! `None` unless the `descriptions` feature is on, so the signature is the same
+//! either way and a host writes one code path. This workspace turns the feature
+//! on, because a window with a footer along the bottom of it is precisely the
+//! host that has somewhere to print the answer.
+//!
+//! A parameter with no sentence is still drawn, with the five facts it has.
+//! The library writes `None` rather than a guess where its own specification
+//! does not establish what a parameter does, which is the same refusal every
+//! other drawing in this crate is under.
 
 use deepmind_midi::param::{Controller, Kind, ParamId};
 use deepmind_midi::sysex::inquiry::Version;
@@ -38,6 +41,7 @@ use iced_core::alignment::Vertical;
 use iced_core::{Background, Border, Font, Length, Theme, text::Renderer as TextRenderer};
 use iced_widget::{container, row, text};
 
+use crate::panel::sits_at;
 use crate::style::{materials, printed, reading};
 use crate::{Confidence, Element, Patch};
 
@@ -92,6 +96,8 @@ enum Part {
     Reading(String),
     /// Everything that is true of the parameter whatever its value is.
     Quiet(String),
+    /// What the parameter does, in the library's own sentence.
+    Said(String),
 }
 
 impl Part {
@@ -122,6 +128,16 @@ impl Part {
                     color: Some(materials(theme).metal_low),
                 })
                 .into(),
+            // Takes the rest of the line and wraps in it, because a sentence
+            // clipped half way through is a sentence that stops being one.
+            Self::Said(said) => text(said)
+                .size(12)
+                .font(printed())
+                .width(Length::Fill)
+                .style(|theme: &Theme| text::Style {
+                    color: Some(materials(theme).metal),
+                })
+                .into(),
         }
     }
 }
@@ -141,6 +157,12 @@ fn described(parameter: ParamId, patch: &Patch, firmware: Version) -> Vec<Part> 
     if let Some(controller) = Controller::for_parameter(parameter) {
         line.push(Part::Quiet(format!("CC {}", controller.cc)));
     }
+    // And what it does, which is the reason somebody pointed at it. Last,
+    // because it is the longest and the other five are what a reader who
+    // already knows the parameter came back for.
+    if let Some(sentence) = parameter.description() {
+        line.push(Part::Said(sentence.to_owned()));
+    }
     line
 }
 
@@ -156,7 +178,7 @@ fn reading_of(parameter: ParamId, patch: &Patch, firmware: Version) -> String {
     };
     let shown = parameter
         .label_for(u16::from(value), firmware)
-        .map_or_else(|| value.to_string(), ToOwned::to_owned);
+        .map_or_else(|| sits_at(parameter, value), ToOwned::to_owned);
     match claim {
         Confidence::Confirmed => shown,
         // The distinction the whole editor is built on, said plainly: this is
@@ -166,19 +188,39 @@ fn reading_of(parameter: ParamId, patch: &Patch, firmware: Version) -> String {
     }
 }
 
-/// What the parameter accepts, in the library's own numbers.
+/// What the parameter accepts.
 ///
-/// Raw bytes and never the number the synthesizer's display shows, because the
-/// manual prints the two ends of a range and almost never the curve between
-/// them, and a footer that invented the curve would be the one place in this
-/// window that guessed.
+/// The two ends the manual prints, where the library has them —
+/// [`ParamId::display`] is `50.0 Hz to 20000.0 Hz` for the filter's corner —
+/// and the raw range where it does not, which is 216 of the 242. Never a number
+/// between the two ends: the manual publishes what a range runs from and to and
+/// almost never the curve across it, so a footer that turned this byte into a
+/// frequency would be the one place in this window that guessed.
 fn range_of(parameter: ParamId) -> String {
+    if let Some(printed) = parameter.display() {
+        return printed.to_owned();
+    }
     match parameter.kind() {
         Kind::Switch if parameter.max() <= 1 => "off or on".to_owned(),
         Kind::Enumerated(_) => parameter.choices().map_or_else(
-            || format!("{}\u{2013}{}", parameter.min(), parameter.max()),
+            || ends(parameter),
             |options| format!("{} named values", options.len()),
         ),
-        _ => format!("{}\u{2013}{}", parameter.min(), parameter.max()),
+        _ => ends(parameter),
     }
+}
+
+/// The two ends of the raw range, read the way the control reads them.
+///
+/// A bipolar parameter's ends are the two extremes either side of its centre,
+/// not `0` and `255`: a depth that runs `-128` to `+127` said to run `0` to
+/// `255` is the same wrong fact the readings used to state.
+fn ends(parameter: ParamId) -> String {
+    let low = u8::try_from(parameter.min()).unwrap_or(u8::MIN);
+    let high = u8::try_from(parameter.max()).unwrap_or(u8::MAX);
+    format!(
+        "{}\u{2013}{}",
+        sits_at(parameter, low),
+        sits_at(parameter, high)
+    )
 }

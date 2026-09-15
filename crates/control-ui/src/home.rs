@@ -12,43 +12,61 @@
 //! other control in this editor, and each section's way in is the same press
 //! the hardware uses.
 //!
-//! # The one thing this repository transcribes
+//! # Nothing here is transcribed any more
 //!
-//! Which parameters have a physical control, and which of the panel's groups
-//! each one sits in, is a fact about the hardware that the library does not
-//! publish: its parameter table says what exists, its controller table says
-//! what has a CC, and neither says what has a fader. So [`ROWS`] is a table
-//! here, and it is the only one in this repository.
+//! Which parameters have a physical control, what is silkscreened over each
+//! one, what a hand touches and which row it is in used to be a table in this
+//! file — the only one in this repository, kept because the library published
+//! what exists and what has a CC and nothing that said what has a fader.
 //!
-//! It is kept as honest as a transcription can be. Every entry is a [`ParamId`]
-//! rather than a name, so a parameter the library renames is a compilation
-//! error rather than a wrong legend; a test asserts that each appears once and
-//! that its group is the one the plate says. What a control *is* still comes
-//! from the library — a sweep gets a fader, two states get a lamp, a named set
-//! gets its names — so this table says where a control is and never what it is.
-//! [deepmind-midi#26](https://github.com/MysteriousWolf/deepmind-midi/issues/26)
-//! is the ask that would delete it, and `docs/waiting.md` is where that is
-//! remembered.
+//! `deepmind-midi` 26.3 publishes it: [`front::sections`] is that table, on the
+//! side of the split the rest of the instrument lives on, with a loader check
+//! that a plate's controls belong to the group its name claims. The table here
+//! is deleted and `docs/waiting.md` records the ask as answered.
 //!
-//! # The arrangement is the instrument's, the livery is this window's
+//! # Two sections are drawn as more than one plate
 //!
-//! The hardware's buttons are white, yellow and cyan. This panel's are not,
-//! because in this window a colour already means something: copper is a claim
-//! this application is making and green is the synthesizer's own account of
-//! itself, and a yellow `EDIT` beside them would be a fourth meaning for a
-//! reader to learn. So the layout is the instrument's and the materials are the
-//! ones every other panel here is drawn in.
+//! What is left is layout, which is this window's to decide: a hand layout
+//! changes the arrangement and never what a control is. [`plates`] spends that
+//! twice, in both cases because a window has room the front of a synthesizer
+//! does not.
+//!
+//! The oscillators become `OSC 1` and `OSC 2`, which is the pair of brackets
+//! the instrument prints inside its own `DCO 1 & 2` plate. The envelopes become
+//! one plate each, because the hardware has four envelope faders and three
+//! envelopes and a button to point the one set at the other — and a window can
+//! simply draw twelve faders and three screens. They get a row of their own,
+//! which is what the instrument had no room to give them.
+//!
+//! Both are derived rather than written down: the oscillator's bracket is a
+//! slice of the library's own parameter name, and an envelope's four faders are
+//! found by asking the library for the parameters whose short names match the
+//! four the section carries. What a control *is* is still the library's answer
+//! in every plate.
+//!
+//! # The arrangement is the instrument's, and so is the livery
+//!
+//! The hardware's buttons are white, amber and cyan, and this panel takes the
+//! amber and the cyan for the two jobs it has that need a colour: amber opens a
+//! section, which is what the instrument's `EDIT` does, and cyan marks a
+//! control something other than a hand can move, which is what its `MOD` does.
+//! A way in is a legend silkscreened on the panel over a lit square, because
+//! that is what it is on the instrument and not a word in a box.
 //!
 //! The row of twelve lamps over the hardware's `POLY` section is missing for a
 //! different reason: it says how many voices are sounding, and nothing on a
 //! MIDI port says that. A lamp that cannot be lit honestly is not drawn.
 
+use std::sync::LazyLock;
+
+use deepmind_midi::front::{self, PanelControl, PanelShape, Section};
 use deepmind_midi::param::{Group, ParamId};
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::alignment::{Horizontal, Vertical};
 use iced_core::{Background, Border, Font, Length, Theme, text::Renderer as TextRenderer};
 use iced_widget::{Space, button, column, container, responsive, row, text};
 
+use crate::envelope;
 use crate::lcd::{self, Screen};
 use crate::panel::{Message, Room, readout};
 use crate::scene;
@@ -196,6 +214,16 @@ impl Scale {
     }
 }
 
+/// How much room the panel wants, at the size its proportions are written in.
+///
+/// What a window opens at, so that the instrument's own arrangement is what
+/// somebody sees first: below this the rows wrap, which is still readable and
+/// is no longer two rows and a screen.
+#[must_use]
+pub fn panel_width() -> f32 {
+    widest()
+}
+
 /// How wide the widest row of the panel stands at its written size.
 ///
 /// What [`Scale::filling`] divides the window into. Measured off the same table
@@ -203,7 +231,8 @@ impl Scale {
 /// gains a fader widens the row here too and the panel goes on filling the
 /// window it is in.
 fn widest() -> f32 {
-    ROWS.iter()
+    rows()
+        .iter()
         .enumerate()
         .map(|(index, plates)| row_width(plates, index == 0, Scale::NATURAL))
         .fold(0.0_f32, f32::max)
@@ -238,38 +267,39 @@ pub(crate) struct Control {
     parameter: ParamId,
 }
 
-/// One group of controls, as the panel prints it.
-#[derive(Debug, Clone, Copy)]
+/// One group of controls, as a plate of this window's panel.
+///
+/// Built from the library's own [`Section`] rather than written down here. Two
+/// sections are unfolded into more than one plate on the way — see [`plates`] —
+/// so a plate is not always a section, which is why this is a type of its own.
+#[derive(Debug, Clone)]
 pub(crate) struct Plate {
-    /// What the panel prints across the top of the group.
-    name: &'static str,
+    /// What is printed across the top of the plate.
+    ///
+    /// Owned, because two of them are not a silkscreen: an unfolded section's
+    /// plates are named after what the library calls the part they hold, in the
+    /// caps the rest of the panel is printed in.
+    name: String,
     /// The section this plate's `EDIT` opens, which is where the rest of its
     /// parameters are.
     opens: Group,
     /// The controls the hardware puts a fader under, in the order it puts them.
-    faders: &'static [Control],
+    faders: Vec<Control>,
     /// The named set drawn as a strip of legends beside the faders, where the
     /// panel has one: the LFO's shape is a column of lamps on the instrument.
     lamps: Option<Control>,
     /// The controls the hardware puts in the row of buttons under the faders.
-    switches: &'static [Control],
-    /// The sections this plate's other buttons open.
-    ///
-    /// The hardware's `VCA`, `VCF` and `MOD` under the envelopes choose which
-    /// envelope its four faders address; here they are the way into each
-    /// envelope's own panel, which is where those four faders and the other
-    /// five parameters both are.
-    ways: &'static [(&'static str, Group)],
+    switches: Vec<Control>,
 }
 
 impl Plate {
-    /// What the panel prints across the top of the group.
-    pub(crate) const fn name(self) -> &'static str {
-        self.name
+    /// What is printed across the top of the plate.
+    pub(crate) fn name(&self) -> &str {
+        &self.name
     }
 
     /// Every parameter this plate puts a control under.
-    pub(crate) fn parameters(self) -> impl Iterator<Item = ParamId> {
+    pub(crate) fn parameters(&self) -> impl Iterator<Item = ParamId> {
         self.controls().map(|control| control.parameter)
     }
 
@@ -280,15 +310,14 @@ impl Plate {
     /// of them is as wide as what it holds. The wider of its two rows wins —
     /// `HPF` is one fader over a button and a way in, and the buttons are what
     /// decide it.
-    fn width(self, scale: Scale) -> f32 {
+    fn width(&self, scale: Scale) -> f32 {
         let lanes = count(self.faders.len()) * scale.of(LANE + 2.0)
             + if self.lamps.is_some() {
                 scale.of(LAMPS + 2.0)
             } else {
                 0.0
             };
-        let buttons = count(self.switches.len()) * scale.of(SWITCH + 4.0)
-            + count(self.ways.len() + 1) * scale.of(WAY + 4.0);
+        let buttons = count(self.switches.len()) * scale.of(SWITCH + 4.0) + scale.of(WAY + 4.0);
         // The narrowest plate still stands wide enough for a display worth
         // drawing on, and that floor is in dots rather than points: a screen
         // does not scale, it gains columns, so the room it needs is the room
@@ -299,7 +328,7 @@ impl Plate {
     }
 
     /// Every control this plate draws.
-    pub(crate) fn controls(self) -> impl Iterator<Item = Control> {
+    pub(crate) fn controls(&self) -> impl Iterator<Item = Control> {
         self.faders
             .iter()
             .copied()
@@ -308,224 +337,218 @@ impl Plate {
     }
 }
 
-/// The panel, in the two rows the instrument prints it in.
+/// The panel, in the rows the instrument prints it in.
 ///
-/// Row one is what a player reaches for between notes — the arpeggiator, the
-/// two LFOs, the screen, and the voicing. Row two is the voice itself, left to
-/// right in the order the signal takes: oscillators, filter, amplifier, and the
-/// envelopes that move them.
-pub(crate) const ROWS: [&[Plate]; 2] = [
-    &[
-        Plate {
-            name: "ARP / SEQ",
-            opens: Group::Arpeggiator,
-            faders: &[
-                Control {
-                    legend: "RATE",
-                    parameter: ParamId::ArpRateTempo,
-                },
-                Control {
-                    legend: "GATE TIME",
-                    parameter: ParamId::ArpGateTime,
-                },
-            ],
-            lamps: None,
-            switches: &[
-                Control {
-                    legend: "ON/OFF",
-                    parameter: ParamId::ArpOnOff,
-                },
-                Control {
-                    legend: "HOLD",
-                    parameter: ParamId::ArpHold,
-                },
-            ],
-            ways: &[],
-        },
-        Plate {
-            name: "LFO 1",
-            opens: Group::Lfo1,
-            faders: &[
-                Control {
-                    legend: "RATE",
-                    parameter: ParamId::Lfo1Rate,
-                },
-                Control {
-                    legend: "DELAY TIME",
-                    parameter: ParamId::Lfo1DelayFade,
-                },
-            ],
-            lamps: Some(Control {
-                legend: "SHAPE",
-                parameter: ParamId::Lfo1Shape,
-            }),
-            switches: &[],
-            ways: &[],
-        },
-        Plate {
-            name: "LFO 2",
-            opens: Group::Lfo2,
-            faders: &[
-                Control {
-                    legend: "RATE",
-                    parameter: ParamId::Lfo2Rate,
-                },
-                Control {
-                    legend: "DELAY TIME",
-                    parameter: ParamId::Lfo2DelayFade,
-                },
-            ],
-            lamps: Some(Control {
-                legend: "SHAPE",
-                parameter: ParamId::Lfo2Shape,
-            }),
-            switches: &[],
-            ways: &[],
-        },
-        Plate {
-            name: "POLY",
-            opens: Group::Voicing,
-            // One fader, where the hardware has two. The other is its DATA
-            // ENTRY, which edits whatever the display is showing — a window has
-            // the value under the pointer instead, and does not need one.
-            faders: &[Control {
-                legend: "UNISON DETUNE",
-                parameter: ParamId::UnisonDetune,
-            }],
-            lamps: None,
-            switches: &[],
-            ways: &[("MOD", Group::ModMatrix), ("FX", Group::Effects)],
-        },
-    ],
-    &[
-        Plate {
-            name: "DCO 1 & 2",
-            opens: Group::Oscillators,
-            faders: &[
-                Control {
-                    legend: "PITCH MOD",
-                    parameter: ParamId::Osc1PitchModDepth,
-                },
-                Control {
-                    legend: "PWM",
-                    parameter: ParamId::Osc1PwmDepth,
-                },
-                Control {
-                    legend: "PITCH MOD",
-                    parameter: ParamId::Osc2PitchModDepth,
-                },
-                Control {
-                    legend: "TONE MOD",
-                    parameter: ParamId::Osc2ToneModDepth,
-                },
-                Control {
-                    legend: "PITCH",
-                    parameter: ParamId::Osc2Pitch,
-                },
-                Control {
-                    legend: "LEVEL",
-                    parameter: ParamId::Osc2Level,
-                },
-                Control {
-                    legend: "NOISE",
-                    parameter: ParamId::NoiseLevel,
-                },
-            ],
-            lamps: None,
-            switches: &[Control {
-                legend: "SYNC",
-                parameter: ParamId::OscSyncEnable,
-            }],
-            ways: &[],
-        },
-        Plate {
-            name: "VCF",
-            opens: Group::Vcf,
-            faders: &[
-                Control {
-                    legend: "FREQ",
-                    parameter: ParamId::VcfFrequency,
-                },
-                Control {
-                    legend: "RES",
-                    parameter: ParamId::VcfResonance,
-                },
-                Control {
-                    legend: "ENV",
-                    parameter: ParamId::VcfEnvelopeDepth,
-                },
-                Control {
-                    legend: "LFO",
-                    parameter: ParamId::VcfLfoDepth,
-                },
-                Control {
-                    legend: "KYBD",
-                    parameter: ParamId::VcfKeyboardTracking,
-                },
-            ],
-            lamps: None,
-            switches: &[Control {
-                legend: "POLES",
-                parameter: ParamId::Vcf2PoleMode,
-            }],
-            ways: &[],
-        },
-        Plate {
-            name: "VCA",
-            opens: Group::Vca,
-            faders: &[Control {
-                legend: "LEVEL",
-                parameter: ParamId::VcaLevel,
-            }],
-            lamps: None,
-            switches: &[],
-            ways: &[],
-        },
-        Plate {
-            name: "HPF",
-            opens: Group::Vcf,
-            faders: &[Control {
-                legend: "FREQ",
-                parameter: ParamId::VcfHighPassFrequency,
-            }],
-            lamps: None,
-            switches: &[Control {
-                legend: "BOOST",
-                parameter: ParamId::VcfBassBoost,
-            }],
-            ways: &[],
-        },
-        Plate {
-            name: "ENVELOPES",
-            opens: Group::VcaEnvelope,
-            faders: &[
-                Control {
-                    legend: "A",
-                    parameter: ParamId::VcaEnvelopeAttackTime,
-                },
-                Control {
-                    legend: "D",
-                    parameter: ParamId::VcaEnvelopeDecayTime,
-                },
-                Control {
-                    legend: "S",
-                    parameter: ParamId::VcaEnvelopeSustainLevel,
-                },
-                Control {
-                    legend: "R",
-                    parameter: ParamId::VcaEnvelopeReleaseTime,
-                },
-            ],
-            lamps: None,
-            switches: &[],
-            ways: &[
-                ("VCA", Group::VcaEnvelope),
-                ("VCF", Group::VcfEnvelope),
-                ("MOD", Group::ModEnvelope),
-            ],
-        },
-    ],
-];
+/// **Read off the library rather than written down here.** `deepmind-midi` 26.3
+/// publishes [`front::sections`]: which parameters the instrument puts a
+/// control under, what is silkscreened over each one, what a hand touches and
+/// which row it is in. Until that landed this file held the one table this
+/// repository transcribed, and deleting it is the whole of what
+/// [deepmind-midi#26](https://github.com/MysteriousWolf/deepmind-midi/issues/26)
+/// was for.
+///
+/// Built once, because the panel is drawn on every frame and the library's
+/// table does not change between them.
+static PLATES: LazyLock<Vec<Vec<Plate>>> = LazyLock::new(plates);
+
+/// Returns the panel's rows, each a row of plates, left to right.
+pub(crate) fn rows() -> &'static [Vec<Plate>] {
+    &PLATES
+}
+
+/// Builds the plates out of the library's sections, unfolding two of them.
+///
+/// # Hand layout changes the arrangement and never what a control is
+///
+/// The rule the rest of this crate is written under, and this is where it is
+/// spent. Two of the instrument's nine plates are drawn as more than one here,
+/// in both cases for the reason the panel has a screen on every plate where the
+/// hardware has one screen in the middle: a window has room the front of a
+/// synthesizer does not. What a control *is* stays the library's answer in
+/// both — the parameter, the legend printed over it and the shape a hand
+/// touches all come from the table a single-plate panel would use.
+///
+/// **The oscillators become two plates.** The instrument prints `DCO 1 & 2`
+/// across one plate and then prints `OSC 1` and `OSC 2` in brackets over the
+/// two clusters of faders inside it, because it has one plate's width and two
+/// oscillators. Those brackets are the split, promoted to a plate each: the
+/// panel's own subdivision rather than an invention, and the names are a slice
+/// of the library's own parameter names rather than a third table.
+///
+/// **The envelopes become one plate each.** The instrument has four envelope
+/// faders and three envelopes, and `VCA`, `VCF` and `MOD` buttons that choose
+/// which of the three those four faders address — which the library says out
+/// loud in that section's own note. A window does not have to multiplex: each
+/// envelope gets the same four legends over its *own* parameters, and its own
+/// display, which is what it was really short of. Three envelopes sharing one
+/// screen were three panes of a strip; three plates are three full drawings.
+fn plates() -> Vec<Vec<Plate>> {
+    let mut rows: Vec<Vec<Plate>> = vec![Vec::new(); usize::from(front::PANEL_ROWS)];
+    // The envelopes get a row of their own rather than the one the instrument
+    // prints them in, and for the same reason they are three plates at all: the
+    // hardware multiplexes them onto four faders because its front is full, and
+    // three unfolded plates pushed into that row would make it half again as
+    // wide as the window that has to hold it. A row is what the instrument did
+    // not have to give them.
+    let mut unfolded: Vec<Plate> = Vec::new();
+    for section in front::sections() {
+        if let Some(envelopes) = envelopes(section) {
+            unfolded.extend(envelopes);
+            continue;
+        }
+        let drawn = oscillators(section).unwrap_or_else(|| {
+            let all: Vec<&'static PanelControl> = section.controls().iter().collect();
+            vec![whole(section, section.name(), &all)]
+        });
+        if let Some(row) = rows.get_mut(usize::from(section.row())) {
+            row.extend(drawn);
+        }
+    }
+    if !unfolded.is_empty() {
+        rows.push(unfolded);
+    }
+    rows
+}
+
+/// Gathers `controls` of `section` onto one plate called `name`.
+///
+/// The shape a hand touches is the library's answer and not the byte's: `SYNC`
+/// is a switch to the parameter table and a button on the panel, and an LFO's
+/// shape is a column of lit legends rather than a list, which nothing about the
+/// byte says.
+fn whole(section: &'static Section, name: &str, controls: &[&'static PanelControl]) -> Plate {
+    let of = |wanted: PanelShape| -> Vec<Control> {
+        controls
+            .iter()
+            .filter(|control| control.shape() == wanted)
+            .map(|control| Control {
+                legend: control.legend(),
+                parameter: control.parameter(),
+            })
+            .collect()
+    };
+    Plate {
+        name: name.to_owned(),
+        opens: section.group(),
+        faders: of(PanelShape::Fader),
+        lamps: of(PanelShape::Lamps).first().copied(),
+        switches: of(PanelShape::Button),
+    }
+}
+
+/// What an oscillator's parameters are named after on this instrument.
+const BRACKET: &str = "OSC ";
+
+/// The two plates an oscillator section is drawn as, when it is one.
+///
+/// Found by the bracket the panel prints over each cluster, which is the prefix
+/// of the library's own name for the parameter under it: `OSC 1 PWM Depth` is
+/// printed under `OSC 1`. A section where fewer than two brackets appear is not
+/// one and is drawn whole.
+fn oscillators(section: &'static Section) -> Option<Vec<Plate>> {
+    let mut brackets: Vec<&'static str> = Vec::new();
+    for control in section.controls() {
+        if let Some(bracket) = bracket(control)
+            && !brackets.contains(&bracket)
+        {
+            brackets.push(bracket);
+        }
+    }
+    if brackets.len() < 2 {
+        return None;
+    }
+    let last = *brackets.last()?;
+    Some(
+        brackets
+            .iter()
+            .map(|wanted| {
+                let mine: Vec<&'static PanelControl> = section
+                    .controls()
+                    .iter()
+                    // A control naming no oscillator rides with the last one:
+                    // the noise level and the sync that makes the second follow
+                    // the first are printed at that end of the plate, and
+                    // neither is about the first.
+                    .filter(|control| bracket(control).unwrap_or(last) == *wanted)
+                    .collect();
+                whole(section, wanted, &mine)
+            })
+            .collect(),
+    )
+}
+
+/// `OSC 1` out of `OSC 1 Pitch Mod Depth`, and nothing out of `Noise Level`.
+///
+/// A slice of the library's own name for the parameter, so the spelling is the
+/// library's and this file holds no copy of it.
+fn bracket(control: &'static PanelControl) -> Option<&'static str> {
+    let name = control.parameter().name();
+    let rest = name.strip_prefix(BRACKET)?;
+    let digits = rest
+        .find(|letter: char| !letter.is_ascii_digit())
+        .unwrap_or(rest.len());
+    if digits == 0 {
+        return None;
+    }
+    name.get(..BRACKET.len() + digits)
+}
+
+/// The plate per envelope an envelope section is drawn as, when it is one.
+///
+/// The section carries one envelope's parameters under four legends, and the
+/// note beside it says the panel's three buttons point those four faders at
+/// whichever envelope is chosen. Here each envelope gets its own four, matched
+/// through the library by short name, and a plate of its own.
+fn envelopes(section: &'static Section) -> Option<Vec<Plate>> {
+    envelope::of(section.group())?;
+    let groups: Vec<Group> = Group::ORDER
+        .iter()
+        .copied()
+        .filter(|group| envelope::of(*group).is_some())
+        .collect();
+    if groups.len() < 2 {
+        return None;
+    }
+    Some(
+        groups
+            .into_iter()
+            .map(|group| Plate {
+                // The library's own name for the group, in the caps the rest of
+                // the panel is printed in. Not the one word the hardware prints
+                // on the button — `VCA` beneath an `ENVELOPES` heading is
+                // unambiguous, and `VCA` on a plate of its own beside the
+                // amplifier's `VCA` plate is two plates with one name.
+                name: group.name().to_uppercase(),
+                opens: group,
+                faders: section
+                    .controls()
+                    .iter()
+                    .filter_map(|control| addressed(control, group))
+                    .collect(),
+                lamps: None,
+                switches: Vec::new(),
+            })
+            .collect(),
+    )
+}
+
+/// The same control on another envelope, under the same legend.
+///
+/// `A` over `VCA Envelope Attack Time` is `A` over `VCF Envelope Attack Time`,
+/// found by the short name the library strips the group off for. `None` where
+/// an envelope has no parameter answering to the same short name, which would
+/// be a library that had stopped describing its three envelopes the same way
+/// and is better as a missing fader than as a wrong one.
+fn addressed(control: &'static PanelControl, group: Group) -> Option<Control> {
+    let wanted = control.parameter().short_name();
+    let parameter = group
+        .parameters()
+        .find(|parameter| parameter.short_name() == wanted)?;
+    Some(Control {
+        legend: control.legend(),
+        parameter,
+    })
+}
 
 /// Draws the front panel, with `screen` where the instrument's display sits.
 ///
@@ -544,27 +567,31 @@ where
 {
     responsive(move |room| {
         let scale = Scale::filling(room.width);
-        let mut rows = column![].spacing(scale.of(DOWN));
+        let mut panel = column![].spacing(scale.of(DOWN));
         let mut hole = true;
-        for (index, plates) in ROWS.iter().enumerate() {
+        for (index, plates) in rows().iter().enumerate() {
             let mut across = row![].spacing(scale.of(ACROSS)).align_y(Vertical::Top);
-            for plate in plates.iter().copied() {
+            // The instrument cuts its display into the top row between what a
+            // player reaches for and the voicing, which is before the last
+            // plate of that row.
+            let last = plates.last().map(Plate::name);
+            for plate in plates {
                 // The screen sits in the top row where the instrument puts it:
                 // between what a player reaches for and what the voicing does.
-                if index == 0 && plate.name == "POLY" && hole {
+                if index == 0 && hole && last == Some(plate.name()) {
                     hole = false;
                     across = across.push(display(patch, &paint, scale));
                 }
                 across = across.push(group(patch, plate, firmware, scale));
             }
-            rows = rows.push(across.wrap());
+            panel = panel.push(across.wrap());
         }
         // A screen with nowhere to go still goes somewhere: a row renamed out
         // from under this loses the instrument's arrangement, not its display.
         if hole {
-            rows = rows.push(display(patch, &paint, scale));
+            panel = panel.push(display(patch, &paint, scale));
         }
-        rows.into()
+        panel.into()
     })
     .into()
 }
@@ -592,7 +619,8 @@ fn blank(scale: Scale) -> Screen {
 /// The way for a test to ask what the table claims without drawing it.
 #[must_use]
 pub fn panelled() -> Vec<ParamId> {
-    ROWS.iter()
+    rows()
+        .iter()
         .flat_map(|row| row.iter())
         .flat_map(|plate| plate.controls().map(|control| control.parameter))
         .collect()
@@ -601,7 +629,7 @@ pub fn panelled() -> Vec<ParamId> {
 /// Draws one group of the panel: its name, its controls, and its way in.
 fn group<'a, Renderer>(
     patch: &Patch,
-    plate: Plate,
+    plate: &'a Plate,
     firmware: Version,
     scale: Scale,
 ) -> Element<'a, Renderer>
@@ -618,9 +646,6 @@ where
     let mut buttons = row![].spacing(scale.of(4.0)).align_y(Vertical::Top);
     for control in plate.switches.iter().copied() {
         buttons = buttons.push(switch(patch, control, firmware, scale));
-    }
-    for (label, group) in plate.ways.iter().copied() {
-        buttons = buttons.push(way(label, group, scale));
     }
     // Every plate has a way in, and it is the press the hardware calls EDIT.
     buttons = buttons.push(way("EDIT", plate.opens, scale));
@@ -664,7 +689,7 @@ where
 /// so that a row of plates is a row rather than a skyline.
 fn glass<'a, Renderer>(
     patch: &Patch,
-    plate: Plate,
+    plate: &Plate,
     firmware: Version,
     scale: Scale,
 ) -> Element<'a, Renderer>
@@ -893,8 +918,8 @@ where
 mod tests {
     use deepmind_midi::param::{Group, ParamId};
 
-    use super::{ACROSS, DOWN, GAP, NARROWEST, PAD, ROWS, Scale, WITHIN};
-    use super::{lcd, panelled, row_width, widest};
+    use super::{ACROSS, DOWN, GAP, NARROWEST, PAD, Plate, Scale, WITHIN, rows};
+    use super::{lcd, panel_width, panelled, row_width, widest};
 
     #[test]
     fn a_control_is_on_the_panel_once() {
@@ -912,7 +937,7 @@ mod tests {
         // says: a plate's controls belong to the section its way in opens, so
         // a parameter moved to another group by a later library fails here
         // rather than opening a panel it is not on.
-        for plate in ROWS.iter().flat_map(|row| row.iter()) {
+        for plate in rows().iter().flat_map(|row| row.iter()) {
             for parameter in plate.controls().map(|control| control.parameter) {
                 assert_eq!(
                     parameter.group(),
@@ -929,7 +954,7 @@ mod tests {
         // What the hardware silkscreens, not what the library calls it: a lane
         // is 46 points wide, and `Keyboard Tracking` in it is a lane that lies
         // about which fader is which. Two words are two lines.
-        for plate in ROWS.iter().flat_map(|row| row.iter()) {
+        for plate in rows().iter().flat_map(|row| row.iter()) {
             for control in plate.controls() {
                 let longest = control
                     .legend
@@ -953,16 +978,12 @@ mod tests {
 
     #[test]
     fn a_way_in_leads_to_a_section_the_editor_has() {
-        for plate in ROWS.iter().flat_map(|row| row.iter()) {
+        for plate in rows().iter().flat_map(|row| row.iter()) {
             assert!(
                 Group::ALL.contains(&plate.opens),
                 "{} opens nothing",
                 plate.name
             );
-            for (label, group) in plate.ways {
-                assert!(Group::ALL.contains(group), "{label} opens nothing");
-                assert!(!label.is_empty());
-            }
         }
     }
 
@@ -977,17 +998,72 @@ mod tests {
     }
 
     #[test]
-    fn a_row_of_plates_fits_the_window_it_opens_in() {
-        // Two rows and a screen between them is the arrangement, and a row that
-        // does not fit wraps: a front panel in four rows is a list of plates.
-        // The plates are as wide as what they hold, so this is what says that
-        // giving every one of them a display did not cost the panel its shape.
-        const ROOM: f32 = 1120.0 - 16.0 * 2.0;
+    fn the_window_opens_wide_enough_for_the_arrangement() {
+        // Two rows and a screen between them is the arrangement, and a window
+        // narrower than the panel wraps a row rather than clipping it — which
+        // is readable and is no longer the instrument's own front. So the
+        // window opens at what the panel measures, and this is what says that
+        // number is a window somebody could actually have.
+        let wanted = panel_width();
 
-        for (index, plates) in ROWS.iter().enumerate() {
+        assert!(wanted > 0.0, "the panel measures nothing");
+        assert!(
+            wanted <= 1512.0,
+            "the panel wants {wanted} points, which is wider than a laptop"
+        );
+        for (index, plates) in rows().iter().enumerate() {
             let across = row_width(plates, index == 0, Scale::NATURAL);
-            assert!(across <= ROOM, "row {index} is {across} points across");
+            assert!(
+                across <= wanted,
+                "row {index} is {across} across a {wanted} panel"
+            );
         }
+    }
+
+    #[test]
+    fn every_plate_draws_its_own_part_and_not_a_neighbours() {
+        // Unfolding a section is where a drawing could be repeated: two
+        // oscillator plates showing one oscillators drawing, or three envelope
+        // plates showing the same three-envelope drawing, is the split costing
+        // room and buying nothing.
+        let drawn: Vec<crate::scene::Scene> = rows()
+            .iter()
+            .flat_map(|row| row.iter())
+            .filter_map(|plate| crate::scene::of(plate.parameters()))
+            .collect();
+        let found = drawn.len();
+
+        assert_eq!(
+            found,
+            rows().iter().flat_map(|row| row.iter()).count(),
+            "a plate with no drawing on it"
+        );
+        // A dozen plates, so this is the honest check rather than the one
+        // that only catches duplicates that happen to be adjacent.
+        for (at, scene) in drawn.iter().enumerate() {
+            assert!(
+                !drawn.get(at + 1..).unwrap_or_default().contains(scene),
+                "two plates draw {scene:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn no_two_plates_are_printed_with_the_same_name() {
+        // Unfolding a section is where this could go wrong: the amplifier's
+        // plate and the amplifier envelope's plate both answer to `VCA` on the
+        // hardware, where one of them is a button under an `ENVELOPES` heading
+        // and the ambiguity cannot arise.
+        let mut names: Vec<&str> = rows()
+            .iter()
+            .flat_map(|row| row.iter())
+            .map(Plate::name)
+            .collect();
+        let printed = names.len();
+        names.sort_unstable();
+        names.dedup();
+
+        assert_eq!(names.len(), printed, "two plates share a name: {names:?}");
     }
 
     #[test]
@@ -1006,7 +1082,7 @@ mod tests {
         );
         let room = natural * 1.4;
         let wide = Scale::filling(room);
-        let widened: f32 = ROWS
+        let widened: f32 = rows()
             .iter()
             .enumerate()
             .map(|(index, plates)| row_width(plates, index == 0, wide))
@@ -1069,7 +1145,7 @@ mod tests {
         // into the room inside that, which is two paddings narrower. A display
         // drawn from the outer width is a display a few dots wider than the
         // plate holding it.
-        for plate in ROWS.iter().flat_map(|row| row.iter()) {
+        for plate in rows().iter().flat_map(|row| row.iter()) {
             let inside = plate.width(Scale::NATURAL) - PAD * 2.0;
             let columns = lcd::fits(inside);
 
@@ -1083,16 +1159,26 @@ mod tests {
     }
 
     #[test]
-    fn the_voice_the_signal_takes_is_the_second_row() {
-        let second: Vec<&str> = ROWS
+    fn the_voice_the_signal_takes_is_the_second_row_and_the_envelopes_the_third() {
+        let second: Vec<&str> = rows()
             .get(1)
-            .map(|plates| plates.iter().map(|plate| plate.name).collect())
+            .map(|plates| plates.iter().map(Plate::name).collect())
             .unwrap_or_default();
 
         assert_eq!(
             second,
-            vec!["DCO 1 & 2", "VCF", "VCA", "HPF", "ENVELOPES"],
-            "the lower row is the signal path, left to right"
+            vec!["OSC 1", "OSC 2", "VCF", "VCA", "HPF"],
+            "the signal path, left to right, with the oscillators unfolded"
+        );
+        let third: Vec<&str> = rows()
+            .get(2)
+            .map(|plates| plates.iter().map(Plate::name).collect())
+            .unwrap_or_default();
+
+        assert_eq!(
+            third,
+            vec!["VCA ENVELOPE", "VCF ENVELOPE", "MOD ENVELOPE"],
+            "and the envelopes have the row the instrument had no room for"
         );
     }
 }
