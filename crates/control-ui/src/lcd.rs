@@ -4,8 +4,18 @@
 //! dot matrix: a curve on it is not a curve but the dots nearest one, and the
 //! gaps between them are as much of the picture as the dots are. Drawing that
 //! as a smooth line on a black rectangle would be drawing some other
-//! instrument's display, so this is the grid itself — one quad per lit dot, at
-//! a pitch every display in the window shares.
+//! instrument's display, so this is the grid itself — one quad per printed dot,
+//! at a pitch every display in the window shares.
+//!
+//! # It is a lit panel, and the dots are dark on it
+//!
+//! The screen on a `DeepMind` is a backlit positive display. The glass is a
+//! pale green-white and what is written on it is printed dark, which is the one
+//! surface on the whole instrument that gives off light rather than catching
+//! it, and the reason a photograph of the panel has one bright rectangle in the
+//! middle of it. A window that drew pale dots on a dark pane would be drawing
+//! the negative of the instrument it is a picture of — every other synthesizer
+//! of the decade, and not this one.
 //!
 //! # One pitch, and a bigger screen is more dots
 //!
@@ -15,23 +25,26 @@
 //! strip over a plate's faders are cut from the same glass, and a plate wide
 //! enough for seven faders has a display wide enough to say more.
 //!
-//! # Only the lit dots are drawn
+//! # Only the printed dots are drawn
 //!
-//! An unlit dot on the instrument is the glass, and at arm's length there is no
-//! grid to see until something lights. So a screen is the glass and the dots it
-//! has lit, which is both what it looks like and eight thousand quads a display
-//! that nobody could see. What carries the matrix is the gap between the lit
-//! ones.
+//! A dot the display has not printed is the backlight coming through, and at
+//! arm's length there is no grid to see until something is written. So a screen
+//! is the lit glass and the dots printed on it, which is both what it looks
+//! like and eight thousand quads a display fewer than drawing the grid. What
+//! carries the matrix is the glass between the printed ones.
 //!
-//! # A screen has no moving part, so the claim is its colour
+//! # A screen has no moving part, so the claim is how hard it is printed
 //!
 //! Every control in this editor carries what backs its value in the fill of the
 //! thing that moves — filled for a fact, an outline for a claim, nothing at all
 //! for a value nobody has read. A display has nothing that moves. It is the
-//! same position the [name](crate::name) field is in, and it is answered the
-//! same way: the lit dots take the claim's own colour, the control beside the
-//! screen keeps the fill, and a screen drawn from anything unread is drawn
-//! dark rather than in a colour nobody should trust.
+//! same position the [name](crate::name) field is in, and the pale ground
+//! answers it better than a dark one could: [`written`](crate::written) prints a fact
+//! hard, a claim in copper mixed most of the way to the same black, and what
+//! nobody has read barely at all. Three depths of one ink, which is an ordering
+//! rather than a set of hues, so the difference survives a photograph and the
+//! readers who would not see the copper. A screen with nothing read behind it
+//! is left blank, which on this display means lit and empty.
 
 use core::fmt;
 
@@ -45,15 +58,15 @@ use iced_core::{
 
 use crate::Confidence;
 use crate::glyphs;
-use crate::style::{materials, tint};
+use crate::style::{materials, written};
 
 /// How far apart two dots are, in points, on every display in the window.
 pub const PITCH: f32 = 2.5;
 
-/// How much of that pitch is lit.
+/// How much of that pitch the dot covers.
 ///
-/// The rest is the gap, which is what makes a row of lit dots read as dots
-/// rather than as a line.
+/// The rest is the glass between them, which is what makes a row of printed
+/// dots read as dots rather than as a line.
 const LIT: f32 = 1.9;
 
 /// How much glass there is around the dots.
@@ -217,6 +230,31 @@ impl Band {
             .collect()
     }
 
+    /// Returns the `count` bands this one divides into, left to right, with
+    /// `gutter` dots of glass between them.
+    ///
+    /// The across twin of [`lanes`](Band::lanes), and empty on the same terms:
+    /// a band with no room to divide says so rather than returning columns a
+    /// dot wide.
+    #[must_use]
+    pub fn columns(self, count: i32, gutter: i32) -> Vec<Self> {
+        if count <= 0 {
+            return Vec::new();
+        }
+        let width = (self.width - gutter * (count - 1)) / count;
+        if width < 2 {
+            return Vec::new();
+        }
+        (0..count)
+            .map(|column| Self {
+                x: self.x + column * (width + gutter),
+                y: self.y,
+                width,
+                height: self.height,
+            })
+            .collect()
+    }
+
     /// Returns the row a height of `fraction` of the band falls on.
     ///
     /// Nothing is its floor and one is its top, which is the way up every
@@ -235,7 +273,7 @@ impl Band {
     }
 }
 
-/// What a display is showing: every dot of it, lit or not.
+/// What a display is showing: every dot of it, printed or not.
 ///
 /// Built by whatever is drawing, handed to [`lcd`], and drawn once. It holds
 /// dots and knows nothing about a value, a parameter or a claim: what goes on a
@@ -245,21 +283,21 @@ impl Band {
 pub struct Screen {
     columns: i32,
     rows: i32,
-    lit: Vec<bool>,
+    inked: Vec<bool>,
 }
 
 impl fmt::Debug for Screen {
-    /// Its size and how much of it is lit.
+    /// Its size and how much of it is printed.
     ///
     /// Eight thousand booleans printed one at a time is not a debug
     /// representation of anything.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "Screen({} x {}, {} lit)",
+            "Screen({} x {}, {} printed)",
             self.columns,
             self.rows,
-            self.lit.iter().filter(|dot| **dot).count()
+            self.inked.iter().filter(|dot| **dot).count()
         )
     }
 }
@@ -276,7 +314,7 @@ impl Screen {
         Self {
             columns,
             rows,
-            lit: vec![false; dots],
+            inked: vec![false; dots],
         }
     }
 
@@ -298,10 +336,10 @@ impl Screen {
         Band::new(0, 0, self.columns, self.rows)
     }
 
-    /// Whether anything at all is lit.
+    /// Whether the glass is lit and empty.
     #[must_use]
-    pub fn is_dark(&self) -> bool {
-        !self.lit.iter().any(|dot| *dot)
+    pub fn is_blank(&self) -> bool {
+        !self.inked.iter().any(|dot| *dot)
     }
 
     /// Returns where a dot lives, when it is on the screen at all.
@@ -315,17 +353,17 @@ impl Screen {
     /// Lights one dot. A dot off the screen is not an error; it is clipped.
     pub fn dot(&mut self, x: i32, y: i32) {
         if let Some(index) = self.index(x, y)
-            && let Some(dot) = self.lit.get_mut(index)
+            && let Some(dot) = self.inked.get_mut(index)
         {
             *dot = true;
         }
     }
 
-    /// Whether one dot is lit.
+    /// Whether one dot is printed.
     #[must_use]
-    pub fn is_lit(&self, x: i32, y: i32) -> bool {
+    pub fn is_inked(&self, x: i32, y: i32) -> bool {
         self.index(x, y)
-            .and_then(|index| self.lit.get(index))
+            .and_then(|index| self.inked.get(index))
             .copied()
             .unwrap_or_default()
     }
@@ -414,7 +452,7 @@ impl Screen {
             for column in 0..band.width {
                 let (x, y) = (band.x + column, band.y + row);
                 if let Some(index) = self.index(x, y)
-                    && let Some(dot) = self.lit.get_mut(index)
+                    && let Some(dot) = self.inked.get_mut(index)
                 {
                     *dot = !*dot;
                 }
@@ -584,14 +622,15 @@ where
         let bounds = layout.bounds();
         let material = materials(theme);
 
-        // The glass: the deepest recess on the panel, lit from the top the way
-        // the panel itself is, because a display is a window into a lit case
-        // and not a hole cut in one.
+        // The glass: the lit panel, brightest where the light enters it and
+        // falling away across it, inside the dark bezel it is set into. It is
+        // the one surface in this window that is brighter than the panel around
+        // it, which is what a backlit display looks like on a dark instrument.
         renderer.fill_quad(
             renderer::Quad {
                 bounds,
                 border: Border {
-                    color: material.recess_edge,
+                    color: material.recess,
                     width: 1.0,
                     radius: 3.into(),
                 },
@@ -600,15 +639,15 @@ where
             Background::Gradient(Gradient::Linear(
                 Linear::new(Radians(std::f32::consts::PI))
                     .add_stop(0.0, material.glass)
-                    .add_stop(1.0, material.recess),
+                    .add_stop(1.0, material.glass_low),
             )),
         );
 
-        let colour = tint(theme, self.claim);
+        let colour = written(theme, self.claim);
         let inset = (PITCH - LIT) / 2.0;
         for row in 0..self.screen.rows() {
             for column in 0..self.screen.columns() {
-                if !self.screen.is_lit(column, row) {
+                if !self.screen.is_inked(column, row) {
                     continue;
                 }
                 renderer.fill_quad(
@@ -633,20 +672,20 @@ where
 mod tests {
     use super::{Band, Ink, Screen, Size};
 
-    /// How many dots of a screen are lit.
-    fn lit(screen: &Screen) -> usize {
+    /// How many dots of a screen are printed.
+    fn inked(screen: &Screen) -> usize {
         (0..screen.rows())
             .flat_map(|row| (0..screen.columns()).map(move |column| (column, row)))
-            .filter(|(column, row)| screen.is_lit(*column, *row))
+            .filter(|(column, row)| screen.is_inked(*column, *row))
             .count()
     }
 
     #[test]
-    fn a_new_screen_is_dark() {
+    fn a_new_screen_is_blank() {
         let screen = Screen::new(40, 20);
 
-        assert!(screen.is_dark());
-        assert_eq!(lit(&screen), 0);
+        assert!(screen.is_blank());
+        assert_eq!(inked(&screen), 0);
     }
 
     #[test]
@@ -662,8 +701,8 @@ mod tests {
         screen.dot(4, 8);
         screen.line((-40, -40), (80, 80), Ink::Solid);
 
-        assert!(screen.is_lit(4, 4), "the part of the line that is on it");
-        assert!(!screen.is_lit(0, 4));
+        assert!(screen.is_inked(4, 4), "the part of the line that is on it");
+        assert!(!screen.is_inked(0, 4));
     }
 
     #[test]
@@ -679,7 +718,7 @@ mod tests {
 
         for row in 0..16 {
             assert!(
-                screen.is_lit(2, row),
+                screen.is_inked(2, row),
                 "the column the drop happens in has a gap at row {row}"
             );
         }
@@ -690,8 +729,8 @@ mod tests {
         let mut screen = Screen::new(10, 10);
         screen.curve(screen.all(), Ink::Solid, |x| x);
 
-        assert!(screen.is_lit(0, 9), "nothing at the left end");
-        assert!(screen.is_lit(9, 0), "nothing at the right end");
+        assert!(screen.is_inked(0, 9), "nothing at the left end");
+        assert!(screen.is_inked(9, 0), "nothing at the right end");
     }
 
     #[test]
@@ -718,7 +757,7 @@ mod tests {
             Screen::width_of("VCF", Size::Large),
             Screen::width_of("VCF", Size::Small) * 2
         );
-        assert!(!screen.is_dark());
+        assert!(!screen.is_blank());
     }
 
     #[test]
@@ -729,7 +768,7 @@ mod tests {
         let mut screen = Screen::new(12, 8);
         screen.write(0, 0, "a name far too long for this", Size::Small);
 
-        assert!(!screen.is_dark());
+        assert!(!screen.is_blank());
     }
 
     #[test]
@@ -740,9 +779,9 @@ mod tests {
         let mut inverted = washed.clone();
         inverted.invert(band);
 
-        assert_eq!(lit(&washed), 50);
-        assert_eq!(lit(&inverted), 50);
-        assert_ne!(washed.is_lit(0, 0), inverted.is_lit(0, 0));
+        assert_eq!(inked(&washed), 50);
+        assert_eq!(inked(&inverted), 50);
+        assert_ne!(washed.is_inked(0, 0), inverted.is_inked(0, 0));
     }
 
     #[test]
@@ -759,10 +798,10 @@ mod tests {
     }
 
     #[test]
-    fn a_screen_says_its_size_and_how_much_of_it_is_lit() {
+    fn a_screen_says_its_size_and_how_much_of_it_is_inked() {
         let mut screen = Screen::new(6, 3);
         screen.dot(1, 1);
 
-        assert_eq!(format!("{screen:?}"), "Screen(6 x 3, 1 lit)");
+        assert_eq!(format!("{screen:?}"), "Screen(6 x 3, 1 printed)");
     }
 }

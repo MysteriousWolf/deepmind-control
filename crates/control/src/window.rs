@@ -113,13 +113,18 @@ fn view(app: &App) -> Element<'_, Message> {
                 // and a front panel with its lower row below the fold is a
                 // front panel with the whole voice missing.
                 View::Panel => scrollable(
-                    control_ui::panel(app.patch(), app.firmware(), screen(app)).map(Message::Ui),
+                    control_ui::panel(app.patch(), app.firmware(), |screen| paint(screen, app))
+                        .map(Message::Ui),
                 )
                 .height(Fill)
                 .into(),
                 View::Editor => editor(app),
                 View::Library => librarian::view(app),
             })
+            // Along the foot, under whichever surface is showing, because a
+            // control is pointed at on all three of them and a footer that
+            // moved with the surface would be a different footer each time.
+            .push(control_ui::footer(app.pointed(), app.patch(), app.firmware()).map(Message::Ui))
             .spacing(12)
             .padding(16),
     )
@@ -171,12 +176,6 @@ fn surfaces(app: &App) -> Element<'_, Message> {
 /// toolkit text in a dark box: the instrument's screen is a dot matrix, and a
 /// program name set in the machine's own sans is the one thing on this window
 /// that would be pretending to be something it is not.
-fn screen(app: &App) -> control_ui::Element<'_, iced::Renderer> {
-    let mut screen = control_ui::screen();
-    paint(&mut screen, app);
-    control_ui::lcd(screen, app.patch().confidence())
-}
-
 /// Writes what the display is showing onto `screen`.
 ///
 /// Apart from [`screen`] so that what is drawn can be looked at without a
@@ -219,11 +218,6 @@ fn paint(screen: &mut Screen, app: &App) {
         line += small + 2;
     }
 
-    // How much of the sound is the synthesizer's own account of it, which is
-    // the one reading this editor has that no instrument does: the hardware
-    // knows what it is playing and never has to wonder what a host believes.
-    tally(screen, app, line + 4);
-
     // And the last thing that happened, along the bottom, where the instrument
     // prints what it is doing.
     let status = fold(app.status(), all.width);
@@ -232,43 +226,6 @@ fn paint(screen: &mut Screen, app: &App) {
         screen.write(2, line, &words, Size::Small);
         line += small + 2;
     }
-}
-
-/// Draws how many of the sound's values the synthesizer itself described.
-///
-/// A bar and a count, and it is the one thing on this display an instrument's
-/// own screen could never show: a `DeepMind` knows what it is playing, and only
-/// a host has to keep track of which of the 242 values it has heard back and
-/// which are still its own arithmetic. It is the whole editor's claim in one
-/// line — a full bar means the panel behind this screen is the sound, and a
-/// half-full one means half of it is an intention.
-///
-/// The count is asked of the parameter table rather than written down, so a
-/// library that grows a parameter is a longer bar and not a wrong number.
-fn tally(screen: &mut Screen, app: &App, top: i32) {
-    let all = screen.all();
-    let reported = ParamId::ALL
-        .iter()
-        .filter(|parameter| app.patch().claim(**parameter).is_confirmed())
-        .count();
-    let total = ParamId::ALL.len();
-    let small = Screen::height_of(Size::Small);
-    let bar = Band::new(4, top, all.width - 8, small);
-    screen.frame(bar, Ink::Solid);
-    #[expect(
-        clippy::cast_precision_loss,
-        reason = "a count of parameters, which is two hundred and forty-two of them"
-    )]
-    let through = reported as f32 / total.max(1) as f32;
-    let inside = bar.inset(2);
-    #[expect(
-        clippy::cast_possible_truncation,
-        reason = "a fraction of a width this screen already holds"
-    )]
-    let filled = (through * f32::from(u16::try_from(inside.width).unwrap_or_default())) as i32;
-    screen.fill(Band::new(inside.x, inside.y, filled, inside.height));
-    let counted = format!("{reported} of {total} reported");
-    screen.centre(top + small + 3, &counted, Size::Small);
 }
 
 /// What the program calls itself, where the instrument has a word for it.
@@ -463,7 +420,6 @@ fn controls(app: &App) -> Element<'_, Message> {
         // a program name is sixteen characters and the legend is the one thing
         // on this row that has to stay readable whatever the sound is called.
         text(sound).size(13).width(Fill),
-        control_ui::legend().map(Message::Ui),
     ]
     .spacing(10)
     .align_y(Center)
@@ -558,6 +514,6 @@ mod tests {
         let mut screen = control_ui::screen();
         paint(&mut screen, &App::opening(&[]));
 
-        assert!(!screen.is_dark());
+        assert!(!screen.is_blank());
     }
 }

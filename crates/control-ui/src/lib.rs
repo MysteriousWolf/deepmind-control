@@ -127,6 +127,7 @@ mod confidence;
 mod effect;
 mod envelope;
 mod fader;
+mod footer;
 mod glyphs;
 mod home;
 mod lcd;
@@ -141,15 +142,16 @@ mod style;
 
 pub use confidence::Confidence;
 pub use fader::{Axis, Fader, fader};
+pub use footer::footer;
 pub use home::{panel, panelled, screen};
 pub use lcd::{Band, Ink, PITCH, Screen, Size, lcd};
 pub use name::characters as name_characters;
-pub use panel::{Message, group, legend};
+pub use panel::{Message, group};
 pub use patch::Patch;
 pub use section::{first_section, section_bar, sections};
 pub use style::{
     Materials, bay, chrome, deepmind, ground, materials, printed, reading, selector, shortlist,
-    tint, wordmark,
+    tint, wordmark, written,
 };
 
 /// A piece of interface, produced by the views in this crate.

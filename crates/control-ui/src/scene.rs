@@ -437,16 +437,66 @@ fn swing(screen: &mut Screen, patch: &Patch, band: Band) {
     }
 }
 
-/// Draws all three envelopes, one over another.
+/// How much glass there is between two panes of one display.
+const GUTTER: i32 = 3;
+
+/// Draws all three envelopes side by side, each in a pane with its name on it.
 ///
 /// The one thing on this panel the instrument itself cannot show. A `DeepMind`
 /// has three envelopes, one display and three buttons that choose which of them
 /// the four faders under it are addressing, so a player comparing the filter's
 /// attack with the amplifier's is comparing one of them with their memory of
-/// the other. Here they are the same drawing three times, told apart by the
-/// ink: the amplifier's is solid and washed under, because it is the one you
-/// hear, and the other two are the line alone.
+/// the other.
+///
+/// They are laid out rather than stacked. Three curves sharing one band and
+/// told apart by a dash pattern is a drawing that has all three envelopes in it
+/// and shows you none of them: on a grid of dots two lines crossing are the
+/// same dots, and the question anybody asks this display — which of these
+/// decays first — is the question an overlay answers worst. A pane each, named,
+/// is the whole of what the room is for.
+///
+/// Where the room is not there, the overlay is still the right drawing, and
+/// [`stacked`] is it. A plate whose display is too narrow to divide gets the
+/// three curves in one band rather than nothing.
 fn envelopes_on(screen: &mut Screen, patch: &Patch) {
+    let groups = envelopes();
+    // One pane per envelope the library has, and not three: an instrument with
+    // a fourth gets a fourth pane with nothing here to edit.
+    let panes = screen
+        .all()
+        .columns(i32::try_from(groups.len()).unwrap_or_default(), GUTTER);
+    if panes.is_empty() {
+        stacked(screen, patch);
+        return;
+    }
+    let named = Screen::height_of(Size::Small);
+    for (pane, group) in panes.into_iter().zip(groups) {
+        screen.write(pane.x, pane.y, button(group), Size::Small);
+        let under = Band::new(
+            pane.x,
+            pane.y + named + 1,
+            pane.width,
+            pane.height - named - 1,
+        );
+        // The floor, so that a pane whose envelope has not been read is still a
+        // pane rather than a gap, and so that three curves at three heights are
+        // read against three baselines rather than against each other.
+        screen.across(under.x, under.row(0.0), under.width, Ink::Dotted);
+        let Some(corners) = envelope::corners(patch, group) else {
+            continue;
+        };
+        // The amplifier's is filled, because it is the one you hear. The other
+        // two are the line, because a filter's envelope is a shape and not an
+        // amount of anything.
+        if group == Group::VcaEnvelope {
+            screen.under(under, |x| corners.height_at(x));
+        }
+        screen.curve(under, Ink::Solid, |x| corners.height_at(x));
+    }
+}
+
+/// The three envelopes in one band, for a display with no room to divide.
+fn stacked(screen: &mut Screen, patch: &Patch) {
     let band = screen.all();
     for (index, group) in envelopes().into_iter().enumerate() {
         let Some(corners) = envelope::corners(patch, group) else {
@@ -459,6 +509,16 @@ fn envelopes_on(screen: &mut Screen, patch: &Patch) {
         };
         screen.curve(band, ink, |x| corners.height_at(x));
     }
+}
+
+/// What the instrument prints on the button that chooses this envelope.
+///
+/// The first word of the library's own name for the group, which is `VCA`,
+/// `VCF` and `Mod` — the three legends the hardware prints under its own three
+/// buttons. Taken off the name rather than written down beside it, so a library
+/// that renames a group renames the pane.
+fn button(group: Group) -> &'static str {
+    group.name().split_whitespace().next().unwrap_or_default()
 }
 
 /// Draws the amplifier's envelope, under the level it is played at.
@@ -703,16 +763,43 @@ mod tests {
     }
 
     #[test]
-    fn a_scene_is_dark_until_something_has_been_read() {
+    fn the_three_envelopes_are_three_panes_and_not_three_curves_in_one() {
+        // The point of the drawing. Three envelopes sharing a band are three
+        // sets of dots in the same place, and the question this display is for
+        // — which of these decays first — is the one an overlay answers worst.
+        let mut screen = super::super::Screen::new(90, 20);
+        super::envelopes_on(&mut screen, &read());
+
+        // Each pane is named after the button the hardware chooses it with.
+        for group in super::envelopes() {
+            let named = super::button(group);
+            assert!(!named.is_empty(), "{group:?} names no button");
+            assert!(!named.contains(' '), "{named} is a name and not a legend");
+        }
+        assert!(!screen.is_blank(), "three panes and nothing drawn");
+    }
+
+    #[test]
+    fn a_display_too_narrow_to_divide_still_draws_all_three() {
+        // The fallback is the old drawing, not an empty pane: a plate whose
+        // display cannot hold three panes is still a plate about envelopes.
+        let mut screen = super::super::Screen::new(12, 12);
+        super::envelopes_on(&mut screen, &read());
+
+        assert!(!screen.is_blank(), "a narrow display drew nothing");
+    }
+
+    #[test]
+    fn a_scene_is_blank_until_something_has_been_read() {
         let scene = Scene::Filter;
         let unread = Patch::new();
 
         assert!(
-            scene.screen(&unread, DEFAULT_FIRMWARE, 40, 20).is_dark(),
+            scene.screen(&unread, DEFAULT_FIRMWARE, 40, 20).is_blank(),
             "a filter drawn from a sound nobody has read"
         );
         assert!(
-            !scene.screen(&read(), DEFAULT_FIRMWARE, 40, 20).is_dark(),
+            !scene.screen(&read(), DEFAULT_FIRMWARE, 40, 20).is_blank(),
             "a filter that has been read and is not drawn"
         );
     }

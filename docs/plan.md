@@ -588,12 +588,25 @@ at once, on one screen, which an instrument with one display and three envelope
 buttons cannot do.
 
 They are the instrument's own screen and not a dark rectangle with words in it.
-A `DeepMind`'s display is a dot matrix, so these are dots: one quad per lit dot
-at a pitch every display in the window shares, a 5×7 cell for anything written,
-and a curve drawn as the dots nearest one. A display given more room gets more
-dots and never bigger ones, which is what makes the strip over a plate and the
-panel's own screen two windows into one instrument rather than one of them
-magnified.
+A `DeepMind`'s display is a dot matrix, so these are dots: one quad per printed
+dot at a pitch every display in the window shares, a 5×7 cell for anything
+written, and a curve drawn as the dots nearest one. A display given more room
+gets more dots and never bigger ones, which is what makes the strip over a plate
+and the panel's own screen two windows into one instrument rather than one of
+them magnified.
+
+And it is a *positive* display: a pale green-white backlit panel with its dots
+printed dark on it. That is the one bright rectangle in a photograph of the
+instrument, and it is worth getting right, because a window that drew pale dots
+on a dark pane would be drawing the negative of the thing it is a picture of —
+every other synthesizer of the decade, and not this one.
+
+The three envelopes are laid out rather than overlaid. Three curves sharing one
+band and told apart by a dash pattern is a drawing with all three envelopes in
+it that shows you none of them: on a grid of dots two lines crossing are the
+same dots. A pane each, named after the button the hardware selects it with, is
+what the room is for — and having the room is the whole reason this panel has
+ten screens where the instrument has one.
 
 What they draw is under the refusals everything else here is under, and the
 refusals are what decides the drawings. No axis is in anybody's units: a filter's
@@ -607,20 +620,36 @@ byte doing two things has no published crossover, and pulse width modulation is
 the depth's own travel marked either side of the edge rather than a duty cycle.
 [interface.md](interface.md#display) has the list and the anatomy.
 
-The claim is the whole screen's colour, which is the second control to carry it
-that way and for the first one's reason: a display has no moving part to fill,
-exactly as the name field has none, so the dots take the claim's colour, the
-control beside the screen keeps the fill, and a screen with anything unread is
-drawn dark rather than in a colour nobody should trust.
+The claim is how hard the dots are printed, which is the second control to carry
+it without a fill and for the first one's reason: a display has no moving part,
+exactly as the name field has none. The pale ground answers it better than a
+dark one could — a fact is printed hard, a claim in the copper mixed most of the
+way to the same black, and what nobody has read barely at all. Three depths of
+one ink is an ordering before it is a set of hues, so it survives a photograph
+and the readers who would not see the copper.
 
 Three things the hardware has that the panel does not. The row of twelve lamps
 over `POLY` says how many voices are sounding, and nothing on a MIDI port says
 that, so it is not drawn: a lamp that cannot be lit honestly is worse than no
 lamp. The `DATA ENTRY` fader edits whatever the display is showing, and a window
-has the value under the pointer instead. And the hardware's white, yellow and
-cyan buttons are drawn in this window's own materials, because here a colour
-already means something — copper is a claim, green is the instrument's own
-account — and a fourth meaning is a thing to learn rather than a thing to read.
+has the value under the pointer instead. And the row of twelve `VOICES` lamps is the
+only thing on the hardware's front this panel leaves out.
+
+The buttons are the instrument's, and that is a decision reversed. The plan
+argued that the hardware's white, yellow and cyan should be drawn in this
+window's own materials, because a colour here already meant something — copper a
+claim, green the instrument's own account — and a fourth meaning would be a
+thing to learn rather than a thing to read. Moving the claim onto the glass as a
+depth of ink took it off the panel's lamps entirely, and with it the objection:
+the panel now lights amber where the hardware lights `EDIT` and cyan where it
+lights `MOD`, which is two meanings taken from the instrument rather than three
+invented here. A way in is a legend silkscreened on the panel over a lit square,
+because that is what it is on the hardware and not a word in a box.
+
+The panel also fills the window it is in, through one scale measured from its
+widest row: the lanes, the faders, the buttons, the type and the gaps between
+and inside the plates. Scaling the gaps is the half that decides whether it
+reads as an instrument or as a panel with its parts pushed apart.
 
 ## A panel is generated before it is drawn
 

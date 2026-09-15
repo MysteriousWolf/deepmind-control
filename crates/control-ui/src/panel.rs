@@ -30,7 +30,7 @@ use deepmind_midi::program::ProgramName;
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::alignment::{Horizontal, Vertical};
 use iced_core::{Background, Border, Font, Length, Theme, border, text::Renderer as TextRenderer};
-use iced_widget::{Space, button, column, container, pick_list, row, text};
+use iced_widget::{Space, button, column, container, mouse_area, pick_list, row, text};
 
 use crate::effect;
 use crate::envelope;
@@ -172,10 +172,11 @@ impl Room {
 
 /// What a view in this crate asks for.
 ///
-/// Three things, and the last one never reaches a wire: a parameter should
-/// move, the program should be called something, or a section should be the one
-/// on the screen. What an edit costs on a wire, when it goes out and what it
-/// goes out behind is the host crate's business.
+/// Four things, and the last two never reach a wire: a parameter should move,
+/// the program should be called something, a section should be the one on the
+/// screen, or the pointer has come to rest on a control. What an edit costs on
+/// a wire, when it goes out and what it goes out behind is the host crate's
+/// business.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Message {
     /// A parameter should move to this value.
@@ -199,6 +200,15 @@ pub enum Message {
     /// front of somebody is the application's state and not the synthesizer's,
     /// so this is the one message that goes nowhere near the port.
     Show(Group),
+    /// The pointer is over this control, or has left the one it was over.
+    ///
+    /// A panel of forty faders under four-letter legends is only readable
+    /// because a hand can ask what one of them is, and this is the asking. The
+    /// answer is drawn somewhere else — the application decides where a footer
+    /// goes — so all a view does is say what is under the pointer.
+    ///
+    /// It never reaches a wire. Looking at a control is not editing it.
+    Pointed(Option<ParamId>),
 }
 
 /// Draws one group of parameters.
@@ -282,27 +292,6 @@ where
         .into()
 }
 
-/// Draws what the three drawings of a value mean.
-#[must_use]
-pub fn legend<'a, Renderer>() -> Element<'a, Renderer>
-where
-    Renderer: TextRenderer<Font = Font> + 'a,
-{
-    row![
-        dot(Confidence::Confirmed),
-        muted("reported"),
-        Space::new().width(Length::Fixed(14.0)),
-        dot(Confidence::Assumed),
-        muted("claimed"),
-        Space::new().width(Length::Fixed(14.0)),
-        dot(Confidence::Unknown),
-        muted("unread"),
-    ]
-    .spacing(6)
-    .align_y(Vertical::Center)
-    .into()
-}
-
 /// Draws one parameter: its address, its control, its value and its name.
 fn slot<'a, Renderer>(
     patch: &Patch,
@@ -377,6 +366,27 @@ where
 /// empty slot in a rack of forty is harder to read than a fader with no cap on
 /// it. The control says so by having nothing to take hold of.
 pub(crate) fn control<'a, Renderer>(
+    parameter: ParamId,
+    value: Option<u8>,
+    claim: Confidence,
+    firmware: Version,
+    room: Room,
+) -> Element<'a, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    // Every control in this editor is drawn through here — a lane of the front
+    // panel, a slot of a rack, a step of the sequencer, a byte of an effect — so
+    // this is the one place that has to notice a pointer for all of them to say
+    // what they are.
+    mouse_area(drawn(parameter, value, claim, firmware, room))
+        .on_enter(Message::Pointed(Some(parameter)))
+        .on_exit(Message::Pointed(None))
+        .into()
+}
+
+/// Draws the control itself, as whatever the library says the parameter is.
+fn drawn<'a, Renderer>(
     parameter: ParamId,
     value: Option<u8>,
     claim: Confidence,
@@ -601,9 +611,9 @@ where
         .width(Length::Fixed(5.0))
         .height(Length::Fixed(5.0))
         .style(move |_theme: &Theme| container::Style {
-            background: (moved && heeded).then_some(Background::Color(style::LAMP)),
+            background: (moved && heeded).then_some(Background::Color(style::MODULATION)),
             border: if moved && !heeded {
-                border::rounded(3).width(1.0).color(style::LAMP)
+                border::rounded(3).width(1.0).color(style::MODULATION)
             } else {
                 border::rounded(3)
             },
@@ -649,16 +659,6 @@ fn shown(parameter: ParamId, value: Option<u8>, firmware: Version) -> String {
             .label_for(u16::from(value), firmware)
             .map_or_else(|| value.to_string(), str::to_owned),
     }
-}
-
-/// Grey text, for what is not a value.
-fn muted<Renderer>(what: &str) -> iced_widget::Text<'_, Theme, Renderer>
-where
-    Renderer: TextRenderer,
-{
-    text(what).size(14).style(move |theme: &Theme| text::Style {
-        color: Some(tint(theme, Confidence::Unknown)),
-    })
 }
 
 /// One value of a named set, as a list shows it.
