@@ -40,6 +40,7 @@ use iced_core::{Font, Length, Theme, text::Renderer as TextRenderer};
 use iced_widget::{Space, column, container, row, text};
 
 use crate::panel::{Room, control, readout};
+use crate::style::reading;
 use crate::{Confidence, Element, Patch, tint};
 
 /// How much room the number of a routing is given.
@@ -205,12 +206,11 @@ where
             container(
                 column![
                     text(routing.label).size(12),
-                    text(routing.addresses())
-                        .size(10)
-                        .font(Font::MONOSPACE)
-                        .style(move |theme: &Theme| text::Style {
+                    text(routing.addresses()).size(10).font(reading()).style(
+                        move |theme: &Theme| text::Style {
                             color: Some(tint(theme, Confidence::Unknown)),
-                        }),
+                        }
+                    ),
                 ]
                 .spacing(2)
             )

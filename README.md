@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-stage%205-orange" alt="Status: stage 5">
+  <img src="https://img.shields.io/badge/status-polish-orange" alt="Status: polish">
   <a href="https://github.com/MysteriousWolf/deepmind-control/actions/workflows/ci.yml"><img src="https://github.com/MysteriousWolf/deepmind-control/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/MysteriousWolf/deepmind-midi"><img src="https://img.shields.io/badge/built%20on-deepmind--midi-blue" alt="Built on deepmind-midi"></a>
   <a href="https://github.com/MysteriousWolf/deepmind-control/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-green" alt="License: Apache-2.0"></a>
@@ -21,11 +21,14 @@ DeepMind <--MIDI--> port <--bytes--> deepmind-midi <--events--> the interface
               midir, or the DAW
 ```
 
-**Status: an editor and a librarian.** There is a window with two surfaces. The
-editor lists the ports, opens one, finds out who is on it and which firmware's
-value tables are true, reads the edit buffer, and edits all 242 parameters end to
-end — with the values the synthesizer reported drawn differently from the ones
-this window put there. The library reads and writes `.syx` files, reads a bank
+**Status: an editor and a librarian, complete and being polished.** There is a
+window with three surfaces, and it opens on the instrument's own front panel:
+two rows of section plates with a screen between them, the controls the hardware
+puts a fader under, and on every plate the press it calls `EDIT`. Behind those
+presses is the editor, which lists the ports, opens one, finds out who is on it
+and which firmware's value tables are true, reads the edit buffer, and edits all
+242 parameters end to end — with the values the synthesizer reported drawn
+differently from the ones this window put there. The library reads and writes `.syx` files, reads a bank
 off the instrument with a progress bar and a stop button, browses what it found
 in slot order, and loads any of it into the edit buffer as the difference rather
 than as 242 parameters.
@@ -33,13 +36,14 @@ than as 242 parameters.
 The parameters are fourteen panels, chosen from a section bar that carries each
 section's own claim, and every panel is drawn from the library's table rather
 than laid out by hand: complete first, beautiful group by group after. Every
-panel that is not a rack has had its layout — the program's name, 17 parameters
+panel that is not a rack now has its layout — the program's name, 17 parameters
 holding a character each drawn as the one display the instrument shows them on;
 the three envelopes, four faders and the shape they make; the modulation matrix,
-eight routings read across as rows rather than down as twenty-four slots; and the
-control sequencer as one strip of thirty-two steps. What is left is the effects,
-which is the next stage. See [the plan](docs/plan.md) for what is being built and
-in what order.
+eight routings read across as rows rather than down as twenty-four slots; the
+control sequencer as one strip of thirty-two steps; and the effects as four
+engine plates, each of them twelve bytes under the names the algorithm it is
+running gives them. What is left is polish, and then the plugin. See
+[the plan](docs/plan.md) for what is being built and in what order.
 
 It is dark, in the instrument's own colours: the palette is read off the mark in
 `docs/logo.svg`, which draws the same panel, metal and wood, and one file holds
@@ -78,6 +82,7 @@ Nothing here has been run against a synthesizer yet.
 | --- | --- |
 | [Plan](docs/plan.md) | What is being built, the decisions behind it, and the order |
 | [Interface](docs/interface.md) | What a control looks like, what its three states are, and why |
+| [Waiting](docs/waiting.md) | What has been asked of the library, and what each answer would change here |
 | [Protocol](https://github.com/MysteriousWolf/deepmind-midi/blob/main/docs/midi-spec.md) | Lives in the library, along with the specification it is generated from |
 | [NOTICE](NOTICE) | Trademarks, and where the marks come from |
 

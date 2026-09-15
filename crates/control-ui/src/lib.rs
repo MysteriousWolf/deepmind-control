@@ -21,6 +21,14 @@
 //! sent, and what it is sent behind is the host crate's problem: the views do
 //! not know that a wire has a speed.
 //!
+//! # The panel, and then the fourteen behind it
+//!
+//! [`panel`] is the front of the instrument: two rows of section plates with a
+//! screen between them, the twenty-odd controls Behringer put a fader under,
+//! and on every plate the press the hardware calls `EDIT`. It is where a window
+//! opens, because it is where a player looks first, and everything else is
+//! behind one of those presses.
+//!
 //! # Fourteen panels, one at a time
 //!
 //! [`group`] draws one section as the instrument lays it out, and
@@ -40,6 +48,15 @@
 //! [`name_characters`] are the seventeen parameters the instrument stores a name
 //! in, and they are drawn as the one display it shows them on, because
 //! seventeen faders are not a name.
+//!
+//! The effects are the panel that needs the library most. `FX 1 Param 3` is
+//! `Size` on a Room Reverb and `Depth` on a Phaser, and which of the two it is
+//! depends on a byte somewhere else in the same program: the panel reads the
+//! algorithm each engine is running and names its twelve slots from the table
+//! `deepmind-midi` 26.2 publishes, for the firmware that answered the inquiry.
+//! The control is still the parameter table's own, because what the display
+//! reads there and what the byte is are two different claims and only one of
+//! them is published.
 //!
 //! ```
 //! use control_ui::{Confidence, Patch};
@@ -64,6 +81,14 @@
 //! with metal fader caps on it, and the palette is read off the mark that draws
 //! exactly those materials.
 //!
+//! The same file holds the three faces anything is set in — [`printed`],
+//! [`wordmark`] and [`reading`] — and what the parts of a window that are not
+//! parameters are drawn as: [`ground`] is the panel gradient the whole window
+//! stands on, and [`chrome`], [`selector`], [`shortlist`] and [`bay`] are a
+//! button, a picker, the list it opens and a panel of words in the instrument's
+//! own materials. A port picker is not a parameter and is still on the
+//! instrument.
+//!
 //! # The theme is shared and the renderer is not
 //!
 //! Views are generic over the renderer, because the desktop build and the plugin
@@ -71,8 +96,10 @@
 //! [`iced_core::Theme`] is what both of them have.
 
 mod confidence;
+mod effect;
 mod envelope;
 mod fader;
+mod home;
 mod matrix;
 mod name;
 mod panel;
@@ -83,11 +110,15 @@ mod style;
 
 pub use confidence::Confidence;
 pub use fader::{Axis, Fader, fader};
+pub use home::{panel, panelled};
 pub use name::characters as name_characters;
 pub use panel::{Message, group, legend};
 pub use patch::Patch;
 pub use section::{first_section, section_bar, sections};
-pub use style::{Materials, deepmind, materials, tint};
+pub use style::{
+    Materials, bay, chrome, deepmind, ground, materials, printed, reading, selector, shortlist,
+    tint, wordmark,
+};
 
 /// A piece of interface, produced by the views in this crate.
 ///

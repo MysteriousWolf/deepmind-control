@@ -32,12 +32,13 @@ use iced_core::alignment::{Horizontal, Vertical};
 use iced_core::{Background, Border, Font, Length, Theme, border, text::Renderer as TextRenderer};
 use iced_widget::{Space, button, column, container, pick_list, row, text};
 
+use crate::effect;
 use crate::envelope;
 use crate::fader::{self, Axis, fader};
 use crate::matrix;
 use crate::name;
 use crate::sequencer;
-use crate::style::{self, materials};
+use crate::style::{self, materials, reading};
 use crate::{Confidence, Element, Patch, tint};
 
 /// Width of one slot, which is the fader plus the room a name needs either side.
@@ -73,6 +74,16 @@ pub(crate) struct Room {
     /// How tall the control stands, so that a rack's slots line up whatever is
     /// in them and a row is only as tall as what it holds.
     height: Length,
+    /// How long a fader's travel is when it runs down the panel.
+    travel: f32,
+    /// Whether there is room to light a named set rather than list it.
+    ///
+    /// A list is the honest control for a set too long to read at a glance,
+    /// and how long that is depends on the room: a rack's slot has none to
+    /// spare, and the strip of legends beside the instrument's own LFO faders
+    /// has seven. It is room and not identity — the same enumerated parameter,
+    /// from the same table, with the same values under it.
+    legends: bool,
 }
 
 impl Room {
@@ -84,7 +95,35 @@ impl Room {
         axis: Axis::Down,
         width: fader::WIDTH + 28.0,
         height: Length::Fixed(fader::HEIGHT),
+        travel: fader::HEIGHT,
+        legends: false,
     };
+
+    /// Room for one lane of the instrument's own front panel.
+    ///
+    /// Narrower than a slot and shorter, because the panel holds two rows of
+    /// eighteen and the hardware's own faders are a third the length of the
+    /// ones in a rack.
+    pub(crate) const fn lane(width: f32, travel: f32) -> Self {
+        Self {
+            axis: Axis::Down,
+            width,
+            height: Length::Fixed(travel),
+            travel,
+            legends: false,
+        }
+    }
+
+    /// The same lane, with room to light a named set rather than list it.
+    pub(crate) const fn lamps(width: f32, height: f32) -> Self {
+        Self {
+            axis: Axis::Down,
+            width,
+            height: Length::Fixed(height),
+            travel: height,
+            legends: true,
+        }
+    }
 
     /// Room for something chosen from a list in a row, `width` points of it.
     ///
@@ -95,6 +134,8 @@ impl Room {
             axis: Axis::Down,
             width,
             height: Length::Fixed(fader::WIDTH),
+            travel: fader::HEIGHT,
+            legends: false,
         }
     }
 
@@ -107,6 +148,8 @@ impl Room {
             axis: Axis::Down,
             width,
             height: Length::Fixed(fader::HEIGHT),
+            travel: fader::HEIGHT,
+            legends: false,
         }
     }
 
@@ -116,6 +159,8 @@ impl Room {
             axis: Axis::Across,
             width,
             height: Length::Fixed(fader::WIDTH),
+            travel: fader::HEIGHT,
+            legends: false,
         }
     }
 
@@ -177,13 +222,18 @@ where
     // row knows about keeps it as a slot rather than losing it to a layout.
     let routed = matrix::routed(group);
     let stepped = sequencer::stepped(group);
+    let claimed = effect::claimed(group);
     // What the eight routings are pointed at, so a slot the matrix moves says
     // so. Read once for the panel rather than once per slot: it is eight
     // lookups either way, and forty slots asking the same question is forty.
     let moved = matrix::moved(patch, firmware);
     let slots: Vec<Element<'a, Renderer>> = group
         .parameters()
-        .filter(|parameter| !routed.contains(parameter) && !stepped.contains(parameter))
+        .filter(|parameter| {
+            !routed.contains(parameter)
+                && !stepped.contains(parameter)
+                && !claimed.contains(parameter)
+        })
         .filter_map(|parameter| {
             if name::holds(parameter) {
                 return name::begins(parameter).then(|| name::field(patch));
@@ -204,6 +254,9 @@ where
     }
     if let Some(strip) = sequencer::strip(patch, group, firmware) {
         body = body.push(strip);
+    }
+    if let Some(engines) = effect::panels(patch, group, firmware, &moved) {
+        body = body.push(engines);
     }
     if !slots.is_empty() {
         body = body.push(row(slots).spacing(0).wrap());
@@ -266,7 +319,7 @@ where
         row![
             address(parameter),
             Space::new().width(Length::Fixed(4.0)),
-            modulated(moved.contains(&parameter)),
+            modulated(moved.contains(&parameter), true),
         ]
         .align_y(Vertical::Center),
         control(parameter, value, claim, firmware, Room::SLOT),
@@ -292,7 +345,7 @@ where
 {
     text(parameter.offset().to_string())
         .size(10)
-        .font(Font::MONOSPACE)
+        .font(reading())
         .style(move |theme: &Theme| text::Style {
             color: Some(tint(theme, Confidence::Unknown)),
         })
@@ -309,9 +362,9 @@ pub(crate) fn readout<'a, Renderer>(
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
-    text(reading(parameter, value, firmware))
+    text(shown(parameter, value, firmware))
         .size(13)
-        .font(Font::MONOSPACE)
+        .font(reading())
         .style(move |theme: &Theme| text::Style {
             color: Some(tint(theme, claim)),
         })
@@ -335,9 +388,6 @@ where
 {
     let low = u8::try_from(parameter.min()).unwrap_or(u8::MIN);
     let high = u8::try_from(parameter.max()).unwrap_or(u8::MAX);
-    let Some(value) = value else {
-        return sweep(parameter, low..=high, low, Confidence::Unknown, room);
-    };
     match parameter.kind() {
         // A switch is two states, and the library says which parameters are
         // switches. Where it also says one accepts 256 values, the two answers
@@ -346,26 +396,19 @@ where
         // 9` and `11` are the two that say it today, from a `kind = "switch"`
         // in `spec/parameters.toml` that their own range and their own note
         // disagree with. Drawing the sweep is the reading that loses nothing.
-        Kind::Switch if parameter.max() <= 1 => lamp(
-            parameter,
-            value != 0,
-            claim,
-            u8::from(value == 0),
-            if value == 0 { "off" } else { "on" },
-            room,
-        ),
+        Kind::Switch if parameter.max() <= 1 => lamp(parameter, value, claim, room),
         Kind::Enumerated(_) => match choices(parameter, firmware, value) {
-            Some(options) if options.len() <= LEGENDS => {
+            Some(options) if options.len() <= LEGENDS || room.legends => {
                 legends(parameter, &options, value, claim, room)
             }
             Some(options) => list(parameter, options, value, room),
             // A table that does not name this value is a table that would drop
             // the value on the next click, so the raw number stays draggable.
-            None => sweep(parameter, low..=high, value, claim, room),
+            None => sweep(parameter, low..=high, value.unwrap_or(low), claim, room),
         },
         // A sweep, and anything a later library adds that this build has not
         // heard of: every parameter is a number underneath.
-        _ => sweep(parameter, low..=high, value, claim, room),
+        _ => sweep(parameter, low..=high, value.unwrap_or(low), claim, room),
     }
 }
 
@@ -388,9 +431,12 @@ where
     match room.axis {
         // A fader takes as much room across as it is given and never more than
         // it needs: a slot gives it more than its width, and a strip's lane
-        // gives it less, which is the lane it draws in.
-        Axis::Down if room.width < fader::WIDTH => fader.narrow(room.width).into(),
-        Axis::Down => fader.into(),
+        // gives it less, which is the lane it draws in. How long it runs is the
+        // room's too, because the instrument's own panel holds two rows of them.
+        Axis::Down if room.width < fader::WIDTH => {
+            fader.narrow(room.width).travel(room.travel).into()
+        }
+        Axis::Down => fader.travel(room.travel).into(),
         Axis::Across => fader.across(room.width).into(),
     }
 }
@@ -399,20 +445,30 @@ where
 ///
 /// Not a checkbox and not something that slides. An instrument says *on* with a
 /// light, and this is the only place a saturated colour appears.
+///
+/// A switch nobody has read is drawn as the switch it is, unlit and saying
+/// neither: what a control is does not depend on whether a sound has arrived,
+/// and a row of buttons that draws as a row of faders until something is read
+/// is a panel that changes shape under somebody.
 fn lamp<'a, Renderer>(
     parameter: ParamId,
-    on: bool,
+    value: Option<u8>,
     claim: Confidence,
-    next: u8,
-    label: &'a str,
     room: Room,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
+    let on = value.is_some_and(|value| value != 0);
+    let next = u8::from(!on);
+    let label = match value {
+        None => "\u{2014}",
+        Some(0) => "off",
+        Some(_) => "on",
+    };
     let live = !matches!(claim, Confidence::Unknown);
     let face = button(
-        container(text(label).size(11).font(Font::MONOSPACE).center())
+        container(text(label).size(11).font(reading()).center())
             .width(Length::Fixed(fader::WIDTH))
             .align_x(Horizontal::Center),
     )
@@ -436,7 +492,7 @@ where
 fn legends<'a, Renderer>(
     parameter: ParamId,
     options: &[Choice],
-    value: u8,
+    value: Option<u8>,
     claim: Confidence,
     room: Room,
 ) -> Element<'a, Renderer>
@@ -445,9 +501,9 @@ where
 {
     let live = !matches!(claim, Confidence::Unknown);
     let rows = options.iter().map(|choice| {
-        let on = choice.byte() == value;
+        let on = Some(choice.byte()) == value;
         let byte = choice.byte();
-        let face = button(text(choice.name).size(10).font(Font::MONOSPACE))
+        let face = button(text(choice.name).size(10).font(reading()))
             .padding([1, 5])
             .width(Length::Fill)
             .style(move |theme: &Theme, _status| lit(theme, on, claim));
@@ -471,7 +527,7 @@ where
 fn list<'a, Renderer>(
     parameter: ParamId,
     options: Vec<Choice>,
-    value: u8,
+    value: Option<u8>,
     room: Room,
 ) -> Element<'a, Renderer>
 where
@@ -479,7 +535,7 @@ where
 {
     let selected = options
         .iter()
-        .find(|choice| choice.byte() == value)
+        .find(|choice| Some(choice.byte()) == value)
         .copied();
     container(
         pick_list(options, selected, move |choice: Choice| Message::Edit {
@@ -528,7 +584,16 @@ fn lit(theme: &Theme, on: bool, claim: Confidence) -> button::Style {
 /// The one saturated thing on the panel, and it means one thing: something
 /// other than a hand can move this control. A parameter nothing is pointed at
 /// keeps the space, so a rack does not jostle when a routing changes.
-fn modulated<'a, Renderer>(moved: bool) -> Element<'a, Renderer>
+///
+/// `heeded` is whether the value arriving there does anything, which is a
+/// question only the effects can answer no to: the library says of a slot
+/// whether its engine acts on modulation reaching it, and every slot is
+/// addressable from the matrix regardless. A routing pointed somewhere the
+/// engine ignores gets the mark as an outline, because the matrix really is
+/// pointed there and really is doing nothing, and an editor that drew that the
+/// same way as an effective routing would be hiding the reason a sound is not
+/// moving.
+pub(crate) fn modulated<'a, Renderer>(moved: bool, heeded: bool) -> Element<'a, Renderer>
 where
     Renderer: iced_core::Renderer + 'a,
 {
@@ -536,8 +601,12 @@ where
         .width(Length::Fixed(5.0))
         .height(Length::Fixed(5.0))
         .style(move |_theme: &Theme| container::Style {
-            background: moved.then_some(Background::Color(style::LAMP)),
-            border: border::rounded(3),
+            background: (moved && heeded).then_some(Background::Color(style::LAMP)),
+            border: if moved && !heeded {
+                border::rounded(3).width(1.0).color(style::LAMP)
+            } else {
+                border::rounded(3)
+            },
             ..container::Style::default()
         })
         .into()
@@ -569,7 +638,7 @@ where
 /// Raw where the library has no table, because inventing a plausible "2.4 kHz"
 /// for a byte is wrong in a way nobody can see. A measured curve arrives in the
 /// library, parameter by parameter, and this picks it up when it upgrades.
-fn reading(parameter: ParamId, value: Option<u8>, firmware: Version) -> String {
+fn shown(parameter: ParamId, value: Option<u8>, firmware: Version) -> String {
     let Some(value) = value else {
         return "\u{2014}".to_owned();
     };
@@ -624,7 +693,11 @@ impl fmt::Display for Choice {
 /// Also `None` when the table names every value the parameter accepts and the
 /// one it is holding is not among them, which a dump from hardware can do. The
 /// list would open on nothing, so the raw number stays draggable instead.
-fn choices(parameter: ParamId, firmware: Version, value: u8) -> Option<Vec<Choice>> {
+///
+/// A parameter nobody has read is not that case: there is no value to be
+/// missing from the table, and the control is drawn as the named set it is with
+/// nothing chosen in it.
+fn choices(parameter: ParamId, firmware: Version, value: Option<u8>) -> Option<Vec<Choice>> {
     let entries = parameter.choices_for(firmware)?;
     let options: Vec<Choice> = entries
         .iter()
@@ -633,9 +706,11 @@ fn choices(parameter: ParamId, firmware: Version, value: u8) -> Option<Vec<Choic
             name: entry.name,
         })
         .collect();
-    options
-        .iter()
-        .find(|choice| choice.value == u16::from(value))?;
+    if let Some(value) = value {
+        options
+            .iter()
+            .find(|choice| choice.value == u16::from(value))?;
+    }
     Some(options)
 }
 
@@ -643,6 +718,7 @@ fn choices(parameter: ParamId, firmware: Version, value: u8) -> Option<Vec<Choic
 mod tests {
     use deepmind_midi::param::{Group, ParamId};
 
+    use crate::effect;
     use crate::matrix;
     use crate::sequencer;
 
@@ -657,13 +733,19 @@ mod tests {
         for group in Group::ALL.iter().copied() {
             let routed = matrix::routed(group);
             let stepped = sequencer::stepped(group);
+            let claimed = effect::claimed(group);
             let slots: Vec<ParamId> = group
                 .parameters()
-                .filter(|parameter| !routed.contains(parameter) && !stepped.contains(parameter))
+                .filter(|parameter| {
+                    !routed.contains(parameter)
+                        && !stepped.contains(parameter)
+                        && !claimed.contains(parameter)
+                })
                 .collect();
 
             let mut drawn: Vec<ParamId> = routed;
             drawn.extend(stepped);
+            drawn.extend(claimed);
             drawn.extend(slots);
             let count = drawn.len();
             drawn.sort_unstable_by_key(|parameter| parameter.offset());

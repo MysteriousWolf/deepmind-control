@@ -33,9 +33,12 @@ pub fn run() -> iced::Result {
     let named = files::named();
     iced::application(move || App::opening(&named), App::update, view)
         .title(title)
+        // The face the instrument's own legends are printed in, asked for once
+        // here so that every unstyled word in the window is already in it.
+        .default_font(control_ui::printed())
         .theme(theme)
         .subscription(subscription)
-        .window_size((900.0, 760.0))
+        .window_size((1120.0, 820.0))
         .run()
 }
 
@@ -95,37 +98,91 @@ fn ticks() -> impl Stream<Item = Message> {
 }
 
 /// The whole window.
+///
+/// Everything stands on the panel: the gradient the mark fills its case with,
+/// lit at the top where the light is, rather than the flat dark the theme's own
+/// background would give. It is the one surface in the window nothing is cut
+/// into, so it is drawn once, here, around all of it.
 fn view(app: &App) -> Element<'_, Message> {
-    column![header(app), identity(app), controls(app), surfaces(app)]
-        .push(match app.view() {
-            View::Editor => editor(app),
-            View::Library => librarian::view(app),
-        })
-        .spacing(12)
-        .padding(16)
-        .into()
+    container(
+        column![header(app), identity(app), controls(app), surfaces(app)]
+            .push(match app.view() {
+                View::Panel => {
+                    control_ui::panel(app.patch(), app.firmware(), screen(app)).map(Message::Ui)
+                }
+                View::Editor => editor(app),
+                View::Library => librarian::view(app),
+            })
+            .spacing(12)
+            .padding(16),
+    )
+    .width(Fill)
+    .height(Fill)
+    .style(control_ui::ground)
+    .into()
 }
 
-/// The two things this application is, and which one is in front of somebody.
+/// The three things this application is, and which one is in front of somebody.
 ///
-/// An editor and a librarian are not two windows and not two modes of one: they
-/// are the sound you are playing and the sounds you keep, and moving between
-/// them is one press. The sound survives the move, because putting a pack down
-/// to look at a filter and finding the filter gone would be the wrong lesson to
-/// teach anybody about this application.
+/// The instrument's own front, one section of it, and the sounds you keep. Not
+/// three windows and not three modes of one: moving between them is one press,
+/// and the sound survives the move, because putting a pack down to look at a
+/// filter and finding the filter gone would be the wrong lesson to teach
+/// anybody about this application.
+///
+/// The middle one is named after the section it holds rather than "Editor",
+/// because the panel's `EDIT` opened that section and the way back to it should
+/// say which one it is.
 fn surfaces(app: &App) -> Element<'_, Message> {
     let showing = app.view();
-    let tab = |view: View, label: &'static str| {
+    let tab = |view: View, label: String| {
         let pressed = view == showing;
         button(text(label).size(13))
             .padding([5, 12])
             .style(move |theme: &Theme, _status| surface(theme, pressed))
             .on_press(Message::Show(view))
     };
-    row![tab(View::Editor, "Editor"), tab(View::Library, "Library")]
-        .spacing(6)
-        .align_y(Center)
-        .into()
+    row![
+        tab(View::Panel, "Panel".to_owned()),
+        tab(View::Editor, app.section().name().to_owned()),
+        tab(View::Library, "Library".to_owned()),
+    ]
+    .spacing(6)
+    .align_y(Center)
+    .into()
+}
+
+/// What the instrument's own display would be showing.
+///
+/// The panel leaves a screen-shaped hole in itself and the application fills
+/// it, because what a display says is the application's business rather than
+/// the view layer's: which sound is on the screen, what backs it, and what the
+/// last thing to happen was. A plugin has different answers to all three.
+fn screen(app: &App) -> control_ui::Element<'_, iced::Renderer> {
+    let claim = app.patch().confidence();
+    let name = app.patch().name().map_or_else(
+        || "\u{2014}".to_owned(),
+        |name| name.as_str().trim().to_owned(),
+    );
+    let backing = match claim {
+        Confidence::Unknown => "nothing has been read",
+        Confidence::Assumed => "this window's claim",
+        Confidence::Confirmed => "as the synthesizer described it",
+    };
+    column![
+        text(name)
+            .font(control_ui::reading())
+            .size(19)
+            .style(move |theme: &Theme| text::Style {
+                color: Some(control_ui::tint(theme, claim)),
+            }),
+        text(backing).size(11).font(control_ui::reading()),
+        space().height(Fill),
+        text(app.status()).size(11).font(control_ui::reading()),
+    ]
+    .spacing(4)
+    .height(Fill)
+    .into()
 }
 
 /// The style the surface switch is drawn in, which is the section bar's.
@@ -173,26 +230,64 @@ fn editor(app: &App) -> Element<'_, Message> {
     .into()
 }
 
-/// The port picker, and what to do with a port.
+/// The name of the thing, the port picker, and what to do with a port.
 fn header(app: &App) -> Element<'_, Message> {
     let ports = app.ports().to_vec();
     let connection = if app.is_connected() {
-        button("Close").on_press(Message::Disconnect)
+        chrome("Close").on_press(Message::Disconnect)
     } else {
-        button("Open").on_press_maybe(app.chosen().map(|_| Message::Connect))
+        chrome("Open").on_press_maybe(app.chosen().map(|_| Message::Connect))
     };
     row![
-        text("deepmind control").size(20),
+        wordmark(),
         space().width(Fill),
         pick_list(ports, app.chosen().cloned(), Message::Choose)
             .placeholder("MIDI port")
+            .font(control_ui::printed())
+            .text_size(13)
+            .padding([5, 10])
+            .style(control_ui::selector)
+            .menu_style(control_ui::shortlist)
             .width(Length::Fixed(260.0)),
-        button("Rescan").on_press(Message::Rescan),
+        chrome("Rescan").on_press(Message::Rescan),
         connection,
     ]
     .spacing(10)
     .align_y(Center)
     .into()
+}
+
+/// The project's own name, set the way the mark sets it.
+///
+/// `docs/banner.svg` puts it across the panel in the metal of a fader cap, in
+/// Liberation Sans Bold, with the wordmark's lines through it. A window has the
+/// first two of those and not the third: a line 1.5 points thick across a
+/// 22-point word is a smudge rather than a slice, and the mark is not improved
+/// by being approximated. So it is the name, in the face and the metal, over
+/// the panel it is printed on.
+fn wordmark() -> Element<'static, Message> {
+    column![
+        text("deepmind control")
+            .font(control_ui::wordmark())
+            .size(22)
+            .style(|theme: &Theme| text::Style {
+                color: Some(control_ui::materials(theme).metal),
+            }),
+        text("editor and librarian")
+            .size(11)
+            .style(|theme: &Theme| text::Style {
+                color: Some(control_ui::materials(theme).metal_low),
+            }),
+    ]
+    .spacing(1)
+    .into()
+}
+
+/// A button that is not a parameter, in the instrument's own materials.
+fn chrome(label: &str) -> button::Button<'_, Message, Theme, iced::Renderer> {
+    button(text(label).size(13))
+        .padding([5, 12])
+        .style(control_ui::chrome)
 }
 
 /// Who is on the other end, and which value tables that makes true.
@@ -222,7 +317,7 @@ fn identity(app: &App) -> Element<'_, Message> {
     )
     .width(Fill)
     .padding(10)
-    .style(container::bordered_box)
+    .style(control_ui::bay)
     .into()
 }
 
@@ -244,8 +339,8 @@ fn controls(app: &App) -> Element<'_, Message> {
         },
     };
     row![
-        button("Read the edit buffer").on_press_maybe(open.then_some(Message::Read)),
-        button("Ask who is there").on_press_maybe(open.then_some(Message::Identify)),
+        chrome("Read the edit buffer").on_press_maybe(open.then_some(Message::Read)),
+        chrome("Ask who is there").on_press_maybe(open.then_some(Message::Identify)),
         // The sound takes what is left rather than pushing what is beside it:
         // a program name is sixteen characters and the legend is the one thing
         // on this row that has to stay readable whatever the sound is called.
@@ -261,15 +356,18 @@ fn controls(app: &App) -> Element<'_, Message> {
 ///
 /// Printed under the rack rather than left for somebody to work out from a
 /// panel of protocol names. Two sections need it, for opposite reasons: the
-/// effects are complete and ugly until the library publishes their panels, and
-/// the name is the one control that covers more than the parameter under it.
+/// effects draw more than the parameter table knows, and the name draws less
+/// than the seventeen parameters under it.
 fn caveat(section: Group, firmware: Version) -> Option<Element<'static, Message>> {
     let admission = match section {
         Group::Effects => format!(
-            "The slots are under the names the protocol gives them. What one means depends on \
-             which of the {} algorithms is loaded, and the table that says so is generated from \
-             the library's specification rather than transcribed here: the readable panel \
-             arrives when the library publishes it.",
+            "A slot is named by whichever of the {} algorithms its engine is running, read for \
+             the firmware that answered, from the library's own table. What the byte under it \
+             does between the two ends printed on the slot is not published, so the reading \
+             stays the byte; neither are the bytes a slot's named settings sit at, so those \
+             names are printed as what the display will show rather than offered as a choice. \
+             What the connection mode does to each engine's output is in the library's \
+             specification and not in what it publishes.",
             algorithms(firmware)
         ),
         Group::Program => format!(
@@ -297,12 +395,12 @@ fn algorithms(firmware: Version) -> usize {
     }
 }
 
-/// What this window does not draw yet, said out loud.
+/// What this window does not draw, said out loud.
 fn remaining() -> Element<'static, Message> {
     text(format!(
         "Every parameter the instrument has is on these {} panels, drawn from the library's own \
-         table, and every panel that is not a rack is laid out by hand. What is left is the effect \
-         panels, which are stage 5 and whose tables the library published in 26.2. Nothing here \
+         table, and every one of them is laid out: the program's name, the three envelopes, the \
+         modulation matrix, the control sequencer and the four effect engines. Nothing here \
          writes a program into the synthesizer: the manual describes no message that would, so \
          storing a sound into a slot is done at the panel with the instrument's own WRITE, and \
          what the Library does instead is write a file.",

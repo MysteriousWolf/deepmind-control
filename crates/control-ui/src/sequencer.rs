@@ -44,6 +44,7 @@ use iced_core::{Font, Length, Theme, text::Renderer as TextRenderer};
 use iced_widget::{column, container, row, text};
 
 use crate::panel::{Room, control};
+use crate::style::reading;
 use crate::{Confidence, Element, Patch, tint};
 
 /// What the library calls a step, before its number.
@@ -111,7 +112,7 @@ where
             // thirty-two times.
             text(number(index))
                 .size(10)
-                .font(Font::MONOSPACE)
+                .font(reading())
                 .style(move |theme: &Theme| text::Style {
                     color: Some(tint(theme, Confidence::Unknown)),
                 }),

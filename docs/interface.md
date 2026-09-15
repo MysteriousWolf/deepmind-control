@@ -1,7 +1,7 @@
 # Interface
 
 What the editor looks like, why, and the numbers to build it from. The views
-themselves are stages 2 and 3 of [the plan](plan.md); this is what they are
+themselves are stages 2, 3 and 5 of [the plan](plan.md); this is what they are
 written against.
 
 ## It is a panel, not a window
@@ -38,7 +38,7 @@ the anatomy rather than inventing a second one:
 | Abbreviation above | Mono, as the synthesizer's own display writes it: `DCY`, `PDY`, `HiSvFreq` |
 | Control in the middle | Fader, knob, switch, selector or readout |
 | Title below | The same parameter written out, for a panel with room to be readable |
-| Modulation dot | A small mark at the top right of a slot the modulation matrix reaches. Not drawn yet: the library names a destination the way the display prints it and does not say which parameter that is ([deepmind-midi#19](https://github.com/MysteriousWolf/deepmind-midi/issues/19)) |
+| Modulation dot | A small mark at the top right of a slot the modulation matrix reaches, read off the eight destinations the patch holds. `ValueTable::parameters_of`, from `deepmind-midi` 26.2, is what joins `VCF Freq` to the parameter it moves ([deepmind-midi#19](https://github.com/MysteriousWolf/deepmind-midi/issues/19)); a destination this window has not read moves nothing, because a mark drawn from an unread value says the instrument is doing something it may not be |
 | Column pitch | One slot per column, filled left to right, wrapping onto a second row |
 
 Two of those are worth keeping even though a bigger screen does not need them.
@@ -46,12 +46,67 @@ The abbreviation is what is printed on the instrument, so a player looking
 between the two reads the same word twice. The dot is the only thing on the
 panel that says a parameter can be moved by something other than a hand.
 
-## Fourteen panels, one at a time
+## The front panel is the home screen
+
+**The window opens on the instrument, not on a section of it.** A `DeepMind` is
+two rows of section plates with a screen between them: twenty-odd faders under
+four-letter legends, a few lit buttons under each group, and on every group a
+yellow `EDIT` that opens that group on the display. Everything else — 242
+parameters' worth — is behind one of those presses.
+
+So is this. The panel is where a window opens, because it is where a player
+looks first, and the rack of a section is one press behind it exactly as it is
+on the hardware.
+
+```
+┌ ARP / SEQ ┐ ┌── LFO 1 ──┐ ┌── LFO 2 ──┐ ┌─────────────┐ ┌ POLY ┐
+│  ▮     ▮  │ │ ▮  ▮ ○Sine│ │ ▮  ▮ ○Sine│ │ Modular Fun │ │  ▮   │
+│ RATE GATE │ │      ●Tri │ │      ●Ramp│ │ this claim  │ │DETUNE│
+│ [on][off] │ │           │ │           │ │             │ │      │
+│      EDIT │ │      EDIT │ │      EDIT │ │ Read it.    │ │MOD FX│
+└───────────┘ └───────────┘ └───────────┘ └─────────────┘ └──────┘
+┌─── DCO 1 & 2 ───┐ ┌─── VCF ───┐ ┌VCA┐ ┌HPF┐ ┌ ENVELOPES ┐
+│ ▮ ▮ ▮ ▮ ▮ ▮ ▮   │ │ ▮ ▮ ▮ ▮ ▮ │ │ ▮ │ │ ▮ │ │ ▮ ▮ ▮ ▮   │
+│      [on]  EDIT │ │ [2 Pole]  │ │   │ │   │ │ A D S R   │
+└─────────────────┘ └───────────┘ └───┘ └───┘ └───────────┘
+```
+
+- **The screen is the application's, and the panel leaves a hole for it.** What a
+  display says is which sound is on it, what backs that, and what last happened
+  — none of which the view layer knows, and all of which a plugin answers
+  differently from a desktop window.
+- **A legend is printed over its control**, not under it, because that is where
+  the instrument prints it: the hardware has a screen for readings and no room
+  under a fader.
+- **Every plate carries the press the hardware calls `EDIT`**, and the
+  envelopes' `VCA`, `VCF` and `MOD` are the three ways into the three envelope
+  panels, where the hardware uses them to choose which envelope its four faders
+  address.
+- **The arrangement is the instrument's; the livery is this window's.** The
+  hardware's buttons are white, yellow and cyan. Here a colour already means
+  something — copper is a claim, green is the synthesizer's own account — and a
+  yellow `EDIT` beside them would be a fourth meaning to learn.
+- **The row of twelve lamps over `POLY` is not drawn.** It says how many voices
+  are sounding, and nothing on a MIDI port says that. A lamp that cannot be lit
+  honestly is not drawn at all.
+- **What is on the panel is the one thing this repository transcribes.** Which
+  parameters have a fader, and what is silkscreened over them, is a fact about
+  the hardware that the library does not publish
+  ([deepmind-midi#26](https://github.com/MysteriousWolf/deepmind-midi/issues/26)).
+  The table is written as parameter identifiers so a rename fails the build, it
+  is in one file, and that file says it is there until the library answers.
+
+## Fourteen panels, one press behind it
 
 Two hundred and forty-two parameters do not fit on a screen, and the instrument
 does not put them on one surface either: a player presses a section and the
 display becomes that section. So does this. A bar of fourteen tabs sits above
 the rack, it does not scroll with it, and the panel below it is the one section.
+
+The bar and the front panel's `EDIT` are the same press: one asks for a section
+and the window shows it, whichever surface asked. The way back is named after
+the section it holds rather than "Editor", so that somebody who pressed `VCF`
+can see where they would be returning to.
 
 **The order of the tabs is not written down anywhere.** A parameter's offset is
 its NRPN number and its place in a dump, the library's parameter table is in
@@ -73,14 +128,14 @@ Which section somebody is looking at is this window's business and never the
 synthesizer's. It outlives a port being put down, because the sound went away
 and the person did not.
 
-## Two surfaces, and the sound survives the switch
+## Three surfaces, and the sound survives the switch
 
-The editor is the sound somebody is playing. The library is the sounds they
-keep. They are the same application looking at two different things, so they are
-two surfaces of one window and not two windows: a switch above the section bar,
-and everything below it changes. The patch does not. Putting a pack down to look
-at a filter and finding the filter gone is the wrong thing to teach anybody
-about an editor.
+The panel is the instrument. The editor is one section of it. The library is the
+sounds somebody keeps. They are one application looking at three things, so they
+are three surfaces of one window and not three windows: a switch above them, and
+everything below it changes. The patch does not. Putting a pack down to look at a
+filter and finding the filter gone is the wrong thing to teach anybody about an
+editor.
 
 **The shelf is a grid and not a list.** A pack is 128 programs, and the one
 thing this surface can offer that the instrument's own two-line display cannot
@@ -176,10 +231,17 @@ covered in.
 
 ### Knob
 
-Used where the source uses one, which today means the effect panels, so that
-half of the editor keeps looking like the figures it was drawn from. A 270
-degree arc open at the bottom, a body, a pointer, and a tick ring when the
-parameter selects rather than sweeps.
+Where the source uses one, which means the effect panels, so that half of the
+editor keeps looking like the figures it was drawn from. A 270 degree arc open
+at the bottom, a body, a pointer, and a tick ring when the parameter selects
+rather than sweeps.
+
+**Not drawn yet**, and the effect slots are the rack's own faders until it is.
+What the library publishes about a slot is its name, its band and the two ends
+of its reading; the grid, the control shapes and the measured panel colours are
+in its `spec/layout.toml` and are not published, so an editor drawing knobs
+there today would be choosing the shapes itself. It is an arrangement and never
+a control, which is the one kind of change this design lets a later pass make.
 
 Knobs are not an alternative to faders for the main editor. Two ways to draw the
 same kind of parameter is how a panel stops being readable.
@@ -284,6 +346,55 @@ Mod 1   [ LFO 1        v]  ->  [ VCF Freq    v]  [======|========]
 - **A parameter no row claimed stays in the rack**, under the table, so a group
   that grows one keeps it rather than losing it to a layout.
 
+### Effects
+
+Four engine plates, cut into the group's face plate the way a section tab is cut
+into the panel. Each is the engine's own settings and then its twelve bytes, and
+the settings that are no engine's — the connection mode, and whether the effects
+are inserted, sent or bypassed — are the first thing on the panel rather than a
+rack of two underneath four plates.
+
+```
+FX 1   179 Type              Midas Equaliser          219 Output Gain
+       [ MidasEQ        v]   Processing                   [=====|======]
+       13                                                 0
+
+  low                          low-mid
+  180 LSG     181 LSF          182 LMG     183 LMF     184 LMQ
+  [ | ]       [ | ]            [ | ]       [ | ]       [ | ]
+  0           19               38          57          76
+  Low Shelf   Low Shelf        Low-Mid     Low-Mid     Low-Mid Q
+  Gain        Frequency        Gain        Frequency
+  -12.0-12.0  30.0-20000.0 Hz  -12.0-12.0  30.0-20000  0.3-5.0
+```
+
+- **A slot is named by the algorithm, and drawn by the parameter table.** Those
+  are two different claims and only one of them is published: `Freeze` is two
+  states on the display and a parameter that accepts 256 values on the wire, and
+  the curve between them is nowhere in the manual. So the control is the same
+  code from the same table as every other slot in the editor, and the algorithm
+  supplies the title, the abbreviation, the band and the two ends of the
+  reading.
+- **The ends are printed under the title and never interpolated.** `0.1-6.0 s`
+  says what the two ends of the display read; the readout above it stays the
+  byte, because a plausible `2.4 s` for a byte is wrong in a way nobody can see.
+- **A slot the display names is not a list.** The manual prints `Ambience`,
+  `Church`, `Gate` and never the bytes they sit at. The names are printed under
+  the plate as what the display will show, the fader stays, and nothing offers
+  to send one of them.
+- **Bands are the library's runs.** One side of a stereo engine, one band of an
+  equaliser: a heading over the cluster, and a slot the library labelled nothing
+  stands on its own.
+- **Twelve bytes, however many the algorithm uses.** The rest are at the end of
+  the plate under `Param 9`, in a cluster that says the algorithm does not use
+  them. They are still in the program, still reachable from the modulation
+  matrix, and still sent. An engine whose algorithm nobody has read draws all
+  twelve that way.
+- **The modulation dot has a second state here.** Every slot is addressable from
+  the matrix as `Fx n Param m`, and the library says which ones the engine acts
+  on. A routing pointed somewhere the engine ignores draws the mark as an
+  outline: it really is pointed there, and really is doing nothing.
+
 ## Colour is meaning, not decoration
 
 The chassis is monochrome. Panel, recess, metal and ink carry the whole
@@ -301,9 +412,11 @@ interface, and every one of those comes from the mark:
 The effect panels are the exception, and a deliberate one: their colours are
 measured from the manual's own figures, four per algorithm, and a host that
 draws a chorus in the chorus panel's colours is telling the truth about what it
-is editing. Those come from the library when it publishes them. Nothing else in
-the editor gets a colour for being itself: fourteen groups in fourteen hues is
-decoration pretending to be information.
+is editing. Those come from the library when it publishes them, which it has not
+— they are in its `spec/layout.toml` and stay there — so the four engine plates
+are the editor's own materials today. Nothing else in the editor gets a colour
+for being itself: fourteen groups in fourteen hues is decoration pretending to
+be information.
 
 ## Type
 
@@ -314,7 +427,47 @@ Two faces, because the instrument has two voices.
 - **Sans** for titles, group headings and the rest of the application.
 
 Sizes are 3u for a label, 3.5u for a readout, 4.5u for a group heading. Nothing
-is bold except a group heading, and nothing is italic.
+is bold except a group heading and the project's own name, and nothing is
+italic.
+
+**The sans is the mark's.** `docs/banner.svg` outlines the name from Liberation
+Sans Bold so that it renders identically wherever the file is shown; a window
+cannot outline anything, so it asks for that family by name, and for the
+metrically compatible face other platforms ship under a different one — Arial,
+which Liberation Sans is a clone of. A machine with neither falls back to its
+own sans: the letters stay readable and the proportions are somebody else's.
+
+Carrying the file in the binary is what would make both builds identical on
+every machine, and it is a decision about a licence and about a megabyte in a
+plugin bundle rather than a line of code. Until it is taken, the family is named
+in one place — `control-ui/src/style.rs`, beside the palette — and asked for
+there by both builds.
+
+**The name is set as the mark sets it**: bold, in the metal of a fader cap, over
+the panel. Without the wordmark's slices through it, which at 22 points are a
+smudge rather than a slice — the mark is not improved by being approximated at a
+tenth of its size.
+
+## The window is a panel, and so is its chrome
+
+The port picker, the buttons and the status bay are toolkit widgets, and they
+are still on the instrument:
+
+- **The ground is the panel's gradient**, `#282c36` falling to `#15181e`, which
+  is what `logo.svg` fills its case with. A flat dark window is the bottom of
+  the panel stretched over all of it, which is the one part that is not lit.
+- **A button is the panel with a metal rim**, not a filled slab. A row of filled
+  slabs is the brightest thing on a dark window, and the brightest thing here
+  has to be a fader cap. Pressing lights the rim, the way a section button
+  lights.
+- **Anything chosen from a list is a recess**, closed and open alike: the track
+  of a fader, the field a name is typed in, and the picker a port is chosen
+  from are the same cut into the same panel.
+- **A panel of words is the face plate** a rack of slots sits on, so that what
+  the window says about the instrument sits on the instrument.
+
+All of it comes from `materials()`, which means restyling the chrome is the same
+one file as restyling a fader.
 
 ## Movement
 

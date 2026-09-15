@@ -1,9 +1,10 @@
 # Plan
 
 What this repository builds, in what order, and what has already been decided.
-Stages 0 to 4 are written: there is a window that edits every parameter and a
-librarian that reads and writes the files they live in. The effects are stage 5
-and the rest is not written. The [order](#order) says which is which.
+Stages 0 to 5 are written: there is a window that edits every parameter, lays
+every panel out by hand, and a librarian that reads and writes the files those
+parameters live in. What is left before the plugin is polish. The
+[order](#order) says which is which.
 
 [`deepmind-midi`](https://github.com/MysteriousWolf/deepmind-midi) owns the
 protocol and refuses to own anything else: it never opens a port, never spawns a
@@ -306,9 +307,64 @@ which is the thing the library exists to prevent.
 `deepmind-midi` 26.2 published them, which is what the FX editor was waiting
 for: `effect::Engine` is the four engines and which parameter each of their
 slots is, `effect::Algorithm` is the 35 and what value selects one on a given
-firmware, and `effect::FxSlot` is what a slot of the loaded algorithm is called
-and what kind of control it wants. The FX section can stop showing twelve slots
-under their protocol names, and that is stage 5.
+firmware, and `effect::FxSlot` is what a slot of the loaded algorithm is called.
+So the panel is four plates. Each is the engine's own settings — which algorithm
+it is running, chosen from the parameter's own value table under the display's
+own abbreviations, and how loud its output — and then its twelve bytes under the
+names that algorithm gives them, with what the algorithm is called in full
+written out beside the list rather than substituted into it. The settings that
+are no engine's, the connection mode and whether the effects are inserted, sent
+or bypassed, are the first thing on the panel, found by subtraction rather than
+by name, which is also where a parameter a later library adds to this group will
+appear.
+
+**A named slot is the same control it was.** The library says two things about a
+slot and they are not the same thing: `FxSlot::kind` is how the display reads
+the byte, and the parameter table is what the byte is. `Freeze` is two states on
+the panel and a parameter that accepts 256 values on the wire, and the curve
+between them is not published. So the control is chosen by the same code from
+the same table as every other slot in the editor, and what the algorithm
+supplies is the naming: the title, the abbreviation the instrument prints, the
+band the slot belongs to, and the two ends of the reading it shows. It is the
+rule the rest of the hand layout follows, at the one panel where breaking it
+would mean inventing a mapping the manual does not give.
+
+That rule decides the two things this panel cannot do. A slot whose display
+shows names — `Ambience`, `Church`, `Gate` — is not a list, because the manual
+prints those names and never the bytes they sit at, and a list that sent one of
+them would be sending a guess; the names are printed under the plate as what the
+display will show and the byte stays draggable. And a slot's reading stays the
+byte, with the two ends the manual prints written under the title, because
+`0.1` to `6.0 s` is a range and not a curve.
+
+**Twelve bytes, however many the algorithm uses.** An engine holds twelve
+whatever it is running and `Algorithm::slots` is as short as five. The ones the
+algorithm names are drawn as that name; the rest are drawn at the end of the
+plate under the library's own `Fx 1 Param 6`, in a cluster that says the
+algorithm does not use them. They are still in the program, still reachable from
+the modulation matrix, and still sent, because a panel that quietly stopped
+sending them would lose part of a sound the moment somebody changed an effect.
+An engine whose algorithm this firmware's table does not name, or whose type
+nobody has read, draws all twelve that way, which is stage 3's rack for exactly
+as long as there is nothing better to say.
+
+**The matrix mark grows a second state here.** Every slot is addressable from
+the modulation matrix as `Fx n Param m`, and the library says which ones the
+engine actually acts on. A routing pointed somewhere the engine ignores gets the
+mark as an outline rather than filled: the matrix really is pointed there and
+really is doing nothing, and drawing that the same way as an effective routing
+would hide the reason a sound is not moving.
+
+**What the library holds back is not drawn.** The grid, the control shapes and
+the measured panel colours are in the library's `spec/layout.toml` and are not
+published, so the slots are the editor's own faders on the editor's own
+materials rather than the knobs and the four colours per algorithm the manual's
+figures use. That is a stage of its own the day the library publishes them, and
+it changes an arrangement rather than a control. What the connection mode does
+to each engine's output is in `spec/routing.toml` and is not published either,
+so the routing is the list its value table names and there is no diagram drawn
+from it: a chain drawn out of a value's own name is a picture this repository
+worked out rather than one the library published.
 
 ## One view layer, two runtimes
 
@@ -425,7 +481,7 @@ generated from `logo.svg` in the stage that first needs one. Nothing here is
 traced from Behringer's artwork; it is the same drawing the library already
 publishes, with a different thing on the panel.
 
-## The window is the instrument's colours
+## The window is the instrument's colours, and its face
 
 Dark, because a `DeepMind` is a dark panel between wooden end cheeks with metal
 fader caps on it, and an editor for it that opens white is an editor for
@@ -442,6 +498,22 @@ there, and every widget that colours anything asks `tint` what the claim is
 worth. A control that hard-coded a colour would be a control that stops matching
 the instrument the day the palette moves, and there is nowhere in this
 repository to hard-code one.
+
+The same file holds the face and the chrome, for the same reason. The mark sets
+the project's name in Liberation Sans Bold and outlines it so that it renders
+identically wherever the file is shown; a window cannot outline anything, so it
+asks for that family and for the metrically compatible face other platforms
+ship under another name, in one place, with a fallback to the machine's own
+sans. Carrying the file in the binary is what would make both builds identical
+everywhere, and that is a decision about a licence and a megabyte of plugin
+bundle rather than a line of code.
+
+And the parts of a window that are not parameters are drawn on the instrument
+too: the ground is the panel gradient the mark fills its case with, a button is
+the panel with a metal rim rather than a toolkit's filled slab, and a port is
+chosen in the same recess a fader's track is cut as. The panel is for
+parameters and the toolkit is right for everything else; everything else is
+still on the front of the thing being edited.
 
 ## Versioning is the year and the release
 
@@ -469,6 +541,49 @@ not before it. A release job for an application is not the library's: it builds
 binaries for three platforms and signs two of them, and writing it against a
 release that has not been designed yet is writing it twice.
 
+## The window opens on the instrument
+
+A `DeepMind` shows you its front before it shows you anything else: two rows of
+section plates with a screen between them, twenty-odd faders under four-letter
+legends, and on every group the press it calls `EDIT`, which puts that group on
+the display. The 242 parameters are all behind one of those.
+
+The window does the same, and for the instrument's own reason: somebody who has
+just plugged a synthesizer in wants to see the sound rather than a list of
+fourteen sections, and the section they want is one press away either way. So
+the front panel is the surface a window opens on, the fourteen racks are what an
+`EDIT` opens, and the librarian is the third surface beside them. The bar and
+the panel's `EDIT` are the same press — one asks for a section and the window
+shows it — so there is one idea of "open that section" rather than two.
+
+**This is the one thing this repository transcribes.** Which parameters the
+hardware puts a fader under, and what is silkscreened over them, is a fact about
+the instrument that the library does not publish: the parameter table says what
+exists, the controller table says what has a CC, and neither says what a hand
+can reach. Everything else here is derived — the matrix finds its eight routings
+by what the library calls them, the sequencer finds its steps, the effects read
+the algorithm each engine is running — and this one is a table, in one file,
+written as parameter identifiers so that a rename fails the build rather than
+mislabelling a fader. The file's first paragraph says it is there until
+[deepmind-midi#26](https://github.com/MysteriousWolf/deepmind-midi/issues/26)
+lands, and `docs/waiting.md` is where that is remembered.
+
+It is worth being exact about what the table does and does not decide. It says
+*which* control is on the panel and what is printed over it. What that control
+*is* is still the library's answer — a sweep gets a fader, two states get a
+lamp, a named set gets its names — which is the same line hand layout has not
+crossed since stage 3. A parameter this table names that the library later makes
+enumerated arrives on the panel as a list, with nothing here to change.
+
+Three things the hardware has that the panel does not. The row of twelve lamps
+over `POLY` says how many voices are sounding, and nothing on a MIDI port says
+that, so it is not drawn: a lamp that cannot be lit honestly is worse than no
+lamp. The `DATA ENTRY` fader edits whatever the display is showing, and a window
+has the value under the pointer instead. And the hardware's white, yellow and
+cyan buttons are drawn in this window's own materials, because here a colour
+already means something — copper is a claim, green is the instrument's own
+account — and a fourth meaning is a thing to learn rather than a thing to read.
+
 ## A panel is generated before it is drawn
 
 Every one of the 242 parameters is a slot in the rack of its group, and what the
@@ -487,7 +602,7 @@ group and changes only the arrangement, never what a control is:
 | VCF, VCA and Mod envelopes | **Done.** Four faders and the shape they make, drawn above the rack, which is the one group whose meaning is a picture |
 | Mod Matrix | **Done.** Eight rows of source, destination and depth, read across rather than down, because twenty-four slots in one wrapping line are eight sentences with their words in the wrong order |
 | Control Sequencer | **Done.** 32 steps as one strip in the order they are played, with the six settings that are not steps left in the rack |
-| Effects | Four engines, and the tables arrived in `deepmind-midi` 26.2: `effect::Algorithm` and `effect::FxSlot` say what a slot of the loaded algorithm is |
+| Effects | **Done.** Four plates, each an engine's own settings and its twelve bytes under the names the loaded algorithm gives them, read for the firmware that answered |
 
 Until a group is laid out, it is complete and honest and looks like the
 specification it came from, which is the trade this order is making.
@@ -557,19 +672,39 @@ needed.
 | 2 | First light | **Done.** Desktop window, port picker, identity, read the edit buffer, VCF editable end to end with assumed and confirmed drawn differently. |
 | 3 | Every parameter | **Done.** All fourteen groups from `Group::parameters`, one at a time behind a section bar, because a complete ugly editor beats a beautiful partial one. Every panel that is not a rack is laid out: the program's name, the three envelopes, the modulation matrix and the control sequencer. |
 | 4 | The librarian | **Done.** Read and write `.syx`, read a bank with progress and cancel, browse a pack on a surface of its own beside the editor, and load a program into the edit buffer as a difference. |
-| 5 | The effects | Waiting on nothing: the library published the panel tables in 26.2 ([deepmind-midi#18](https://github.com/MysteriousWolf/deepmind-midi/issues/18)). Four engines, 35 algorithms, the routing graph. |
+| 5 | The effects | **Done.** Four engines and 35 algorithms, from the tables the library published in 26.2 ([deepmind-midi#18](https://github.com/MysteriousWolf/deepmind-midi/issues/18)). The connection mode is the list its value table names: the graph behind it is in the library's specification and not in what it publishes. |
 | 6 | The plugin | Simple mode, then state, then advanced mode in the same window. The CLAP comes out first, having nothing to settle; then the AU, once the bundle signs and `auval` passes; then the VST3, once Steinberg's terms are. |
 | 7 | Hardware | The questions below, answered with a cable. Findings go to the library. |
 
 **Everything up to stage 6, and then polish, before stage 6 itself.** The
-decision is the desktop application's: stage 5 is the last thing it is missing,
-and after it the work is making the application good rather than making it
-bigger. The panels that are still racks, the wording, the edges, the thousand
-small things between "every parameter is reachable" and "a DeepMind owner
-reaches for this instead of the front panel". A plugin wrapping a half-finished
-editor is a half-finished editor in three formats, and a format is the most
-expensive place to discover that a layout was wrong. So stage 6 starts when the
-desktop application is finished rather than when it is complete.
+decision is the desktop application's: stage 5 was the last thing it was
+missing, and the work now is making the application good rather than making it
+bigger. The wording, the edges, the panels whose arrangement is right and whose
+proportions are not, and the thousand small things between "every parameter is
+reachable" and "a DeepMind owner reaches for this instead of the front panel". A
+plugin wrapping a half-finished editor is a half-finished editor in three
+formats, and a format is the most expensive place to discover that a layout was
+wrong. So stage 6 starts when the desktop application is finished rather than
+when it is complete.
+
+Polish has started, and it is where the front panel above came from: the window
+opens on the instrument rather than on its first section, the name is set as the
+mark sets it, and the parts of the window that are not parameters are drawn on
+the instrument too.
+
+What is left of it, in no order yet: the effect slots want the knobs and the
+measured colours the manual's own figures use, which is a library release away;
+the sequencer strip wants a centre line, a skip mark and a dimmed tail past the
+sequence length, which is another; the front panel wants the library's own
+account of itself rather than the table in `home.rs`; and keyboard focus is not
+wired anywhere, which is the one gap in this editor that is not waiting on
+anybody else.
+
+Which of those are somebody else's to answer is written down rather than
+remembered: [waiting.md](waiting.md) is the list of what this repository has
+asked the library for, what each answer would change here, and what the window
+does meanwhile. It is the file to read at the start of a batch of work, because
+a closed issue on it is a panel that can stop apologising.
 
 Stage 7 waits with it. A cable answers questions about a protocol, and what it
 finds goes to the library rather than here, so nothing in stages 4 and 5 is

@@ -51,18 +51,27 @@ pub fn view(app: &App) -> Element<'_, Message> {
     .into()
 }
 
+/// A button that is not a parameter, in the instrument's own materials.
+///
+/// The window's own, so that the two surfaces press the same button.
+fn chrome(label: &str) -> button::Button<'_, Message, Theme, iced::Renderer> {
+    button(text(label).size(13))
+        .padding([5, 12])
+        .style(control_ui::chrome)
+}
+
 /// What can be done to a shelf, and to the sound beside it.
 fn actions(app: &App) -> Element<'_, Message> {
     let shelf = app.shelf();
     let reading = shelf.transfer().is_some();
     row![
-        button("Open\u{2026}").on_press(Message::Open),
-        button("Save the sound\u{2026}")
+        chrome("Open\u{2026}").on_press(Message::Open),
+        chrome("Save the sound\u{2026}")
             .on_press_maybe(app.patch().is_known().then_some(Message::SavePatch)),
-        button("Save the shelf\u{2026}")
+        chrome("Save the shelf\u{2026}")
             .on_press_maybe((!shelf.is_empty()).then_some(Message::SavePack)),
         space().width(Fill),
-        button("Stop").on_press_maybe(reading.then_some(Message::Cancel)),
+        chrome("Stop").on_press_maybe(reading.then_some(Message::Cancel)),
     ]
     .spacing(10)
     .align_y(Center)
@@ -82,7 +91,7 @@ fn banks<'a>(chosen: Bank, open: bool) -> Element<'a, Message> {
     });
     row![text("Bank").size(13)]
         .extend(tabs)
-        .push(button("Read it onto the shelf").on_press_maybe(open.then_some(Message::ReadBank)))
+        .push(chrome("Read it onto the shelf").on_press_maybe(open.then_some(Message::ReadBank)))
         .spacing(6)
         .align_y(Center)
         .into()
