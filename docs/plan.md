@@ -1,9 +1,9 @@
 # Plan
 
 What this repository builds, in what order, and what has already been decided.
-Stages 0 to 2 are written, stage 3 is generated and is being laid out by hand
-one group at a time, and the rest is not written. The [order](#order) says which
-is which.
+Stages 0 to 4 are written: there is a window that edits every parameter and a
+librarian that reads and writes the files they live in. The effects are stage 5
+and the rest is not written. The [order](#order) says which is which.
 
 [`deepmind-midi`](https://github.com/MysteriousWolf/deepmind-midi) owns the
 protocol and refuses to own anything else: it never opens a port, never spawns a
@@ -195,6 +195,41 @@ loses nothing on the way out, which is the property a librarian is for.
 Reading is lenient and writing is not byte-identical to every file in the wild,
 both of which the library documents and neither of which the user needs to hear
 about.
+
+## The librarian is a second surface, not a second window
+
+An editor and a librarian are the same application looking at two different
+things: the sound somebody is playing, and the sounds they keep. Two windows
+would make that a filing decision. One window with two surfaces and a switch
+between them makes it what it is, and the sound survives the move, because
+putting a pack down to look at a filter and finding the filter gone is the wrong
+thing to teach anybody about an editor.
+
+The shelf is what the librarian holds: the programs a `.syx` file turned out to
+contain, or the ones a bank read produced, each with the slot its dump named. An
+edit buffer dump names none, because the edit buffer is where a sound is played
+rather than where one is kept, so a program that names no slot is drawn as one
+that names no slot. It is also how a patch this application wrote reads back —
+one sound, belonging nowhere in particular, which is exactly what it was when it
+was saved.
+
+Reading is lenient, and says so. A file is untrusted input: the library skips
+the bytes between frames and hands back a frame that will not parse as the error
+it failed with, so one bad dump in a pack is one missing program rather than a
+refused file. What could not be read is counted and printed, because a librarian
+that quietly holds 127 of 128 programs is worse than one that will not open the
+file at all.
+
+A program taken off the shelf is assumed and never confirmed. The host sends it
+as the difference against what the synthesizer is believed to hold, and the
+window marks all 242 values as its own claim, because nothing has heard the
+instrument play them yet. Reading the edit buffer back is what settles it, which
+is the same rule a dragged fader follows.
+
+None of this is in `control-ui`. Editing is the same in both builds because it
+is the same crate; bank and librarian operations are desktop only, for the
+reasons the plugin section gives, so they are written in the crate that is only
+ever a desktop application.
 
 ## The simulator is a port you can choose
 
@@ -521,19 +556,31 @@ needed.
 | 1 | `deepmind-host` | **Done.** Port enumeration, `Port` over midir, `Clock`, the device thread, commands in and events out, the simulator as a selectable port. Tested against `sim` with no hardware. |
 | 2 | First light | **Done.** Desktop window, port picker, identity, read the edit buffer, VCF editable end to end with assumed and confirmed drawn differently. |
 | 3 | Every parameter | **Done.** All fourteen groups from `Group::parameters`, one at a time behind a section bar, because a complete ugly editor beats a beautiful partial one. Every panel that is not a rack is laid out: the program's name, the three envelopes, the modulation matrix and the control sequencer. |
-| 4 | The librarian | Read and write `.syx`, read a bank with progress and cancel, browse a pack, load a program into the edit buffer as a difference. |
-| 5 | The effects | Waits on the library publishing the panel tables ([deepmind-midi#18](https://github.com/MysteriousWolf/deepmind-midi/issues/18)). Four engines, 35 algorithms, the routing graph. |
+| 4 | The librarian | **Done.** Read and write `.syx`, read a bank with progress and cancel, browse a pack on a surface of its own beside the editor, and load a program into the edit buffer as a difference. |
+| 5 | The effects | Waiting on nothing: the library published the panel tables in 26.2 ([deepmind-midi#18](https://github.com/MysteriousWolf/deepmind-midi/issues/18)). Four engines, 35 algorithms, the routing graph. |
 | 6 | The plugin | Simple mode, then state, then advanced mode in the same window. The CLAP comes out first, having nothing to settle; then the AU, once the bundle signs and `auval` passes; then the VST3, once Steinberg's terms are. |
 | 7 | Hardware | The questions below, answered with a cable. Findings go to the library. |
 
-Stage 5 can move ahead of stage 4 if the library gets there first. Stage 7 can
-start the day a synthesizer is available and will change something in every
-stage before it.
+**Everything up to stage 6, and then polish, before stage 6 itself.** The
+decision is the desktop application's: stage 5 is the last thing it is missing,
+and after it the work is making the application good rather than making it
+bigger. The panels that are still racks, the wording, the edges, the thousand
+small things between "every parameter is reachable" and "a DeepMind owner
+reaches for this instead of the front panel". A plugin wrapping a half-finished
+editor is a half-finished editor in three formats, and a format is the most
+expensive place to discover that a layout was wrong. So stage 6 starts when the
+desktop application is finished rather than when it is complete.
 
-**The first release is the desktop application**, once stage 4 has made it an
-editor and a librarian rather than one of the two. Stage 6 is the first build a
-DAW can load, and it is deliberately the later of the two: a plugin nobody can
-run is worth less than an application somebody can.
+Stage 7 waits with it. A cable answers questions about a protocol, and what it
+finds goes to the library rather than here, so nothing in stages 4 and 5 is
+blocked on one; what it would change about a window is worth knowing once that
+window is worth showing somebody.
+
+**The first release is the desktop application.** Stage 4 made it an editor and
+a librarian rather than one of the two, which is the bar a release had to clear;
+stage 5 and the polish after it are what make it one worth downloading. Stage 6
+is the first build a DAW can load, and it is deliberately the later of the two:
+a plugin nobody can run is worth less than an application somebody can.
 
 ## Not planned
 

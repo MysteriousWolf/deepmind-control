@@ -9,9 +9,10 @@ use deepmind_midi::sysex::inquiry::Version;
 use iced::futures::Stream;
 use iced::futures::channel::mpsc;
 use iced::widget::{button, column, container, pick_list, row, scrollable, space, text};
-use iced::{Center, Element, Fill, Length, Subscription, Theme};
+use iced::{Background, Center, Element, Fill, Length, Subscription, Theme, border};
 
-use crate::app::{App, Message};
+use crate::app::{App, Message, View};
+use crate::{files, librarian};
 
 /// How often the window looks at what the device thread has said.
 ///
@@ -27,7 +28,10 @@ const FRAME: Duration = Duration::from_millis(16);
 /// Returns whatever iced could not do: a window it could not open, or a graphics
 /// backend it could not start.
 pub fn run() -> iced::Result {
-    iced::application(App::booted, App::update, view)
+    // Whatever the desktop handed this application to open, which is the one
+    // way onto the shelf that does not go through a dialog.
+    let named = files::named();
+    iced::application(move || App::opening(&named), App::update, view)
         .title(title)
         .theme(theme)
         .subscription(subscription)
@@ -92,11 +96,63 @@ fn ticks() -> impl Stream<Item = Message> {
 
 /// The whole window.
 fn view(app: &App) -> Element<'_, Message> {
+    column![header(app), identity(app), controls(app), surfaces(app)]
+        .push(match app.view() {
+            View::Editor => editor(app),
+            View::Library => librarian::view(app),
+        })
+        .spacing(12)
+        .padding(16)
+        .into()
+}
+
+/// The two things this application is, and which one is in front of somebody.
+///
+/// An editor and a librarian are not two windows and not two modes of one: they
+/// are the sound you are playing and the sounds you keep, and moving between
+/// them is one press. The sound survives the move, because putting a pack down
+/// to look at a filter and finding the filter gone would be the wrong lesson to
+/// teach anybody about this application.
+fn surfaces(app: &App) -> Element<'_, Message> {
+    let showing = app.view();
+    let tab = |view: View, label: &'static str| {
+        let pressed = view == showing;
+        button(text(label).size(13))
+            .padding([5, 12])
+            .style(move |theme: &Theme, _status| surface(theme, pressed))
+            .on_press(Message::Show(view))
+    };
+    row![tab(View::Editor, "Editor"), tab(View::Library, "Library")]
+        .spacing(6)
+        .align_y(Center)
+        .into()
+}
+
+/// The style the surface switch is drawn in, which is the section bar's.
+fn surface(theme: &Theme, pressed: bool) -> button::Style {
+    let material = control_ui::materials(theme);
+    let palette = theme.extended_palette();
+    button::Style {
+        background: Some(Background::Color(if pressed {
+            material.plate
+        } else {
+            material.panel
+        })),
+        text_color: palette.background.base.text,
+        border: border::rounded(3).width(1.0).color(if pressed {
+            material.lit
+        } else {
+            material.recess_edge
+        }),
+        ..button::Style::default()
+    }
+}
+
+/// The editing surface: one section of the instrument, and the bar that chooses
+/// which.
+fn editor(app: &App) -> Element<'_, Message> {
     let section = app.section();
     column![
-        header(app),
-        identity(app),
-        controls(app),
         // The bar stays put while the rack under it scrolls: it is how a panel
         // is left, and a control that scrolls away is a control that is looked
         // for.
@@ -114,7 +170,6 @@ fn view(app: &App) -> Element<'_, Message> {
         .height(Fill),
     ]
     .spacing(12)
-    .padding(16)
     .into()
 }
 
@@ -176,7 +231,10 @@ fn controls(app: &App) -> Element<'_, Message> {
     let open = app.is_connected();
     let sound = match app.patch().confidence() {
         Confidence::Unknown => "Nothing has been read.".to_owned(),
-        Confidence::Assumed => "Edited here since the last read.".to_owned(),
+        // Edited here, or loaded off the shelf: both are this window putting a
+        // value somewhere, and neither is the synthesizer agreeing that it went
+        // there. Reading the edit buffer back is what settles it.
+        Confidence::Assumed => "This window's claim, not the synthesizer's.".to_owned(),
         Confidence::Confirmed => match app.patch().name() {
             Some(name) => format!(
                 "{} \u{2014} as the synthesizer described it.",
@@ -188,8 +246,10 @@ fn controls(app: &App) -> Element<'_, Message> {
     row![
         button("Read the edit buffer").on_press_maybe(open.then_some(Message::Read)),
         button("Ask who is there").on_press_maybe(open.then_some(Message::Identify)),
-        text(sound).size(13),
-        space().width(Fill),
+        // The sound takes what is left rather than pushing what is beside it:
+        // a program name is sixteen characters and the legend is the one thing
+        // on this row that has to stay readable whatever the sound is called.
+        text(sound).size(13).width(Fill),
         control_ui::legend().map(Message::Ui),
     ]
     .spacing(10)
@@ -241,12 +301,11 @@ fn algorithms(firmware: Version) -> usize {
 fn remaining() -> Element<'static, Message> {
     text(format!(
         "Every parameter the instrument has is on these {} panels, drawn from the library's own \
-         table. The program's name, the three envelopes and the modulation matrix are laid out by \
-         hand; the control sequencer is the rest of stage 3, the librarian is stage 4, and the \
-         effect panels are stage 5, whose tables the library published in 26.2. Nothing here \
-         writes a program \
-         into the synthesizer: the manual describes no message that would, so storing a sound \
-         into a slot is done at the panel with the instrument's own WRITE.",
+         table, and every panel that is not a rack is laid out by hand. What is left is the effect \
+         panels, which are stage 5 and whose tables the library published in 26.2. Nothing here \
+         writes a program into the synthesizer: the manual describes no message that would, so \
+         storing a sound into a slot is done at the panel with the instrument's own WRITE, and \
+         what the Library does instead is write a file.",
         Group::ALL.len()
     ))
     .size(12)

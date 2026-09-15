@@ -25,9 +25,23 @@
 //!
 //! The library's simulated synthesizer is in the port list like any other
 //! choice, so all of that works with nothing plugged in.
+//!
+//! # Two surfaces, one window
+//!
+//! [`View::Editor`] is the sound in front of somebody and [`View::Library`] is
+//! the sounds they keep. The second is the librarian: a [`Shelf`] filled by
+//! opening a `.syx` file or by reading a bank off the instrument, browsed in
+//! slot order, and loaded into the edit buffer one program at a time. It is
+//! written here rather than in `control-ui` because bank and librarian
+//! operations are desktop only; the editing surface above it is the crate both
+//! builds share.
 
 mod app;
+mod files;
+mod librarian;
+mod shelf;
 mod window;
 
-pub use app::{App, Message};
+pub use app::{App, Message, View};
+pub use shelf::{Held, Shelf, Source, Transfer, patch_to_syx};
 pub use window::run;

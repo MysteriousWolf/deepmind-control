@@ -13,6 +13,18 @@ control-ui = { path = "../control-ui" }
 deepmind-host = { path = "../deepmind-host" }
 deepmind-midi = { workspace = true }
 iced = { workspace = true }
+# The system's own file chooser, and the only new dependency the librarian
+# needs. The XDG portal backend rather than the GTK one: it is Rust the whole way
+# down, so a Linux build needs no GTK development headers, and it blocks on
+# `pollster` rather than dragging an async runtime into a repository that gets
+# its frames from `thread::sleep`. `wayland` is kept because it is what lets the
+# portal parent its dialog to this window, and winit has already brought those
+# crates in on Linux. macOS and Windows use their own backends and read neither
+# feature.
+rfd = { version = "0.17", default-features = false, features = [
+    "xdg-portal",
+    "wayland",
+] }
 
 [lints]
 workspace = true
