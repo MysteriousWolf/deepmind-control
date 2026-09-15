@@ -71,6 +71,7 @@
 //! [`iced_core::Theme`] is what both of them have.
 
 mod confidence;
+mod envelope;
 mod fader;
 mod name;
 mod panel;
