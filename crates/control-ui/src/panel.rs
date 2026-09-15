@@ -10,28 +10,36 @@
 //! gets a fader, two states get a lamp, a named set gets its names. Nothing here
 //! decides what a value means; that is the library's table and this is the
 //! pixels.
+//!
+//! A panel laid out by hand changes the arrangement and never what a control
+//! is. The [name](crate::name) is the one place even that is bent, because
+//! seventeen parameters holding one character each are one word to the person
+//! reading them: the slots are still the library's, and seventeen of them are
+//! drawn as the display the instrument shows them on.
 
 use core::fmt;
 
 use deepmind_midi::param::{Group, Kind, ParamId, TableId};
+use deepmind_midi::program::ProgramName;
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::alignment::{Horizontal, Vertical};
 use iced_core::{Background, Border, Font, Length, Theme, border, text::Renderer as TextRenderer};
 use iced_widget::{Space, button, column, container, pick_list, row, text};
 
 use crate::fader::{self, fader};
+use crate::name;
 use crate::style::materials;
 use crate::{Confidence, Element, Patch, tint};
 
 /// Width of one slot, which is the fader plus the room a name needs either side.
-const SLOT: f32 = 88.0;
+pub(crate) const SLOT: f32 = 88.0;
 
 /// Height of the name, so that slots in a row line up whatever their names do.
 ///
 /// Three lines of it. `VCF Envelope Velocity Sensitivity` is the longest name
 /// in the instrument once its group is taken off the front, and a box that
 /// clips it is a box that lies about which fader is which.
-const NAME: f32 = 44.0;
+pub(crate) const NAME: f32 = 44.0;
 
 /// Longest named set that is drawn as lit legends rather than as a list.
 ///
@@ -41,10 +49,10 @@ const LEGENDS: usize = 6;
 
 /// What a view in this crate asks for.
 ///
-/// Two things, and the second one never reaches a wire: a parameter should
-/// move, or a section should be the one on the screen. What an edit costs on a
-/// wire, when it goes out and what it goes out behind is the host crate's
-/// business.
+/// Three things, and the last one never reaches a wire: a parameter should
+/// move, the program should be called something, or a section should be the one
+/// on the screen. What an edit costs on a wire, when it goes out and what it
+/// goes out behind is the host crate's business.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Message {
     /// A parameter should move to this value.
@@ -54,6 +62,13 @@ pub enum Message {
         /// Where to move it, as the program byte it is stored as.
         value: u8,
     },
+    /// The program should carry this name.
+    ///
+    /// The one message that is not about a single parameter, because the one
+    /// control that is not: a name is seventeen of them, and a person editing
+    /// it is editing a word. [`Patch::rename`](crate::Patch::rename) is what
+    /// turns the word back into the parameters that moved.
+    Rename(ProgramName),
     /// A section should be the one on the screen.
     ///
     /// Two hundred and forty-two parameters do not fit on a screen and are not
@@ -74,9 +89,16 @@ pub fn group<'a, Renderer>(patch: &Patch, group: Group, firmware: Version) -> El
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
-    let slots = group
-        .parameters()
-        .map(|parameter| slot(patch, group, parameter, firmware));
+    // Seventeen parameters the library calls `Program Name Char 1` to `17`
+    // are one field, drawn where the first of them sits, so the rack keeps the
+    // instrument's own order and loses seventeen faders nobody could name a
+    // sound on.
+    let slots = group.parameters().filter_map(|parameter| {
+        if name::holds(parameter) {
+            return name::begins(parameter).then(|| name::field(patch));
+        }
+        Some(slot(patch, group, parameter, firmware))
+    });
     container(row(slots).spacing(0).wrap())
         .padding(8)
         .style(|theme: &Theme| {

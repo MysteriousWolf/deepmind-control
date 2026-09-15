@@ -5,6 +5,7 @@ use deepmind_host::{Command, Event, Link, PortRef, open, ports};
 use deepmind_midi::device::Event as DeviceEvent;
 use deepmind_midi::param::DEFAULT_FIRMWARE;
 use deepmind_midi::param::Group;
+use deepmind_midi::program::ProgramName;
 use deepmind_midi::sysex::inquiry::{Identity, Version};
 use deepmind_midi::wire::Channel;
 
@@ -177,8 +178,22 @@ impl App {
                     self.ask(Command::SetParameter { parameter, value });
                 }
             }
+            Message::Ui(control_ui::Message::Rename(name)) => self.rename(name),
         }
         self.drain();
+    }
+
+    /// Names the program, one character at a time because that is how it is
+    /// stored.
+    ///
+    /// The same rule as an edit, seventeen times over: the patch works out
+    /// which characters actually moved, and only those reach the wire. Typing a
+    /// letter onto the end of a name is one NRPN; the other sixteen characters
+    /// are already what they should be and cost nothing.
+    fn rename(&mut self, name: ProgramName) {
+        for (parameter, value) in self.patch.rename(name) {
+            self.ask(Command::SetParameter { parameter, value });
+        }
     }
 
     /// Writes down the last thing worth saying.
