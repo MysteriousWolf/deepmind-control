@@ -78,6 +78,7 @@ mod name;
 mod panel;
 mod patch;
 mod section;
+mod sequencer;
 mod style;
 
 pub use confidence::Confidence;

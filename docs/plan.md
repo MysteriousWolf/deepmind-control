@@ -451,7 +451,7 @@ group and changes only the arrangement, never what a control is:
 | Program | **Done.** The name is 17 parameters, one character each, and 17 faders is not a name, so the 17 slots are the one display the instrument shows them on |
 | VCF, VCA and Mod envelopes | **Done.** Four faders and the shape they make, drawn above the rack, which is the one group whose meaning is a picture |
 | Mod Matrix | **Done.** Eight rows of source, destination and depth, read across rather than down, because twenty-four slots in one wrapping line are eight sentences with their words in the wrong order |
-| Control Sequencer | 32 steps, which is a sequencer and not a rack |
+| Control Sequencer | **Done.** 32 steps as one strip in the order they are played, with the six settings that are not steps left in the rack |
 | Effects | Four engines, and the tables arrived in `deepmind-midi` 26.2: `effect::Algorithm` and `effect::FxSlot` say what a slot of the loaded algorithm is |
 
 Until a group is laid out, it is complete and honest and looks like the
@@ -520,7 +520,7 @@ needed.
 | 0 | Workspace | **Done.** Four crates, pinned dependencies, CI running the four commands in the README, licence and notice files. |
 | 1 | `deepmind-host` | **Done.** Port enumeration, `Port` over midir, `Clock`, the device thread, commands in and events out, the simulator as a selectable port. Tested against `sim` with no hardware. |
 | 2 | First light | **Done.** Desktop window, port picker, identity, read the edit buffer, VCF editable end to end with assumed and confirmed drawn differently. |
-| 3 | Every parameter | **Generated, and being laid out.** All fourteen groups from `Group::parameters`, one at a time behind a section bar, because a complete ugly editor beats a beautiful partial one. The program's name, the three envelopes and the modulation matrix are laid out; the control sequencer is what remains. |
+| 3 | Every parameter | **Done.** All fourteen groups from `Group::parameters`, one at a time behind a section bar, because a complete ugly editor beats a beautiful partial one. Every panel that is not a rack is laid out: the program's name, the three envelopes, the modulation matrix and the control sequencer. |
 | 4 | The librarian | Read and write `.syx`, read a bank with progress and cancel, browse a pack, load a program into the edit buffer as a difference. |
 | 5 | The effects | Waits on the library publishing the panel tables ([deepmind-midi#18](https://github.com/MysteriousWolf/deepmind-midi/issues/18)). Four engines, 35 algorithms, the routing graph. |
 | 6 | The plugin | Simple mode, then state, then advanced mode in the same window. The CLAP comes out first, having nothing to settle; then the AU, once the bundle signs and `auval` passes; then the VST3, once Steinberg's terms are. |
