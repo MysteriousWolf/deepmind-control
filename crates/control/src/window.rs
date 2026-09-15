@@ -38,7 +38,7 @@ pub fn run() -> iced::Result {
         .default_font(control_ui::printed())
         .theme(theme)
         .subscription(subscription)
-        .window_size((900.0, 780.0))
+        .window_size((1120.0, 820.0))
         .run()
 }
 
@@ -107,6 +107,9 @@ fn view(app: &App) -> Element<'_, Message> {
     container(
         column![header(app), identity(app), controls(app), surfaces(app)]
             .push(match app.view() {
+                View::Panel => {
+                    control_ui::panel(app.patch(), app.firmware(), screen(app)).map(Message::Ui)
+                }
                 View::Editor => editor(app),
                 View::Library => librarian::view(app),
             })
@@ -119,26 +122,67 @@ fn view(app: &App) -> Element<'_, Message> {
     .into()
 }
 
-/// The two things this application is, and which one is in front of somebody.
+/// The three things this application is, and which one is in front of somebody.
 ///
-/// An editor and a librarian are not two windows and not two modes of one: they
-/// are the sound you are playing and the sounds you keep, and moving between
-/// them is one press. The sound survives the move, because putting a pack down
-/// to look at a filter and finding the filter gone would be the wrong lesson to
-/// teach anybody about this application.
+/// The instrument's own front, one section of it, and the sounds you keep. Not
+/// three windows and not three modes of one: moving between them is one press,
+/// and the sound survives the move, because putting a pack down to look at a
+/// filter and finding the filter gone would be the wrong lesson to teach
+/// anybody about this application.
+///
+/// The middle one is named after the section it holds rather than "Editor",
+/// because the panel's `EDIT` opened that section and the way back to it should
+/// say which one it is.
 fn surfaces(app: &App) -> Element<'_, Message> {
     let showing = app.view();
-    let tab = |view: View, label: &'static str| {
+    let tab = |view: View, label: String| {
         let pressed = view == showing;
         button(text(label).size(13))
             .padding([5, 12])
             .style(move |theme: &Theme, _status| surface(theme, pressed))
             .on_press(Message::Show(view))
     };
-    row![tab(View::Editor, "Editor"), tab(View::Library, "Library")]
-        .spacing(6)
-        .align_y(Center)
-        .into()
+    row![
+        tab(View::Panel, "Panel".to_owned()),
+        tab(View::Editor, app.section().name().to_owned()),
+        tab(View::Library, "Library".to_owned()),
+    ]
+    .spacing(6)
+    .align_y(Center)
+    .into()
+}
+
+/// What the instrument's own display would be showing.
+///
+/// The panel leaves a screen-shaped hole in itself and the application fills
+/// it, because what a display says is the application's business rather than
+/// the view layer's: which sound is on the screen, what backs it, and what the
+/// last thing to happen was. A plugin has different answers to all three.
+fn screen(app: &App) -> control_ui::Element<'_, iced::Renderer> {
+    let claim = app.patch().confidence();
+    let name = app.patch().name().map_or_else(
+        || "\u{2014}".to_owned(),
+        |name| name.as_str().trim().to_owned(),
+    );
+    let backing = match claim {
+        Confidence::Unknown => "nothing has been read",
+        Confidence::Assumed => "this window's claim",
+        Confidence::Confirmed => "as the synthesizer described it",
+    };
+    column![
+        text(name)
+            .font(control_ui::reading())
+            .size(19)
+            .style(move |theme: &Theme| text::Style {
+                color: Some(control_ui::tint(theme, claim)),
+            }),
+        text(backing).size(11).font(control_ui::reading()),
+        space().height(Fill),
+        text(app.status()).size(11).font(control_ui::reading()),
+    ]
+    .spacing(4)
+    .height(Fill)
+    .into()
 }
 
 /// The style the surface switch is drawn in, which is the section bar's.

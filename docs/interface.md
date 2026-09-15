@@ -46,12 +46,67 @@ The abbreviation is what is printed on the instrument, so a player looking
 between the two reads the same word twice. The dot is the only thing on the
 panel that says a parameter can be moved by something other than a hand.
 
-## Fourteen panels, one at a time
+## The front panel is the home screen
+
+**The window opens on the instrument, not on a section of it.** A `DeepMind` is
+two rows of section plates with a screen between them: twenty-odd faders under
+four-letter legends, a few lit buttons under each group, and on every group a
+yellow `EDIT` that opens that group on the display. Everything else — 242
+parameters' worth — is behind one of those presses.
+
+So is this. The panel is where a window opens, because it is where a player
+looks first, and the rack of a section is one press behind it exactly as it is
+on the hardware.
+
+```
+┌ ARP / SEQ ┐ ┌── LFO 1 ──┐ ┌── LFO 2 ──┐ ┌─────────────┐ ┌ POLY ┐
+│  ▮     ▮  │ │ ▮  ▮ ○Sine│ │ ▮  ▮ ○Sine│ │ Modular Fun │ │  ▮   │
+│ RATE GATE │ │      ●Tri │ │      ●Ramp│ │ this claim  │ │DETUNE│
+│ [on][off] │ │           │ │           │ │             │ │      │
+│      EDIT │ │      EDIT │ │      EDIT │ │ Read it.    │ │MOD FX│
+└───────────┘ └───────────┘ └───────────┘ └─────────────┘ └──────┘
+┌─── DCO 1 & 2 ───┐ ┌─── VCF ───┐ ┌VCA┐ ┌HPF┐ ┌ ENVELOPES ┐
+│ ▮ ▮ ▮ ▮ ▮ ▮ ▮   │ │ ▮ ▮ ▮ ▮ ▮ │ │ ▮ │ │ ▮ │ │ ▮ ▮ ▮ ▮   │
+│      [on]  EDIT │ │ [2 Pole]  │ │   │ │   │ │ A D S R   │
+└─────────────────┘ └───────────┘ └───┘ └───┘ └───────────┘
+```
+
+- **The screen is the application's, and the panel leaves a hole for it.** What a
+  display says is which sound is on it, what backs that, and what last happened
+  — none of which the view layer knows, and all of which a plugin answers
+  differently from a desktop window.
+- **A legend is printed over its control**, not under it, because that is where
+  the instrument prints it: the hardware has a screen for readings and no room
+  under a fader.
+- **Every plate carries the press the hardware calls `EDIT`**, and the
+  envelopes' `VCA`, `VCF` and `MOD` are the three ways into the three envelope
+  panels, where the hardware uses them to choose which envelope its four faders
+  address.
+- **The arrangement is the instrument's; the livery is this window's.** The
+  hardware's buttons are white, yellow and cyan. Here a colour already means
+  something — copper is a claim, green is the synthesizer's own account — and a
+  yellow `EDIT` beside them would be a fourth meaning to learn.
+- **The row of twelve lamps over `POLY` is not drawn.** It says how many voices
+  are sounding, and nothing on a MIDI port says that. A lamp that cannot be lit
+  honestly is not drawn at all.
+- **What is on the panel is the one thing this repository transcribes.** Which
+  parameters have a fader, and what is silkscreened over them, is a fact about
+  the hardware that the library does not publish
+  ([deepmind-midi#26](https://github.com/MysteriousWolf/deepmind-midi/issues/26)).
+  The table is written as parameter identifiers so a rename fails the build, it
+  is in one file, and that file says it is there until the library answers.
+
+## Fourteen panels, one press behind it
 
 Two hundred and forty-two parameters do not fit on a screen, and the instrument
 does not put them on one surface either: a player presses a section and the
 display becomes that section. So does this. A bar of fourteen tabs sits above
 the rack, it does not scroll with it, and the panel below it is the one section.
+
+The bar and the front panel's `EDIT` are the same press: one asks for a section
+and the window shows it, whichever surface asked. The way back is named after
+the section it holds rather than "Editor", so that somebody who pressed `VCF`
+can see where they would be returning to.
 
 **The order of the tabs is not written down anywhere.** A parameter's offset is
 its NRPN number and its place in a dump, the library's parameter table is in
@@ -73,14 +128,14 @@ Which section somebody is looking at is this window's business and never the
 synthesizer's. It outlives a port being put down, because the sound went away
 and the person did not.
 
-## Two surfaces, and the sound survives the switch
+## Three surfaces, and the sound survives the switch
 
-The editor is the sound somebody is playing. The library is the sounds they
-keep. They are the same application looking at two different things, so they are
-two surfaces of one window and not two windows: a switch above the section bar,
-and everything below it changes. The patch does not. Putting a pack down to look
-at a filter and finding the filter gone is the wrong thing to teach anybody
-about an editor.
+The panel is the instrument. The editor is one section of it. The library is the
+sounds somebody keeps. They are one application looking at three things, so they
+are three surfaces of one window and not three windows: a switch above them, and
+everything below it changes. The patch does not. Putting a pack down to look at a
+filter and finding the filter gone is the wrong thing to teach anybody about an
+editor.
 
 **The shelf is a grid and not a list.** A pack is 128 programs, and the one
 thing this surface can offer that the instrument's own two-line display cannot

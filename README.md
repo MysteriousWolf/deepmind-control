@@ -22,10 +22,13 @@ DeepMind <--MIDI--> port <--bytes--> deepmind-midi <--events--> the interface
 ```
 
 **Status: an editor and a librarian, complete and being polished.** There is a
-window with two surfaces. The editor lists the ports, opens one, finds out who is
-on it and which firmware's value tables are true, reads the edit buffer, and
-edits all 242 parameters end to end — with the values the synthesizer reported
-drawn differently from the ones this window put there. The library reads and writes `.syx` files, reads a bank
+window with three surfaces, and it opens on the instrument's own front panel:
+two rows of section plates with a screen between them, the controls the hardware
+puts a fader under, and on every plate the press it calls `EDIT`. Behind those
+presses is the editor, which lists the ports, opens one, finds out who is on it
+and which firmware's value tables are true, reads the edit buffer, and edits all
+242 parameters end to end — with the values the synthesizer reported drawn
+differently from the ones this window put there. The library reads and writes `.syx` files, reads a bank
 off the instrument with a progress bar and a stop button, browses what it found
 in slot order, and loads any of it into the edit buffer as the difference rather
 than as 242 parameters.

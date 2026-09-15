@@ -74,6 +74,16 @@ pub(crate) struct Room {
     /// How tall the control stands, so that a rack's slots line up whatever is
     /// in them and a row is only as tall as what it holds.
     height: Length,
+    /// How long a fader's travel is when it runs down the panel.
+    travel: f32,
+    /// Whether there is room to light a named set rather than list it.
+    ///
+    /// A list is the honest control for a set too long to read at a glance,
+    /// and how long that is depends on the room: a rack's slot has none to
+    /// spare, and the strip of legends beside the instrument's own LFO faders
+    /// has seven. It is room and not identity — the same enumerated parameter,
+    /// from the same table, with the same values under it.
+    legends: bool,
 }
 
 impl Room {
@@ -85,7 +95,35 @@ impl Room {
         axis: Axis::Down,
         width: fader::WIDTH + 28.0,
         height: Length::Fixed(fader::HEIGHT),
+        travel: fader::HEIGHT,
+        legends: false,
     };
+
+    /// Room for one lane of the instrument's own front panel.
+    ///
+    /// Narrower than a slot and shorter, because the panel holds two rows of
+    /// eighteen and the hardware's own faders are a third the length of the
+    /// ones in a rack.
+    pub(crate) const fn lane(width: f32, travel: f32) -> Self {
+        Self {
+            axis: Axis::Down,
+            width,
+            height: Length::Fixed(travel),
+            travel,
+            legends: false,
+        }
+    }
+
+    /// The same lane, with room to light a named set rather than list it.
+    pub(crate) const fn lamps(width: f32, height: f32) -> Self {
+        Self {
+            axis: Axis::Down,
+            width,
+            height: Length::Fixed(height),
+            travel: height,
+            legends: true,
+        }
+    }
 
     /// Room for something chosen from a list in a row, `width` points of it.
     ///
@@ -96,6 +134,8 @@ impl Room {
             axis: Axis::Down,
             width,
             height: Length::Fixed(fader::WIDTH),
+            travel: fader::HEIGHT,
+            legends: false,
         }
     }
 
@@ -108,6 +148,8 @@ impl Room {
             axis: Axis::Down,
             width,
             height: Length::Fixed(fader::HEIGHT),
+            travel: fader::HEIGHT,
+            legends: false,
         }
     }
 
@@ -117,6 +159,8 @@ impl Room {
             axis: Axis::Across,
             width,
             height: Length::Fixed(fader::WIDTH),
+            travel: fader::HEIGHT,
+            legends: false,
         }
     }
 
@@ -344,9 +388,6 @@ where
 {
     let low = u8::try_from(parameter.min()).unwrap_or(u8::MIN);
     let high = u8::try_from(parameter.max()).unwrap_or(u8::MAX);
-    let Some(value) = value else {
-        return sweep(parameter, low..=high, low, Confidence::Unknown, room);
-    };
     match parameter.kind() {
         // A switch is two states, and the library says which parameters are
         // switches. Where it also says one accepts 256 values, the two answers
@@ -355,26 +396,19 @@ where
         // 9` and `11` are the two that say it today, from a `kind = "switch"`
         // in `spec/parameters.toml` that their own range and their own note
         // disagree with. Drawing the sweep is the reading that loses nothing.
-        Kind::Switch if parameter.max() <= 1 => lamp(
-            parameter,
-            value != 0,
-            claim,
-            u8::from(value == 0),
-            if value == 0 { "off" } else { "on" },
-            room,
-        ),
+        Kind::Switch if parameter.max() <= 1 => lamp(parameter, value, claim, room),
         Kind::Enumerated(_) => match choices(parameter, firmware, value) {
-            Some(options) if options.len() <= LEGENDS => {
+            Some(options) if options.len() <= LEGENDS || room.legends => {
                 legends(parameter, &options, value, claim, room)
             }
             Some(options) => list(parameter, options, value, room),
             // A table that does not name this value is a table that would drop
             // the value on the next click, so the raw number stays draggable.
-            None => sweep(parameter, low..=high, value, claim, room),
+            None => sweep(parameter, low..=high, value.unwrap_or(low), claim, room),
         },
         // A sweep, and anything a later library adds that this build has not
         // heard of: every parameter is a number underneath.
-        _ => sweep(parameter, low..=high, value, claim, room),
+        _ => sweep(parameter, low..=high, value.unwrap_or(low), claim, room),
     }
 }
 
@@ -397,9 +431,12 @@ where
     match room.axis {
         // A fader takes as much room across as it is given and never more than
         // it needs: a slot gives it more than its width, and a strip's lane
-        // gives it less, which is the lane it draws in.
-        Axis::Down if room.width < fader::WIDTH => fader.narrow(room.width).into(),
-        Axis::Down => fader.into(),
+        // gives it less, which is the lane it draws in. How long it runs is the
+        // room's too, because the instrument's own panel holds two rows of them.
+        Axis::Down if room.width < fader::WIDTH => {
+            fader.narrow(room.width).travel(room.travel).into()
+        }
+        Axis::Down => fader.travel(room.travel).into(),
         Axis::Across => fader.across(room.width).into(),
     }
 }
@@ -408,17 +445,27 @@ where
 ///
 /// Not a checkbox and not something that slides. An instrument says *on* with a
 /// light, and this is the only place a saturated colour appears.
+///
+/// A switch nobody has read is drawn as the switch it is, unlit and saying
+/// neither: what a control is does not depend on whether a sound has arrived,
+/// and a row of buttons that draws as a row of faders until something is read
+/// is a panel that changes shape under somebody.
 fn lamp<'a, Renderer>(
     parameter: ParamId,
-    on: bool,
+    value: Option<u8>,
     claim: Confidence,
-    next: u8,
-    label: &'a str,
     room: Room,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
+    let on = value.is_some_and(|value| value != 0);
+    let next = u8::from(!on);
+    let label = match value {
+        None => "\u{2014}",
+        Some(0) => "off",
+        Some(_) => "on",
+    };
     let live = !matches!(claim, Confidence::Unknown);
     let face = button(
         container(text(label).size(11).font(reading()).center())
@@ -445,7 +492,7 @@ where
 fn legends<'a, Renderer>(
     parameter: ParamId,
     options: &[Choice],
-    value: u8,
+    value: Option<u8>,
     claim: Confidence,
     room: Room,
 ) -> Element<'a, Renderer>
@@ -454,7 +501,7 @@ where
 {
     let live = !matches!(claim, Confidence::Unknown);
     let rows = options.iter().map(|choice| {
-        let on = choice.byte() == value;
+        let on = Some(choice.byte()) == value;
         let byte = choice.byte();
         let face = button(text(choice.name).size(10).font(reading()))
             .padding([1, 5])
@@ -480,7 +527,7 @@ where
 fn list<'a, Renderer>(
     parameter: ParamId,
     options: Vec<Choice>,
-    value: u8,
+    value: Option<u8>,
     room: Room,
 ) -> Element<'a, Renderer>
 where
@@ -488,7 +535,7 @@ where
 {
     let selected = options
         .iter()
-        .find(|choice| choice.byte() == value)
+        .find(|choice| Some(choice.byte()) == value)
         .copied();
     container(
         pick_list(options, selected, move |choice: Choice| Message::Edit {
@@ -646,7 +693,11 @@ impl fmt::Display for Choice {
 /// Also `None` when the table names every value the parameter accepts and the
 /// one it is holding is not among them, which a dump from hardware can do. The
 /// list would open on nothing, so the raw number stays draggable instead.
-fn choices(parameter: ParamId, firmware: Version, value: u8) -> Option<Vec<Choice>> {
+///
+/// A parameter nobody has read is not that case: there is no value to be
+/// missing from the table, and the control is drawn as the named set it is with
+/// nothing chosen in it.
+fn choices(parameter: ParamId, firmware: Version, value: Option<u8>) -> Option<Vec<Choice>> {
     let entries = parameter.choices_for(firmware)?;
     let options: Vec<Choice> = entries
         .iter()
@@ -655,9 +706,11 @@ fn choices(parameter: ParamId, firmware: Version, value: u8) -> Option<Vec<Choic
             name: entry.name,
         })
         .collect();
-    options
-        .iter()
-        .find(|choice| choice.value == u16::from(value))?;
+    if let Some(value) = value {
+        options
+            .iter()
+            .find(|choice| choice.value == u16::from(value))?;
+    }
     Some(options)
 }
 

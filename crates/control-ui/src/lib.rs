@@ -21,6 +21,14 @@
 //! sent, and what it is sent behind is the host crate's problem: the views do
 //! not know that a wire has a speed.
 //!
+//! # The panel, and then the fourteen behind it
+//!
+//! [`panel`] is the front of the instrument: two rows of section plates with a
+//! screen between them, the twenty-odd controls Behringer put a fader under,
+//! and on every plate the press the hardware calls `EDIT`. It is where a window
+//! opens, because it is where a player looks first, and everything else is
+//! behind one of those presses.
+//!
 //! # Fourteen panels, one at a time
 //!
 //! [`group`] draws one section as the instrument lays it out, and
@@ -91,6 +99,7 @@ mod confidence;
 mod effect;
 mod envelope;
 mod fader;
+mod home;
 mod matrix;
 mod name;
 mod panel;
@@ -101,6 +110,7 @@ mod style;
 
 pub use confidence::Confidence;
 pub use fader::{Axis, Fader, fader};
+pub use home::{panel, panelled};
 pub use name::characters as name_characters;
 pub use panel::{Message, group, legend};
 pub use patch::Patch;

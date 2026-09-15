@@ -15,16 +15,22 @@ use deepmind_midi::wire::Channel;
 use crate::files;
 use crate::shelf::{self, Shelf};
 
-/// Which of the two things this window is, at the moment somebody looks at it.
+/// Which of the three things this window is, at the moment somebody looks at it.
 ///
-/// An editor and a librarian are the same application and not the same surface:
-/// one is the sound in front of you and the other is the sounds you keep. The
-/// bar at the top is the switch, and which one is showing is this window's own
-/// business and nothing the synthesizer is told about.
+/// The instrument's own front, one section of it, and the sounds somebody
+/// keeps. They are one application looking at three things rather than three
+/// windows, and which one is showing is this window's own business and nothing
+/// the synthesizer is told about.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum View {
-    /// The fourteen panels: the sound as it is now.
+    /// The front panel: the sound as the instrument itself shows it.
+    ///
+    /// Where the window opens, because it is where a player looks first. The
+    /// handful of controls the hardware puts a fader under, and on every
+    /// section the press it calls `EDIT`.
     #[default]
+    Panel,
+    /// One of the fourteen panels: everything behind one of those presses.
     Editor,
     /// The shelf: the sounds a file or a bank read put there.
     Library,
@@ -48,7 +54,7 @@ pub enum Message {
     Read,
     /// Fold in whatever the device thread has said since the last message.
     Tick,
-    /// Show the editor, or the librarian.
+    /// Show the front panel, a section of it, or the librarian.
     Show(View),
     /// Sit the bank picker on a bank, without reading it.
     ChooseBank(Bank),
@@ -99,7 +105,7 @@ pub struct App {
     shelf: Shelf,
     /// The bank the picker is sitting on, which is the one a read would read.
     bank: Bank,
-    /// Which of the two surfaces is showing.
+    /// Which of the three surfaces is showing.
     view: View,
     /// The last thing worth saying, in words.
     status: String,
@@ -126,7 +132,7 @@ impl App {
             section: first_section(),
             shelf: Shelf::new(),
             bank: Bank::A,
-            view: View::Editor,
+            view: View::Panel,
             status: "Choose a port.".to_owned(),
         }
     }
@@ -209,7 +215,9 @@ impl App {
     ///
     /// Which panel somebody is looking at, which is this window's business and
     /// nothing the synthesizer is told about. It survives a port being put
-    /// down, because the sound went away and the person did not.
+    /// down, because the sound went away and the person did not. It is also
+    /// what the front panel's `EDIT` sets, so the two surfaces agree on which
+    /// section is open.
     #[must_use]
     pub const fn section(&self) -> Group {
         self.section
@@ -227,7 +235,7 @@ impl App {
         self.bank
     }
 
-    /// Returns which of the two surfaces is showing.
+    /// Returns which of the three surfaces is showing.
     #[must_use]
     pub const fn view(&self) -> View {
         self.view
@@ -259,7 +267,14 @@ impl App {
             Message::SavePatch => self.save_patch(),
             Message::SavePack => self.save_pack(),
             Message::Load(index) => self.load(index),
-            Message::Ui(control_ui::Message::Show(section)) => self.section = section,
+            // A section asked for is a section opened, whichever surface asked:
+            // the front panel's `EDIT` and the section bar's own tabs are the
+            // same press, and the hardware answers both by putting that section
+            // on the display.
+            Message::Ui(control_ui::Message::Show(section)) => {
+                self.section = section;
+                self.view = View::Editor;
+            }
             Message::Ui(control_ui::Message::Edit { parameter, value }) => {
                 // The view moved it, so the window already shows it there. What
                 // the synthesizer is told is the same thing, once: an edit it

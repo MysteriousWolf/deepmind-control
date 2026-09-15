@@ -14,6 +14,14 @@ from a fact this repository transcribed is a second copy of a generated table,
 going stale silently on the next release. So the answer to "the window cannot
 say that" is an issue, not a table.
 
+There is one exception, and it is [#26](https://github.com/MysteriousWolf/deepmind-midi/issues/26):
+the front panel's own contents, which the home screen could not be built without.
+It is written as `ParamId`s so that a rename fails the build rather than
+mislabelling a fader, it is in one file, and that file's first paragraph says it
+is there until the library publishes the same thing. It is the measure of how
+much this repository is prepared to transcribe: one table, said out loud, with
+the issue that deletes it linked from the code.
+
 ## Open
 
 | | | |
@@ -22,6 +30,7 @@ say that" is an issue, not a table.
 | [#23](https://github.com/MysteriousWolf/deepmind-midi/issues/23) | The FX routing graph as an edge list, and what Insert, Send and Bypass do to the two paths | The chain above the four plates could be drawn, and the window could say which engines currently reach the output. Today the connection mode is the list its value table names and nothing more |
 | [#24](https://github.com/MysteriousWolf/deepmind-midi/issues/24) | A sequencer step is bipolar, `0` skips it, and `Sequence Length` bounds which steps play | The strip gains a centre line, a skip mark and a dimmed tail. Also where the `kind = "switch"` on two steps that accept 256 values gets settled |
 | [#25](https://github.com/MysteriousWolf/deepmind-midi/issues/25) | A parameter's displayed range, as the manual prints it | A fader could say what its two ends mean, the way every effect slot already does. 26 parameters have one |
+| [#26](https://github.com/MysteriousWolf/deepmind-midi/issues/26) | Which parameters the front panel puts a control under, what it prints over them, and in which row | **The one table this repository transcribes.** `control-ui/src/home.rs` holds it until this lands, and says so in its own first paragraph. It is also what a DeepMind 6 would need to be drawn as a 6 |
 
 ## Answered
 
@@ -42,7 +51,7 @@ printing — the caveat under a section, the note in
 
 ## Asking for something new
 
-An issue there, not a table here. What has worked, in all four above: what is
+An issue there, not a table here. What has worked, in all five above: what is
 missing and where it already exists in `spec/`, why this editor cannot do its
 job without it, the accessor that would answer it, and what the library should
 *not* do — because half of what is useful about this library is what it refuses

@@ -541,6 +541,49 @@ not before it. A release job for an application is not the library's: it builds
 binaries for three platforms and signs two of them, and writing it against a
 release that has not been designed yet is writing it twice.
 
+## The window opens on the instrument
+
+A `DeepMind` shows you its front before it shows you anything else: two rows of
+section plates with a screen between them, twenty-odd faders under four-letter
+legends, and on every group the press it calls `EDIT`, which puts that group on
+the display. The 242 parameters are all behind one of those.
+
+The window does the same, and for the instrument's own reason: somebody who has
+just plugged a synthesizer in wants to see the sound rather than a list of
+fourteen sections, and the section they want is one press away either way. So
+the front panel is the surface a window opens on, the fourteen racks are what an
+`EDIT` opens, and the librarian is the third surface beside them. The bar and
+the panel's `EDIT` are the same press — one asks for a section and the window
+shows it — so there is one idea of "open that section" rather than two.
+
+**This is the one thing this repository transcribes.** Which parameters the
+hardware puts a fader under, and what is silkscreened over them, is a fact about
+the instrument that the library does not publish: the parameter table says what
+exists, the controller table says what has a CC, and neither says what a hand
+can reach. Everything else here is derived — the matrix finds its eight routings
+by what the library calls them, the sequencer finds its steps, the effects read
+the algorithm each engine is running — and this one is a table, in one file,
+written as parameter identifiers so that a rename fails the build rather than
+mislabelling a fader. The file's first paragraph says it is there until
+[deepmind-midi#26](https://github.com/MysteriousWolf/deepmind-midi/issues/26)
+lands, and `docs/waiting.md` is where that is remembered.
+
+It is worth being exact about what the table does and does not decide. It says
+*which* control is on the panel and what is printed over it. What that control
+*is* is still the library's answer — a sweep gets a fader, two states get a
+lamp, a named set gets its names — which is the same line hand layout has not
+crossed since stage 3. A parameter this table names that the library later makes
+enumerated arrives on the panel as a list, with nothing here to change.
+
+Three things the hardware has that the panel does not. The row of twelve lamps
+over `POLY` says how many voices are sounding, and nothing on a MIDI port says
+that, so it is not drawn: a lamp that cannot be lit honestly is worse than no
+lamp. The `DATA ENTRY` fader edits whatever the display is showing, and a window
+has the value under the pointer instead. And the hardware's white, yellow and
+cyan buttons are drawn in this window's own materials, because here a colour
+already means something — copper is a claim, green is the instrument's own
+account — and a fourth meaning is a thing to learn rather than a thing to read.
+
 ## A panel is generated before it is drawn
 
 Every one of the 242 parameters is a slot in the rack of its group, and what the
@@ -644,13 +687,18 @@ formats, and a format is the most expensive place to discover that a layout was
 wrong. So stage 6 starts when the desktop application is finished rather than
 when it is complete.
 
-What polish has to work through, in no order yet: the effect slots want the
-knobs and the measured colours the manual's own figures use, which is a library
-release away; the sequencer strip wants a centre line, a skip mark and a dimmed
-tail past the sequence length, which is another; the window opens at a size
-chosen before four engine plates existed; and keyboard focus is not wired
-anywhere, which is the one gap in this editor that is not waiting on anybody
-else.
+Polish has started, and it is where the front panel above came from: the window
+opens on the instrument rather than on its first section, the name is set as the
+mark sets it, and the parts of the window that are not parameters are drawn on
+the instrument too.
+
+What is left of it, in no order yet: the effect slots want the knobs and the
+measured colours the manual's own figures use, which is a library release away;
+the sequencer strip wants a centre line, a skip mark and a dimmed tail past the
+sequence length, which is another; the front panel wants the library's own
+account of itself rather than the table in `home.rs`; and keyboard focus is not
+wired anywhere, which is the one gap in this editor that is not waiting on
+anybody else.
 
 Which of those are somebody else's to answer is written down rather than
 remembered: [waiting.md](waiting.md) is the list of what this repository has

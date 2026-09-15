@@ -147,6 +147,18 @@ impl<Message> Fader<'_, Message> {
         self
     }
 
+    /// Shortens the fader's travel to `length` points.
+    ///
+    /// For a panel that has to hold two rows of them. The instrument's own
+    /// front panel is exactly that, and its faders are a third the length of
+    /// the ones a rack draws; the control is the same one, dragged the same
+    /// way, and what changed is how much room it was given.
+    #[must_use]
+    pub fn travel(mut self, length: f32) -> Self {
+        self.length = length;
+        self
+    }
+
     /// Turns the fader onto its side, `length` points of travel long.
     ///
     /// For a panel whose hand layout is rows. The control is the same one; the
@@ -187,8 +199,8 @@ impl<Message> Fader<'_, Message> {
         }
     }
 
-    /// Returns how far the cap can travel.
-    fn travel(&self, bounds: Rectangle) -> f32 {
+    /// Returns how far the cap can move inside `bounds`.
+    fn reach(&self, bounds: Rectangle) -> f32 {
         let along = match self.axis {
             Axis::Down => bounds.height,
             Axis::Across => bounds.width,
@@ -214,7 +226,7 @@ impl<Message> Fader<'_, Message> {
             Axis::Down => from - to,
             Axis::Across => to - from,
         };
-        moved / self.travel(bounds) * self.span()
+        moved / self.reach(bounds) * self.span()
     }
 
     /// Returns the range as a span of values, never zero.
@@ -258,12 +270,12 @@ impl<Message> Fader<'_, Message> {
 
     /// Returns where the cap is.
     fn cap(&self, bounds: Rectangle) -> Rectangle {
-        let travelled = self.fraction() * self.travel(bounds);
+        let travelled = self.fraction() * self.reach(bounds);
         let across = self.cap_across();
         match self.axis {
             Axis::Down => Rectangle {
                 x: bounds.x + (bounds.width - across) / 2.0,
-                y: bounds.y + self.travel(bounds) - travelled,
+                y: bounds.y + self.reach(bounds) - travelled,
                 width: across,
                 height: CAP_HEIGHT,
             },
@@ -302,7 +314,7 @@ impl<Message> Fader<'_, Message> {
 
     /// Returns the two arms of the scale tick at `fraction` of the travel.
     fn tick(&self, bounds: Rectangle, fraction: f32) -> [Rectangle; 2] {
-        let travelled = fraction * self.travel(bounds);
+        let travelled = fraction * self.reach(bounds);
         if self.thickness < TRACK + (TICK + 2.0) * 2.0 {
             // Nothing to print a scale on. An arm overlapping the track reads
             // as a mark on the fader rather than a scale beside it.
@@ -310,7 +322,7 @@ impl<Message> Fader<'_, Message> {
         }
         match self.axis {
             Axis::Down => {
-                let y = bounds.y + CAP_HEIGHT / 2.0 + self.travel(bounds) - travelled;
+                let y = bounds.y + CAP_HEIGHT / 2.0 + self.reach(bounds) - travelled;
                 [bounds.x + 2.0, bounds.x + bounds.width - 2.0 - TICK].map(|x| Rectangle {
                     x,
                     y,
@@ -628,10 +640,10 @@ mod tests {
 
     #[test]
     fn the_cap_rides_the_travel_and_never_the_whole_length() {
-        let travel = at(0).travel(DOWN);
+        let travel = at(0).reach(DOWN);
 
         assert!((travel - (HEIGHT - CAP_HEIGHT)).abs() < f32::EPSILON);
-        assert!((at(0).across(HEIGHT).travel(ACROSS) - travel).abs() < f32::EPSILON);
+        assert!((at(0).across(HEIGHT).reach(ACROSS) - travel).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -650,7 +662,7 @@ mod tests {
     #[test]
     fn a_drag_the_length_of_the_travel_covers_the_whole_range() {
         let down = at(0);
-        let travel = down.travel(DOWN);
+        let travel = down.reach(DOWN);
 
         let covered = down.advance(travel, 0.0, DOWN);
         assert!((covered - down.span()).abs() < 0.01, "covered {covered}");
