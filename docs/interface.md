@@ -73,6 +73,37 @@ Which section somebody is looking at is this window's business and never the
 synthesizer's. It outlives a port being put down, because the sound went away
 and the person did not.
 
+## Two surfaces, and the sound survives the switch
+
+The editor is the sound somebody is playing. The library is the sounds they
+keep. They are the same application looking at two different things, so they are
+two surfaces of one window and not two windows: a switch above the section bar,
+and everything below it changes. The patch does not. Putting a pack down to look
+at a filter and finding the filter gone is the wrong thing to teach anybody
+about an editor.
+
+**The shelf is a grid and not a list.** A pack is 128 programs, and the one
+thing this surface can offer that the instrument's own two-line display cannot
+is all of them at once: four across at the window's opening width, in slot
+order, with the slot written the way the front panel writes it and the name
+beside it. A column of 128 rows would be a list of the same length that showed a
+quarter as much of it.
+
+**A program is drawn like a section tab**, because it is the same idea: the one
+that has been pressed is the face plate a rack sits on, lit along its edge, and
+the rest are the panel they are cut into. One window, one drawing of "this one".
+
+**A slot that names nothing is drawn as naming nothing.** A stored dump carries
+its bank and program; an edit buffer dump carries neither, because the edit
+buffer is where a sound is played rather than where one is kept. That program
+gets an em dash where the others get `A19`, which is both the truth and how a
+patch this application saved reads back in.
+
+**Loading one is a claim.** Every value on the screen goes copper at once: the
+host sends the difference, and nothing has heard the instrument play any of it.
+Reading the edit buffer back is what turns the panel green, exactly as it is
+after a fader is dragged.
+
 ## Confidence is a fill, not a colour
 
 A claim per parameter, which is more than the library tracks: the library's
