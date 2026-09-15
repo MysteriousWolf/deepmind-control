@@ -79,6 +79,7 @@ Nothing here has been run against a synthesizer yet.
 | --- | --- |
 | [Plan](docs/plan.md) | What is being built, the decisions behind it, and the order |
 | [Interface](docs/interface.md) | What a control looks like, what its three states are, and why |
+| [Waiting](docs/waiting.md) | What has been asked of the library, and what each answer would change here |
 | [Protocol](https://github.com/MysteriousWolf/deepmind-midi/blob/main/docs/midi-spec.md) | Lives in the library, along with the specification it is generated from |
 | [NOTICE](NOTICE) | Trademarks, and where the marks come from |
 
