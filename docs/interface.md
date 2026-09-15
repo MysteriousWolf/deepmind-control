@@ -38,7 +38,7 @@ the anatomy rather than inventing a second one:
 | Abbreviation above | Mono, as the synthesizer's own display writes it: `DCY`, `PDY`, `HiSvFreq` |
 | Control in the middle | Fader, knob, switch, selector or readout |
 | Title below | The same parameter written out, for a panel with room to be readable |
-| Modulation dot | A small mark at the top right of a slot the modulation matrix reaches |
+| Modulation dot | A small mark at the top right of a slot the modulation matrix reaches. Not drawn yet: the library names a destination the way the display prints it and does not say which parameter that is ([deepmind-midi#19](https://github.com/MysteriousWolf/deepmind-midi/issues/19)) |
 | Column pitch | One slot per column, filled left to right, wrapping onto a second row |
 
 Two of those are worth keeping even though a bigger screen does not need them.

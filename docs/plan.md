@@ -272,9 +272,10 @@ panel. Both are in the library's repository, and neither is in its API.
 They are not transcribed here. Duplicating 35 panels into this repository means
 maintaining a second copy of a table that is generated from a specification,
 which is the thing the library exists to prevent. The FX editor waits on a
-feature in `deepmind-midi` that publishes them, and until it lands the FX
-section shows the twelve slots under their protocol names and the algorithm
-under its own, which is honest and ugly.
+feature in `deepmind-midi` that publishes them
+([deepmind-midi#18](https://github.com/MysteriousWolf/deepmind-midi/issues/18)),
+and until it lands the FX section shows the twelve slots under their protocol
+names and the algorithm under its own, which is honest and ugly.
 
 ## One view layer, two runtimes
 
@@ -467,6 +468,14 @@ found by what the library calls them — a `Source` with a `Destination` and a
 `Depth` sharing its prefix — so a ninth routing draws a ninth row and a lone
 `Source` somewhere else is not a matrix.
 
+What the rows cannot do yet is say where they point. A destination is a value
+in a table of 133 names the display prints abbreviated, and nothing joins
+`VCF Freq` to `ParamId::VcfFrequency`, so neither the mark on a modulated slot
+nor a way from a row to the parameter it moves can be drawn without matching
+those names here — which is the second copy of a generated table this
+repository refuses to keep. It waits on the library
+([deepmind-midi#19](https://github.com/MysteriousWolf/deepmind-midi/issues/19)).
+
 That is also where hand layout stops being only an arrangement of whole
 controls. A row gives a list the width its names need and turns the depth fader
 onto its side, because eight rows cannot each be 128 points tall and eight
@@ -514,7 +523,7 @@ needed.
 | 2 | First light | **Done.** Desktop window, port picker, identity, read the edit buffer, VCF editable end to end with assumed and confirmed drawn differently. |
 | 3 | Every parameter | **Generated, and being laid out.** All fourteen groups from `Group::parameters`, one at a time behind a section bar, because a complete ugly editor beats a beautiful partial one. The program's name, the three envelopes and the modulation matrix are laid out; the control sequencer is what remains. |
 | 4 | The librarian | Read and write `.syx`, read a bank with progress and cancel, browse a pack, load a program into the edit buffer as a difference. |
-| 5 | The effects | Waits on the library publishing the panel tables. Four engines, 35 algorithms, the routing graph. |
+| 5 | The effects | Waits on the library publishing the panel tables ([deepmind-midi#18](https://github.com/MysteriousWolf/deepmind-midi/issues/18)). Four engines, 35 algorithms, the routing graph. |
 | 6 | The plugin | Simple mode, then state, then advanced mode in the same window. The CLAP comes out first, having nothing to settle; then the AU, once the bundle signs and `auval` passes; then the VST3, once Steinberg's terms are. |
 | 7 | Hardware | The questions below, answered with a cable. Findings go to the library. |
 
@@ -550,7 +559,8 @@ application never sees a sample.
    itself change what a host receives? The reply carries the transmit and
    receive channels and the currently selected program, which the application
    would otherwise have to infer. The state machine does not decode that reply
-   today, so reading it is a library change and not a local workaround.
+   today, so reading it is a library change and not a local workaround
+   ([deepmind-midi#20](https://github.com/MysteriousWolf/deepmind-midi/issues/20)).
 5. Is the device ID really the global MIDI channel, as the manual's global
    settings table says?
 6. How long does a bank dump actually take, and does the unit pause between
