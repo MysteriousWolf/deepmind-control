@@ -197,12 +197,12 @@ fn controls(app: &App) -> Element<'_, Message> {
     .into()
 }
 
-/// What a section cannot say for itself yet, where it has something to admit.
+/// What a section cannot say for itself, where it has something to say.
 ///
 /// Printed under the rack rather than left for somebody to work out from a
-/// panel of protocol names. A panel drawn from the library's own table is
-/// complete and, in two places, ugly, and saying which two is cheaper than
-/// pretending otherwise.
+/// panel of protocol names. Two sections need it, for opposite reasons: the
+/// effects are complete and ugly until the library publishes their panels, and
+/// the name is the one control that covers more than the parameter under it.
 fn caveat(section: Group, firmware: Version) -> Option<Element<'static, Message>> {
     let admission = match section {
         Group::Effects => format!(
@@ -212,9 +212,12 @@ fn caveat(section: Group, firmware: Version) -> Option<Element<'static, Message>
              arrives when the library publishes it.",
             algorithms(firmware)
         ),
-        Group::Program => "The name is one parameter per character, because that is how the \
-                           instrument stores it. The title bar reads them as a word."
-            .to_owned(),
+        Group::Program => format!(
+            "The name is one parameter per character, because that is how the instrument stores \
+             it. The {} slots the library gives it are drawn as the display it shows them on, \
+             and a keystroke still costs the one parameter it moved.",
+            control_ui::name_characters().len()
+        ),
         _ => return None,
     };
     Some(text(admission).size(12).into())
@@ -238,10 +241,12 @@ fn algorithms(firmware: Version) -> usize {
 fn remaining() -> Element<'static, Message> {
     text(format!(
         "Every parameter the instrument has is on these {} panels, drawn from the library's own \
-         table. Laying each panel out by hand is the rest of stage 3, the librarian is stage 4, \
-         and the effect panels wait on the library publishing their tables. Nothing here writes \
-         a program into the synthesizer: the manual describes no message that would, so storing \
-         a sound into a slot is done at the panel with the instrument's own WRITE.",
+         table. The program's name is the first panel laid out by hand; the envelopes, the \
+         modulation matrix and the control sequencer are the rest of stage 3, the librarian is \
+         stage 4, and the effect panels wait on the library publishing their tables. Nothing \
+         here writes a program into the synthesizer: the manual describes no message that \
+         would, so storing a sound into a slot is done at the panel with the instrument's own \
+         WRITE.",
         Group::ALL.len()
     ))
     .size(12)

@@ -82,11 +82,23 @@ impl Patch {
     /// say. A sound nobody has read is unknown throughout.
     #[must_use]
     pub fn claim_of(&self, group: Group) -> Confidence {
+        self.claim_across(group.parameters())
+    }
+
+    /// Returns what backs a handful of values taken together.
+    ///
+    /// The same rule a section follows, for anything that is drawn as one thing
+    /// and stored as several: the weakest claim any of them makes. The name is
+    /// what needs it — seventeen parameters under one display, and a display
+    /// that called itself the synthesizer's because sixteen of its characters
+    /// were would be the one lie this crate exists to avoid.
+    #[must_use]
+    pub fn claim_across(&self, parameters: impl IntoIterator<Item = ParamId>) -> Confidence {
         if self.program.is_none() {
             return Confidence::Unknown;
         }
         let mut claim = Confidence::Confirmed;
-        for parameter in group.parameters() {
+        for parameter in parameters {
             match self.claim(parameter) {
                 Confidence::Unknown => return Confidence::Unknown,
                 Confidence::Assumed => claim = Confidence::Assumed,
@@ -150,6 +162,31 @@ impl Patch {
         true
     }
 
+    /// Names the program, because somebody in this window typed one.
+    ///
+    /// Returns the parameters that moved and what they moved to, which is what
+    /// the application sends: a name is stored one character to a parameter, so
+    /// renaming is an edit to each character that is not already what it should
+    /// be, and typing a letter onto the end of a name is one NRPN rather than
+    /// seventeen. [`Program::set_name`] writes the field and
+    /// [`Program::changes`] is the whole of working out what that cost.
+    ///
+    /// Empty for a sound nobody has read, for the same reason an edit is
+    /// refused there: a name is a difference, and there is nothing to take one
+    /// against.
+    pub fn rename(&mut self, name: ProgramName) -> Vec<(ParamId, u8)> {
+        let Some(program) = self.program.as_ref() else {
+            return Vec::new();
+        };
+        let mut named = program.clone();
+        named.set_name(name);
+        let changes: Vec<(ParamId, u8)> = program.changes(&named).collect();
+        changes
+            .into_iter()
+            .filter(|&(parameter, value)| self.edit(parameter, value))
+            .collect()
+    }
+
     /// Takes a value the synthesizer reported.
     ///
     /// The instrument is the other editor: a hand on the front panel gets here,
@@ -203,6 +240,7 @@ impl Patch {
 )]
 mod tests {
     use deepmind_midi::ids::ProtocolVersion;
+    use deepmind_midi::program::ProgramName;
 
     use super::{Confidence, Group, ParamId, Patch, Program};
 
@@ -304,6 +342,85 @@ mod tests {
         patch.edit(ParamId::VcfFrequency, 200);
         assert_eq!(patch.claim_of(Group::Vcf), Confidence::Assumed);
         assert_eq!(patch.claim_of(Group::Lfo1), Confidence::Confirmed);
+    }
+
+    #[test]
+    fn a_name_is_the_characters_it_changed_and_nothing_else() {
+        let mut patch = read();
+        let name = ProgramName::new("Bass").expect("four printable characters");
+
+        let moved = patch.rename(name);
+
+        assert_eq!(patch.name(), Some(name));
+        // Every parameter this window put a letter in says who put it there.
+        for (parameter, _) in &moved {
+            assert_eq!(patch.claim(*parameter), Confidence::Assumed);
+        }
+        // The program started with every parameter at its floor, so the four
+        // letters moved and the thirteen bytes that were already zero did not.
+        assert_eq!(moved.len(), name.len());
+    }
+
+    #[test]
+    fn a_letter_onto_the_end_of_a_name_costs_one_parameter() {
+        let mut patch = read();
+        patch.rename(ProgramName::new("Bass").expect("a valid name"));
+
+        let moved = patch.rename(ProgramName::new("Bassy").expect("a valid name"));
+
+        assert_eq!(moved.len(), 1, "a keystroke moved more than its character");
+        assert_eq!(moved.first().map(|&(_, value)| value), Some(b'y'));
+    }
+
+    #[test]
+    fn renaming_a_program_to_what_it_is_called_sends_nothing() {
+        let mut patch = read();
+        let name = ProgramName::new("Bass").expect("a valid name");
+        patch.rename(name);
+
+        assert!(patch.rename(name).is_empty());
+    }
+
+    #[test]
+    fn a_shorter_name_clears_the_characters_it_no_longer_uses() {
+        let mut patch = read();
+        patch.rename(ProgramName::new("Bass Sweep").expect("a valid name"));
+
+        patch.rename(ProgramName::new("Bass").expect("a valid name"));
+
+        assert_eq!(
+            patch.name().map(|name| name.to_string()),
+            Some("Bass".to_owned())
+        );
+    }
+
+    #[test]
+    fn a_sound_nobody_has_read_cannot_be_named() {
+        let mut patch = Patch::new();
+
+        assert!(
+            patch
+                .rename(ProgramName::new("Bass").expect("a valid name"))
+                .is_empty()
+        );
+        assert_eq!(patch.name(), None);
+    }
+
+    #[test]
+    fn a_name_is_as_confirmed_as_its_least_confirmed_character() {
+        let mut patch = read();
+        let characters = crate::name_characters().iter().copied();
+
+        assert_eq!(
+            patch.claim_across(characters.clone()),
+            Confidence::Confirmed
+        );
+
+        patch.rename(ProgramName::new("B").expect("a valid name"));
+        assert_eq!(patch.claim_across(characters), Confidence::Assumed);
+        // One letter is not the whole program, and the rest of the sound is
+        // still the synthesizer's own account of itself.
+        assert_eq!(patch.claim(ParamId::VcfFrequency), Confidence::Confirmed);
     }
 
     #[test]

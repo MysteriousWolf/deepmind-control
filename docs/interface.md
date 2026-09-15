@@ -22,6 +22,11 @@ control here is drawn by this crate.
 Toolkit widgets are correct everywhere else: the port picker, the file dialogs,
 the librarian's list. The panel is for parameters.
 
+What the rule is about is the anatomy, not the crate a widget came from. A
+selector too long for legends is a list, and a name is a field of text, because
+that is what those controls are on an instrument too; what neither of them is is
+a slider standing in for a fader.
+
 ## The vocabulary is the library's
 
 `deepmind-midi` draws all 35 effect panels from `spec/`, and those drawings
@@ -166,6 +171,36 @@ it.
 For a value with no useful continuum, and for the raw number beside any control
 while it is being dragged. Mono, tabular figures, so the digits do not jiggle
 while a value runs through them.
+
+### Name
+
+The one control that covers more than one parameter, because the one value the
+instrument stores in more than one. A name is seventeen parameters holding a
+character each — sixteen characters and a terminator — and seventeen faders
+sweeping 0 to 127 is a panel nobody can name a sound on: `Program Name Char 4`
+reads `115`, and what that means is that the fourth letter is an `s`.
+
+So the seventeen slots are drawn as the one display the instrument shows them
+on. Mono, sixteen characters wide, cut into the plate as the same recess a
+fader's track is. It keeps the slot anatomy the rest of the rack has, with the
+address above it reading `223–239` because that is the run it occupies, and the
+reading below it counting the characters used out of the sixteen.
+
+- **It sits where its first character sits.** The rack is in the table's own
+  offset order, and the field takes the place of the seventeen slots rather
+  than being lifted to the front of the panel.
+- **The claim is the weakest of the seventeen.** A display that called itself
+  the synthesizer's because sixteen of its characters were is the one lie this
+  editor exists to avoid. Confidence has no moving part to fill here, so it is
+  carried by the colour of the letters, which is the one control where it is.
+- **A character the name cannot hold never appears.** Seventeen letters, or a
+  `è` the display has no glyph for, leave the field exactly as it was rather
+  than appearing and then being taken back.
+- **A keystroke costs the parameter it moved.** The word becomes edits by
+  writing it into a copy of the program and taking the difference, so typing a
+  letter onto the end of a name is one NRPN and not seventeen. Inserting one in
+  the middle shifts what follows it, and costs what it shifts.
+- The field is inert until a sound has been read, like every other control.
 
 ### Envelope
 

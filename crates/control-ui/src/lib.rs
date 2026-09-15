@@ -35,6 +35,12 @@
 //! written down, so a group a later library adds arrives in its right place
 //! with nothing here to edit.
 //!
+//! Laying a panel out by hand changes the arrangement and never what a control
+//! is. The program's name is the first one and the only exception to even that:
+//! [`name_characters`] are the seventeen parameters the instrument stores a name
+//! in, and they are drawn as the one display it shows them on, because
+//! seventeen faders are not a name.
+//!
 //! ```
 //! use control_ui::{Confidence, Patch};
 //! use deepmind_midi::param::ParamId;
@@ -66,6 +72,7 @@
 
 mod confidence;
 mod fader;
+mod name;
 mod panel;
 mod patch;
 mod section;
@@ -73,6 +80,7 @@ mod style;
 
 pub use confidence::Confidence;
 pub use fader::{Fader, fader};
+pub use name::characters as name_characters;
 pub use panel::{Message, group, legend};
 pub use patch::Patch;
 pub use section::{first_section, section_bar, sections};
