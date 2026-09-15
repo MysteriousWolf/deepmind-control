@@ -24,7 +24,12 @@ DeepMind <--MIDI--> port <--bytes--> deepmind-midi <--events--> the interface
 **Status: an editor and a librarian, complete and being polished.** There is a
 window with three surfaces, and it opens on the instrument's own front panel:
 two rows of section plates with a screen between them, the controls the hardware
-puts a fader under, and on every plate the press it calls `EDIT`. Behind those
+puts a fader under, and on every plate the press it calls `EDIT`. Every plate
+has a screen of its own as well, which is the one place this window is not the
+instrument — a dot matrix at the same pitch as the panel's own display, drawing
+the shapes the oscillators are making, where the filter's corner is, the gates
+the arpeggiator is opening, and the one picture no `DeepMind` can show: all
+three envelopes at once. Behind those
 presses is the editor, which lists the ports, opens one, finds out who is on it
 and which firmware's value tables are true, reads the edit buffer, and edits all
 242 parameters end to end — with the values the synthesizer reported drawn

@@ -3,7 +3,7 @@
 use std::thread;
 use std::time::Duration;
 
-use control_ui::Confidence;
+use control_ui::{Band, Confidence, Ink, Screen, Size};
 use deepmind_midi::param::{Group, Kind, ParamId};
 use deepmind_midi::sysex::inquiry::Version;
 use iced::futures::Stream;
@@ -38,7 +38,7 @@ pub fn run() -> iced::Result {
         .default_font(control_ui::printed())
         .theme(theme)
         .subscription(subscription)
-        .window_size((1120.0, 820.0))
+        .window_size((1120.0, 900.0))
         .run()
 }
 
@@ -107,9 +107,16 @@ fn view(app: &App) -> Element<'_, Message> {
     container(
         column![header(app), identity(app), controls(app), surfaces(app)]
             .push(match app.view() {
-                View::Panel => {
-                    control_ui::panel(app.patch(), app.firmware(), screen(app)).map(Message::Ui)
-                }
+                // The panel scrolls for the same reason the rack does, and it
+                // did not have to before its plates carried displays: two rows
+                // of plates are taller than a window somebody has made short,
+                // and a front panel with its lower row below the fold is a
+                // front panel with the whole voice missing.
+                View::Panel => scrollable(
+                    control_ui::panel(app.patch(), app.firmware(), screen(app)).map(Message::Ui),
+                )
+                .height(Fill)
+                .into(),
                 View::Editor => editor(app),
                 View::Library => librarian::view(app),
             })
@@ -158,31 +165,142 @@ fn surfaces(app: &App) -> Element<'_, Message> {
 /// it, because what a display says is the application's business rather than
 /// the view layer's: which sound is on the screen, what backs it, and what the
 /// last thing to happen was. A plugin has different answers to all three.
+///
+/// It is written in dots, on the same glass at the same pitch as the strip over
+/// every plate, because it is the same display. What it is not is a panel of
+/// toolkit text in a dark box: the instrument's screen is a dot matrix, and a
+/// program name set in the machine's own sans is the one thing on this window
+/// that would be pretending to be something it is not.
 fn screen(app: &App) -> control_ui::Element<'_, iced::Renderer> {
-    let claim = app.patch().confidence();
+    let mut screen = control_ui::screen();
+    paint(&mut screen, app);
+    control_ui::lcd(screen, app.patch().confidence())
+}
+
+/// Writes what the display is showing onto `screen`.
+///
+/// Apart from [`screen`] so that what is drawn can be looked at without a
+/// window to draw it in, which for a display made of dots is the only way to
+/// look at it at all.
+fn paint(screen: &mut Screen, app: &App) {
+    let all = screen.all();
+    let small = Screen::height_of(Size::Small);
+
+    // The heading, inverted, which is how a display with one colour of light
+    // says that a line is a heading rather than a reading.
+    screen.write(2, 1, "PROGRAM", Size::Small);
+    if let Some(category) = category(app) {
+        let from = all.width - 2 - Screen::width_of(category, Size::Small);
+        screen.write(from, 1, category, Size::Small);
+    }
+    screen.invert(Band::new(0, 0, all.width, small + 2));
+
+    // The sound's own name, in the one size this window writes anything twice
+    // over, because it is the one thing on the screen somebody is looking for.
     let name = app.patch().name().map_or_else(
         || "\u{2014}".to_owned(),
         |name| name.as_str().trim().to_owned(),
     );
-    let backing = match claim {
+    let title = small + 8;
+    screen.centre(title, &name, Size::Large);
+    screen.across(4, title + small * 2 + 4, all.width - 8, Ink::Dotted);
+
+    // What backs it, in the display's own words rather than a colour: the dots
+    // are already the claim's colour, and a screen that said it only in copper
+    // would be saying it only to the readers who see copper.
+    let backing = match app.patch().confidence() {
         Confidence::Unknown => "nothing has been read",
         Confidence::Assumed => "this window's claim",
         Confidence::Confirmed => "as the synthesizer described it",
     };
-    column![
-        text(name)
-            .font(control_ui::reading())
-            .size(19)
-            .style(move |theme: &Theme| text::Style {
-                color: Some(control_ui::tint(theme, claim)),
-            }),
-        text(backing).size(11).font(control_ui::reading()),
-        space().height(Fill),
-        text(app.status()).size(11).font(control_ui::reading()),
-    ]
-    .spacing(4)
-    .height(Fill)
-    .into()
+    let mut line = title + small * 2 + 9;
+    for words in fold(backing, all.width) {
+        screen.centre(line, &words, Size::Small);
+        line += small + 2;
+    }
+
+    // How much of the sound is the synthesizer's own account of it, which is
+    // the one reading this editor has that no instrument does: the hardware
+    // knows what it is playing and never has to wonder what a host believes.
+    tally(screen, app, line + 4);
+
+    // And the last thing that happened, along the bottom, where the instrument
+    // prints what it is doing.
+    let status = fold(app.status(), all.width);
+    let mut line = all.height - (small + 2) * i32::try_from(status.len()).unwrap_or_default() - 1;
+    for words in status {
+        screen.write(2, line, &words, Size::Small);
+        line += small + 2;
+    }
+}
+
+/// Draws how many of the sound's values the synthesizer itself described.
+///
+/// A bar and a count, and it is the one thing on this display an instrument's
+/// own screen could never show: a `DeepMind` knows what it is playing, and only
+/// a host has to keep track of which of the 242 values it has heard back and
+/// which are still its own arithmetic. It is the whole editor's claim in one
+/// line — a full bar means the panel behind this screen is the sound, and a
+/// half-full one means half of it is an intention.
+///
+/// The count is asked of the parameter table rather than written down, so a
+/// library that grows a parameter is a longer bar and not a wrong number.
+fn tally(screen: &mut Screen, app: &App, top: i32) {
+    let all = screen.all();
+    let reported = ParamId::ALL
+        .iter()
+        .filter(|parameter| app.patch().claim(**parameter).is_confirmed())
+        .count();
+    let total = ParamId::ALL.len();
+    let small = Screen::height_of(Size::Small);
+    let bar = Band::new(4, top, all.width - 8, small);
+    screen.frame(bar, Ink::Solid);
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "a count of parameters, which is two hundred and forty-two of them"
+    )]
+    let through = reported as f32 / total.max(1) as f32;
+    let inside = bar.inset(2);
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "a fraction of a width this screen already holds"
+    )]
+    let filled = (through * f32::from(u16::try_from(inside.width).unwrap_or_default())) as i32;
+    screen.fill(Band::new(inside.x, inside.y, filled, inside.height));
+    let counted = format!("{reported} of {total} reported");
+    screen.centre(top + small + 3, &counted, Size::Small);
+}
+
+/// What the program calls itself, where the instrument has a word for it.
+///
+/// The library's own table, read for the firmware that answered, like every
+/// other name in this window.
+fn category(app: &App) -> Option<&'static str> {
+    let value = app.patch().value(ParamId::ProgramCategory)?;
+    ParamId::ProgramCategory.label_for(u16::from(value), app.firmware())
+}
+
+/// Breaks `words` into the lines a screen `columns` dots wide can hold.
+///
+/// A display wraps or it clips, and a status that clipped would stop saying
+/// what went wrong half way through the sentence. Broken between words where
+/// there is one, and never more than three lines, because the fourth would be
+/// over the program's name.
+fn fold(words: &str, columns: i32) -> Vec<String> {
+    let each = ((columns - 4) / (Screen::width_of("n", Size::Small) + 1)).max(1);
+    let each = usize::try_from(each).unwrap_or(1);
+    let mut lines: Vec<String> = Vec::new();
+    for word in words.split_whitespace() {
+        match lines.last_mut() {
+            Some(line) if line.chars().count() + 1 + word.chars().count() <= each => {
+                line.push(' ');
+                line.push_str(word);
+            }
+            _ => lines.push(word.chars().take(each).collect()),
+        }
+    }
+    lines.truncate(3);
+    lines
 }
 
 /// The style the surface switch is drawn in, which is the section bar's.
@@ -408,4 +526,38 @@ fn remaining() -> Element<'static, Message> {
     ))
     .size(12)
     .into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{App, Screen, Size, fold, paint};
+
+    #[test]
+    fn a_line_too_long_for_the_glass_is_broken_between_its_words() {
+        // Thirty-two dots is four characters of the display's own face, so a
+        // sentence in it is one word to a line and the fourth word is lost.
+        let folded = fold("open a port and read the sound", 32);
+
+        assert_eq!(folded, vec!["open", "a", "port"]);
+        for line in &folded {
+            assert!(Screen::width_of(line, Size::Small) <= 32);
+        }
+    }
+
+    #[test]
+    fn a_word_longer_than_the_glass_is_cut_rather_than_hyphenated() {
+        assert_eq!(fold("unrecognisable", 20), vec!["un"]);
+    }
+
+    #[test]
+    fn the_display_says_something_before_anything_has_been_read() {
+        // A dark screen on a window that has just opened reads as a window that
+        // has not: the heading, the dash where a name will be and what the
+        // application is waiting for are all things to say before a port is
+        // open.
+        let mut screen = control_ui::screen();
+        paint(&mut screen, &App::opening(&[]));
+
+        assert!(!screen.is_dark());
+    }
 }

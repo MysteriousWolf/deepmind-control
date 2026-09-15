@@ -47,12 +47,13 @@ use deepmind_midi::param::{Group, ParamId};
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::alignment::{Horizontal, Vertical};
 use iced_core::{Background, Border, Font, Length, Theme, text::Renderer as TextRenderer};
-use iced_widget::{button, column, container, row, text};
+use iced_widget::{Space, button, column, container, row, text};
 
-use crate::fader;
+use crate::lcd::{self, Screen};
 use crate::panel::{Message, Room, readout};
+use crate::scene;
 use crate::style::{materials, printed, reading};
-use crate::{Element, Patch};
+use crate::{Element, Patch, fader};
 
 /// How wide one lane of the panel is.
 ///
@@ -73,12 +74,28 @@ const TRAVEL: f32 = 76.0;
 /// `Triang` is a legend that lies about which shape is lit.
 const LAMPS: f32 = 76.0;
 
+/// How many dots tall the display over a plate's faders is.
+///
+/// Two lines of the dot font and a little room, which is as much as a strip
+/// over a row of faders can take without the faders becoming the second thing
+/// on the plate.
+const STRIP: i32 = 20;
+
+/// The fewest dots across a display is worth drawing on.
+///
+/// A plate narrower than this stands wider than its faders need so that its
+/// display has somewhere to be: `VCA` is one fader, and one fader's worth of
+/// glass is not a picture of an amplifier. It is the one place a drawing
+/// changes the panel's arrangement rather than the other way about, and it is
+/// the same trade the modulation matrix's rows make.
+const NARROWEST: i32 = 40;
+
 /// How tall a plate of the upper row stands.
 ///
 /// The screen is cut to it rather than given what is left: a display that took
 /// the height it was offered would be as tall as the window, and the panel
 /// under it would be somewhere below the fold.
-const PLATE: f32 = LEGEND + TRAVEL + 96.0;
+const PLATE: f32 = LEGEND + TRAVEL + 96.0 + lcd::room(STRIP) + 6.0;
 
 /// How wide the screen is.
 ///
@@ -97,6 +114,16 @@ const SWITCH: f32 = 58.0;
 
 /// How much room a way into a section is given.
 const WAY: f32 = 40.0;
+
+/// How much panel there is above and below the display in the panel's own hole.
+const GAP: f32 = 2.0;
+
+/// How much panel there is around a plate's contents.
+///
+/// Named rather than typed into the one call that uses it, because the display
+/// over a plate's faders has to know it: a plate's width is the room it takes
+/// on the panel, and what a display fits into is the room inside that.
+const PAD: f32 = 6.0;
 
 /// Counts a handful of things as a width does.
 ///
@@ -145,6 +172,16 @@ pub(crate) struct Plate {
 }
 
 impl Plate {
+    /// What the panel prints across the top of the group.
+    pub(crate) const fn name(self) -> &'static str {
+        self.name
+    }
+
+    /// Every parameter this plate puts a control under.
+    pub(crate) fn parameters(self) -> impl Iterator<Item = ParamId> {
+        self.controls().map(|control| control.parameter)
+    }
+
     /// How wide the plate stands.
     ///
     /// Worked out rather than given: a plate that took the width it was offered
@@ -161,7 +198,7 @@ impl Plate {
             };
         let buttons =
             count(self.switches.len()) * (SWITCH + 4.0) + count(self.ways.len() + 1) * (WAY + 4.0);
-        lanes.max(buttons)
+        lanes.max(buttons).max(lcd::room(NARROWEST) + PAD * 2.0)
     }
 
     /// Every control this plate draws.
@@ -433,6 +470,17 @@ where
     rows.into()
 }
 
+/// A blank screen the size of the hole the panel leaves for a display.
+///
+/// What an application writes on and hands back to [`panel`]. The size is the
+/// panel's business rather than the application's — it is the hole in the
+/// instrument's own front — and how many dots are in it is a division rather
+/// than a number, because every display in this window is at the same pitch.
+#[must_use]
+pub fn screen() -> Screen {
+    Screen::new(lcd::fits(SCREEN), lcd::fits(PLATE - GAP * 2.0))
+}
+
 /// Returns every parameter the panel puts a control under.
 ///
 /// The way for a test to ask what the table claims without drawing it.
@@ -466,12 +514,17 @@ where
     // Every plate has a way in, and it is the press the hardware calls EDIT.
     buttons = buttons.push(way("EDIT", plate.opens));
     container(
-        column![heading(plate.name), controls, buttons]
-            .spacing(6)
-            .align_x(Horizontal::Center),
+        column![
+            heading(plate.name()),
+            glass(patch, plate, firmware),
+            controls,
+            buttons
+        ]
+        .spacing(6)
+        .align_x(Horizontal::Center),
     )
     .width(Length::Fixed(plate.width()))
-    .padding(6)
+    .padding(PAD)
     .style(|theme: &Theme| {
         let material = materials(theme);
         container::Style {
@@ -485,6 +538,29 @@ where
         }
     })
     .into()
+}
+
+/// The display over a plate's faders, showing what its section is doing.
+///
+/// The instrument has one screen for fourteen sections and this window has one
+/// for each, which is the one place the panel is deliberately not the
+/// instrument: the room a window has is what the hardware did not, and a filter
+/// is a shape before it is three numbers. What is drawn is
+/// [the scene](crate::scene) the plate's own controls ask for, on as many dots
+/// as the plate is wide.
+///
+/// A plate whose section this window has no drawing for keeps the room anyway,
+/// so that a row of plates is a row rather than a skyline.
+fn glass<'a, Renderer>(patch: &Patch, plate: Plate, firmware: Version) -> Element<'a, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    let columns = lcd::fits(plate.width() - PAD * 2.0);
+    scene::display(patch, plate.parameters(), firmware, columns, STRIP).unwrap_or_else(|| {
+        container(Space::new())
+            .height(Length::Fixed(lcd::room(STRIP)))
+            .into()
+    })
 }
 
 /// The bar the panel prints a group's name in.
@@ -635,41 +711,28 @@ where
 }
 
 /// The screen, cut into the panel where the instrument's own display sits.
+///
+/// The glass is the display's own — it draws the recess it is cut into, the
+/// way every other display in this window does — so what is left here is the
+/// hole it stands in, as tall as the plates either side of it.
 fn display<'a, Renderer>(screen: Element<'a, Renderer>) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
-    container(
-        container(screen)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .padding(10)
-            .style(|theme: &Theme| {
-                let material = materials(theme);
-                container::Style {
-                    // The one recess on the panel that is not a fader's track,
-                    // and the same cut: a display is a window into the case.
-                    background: Some(Background::Color(material.recess)),
-                    border: Border {
-                        color: material.recess_edge,
-                        width: 1.0,
-                        radius: 3.into(),
-                    },
-                    ..container::Style::default()
-                }
-            }),
-    )
-    .width(Length::Fixed(SCREEN))
-    .height(Length::Fixed(PLATE))
-    .padding([2, 0])
-    .into()
+    container(screen)
+        .width(Length::Fixed(SCREEN))
+        .height(Length::Fixed(PLATE))
+        .align_x(Horizontal::Center)
+        .align_y(Vertical::Center)
+        .padding([2, 0])
+        .into()
 }
 
 #[cfg(test)]
 mod tests {
     use deepmind_midi::param::{Group, ParamId};
 
-    use super::{ROWS, panelled};
+    use super::{NARROWEST, PAD, ROWS, SCREEN, lcd, panelled};
 
     #[test]
     fn a_control_is_on_the_panel_once() {
@@ -749,6 +812,42 @@ mod tests {
 
         assert!(panelled.len() < ParamId::ALL.len() / 4, "{panelled:?}");
         assert!(panelled.len() > 20, "a front panel with nothing on it");
+    }
+
+    #[test]
+    fn a_row_of_plates_fits_the_window_it_opens_in() {
+        // Two rows and a screen between them is the arrangement, and a row that
+        // does not fit wraps: a front panel in four rows is a list of plates.
+        // The plates are as wide as what they hold, so this is what says that
+        // giving every one of them a display did not cost the panel its shape.
+        const ROOM: f32 = 1120.0 - 16.0 * 2.0;
+
+        for (index, plates) in ROWS.iter().enumerate() {
+            let mut across: f32 = plates.iter().map(|plate| plate.width() + 8.0).sum();
+            if index == 0 {
+                across += SCREEN + 8.0;
+            }
+            assert!(across <= ROOM, "row {index} is {across} points across");
+        }
+    }
+
+    #[test]
+    fn a_display_fits_inside_the_plate_it_is_drawn_on() {
+        // A plate's width is the room it takes on the panel and a display fits
+        // into the room inside that, which is two paddings narrower. A display
+        // drawn from the outer width is a display a few dots wider than the
+        // plate holding it.
+        for plate in ROWS.iter().flat_map(|row| row.iter()) {
+            let inside = plate.width() - PAD * 2.0;
+            let columns = lcd::fits(inside);
+
+            assert!(columns >= NARROWEST, "{} has no room to draw", plate.name);
+            assert!(
+                lcd::room(columns) <= inside,
+                "the display on {} is wider than the plate",
+                plate.name
+            );
+        }
     }
 
     #[test]

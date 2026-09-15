@@ -60,9 +60,12 @@ on the hardware.
 
 ```
 ┌ ARP / SEQ ┐ ┌── LFO 1 ──┐ ┌── LFO 2 ──┐ ┌─────────────┐ ┌ POLY ┐
-│  ▮     ▮  │ │ ▮  ▮ ○Sine│ │ ▮  ▮ ○Sine│ │ Modular Fun │ │  ▮   │
-│ RATE GATE │ │      ●Tri │ │      ●Ramp│ │ this claim  │ │DETUNE│
-│ [on][off] │ │           │ │           │ │             │ │      │
+│ ┌───────┐ │ │ ┌───────┐ │ │ ┌───────┐ │ │▛PROGRAM Pad▜│ │┌────┐│
+│ │▔╷ ▔╷ ▔│ │ │ │╭─╮ ╭─╮│ │ │ │╶╴ ┌─┐ │ │ │             │ ││ ╷╷╷││
+│ └───────┘ │ │ │╯ ╰─╯ ╰│ │ │ │  ─┘ └─│ │ │ Modular Fun │ │└────┘│
+│  ▮     ▮  │ │ └───────┘ │ │ └───────┘ │ │ ▁▁▁▁▁▁▁▁▁▁▁ │ │  ▮   │
+│ RATE GATE │ │ ▮  ▮ ○Sine│ │ ▮  ▮ ○Sine│ │ this claim  │ │DETUNE│
+│ [on][off] │ │      ●Tri │ │      ●Ramp│ │ ▓▓▓▓▓░░░ 84 │ │      │
 │      EDIT │ │      EDIT │ │      EDIT │ │ Read it.    │ │MOD FX│
 └───────────┘ └───────────┘ └───────────┘ └─────────────┘ └──────┘
 ┌─── DCO 1 & 2 ───┐ ┌─── VCF ───┐ ┌VCA┐ ┌HPF┐ ┌ ENVELOPES ┐
@@ -75,6 +78,13 @@ on the hardware.
   display says is which sound is on it, what backs that, and what last happened
   — none of which the view layer knows, and all of which a plugin answers
   differently from a desktop window.
+- **Every plate has a display too, and the instrument has one.** This is the one
+  place the panel deliberately stops being the instrument, and it is the one
+  place where a window has something the hardware does not: room. A `DeepMind`
+  shows whichever section was pressed last, because there is space on its front
+  for a screen and twenty faders; here each plate carries the drawing of its own
+  part, and the envelopes carry the drawing no `DeepMind` can show — all three of
+  them at once. See [Display](#display).
 - **A legend is printed over its control**, not under it, because that is where
   the instrument prints it: the hardware has a screen for readings and no room
   under a fader.
@@ -307,6 +317,92 @@ Four faders and the shape they make, drawn above them. An envelope is the one
 group whose meaning is a picture, and four numbers that do not draw it are four
 numbers.
 
+### Display
+
+A grid of dots, and the only thing in this editor that is neither panel, metal
+nor ink. One quad per lit dot, at a pitch every display in the window shares:
+`PITCH` is 2.5 points, of which 1.9 is lit, and a display given more room does
+not get bigger dots — it gets more of them. That is the difference between a
+second screen and a magnified one, and it is what makes the strip over a plate's
+faders and the panel's own display read as two windows into one instrument.
+
+```
+┌────────────────────────┐   glass: the deepest recess on the panel,
+│ ▁▁▁▁▁▁▁▁▁╱╲▁▁▁▁        │   lit at the top like the panel itself
+│         ╱    ╲         │   dots 1.9 of a 2.5 pitch, radius 0.5
+│ ▁▁▁▁▁▁▁╱      ╲▁▁▁     │   4 points of dead border inside the bezel
+└────────────────────────┘
+```
+
+- **Only the lit dots are drawn.** An unlit dot on the instrument is the glass,
+  and at arm's length there is no grid to see until something lights. Drawing
+  all of them is both a picture nobody can see and eight thousand quads a
+  display. What carries the matrix is the gap between the lit ones.
+- **Text is dots, not a font.** `Screen::write` draws a 5×7 cell out of the
+  table in `glyphs.rs`, which is the fourth face this window sets anything in
+  and the only one that is not asked of the machine. A program name set in the
+  system sans on the instrument's own screen would be the one thing in this
+  window pretending to be something it is not. `Size::Large` is every dot drawn
+  as four, which is what a display does when it has one thing to say and room to
+  say it twice as loudly.
+- **The claim is the colour of the whole screen**, and it is the one control
+  where colour carries it alone. Every other control puts it in the fill of the
+  part that moves; a display has no part that moves. It is exactly the position
+  the [name](#name) field is in, and it is answered the same way: the lit dots
+  take the claim's colour, the control beside the screen keeps the fill, and a
+  screen drawn from anything unread is drawn dark rather than in a colour
+  nobody should trust.
+- **A dash pattern is never a claim.** `Ink` is solid, dashed or dotted, and it
+  only ever tells one curve from another — three envelopes on one screen, a
+  drawing against a marker. A screen has one colour of light and this is what it
+  has instead of a second one.
+- **Reverse video is a heading**, for the same reason: `invert` over a band is
+  how a display with one colour says a line is a heading rather than a reading.
+
+The drawings themselves are in `scene.rs`, one per plate, and they are found
+rather than assigned: a scene names the controls it needs, a plate offers the
+ones it holds, and the first that is satisfied is drawn. The two filters are the
+only place a parameter is named instead of a section, because `VCF` and `HPF`
+are two plates of one group.
+
+| | |
+| --- | --- |
+| VCF | The passband, the corner where the byte sits in its own travel, the resonant peak out of it, and the fall past it — twice as steep on four poles as on two. A dotted rule along the top says how far the envelope's depth would move the corner, and which way the polarity points it |
+| HPF | The high-pass corner, and `BOOST` printed where the passband is empty |
+| DCO 1 & 2 | Two lanes. Whichever of `DCO 1`'s shapes are switched on, side by side; `DCO 2`'s square as tall as its own level, with the noise scattered over it at its |
+| ENVELOPES | All three at once. The amplifier's solid and shaded under, the filter's dashed, the modulation envelope's dotted |
+| VCA | The amplifier's envelope under the level it is played at, with the level as a dotted ceiling |
+| LFO 1, LFO 2 | The shape the value table names, over as many cycles as the rate's own travel |
+| ARP / SEQ | A gate train: as many gates as the rate's travel, each as open as the gate time's. An arpeggiator that is switched off is a flat line |
+| POLY | The polyphony mode in words, and the unison detune as five marks spreading from a centre |
+
+**What none of them claim.** The two refusals the envelope drawing is already
+under, because they are the library's:
+
+- **No axis is in anybody's units.** A corner is at the fraction of its own
+  range the byte sits at, not at a frequency; a rate is how many cycles fit
+  across a screen, not a speed. What each of these says is *where in its travel*
+  a value is, which is exactly what the fader beside it says.
+- **Nothing is drawn from a value nobody has read.** A scene's claim is the
+  weakest of everything it read, and a scene with anything unread is not drawn
+  at all: a filter assembled from four values the synthesizer described and one
+  this window invented is a picture of no filter.
+
+Three things are left out by that rule rather than by oversight. The bass boost
+is printed as a word instead of drawn as a shelf, because what it lifts is not
+published and a shelf would be this window choosing a height and then drawing it
+as confidently as the corner beside it. The LFO's `Delay / Fade` is not drawn,
+because it is one parameter doing two things and the manual does not say where
+the byte stops doing one and starts the other. And pulse width modulation is two
+dotted marks either side of the pulse's edge — the depth's own travel, drawn
+where the edge is — because what a byte of it does to a duty cycle is nowhere in
+the manual.
+
+The pole count is the one number read out of a name rather than a byte. `0` is
+`4 Pole` and `1` is `2 Pole` on this instrument, so a drawing that counted the
+value would draw every filter the wrong way round; it reads the digit off what
+the value table calls the value, for the firmware that answered.
+
 ### Matrix
 
 Eight modulation routings, one to a row, read across: the routing's name, where
@@ -405,6 +501,7 @@ interface, and every one of those comes from the mark:
 | Panel | `#282c36` to `#15181e`, the gradient the mark uses |
 | Seam and lip | `#000` at half, and `#454b58` |
 | Recess | `#05070a` through `#11141a` to `#242932`, lit along its lower wall with `#7d838f` |
+| Glass | `#101620` at the top of a display falling to the recess's own `#080a0e`, with the lit dots in the claim's own colour |
 | Metal | `#f4f5f8`, `#c9cdd6`, `#8e939f` |
 | Ink | `#f2f2f4` for a title, `#a5a9b5` for a label, `#7d838f` for anything dim |
 | Lamp | `#ffb95c`, and nothing else is saturated |
@@ -505,6 +602,12 @@ the editor that needs them.
 
 Text is the expensive part on a panel of 242 parameters, and most of it never
 changes. Addresses and names are static; only the readings move.
+
+A display is one quad per lit dot, which is why only the lit ones are drawn: the
+panel's own screen is 132 by 100 and the ten of them together would be twenty
+thousand quads a frame if the glass were drawn dot by dot. A drawing is a few
+hundred, a line of writing is a few dozen, and the one expensive thing on any of
+them is a heading in reverse video.
 
 ## Not this
 

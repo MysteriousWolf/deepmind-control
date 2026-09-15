@@ -131,6 +131,13 @@ pub struct Materials {
     pub plate: Color,
     /// The body of a recess.
     pub recess: Color,
+    /// The face of a display, which is the deepest recess on the panel.
+    ///
+    /// Read against [`recess`](Materials::recess) rather than instead of it: a
+    /// display is a pane of glass over a lit case, so it is the recess with the
+    /// light that reaches the top of it, and a dot lit on it is the only thing
+    /// in this window that is neither panel, metal nor ink.
+    pub glass: Color,
     /// The near edge of a recess.
     pub recess_edge: Color,
     /// The lower wall of a recess, which is the side the light reaches.
@@ -157,6 +164,7 @@ pub fn materials(theme: &Theme) -> Materials {
         panel: palette.background.base.color,
         plate: color!(0x1b1f26),
         recess: color!(0x080a0e),
+        glass: color!(0x101620),
         recess_edge: color!(0x242932),
         lit: color!(0x7d838f),
         scale: palette.background.strong.color,

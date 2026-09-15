@@ -29,6 +29,28 @@
 //! opens, because it is where a player looks first, and everything else is
 //! behind one of those presses.
 //!
+//! # Ten displays, where the instrument has one
+//!
+//! [`Screen`] is a grid of dots and [`lcd`] draws one: the glass, and one quad
+//! per dot that is lit, at a pitch every display in the window shares. It is
+//! the instrument's own screen rather than a dark rectangle with words in it,
+//! because the instrument's own screen is a dot matrix and a curve on one is
+//! the dots nearest a curve.
+//!
+//! The panel leaves a screen-shaped hole for the application to fill —
+//! [`screen`] is the blank one, sized to the hole — and puts another over every
+//! plate's faders, drawn from what that plate's controls are: the shapes the
+//! oscillators are making, where the filter's corner is, the gates the
+//! arpeggiator is opening. The envelopes get the one drawing no `DeepMind` can
+//! show, which is all three of them at once.
+//!
+//! Every one of those is under the refusals the rest of this crate is under. No
+//! axis is in anybody's units, because the manual prints the ends of a range
+//! and not the curve between them; nothing is drawn from a value nobody has
+//! read; and the claim is the whole screen's colour, because a display has no
+//! moving part to fill and the [name](name_characters) field answered that
+//! question first.
+//!
 //! # Fourteen panels, one at a time
 //!
 //! [`group`] draws one section as the instrument lays it out, and
@@ -81,6 +103,12 @@
 //! with metal fader caps on it, and the palette is read off the mark that draws
 //! exactly those materials.
 //!
+//! The fourth face is not in that file and is not a font: [`Screen::write`]
+//! draws its letters as dots, because a display cannot ask a machine for a
+//! family and a name set in the machine's own sans on the instrument's own
+//! screen would be the one thing in this window pretending to be something
+//! else.
+//!
 //! The same file holds the three faces anything is set in — [`printed`],
 //! [`wordmark`] and [`reading`] — and what the parts of a window that are not
 //! parameters are drawn as: [`ground`] is the panel gradient the whole window
@@ -99,18 +127,22 @@ mod confidence;
 mod effect;
 mod envelope;
 mod fader;
+mod glyphs;
 mod home;
+mod lcd;
 mod matrix;
 mod name;
 mod panel;
 mod patch;
+mod scene;
 mod section;
 mod sequencer;
 mod style;
 
 pub use confidence::Confidence;
 pub use fader::{Axis, Fader, fader};
-pub use home::{panel, panelled};
+pub use home::{panel, panelled, screen};
+pub use lcd::{Band, Ink, PITCH, Screen, Size, lcd};
 pub use name::characters as name_characters;
 pub use panel::{Message, group, legend};
 pub use patch::Patch;

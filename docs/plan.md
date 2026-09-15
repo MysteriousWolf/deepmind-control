@@ -575,6 +575,44 @@ lamp, a named set gets its names — which is the same line hand layout has not
 crossed since stage 3. A parameter this table names that the library later makes
 enumerated arrives on the panel as a list, with nothing here to change.
 
+**Every plate has a display, and the instrument has one.** This is the one place
+the panel is deliberately not the instrument, and the reason is the one thing a
+window has that a front panel does not: room. A `DeepMind` has space on its face
+for a screen and twenty-odd faders, so its screen shows whichever section was
+pressed last. A window has space for a screen over every plate, and the thing a
+player wants to know about a filter is the shape of it rather than three numbers
+that imply one. So each plate carries the drawing of its own part — the shapes
+the oscillators are making, where the corner is, the gates the arpeggiator is
+opening — and the envelopes carry the drawing no `DeepMind` can show: all three
+at once, on one screen, which an instrument with one display and three envelope
+buttons cannot do.
+
+They are the instrument's own screen and not a dark rectangle with words in it.
+A `DeepMind`'s display is a dot matrix, so these are dots: one quad per lit dot
+at a pitch every display in the window shares, a 5×7 cell for anything written,
+and a curve drawn as the dots nearest one. A display given more room gets more
+dots and never bigger ones, which is what makes the strip over a plate and the
+panel's own screen two windows into one instrument rather than one of them
+magnified.
+
+What they draw is under the refusals everything else here is under, and the
+refusals are what decides the drawings. No axis is in anybody's units: a filter's
+corner is at the fraction of its own range the byte sits at and never at a
+frequency, and a rate is how many cycles fit across a screen and never a speed,
+because the manual prints the ends of a range and not the curve between them.
+Nothing is drawn from a value nobody has read. And three things are left out
+rather than guessed — the bass boost is printed as a word instead of drawn as a
+shelf nobody has measured, the LFO's `Delay / Fade` is not drawn because one
+byte doing two things has no published crossover, and pulse width modulation is
+the depth's own travel marked either side of the edge rather than a duty cycle.
+[interface.md](interface.md#display) has the list and the anatomy.
+
+The claim is the whole screen's colour, which is the second control to carry it
+that way and for the first one's reason: a display has no moving part to fill,
+exactly as the name field has none, so the dots take the claim's colour, the
+control beside the screen keeps the fill, and a screen with anything unread is
+drawn dark rather than in a colour nobody should trust.
+
 Three things the hardware has that the panel does not. The row of twelve lamps
 over `POLY` says how many voices are sounding, and nothing on a MIDI port says
 that, so it is not drawn: a lamp that cannot be lit honestly is worse than no
@@ -689,16 +727,18 @@ when it is complete.
 
 Polish has started, and it is where the front panel above came from: the window
 opens on the instrument rather than on its first section, the name is set as the
-mark sets it, and the parts of the window that are not parameters are drawn on
-the instrument too.
+mark sets it, the parts of the window that are not parameters are drawn on the
+instrument too, and every plate of that panel has the instrument's own screen
+over its faders with the drawing of its own section on it.
 
 What is left of it, in no order yet: the effect slots want the knobs and the
 measured colours the manual's own figures use, which is a library release away;
 the sequencer strip wants a centre line, a skip mark and a dimmed tail past the
-sequence length, which is another; the front panel wants the library's own
-account of itself rather than the table in `home.rs`; and keyboard focus is not
-wired anywhere, which is the one gap in this editor that is not waiting on
-anybody else.
+sequence length, which is another; the fourteen racks have no displays over them
+the way the panel's plates now do, which is an arrangement rather than a
+decision; the front panel wants the library's own account of itself rather than
+the table in `home.rs`; and keyboard focus is not wired anywhere, which is the
+one gap in this editor that is not waiting on anybody else.
 
 Which of those are somebody else's to answer is written down rather than
 remembered: [waiting.md](waiting.md) is the list of what this repository has
