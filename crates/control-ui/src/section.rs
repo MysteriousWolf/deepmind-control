@@ -11,9 +11,7 @@
 //! sound is the synthesizer's, except the part I moved", read without opening
 //! anything.
 
-use std::sync::LazyLock;
-
-use deepmind_midi::param::{Group, ParamId};
+use deepmind_midi::param::Group;
 use iced_core::alignment::Vertical;
 use iced_core::{Background, Font, Theme, border, text::Renderer as TextRenderer};
 use iced_widget::{button, row, text};
@@ -24,32 +22,14 @@ use crate::{Element, Patch};
 
 /// The sections, in the order the instrument itself lays them out.
 ///
-/// Not a list written down here, and not `Group::ALL` either, which is
-/// alphabetical and puts the effects third and the oscillators eighth.
-/// A parameter's offset is its NRPN number and its place in a dump, `ParamId::ALL`
-/// is in offset order, and so the order the groups first appear in it is the
-/// order the instrument keeps them in: LFOs, oscillators, filter, the envelopes
-/// and the VCA, voicing, modulation, sequencing, effects, and the program's own
-/// settings last.
-///
-/// Reading it off the table rather than writing it down means a group a later
-/// library adds arrives in its right place, rather than at the end of an array
-/// somebody has to remember to edit. This repository does not re-tabulate the
-/// library, and the order of the panels is a fact about the instrument like any
-/// other.
+/// The library's own, and not `Group::ALL`, which is alphabetical and puts the
+/// effects third and the oscillators eighth. This crate read it off the offsets
+/// until `deepmind-midi` 26.2 published [`Group::ORDER`], which reads it off the
+/// same offsets on the side of the line that holds them: a group a later table
+/// adds arrives in its right place with nothing here to edit.
 #[must_use]
 pub fn sections() -> &'static [Group] {
-    static ORDER: LazyLock<Vec<Group>> = LazyLock::new(|| {
-        let mut order: Vec<Group> = Vec::with_capacity(Group::ALL.len());
-        for parameter in ParamId::ALL.iter().copied() {
-            let group = parameter.group();
-            if !order.contains(&group) {
-                order.push(group);
-            }
-        }
-        order
-    });
-    &ORDER
+    Group::ORDER
 }
 
 /// The panel a window opens on, which is the first one the instrument lays out.

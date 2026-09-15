@@ -25,7 +25,7 @@
 
 use core::fmt;
 
-use deepmind_midi::param::{Group, Kind, ParamId, TableId};
+use deepmind_midi::param::{Group, Kind, ParamId};
 use deepmind_midi::program::ProgramName;
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::alignment::{Horizontal, Vertical};
@@ -36,7 +36,7 @@ use crate::envelope;
 use crate::fader::{self, Axis, fader};
 use crate::matrix;
 use crate::name;
-use crate::style::materials;
+use crate::style::{self, materials};
 use crate::{Confidence, Element, Patch, tint};
 
 /// Width of one slot, which is the fader plus the room a name needs either side.
@@ -163,6 +163,10 @@ where
     // leaves anything it did not claim in it: a group that grows a parameter no
     // row knows about keeps it as a slot rather than losing it to a layout.
     let routed = matrix::routed(group);
+    // What the eight routings are pointed at, so a slot the matrix moves says
+    // so. Read once for the panel rather than once per slot: it is eight
+    // lookups either way, and forty slots asking the same question is forty.
+    let moved = matrix::moved(patch, firmware);
     let slots: Vec<Element<'a, Renderer>> = group
         .parameters()
         .filter(|parameter| !routed.contains(parameter))
@@ -170,7 +174,7 @@ where
             if name::holds(parameter) {
                 return name::begins(parameter).then(|| name::field(patch));
             }
-            Some(slot(patch, group, parameter, firmware))
+            Some(slot(patch, parameter, firmware, &moved))
         })
         .collect();
     // An envelope's meaning is a picture, so the picture goes above its rack,
@@ -232,9 +236,9 @@ where
 /// Draws one parameter: its address, its control, its value and its name.
 fn slot<'a, Renderer>(
     patch: &Patch,
-    group: Group,
     parameter: ParamId,
     firmware: Version,
+    moved: &[ParamId],
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -242,10 +246,15 @@ where
     let claim = patch.claim(parameter);
     let value = patch.value(parameter);
     column![
-        address(parameter),
+        row![
+            address(parameter),
+            Space::new().width(Length::Fixed(4.0)),
+            modulated(moved.contains(&parameter)),
+        ]
+        .align_y(Vertical::Center),
         control(parameter, value, claim, firmware, Room::SLOT),
         readout(parameter, value, claim, firmware),
-        container(text(short(group, parameter)).size(11).center())
+        container(text(parameter.short_name()).size(11).center())
             .height(Length::Fixed(NAME))
             .width(Length::Fill)
             .align_x(Horizontal::Center),
@@ -254,17 +263,6 @@ where
     .width(Length::Fixed(SLOT))
     .align_x(Horizontal::Center)
     .into()
-}
-
-/// The parameter's name without the group's, which is printed above the rack.
-///
-/// `VCF Envelope Depth` in the VCF panel is `Envelope Depth`: the group is the
-/// panel's own heading, and repeating it in every slot costs the width the rest
-/// of the name needs. A name that does not start with its group is left alone.
-fn short(group: Group, parameter: ParamId) -> &'static str {
-    let name = parameter.name();
-    name.strip_prefix(group.name())
-        .map_or(name, |rest| rest.trim_start())
 }
 
 /// Draws where a parameter lives.
@@ -332,7 +330,7 @@ where
             if value == 0 { "off" } else { "on" },
             room,
         ),
-        Kind::Enumerated(table) => match choices(table, parameter, firmware, value) {
+        Kind::Enumerated(_) => match choices(parameter, firmware, value) {
             Some(options) if options.len() <= LEGENDS => {
                 legends(parameter, &options, value, claim, room)
             }
@@ -497,6 +495,26 @@ fn lit(theme: &Theme, on: bool, claim: Confidence) -> button::Style {
     }
 }
 
+/// Draws the mark that says the modulation matrix is pointed at this parameter.
+///
+/// The one saturated thing on the panel, and it means one thing: something
+/// other than a hand can move this control. A parameter nothing is pointed at
+/// keeps the space, so a rack does not jostle when a routing changes.
+fn modulated<'a, Renderer>(moved: bool) -> Element<'a, Renderer>
+where
+    Renderer: iced_core::Renderer + 'a,
+{
+    container(Space::new())
+        .width(Length::Fixed(5.0))
+        .height(Length::Fixed(5.0))
+        .style(move |_theme: &Theme| container::Style {
+            background: moved.then_some(Background::Color(style::LAMP)),
+            border: border::rounded(3),
+            ..container::Style::default()
+        })
+        .into()
+}
+
 /// Draws the dot that says what backs a value.
 pub(crate) fn dot<'a, Renderer>(claim: Confidence) -> Element<'a, Renderer>
 where
@@ -568,31 +586,25 @@ impl fmt::Display for Choice {
 
 /// The names a table gives, in the order the table gives them.
 ///
-/// `None` when the table does not name every value the parameter accepts, or
-/// does not name the one it holds. Some tables list only the start of a
-/// documented run, and a control that silently drops the values it has no name
-/// for is a control that moves the sound when somebody opens it.
-fn choices(
-    table: TableId,
-    parameter: ParamId,
-    firmware: Version,
-    value: u8,
-) -> Option<Vec<Choice>> {
-    let table = table.table_for(firmware);
-    let options: Vec<Choice> = table
-        .entries
+/// `None` where the library says the table does not name every value the
+/// parameter accepts: some of them list only the start of a documented run, and
+/// a control that silently drops the values it has no name for is a control
+/// that moves the sound when somebody opens it. `ParamId::choices_for` is that
+/// question answered where the table lives, from `deepmind-midi` 26.2; this
+/// crate counted the run itself until then.
+///
+/// Also `None` when the table names every value the parameter accepts and the
+/// one it is holding is not among them, which a dump from hardware can do. The
+/// list would open on nothing, so the raw number stays draggable instead.
+fn choices(parameter: ParamId, firmware: Version, value: u8) -> Option<Vec<Choice>> {
+    let entries = parameter.choices_for(firmware)?;
+    let options: Vec<Choice> = entries
         .iter()
-        .filter(|entry| parameter.accepts(entry.value))
         .map(|entry| Choice {
             value: entry.value,
             name: entry.name,
         })
         .collect();
-    let named = u32::try_from(options.len()).ok()?;
-    let span = u32::from(parameter.max() - parameter.min()) + 1;
-    if named != span {
-        return None;
-    }
     options
         .iter()
         .find(|choice| choice.value == u16::from(value))?;

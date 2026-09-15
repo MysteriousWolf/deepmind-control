@@ -42,6 +42,18 @@ const PALETTE: Palette = Palette {
     danger: color!(0xb4483c),
 };
 
+/// The one saturated colour, and it only ever means that something other than
+/// a hand can move a control: the modulation matrix is pointed at it.
+///
+/// Not on the instrument, and chosen to sit with it. Everything else on the
+/// panel is the panel, the metal or the ink, so a mark in this is the only
+/// thing on a rack of forty that is not one of those.
+#[expect(
+    clippy::unreadable_literal,
+    reason = "a colour is read as a colour, and `0x00ff_b95c` is not one"
+)]
+pub const LAMP: Color = color!(0xffb95c);
+
 /// What a drawn control is made of.
 ///
 /// The panel comes from whatever theme is passed, so a window someone has

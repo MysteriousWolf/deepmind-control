@@ -33,7 +33,7 @@
 //! `Source` in it — the oscillators have one — is not a matrix and is not
 //! drawn as one.
 
-use deepmind_midi::param::{Group, ParamId};
+use deepmind_midi::param::{Group, Kind, ParamId};
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::alignment::Vertical;
 use iced_core::{Font, Length, Theme, text::Renderer as TextRenderer};
@@ -136,6 +136,39 @@ pub(crate) fn routed(group: Group) -> Vec<ParamId> {
 }
 
 /// Draws the table `group` makes, when it is a matrix.
+/// Every parameter the matrix is currently pointed at, in `firmware`'s tables.
+///
+/// A destination is a value in a table of names the instrument's display prints
+/// abbreviated, and until `deepmind-midi` 26.2 nothing joined `VCF Freq` to
+/// [`ParamId::VcfFrequency`]: a host that wanted to mark a modulated control had
+/// to match those names itself, which is the second copy of a generated table
+/// this repository refuses to keep. `ValueTable::parameters_of` answers it where
+/// the table lives, so this reads the eight destinations the patch holds and
+/// says which parameters they move.
+///
+/// A destination nobody has read moves nothing, because a mark drawn from a
+/// value this window has not seen is a mark that says the instrument is doing
+/// something it may not be.
+pub(crate) fn moved(patch: &Patch, firmware: Version) -> Vec<ParamId> {
+    let mut moved = Vec::new();
+    for group in Group::ORDER.iter().copied() {
+        for routing in of(group).into_iter().flatten() {
+            let Kind::Enumerated(table) = routing.destination.kind() else {
+                continue;
+            };
+            let Some(value) = patch.value(routing.destination) else {
+                continue;
+            };
+            for parameter in table.table_for(firmware).parameters_of(u16::from(value)) {
+                if !moved.contains(parameter) {
+                    moved.push(*parameter);
+                }
+            }
+        }
+    }
+    moved
+}
+
 pub(crate) fn table<'a, Renderer>(
     patch: &Patch,
     group: Group,
@@ -250,9 +283,9 @@ where
     reason = "a failed expectation is the test failure"
 )]
 mod tests {
-    use deepmind_midi::param::{Group, ParamId};
+    use deepmind_midi::param::{Group, Kind, ParamId};
 
-    use super::{of, routed};
+    use super::{moved, of, routed};
 
     #[test]
     fn one_group_is_a_matrix_and_the_rest_are_racks() {
@@ -353,5 +386,55 @@ mod tests {
                 "Mod 1", "Mod 2", "Mod 3", "Mod 4", "Mod 5", "Mod 6", "Mod 7", "Mod 8"
             ]
         );
+    }
+
+    #[test]
+    fn a_destination_names_the_parameter_it_moves() {
+        use deepmind_midi::ids::ProtocolVersion;
+        use deepmind_midi::param::DEFAULT_FIRMWARE;
+        use deepmind_midi::program::Program;
+
+        use crate::Patch;
+
+        let mut patch = Patch::new();
+        // Nothing is read, so nothing is moved: a mark drawn from a value this
+        // window has not seen says the instrument is doing something it may not.
+        assert!(moved(&patch, DEFAULT_FIRMWARE).is_empty());
+
+        patch.confirm(Program::new(ProtocolVersion::V7));
+        let routings = of(Group::ModMatrix).expect("the matrix is one");
+        let destination = routings.first().expect("eight of them").destination;
+        let Kind::Enumerated(table) = destination.kind() else {
+            unreachable!("a destination is chosen from a table")
+        };
+        // Whatever the first named destination moves, pointing a routing at it
+        // is what puts that parameter in the answer.
+        let entry = table
+            .table_for(DEFAULT_FIRMWARE)
+            .entries
+            .iter()
+            .find(|entry| {
+                !table
+                    .table_for(DEFAULT_FIRMWARE)
+                    .parameters_of(entry.value)
+                    .is_empty()
+            })
+            .expect("some destination moves a parameter");
+        let expected = table
+            .table_for(DEFAULT_FIRMWARE)
+            .parameters_of(entry.value)
+            .to_vec();
+        patch.edit(
+            destination,
+            u8::try_from(entry.value).expect("a destination is a byte"),
+        );
+
+        let answered = moved(&patch, DEFAULT_FIRMWARE);
+        for parameter in expected {
+            assert!(
+                answered.contains(&parameter),
+                "{parameter:?} is moved by the routing pointed at it"
+            );
+        }
     }
 }

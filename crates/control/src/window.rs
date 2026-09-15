@@ -243,7 +243,8 @@ fn remaining() -> Element<'static, Message> {
         "Every parameter the instrument has is on these {} panels, drawn from the library's own \
          table. The program's name, the three envelopes and the modulation matrix are laid out by \
          hand; the control sequencer is the rest of stage 3, the librarian is stage 4, and the \
-         effect panels wait on the library publishing their tables. Nothing here writes a program \
+         effect panels are stage 5, whose tables the library published in 26.2. Nothing here \
+         writes a program \
          into the synthesizer: the manual describes no message that would, so storing a sound \
          into a slot is done at the panel with the instrument's own WRITE.",
         Group::ALL.len()

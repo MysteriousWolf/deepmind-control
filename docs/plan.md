@@ -264,18 +264,16 @@ Four FX engines, twelve raw parameter bytes each, and what those bytes mean
 depends on which of 35 algorithms is loaded. The library names them `FX 1 Param
 3`, which is the truth and is unusable in an editor.
 
-The readable version exists: `spec/panels.toml` has the full name, the control
-kind and the grouping for every slot of all 35 algorithms, and
-`spec/layout.toml` has the grid, the control shape and four measured colours per
-panel. Both are in the library's repository, and neither is in its API.
-
 They are not transcribed here. Duplicating 35 panels into this repository means
 maintaining a second copy of a table that is generated from a specification,
-which is the thing the library exists to prevent. The FX editor waits on a
-feature in `deepmind-midi` that publishes them
-([deepmind-midi#18](https://github.com/MysteriousWolf/deepmind-midi/issues/18)),
-and until it lands the FX section shows the twelve slots under their protocol
-names and the algorithm under its own, which is honest and ugly.
+which is the thing the library exists to prevent.
+
+`deepmind-midi` 26.2 published them, which is what the FX editor was waiting
+for: `effect::Engine` is the four engines and which parameter each of their
+slots is, `effect::Algorithm` is the 35 and what value selects one on a given
+firmware, and `effect::FxSlot` is what a slot of the loaded algorithm is called
+and what kind of control it wants. The FX section can stop showing twelve slots
+under their protocol names, and that is stage 5.
 
 ## One view layer, two runtimes
 
@@ -454,7 +452,7 @@ group and changes only the arrangement, never what a control is:
 | VCF, VCA and Mod envelopes | **Done.** Four faders and the shape they make, drawn above the rack, which is the one group whose meaning is a picture |
 | Mod Matrix | **Done.** Eight rows of source, destination and depth, read across rather than down, because twenty-four slots in one wrapping line are eight sentences with their words in the wrong order |
 | Control Sequencer | 32 steps, which is a sequencer and not a rack |
-| Effects | Four engines, waiting on the library publishing `spec/panels.toml` |
+| Effects | Four engines, and the tables arrived in `deepmind-midi` 26.2: `effect::Algorithm` and `effect::FxSlot` say what a slot of the loaded algorithm is |
 
 Until a group is laid out, it is complete and honest and looks like the
 specification it came from, which is the trade this order is making.
@@ -468,13 +466,14 @@ found by what the library calls them — a `Source` with a `Destination` and a
 `Depth` sharing its prefix — so a ninth routing draws a ninth row and a lone
 `Source` somewhere else is not a matrix.
 
-What the rows cannot do yet is say where they point. A destination is a value
-in a table of 133 names the display prints abbreviated, and nothing joins
-`VCF Freq` to `ParamId::VcfFrequency`, so neither the mark on a modulated slot
-nor a way from a row to the parameter it moves can be drawn without matching
-those names here — which is the second copy of a generated table this
-repository refuses to keep. It waits on the library
-([deepmind-midi#19](https://github.com/MysteriousWolf/deepmind-midi/issues/19)).
+The rows can say where they point, since `deepmind-midi` 26.2:
+`ValueTable::parameters_of` joins `VCF Freq` to `ParamId::VcfFrequency` where
+the table lives, rather than by matching those names here, which is the second
+copy of a generated table this repository refuses to keep. A slot the eight
+routings are pointed at carries the one saturated mark on the panel, read once
+per panel from the destinations the patch holds. A destination nobody has read
+moves nothing: a mark drawn from a value this window has not seen says the
+instrument is doing something it may not be.
 
 That is also where hand layout stops being only an arrangement of whole
 controls. A row gives a list the width its names need and turns the depth fader

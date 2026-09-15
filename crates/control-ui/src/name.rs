@@ -18,10 +18,8 @@
 //! to the name. The library says which bytes those are; nothing here counts
 //! them.
 
-use std::sync::LazyLock;
-
 use deepmind_midi::param::ParamId;
-use deepmind_midi::program::{NAME_LEN, NAME_OFFSET, ProgramName};
+use deepmind_midi::program::{NAME_PARAMETERS, ProgramName};
 use iced_core::alignment::{Horizontal, Vertical};
 use iced_core::{Background, Border, Font, Length, Theme, text::Renderer as TextRenderer};
 use iced_widget::{column, container, text, text_input};
@@ -40,19 +38,13 @@ const SLOTS: f32 = 2.0;
 
 /// The parameters the name is stored in, in the order they are printed.
 ///
-/// Read off the library's own offsets rather than written down: the name field
-/// starts at [`NAME_OFFSET`] and runs [`NAME_LEN`] bytes, and the parameters at
-/// those offsets are the characters of it. A library that moves the field moves
-/// this with it.
+/// The library's own list. This crate walked the offsets from `NAME_OFFSET` for
+/// `NAME_LEN` bytes until `deepmind-midi` 26.2 published [`NAME_PARAMETERS`],
+/// which is the same seventeen worked out where the table lives, so a library
+/// that moves the field moves this with it.
 #[must_use]
 pub fn characters() -> &'static [ParamId] {
-    static FIELD: LazyLock<Vec<ParamId>> = LazyLock::new(|| {
-        let last = NAME_OFFSET.saturating_add(u8::try_from(NAME_LEN).unwrap_or(0));
-        (NAME_OFFSET..last)
-            .filter_map(|offset| ParamId::from_offset(offset).ok())
-            .collect()
-    });
-    &FIELD
+    &NAME_PARAMETERS
 }
 
 /// Returns whether a parameter is one of the characters of the name.
