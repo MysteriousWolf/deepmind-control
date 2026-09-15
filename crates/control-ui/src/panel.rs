@@ -41,8 +41,9 @@ const LEGENDS: usize = 6;
 
 /// What a view in this crate asks for.
 ///
-/// One thing, because one thing is all a view knows how to want. What it costs
-/// on a wire, when it goes out and what it goes out behind is the host crate's
+/// Two things, and the second one never reaches a wire: a parameter should
+/// move, or a section should be the one on the screen. What an edit costs on a
+/// wire, when it goes out and what it goes out behind is the host crate's
 /// business.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Message {
@@ -53,6 +54,13 @@ pub enum Message {
         /// Where to move it, as the program byte it is stored as.
         value: u8,
     },
+    /// A section should be the one on the screen.
+    ///
+    /// Two hundred and forty-two parameters do not fit on a screen and are not
+    /// laid out on the instrument as one surface either. Which panel is in
+    /// front of somebody is the application's state and not the synthesizer's,
+    /// so this is the one message that goes nowhere near the port.
+    Show(Group),
 }
 
 /// Draws one group of parameters.
@@ -348,7 +356,7 @@ fn lit(theme: &Theme, on: bool, claim: Confidence) -> button::Style {
 }
 
 /// Draws the dot that says what backs a value.
-fn dot<'a, Renderer>(claim: Confidence) -> Element<'a, Renderer>
+pub(crate) fn dot<'a, Renderer>(claim: Confidence) -> Element<'a, Renderer>
 where
     Renderer: iced_core::Renderer + 'a,
 {

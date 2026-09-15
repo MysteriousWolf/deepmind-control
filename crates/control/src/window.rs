@@ -91,16 +91,22 @@ fn ticks() -> impl Stream<Item = Message> {
 
 /// The whole window.
 fn view(app: &App) -> Element<'_, Message> {
+    let section = app.section();
     column![
         header(app),
         identity(app),
         controls(app),
+        // The bar stays put while the rack under it scrolls: it is how a panel
+        // is left, and a control that scrolls away is a control that is looked
+        // for.
+        control_ui::sections(app.patch(), section).map(Message::Ui),
         scrollable(
             column![
-                text(Group::Vcf.name()).size(18),
-                control_ui::group(app.patch(), Group::Vcf, app.firmware()).map(Message::Ui),
-                remaining(),
+                text(section.name()).size(18),
+                control_ui::group(app.patch(), section, app.firmware()).map(Message::Ui),
             ]
+            .extend(caveat(section))
+            .push(remaining())
             .spacing(12)
             .padding([0, 12]),
         )
@@ -190,13 +196,38 @@ fn controls(app: &App) -> Element<'_, Message> {
     .into()
 }
 
+/// What a section cannot say for itself yet, where it has something to admit.
+///
+/// Printed under the rack rather than left for somebody to work out from a
+/// panel of protocol names. A panel drawn from the library's own table is
+/// complete and, in two places, ugly, and saying which two is cheaper than
+/// pretending otherwise.
+fn caveat(section: Group) -> Option<Element<'static, Message>> {
+    let admission = match section {
+        Group::Effects => {
+            "Four engines, twelve slots each, under the names the protocol gives them. What a \
+             slot means depends on which of the 35 algorithms is loaded, and the table that says \
+             so is generated from the library's specification rather than transcribed here: the \
+             readable panel arrives when the library publishes it."
+        }
+        Group::Program => {
+            "The name is seventeen parameters, one character each, because that is how the \
+             instrument stores it. The title bar reads them as a word."
+        }
+        _ => return None,
+    };
+    Some(text(admission).size(12).into())
+}
+
 /// What this window does not draw yet, said out loud.
 fn remaining() -> Element<'static, Message> {
     text(
-        "The other thirteen groups are stage 3, the librarian is stage 4, and the effects wait \
-         on the library publishing its panel tables. Nothing here writes a program into the \
-         synthesizer: the manual describes no message that would, so storing a sound into a slot \
-         is done at the panel with the instrument's own WRITE.",
+        "Every parameter the instrument has is on these fourteen panels, drawn from the \
+         library's own table. Laying each panel out by hand is the rest of stage 3, the \
+         librarian is stage 4, and the effect panels wait on the library publishing their \
+         tables. Nothing here writes a program into the synthesizer: the manual describes no \
+         message that would, so storing a sound into a slot is done at the panel with the \
+         instrument's own WRITE.",
     )
     .size(12)
     .into()

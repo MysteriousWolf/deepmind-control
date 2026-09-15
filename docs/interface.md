@@ -41,6 +41,28 @@ The abbreviation is what is printed on the instrument, so a player looking
 between the two reads the same word twice. The dot is the only thing on the
 panel that says a parameter can be moved by something other than a hand.
 
+## Fourteen panels, one at a time
+
+Two hundred and forty-two parameters do not fit on a screen, and the instrument
+does not put them on one surface either: a player presses a section and the
+display becomes that section. So does this. A bar of fourteen tabs sits above
+the rack, it does not scroll with it, and the panel below it is the one section.
+
+The bar is in the order the sound passes through the instrument — program,
+voicing, oscillators, filter, envelopes, LFOs, modulation, arpeggiator,
+sequencer, effects — and not the alphabetical order the library hands the groups
+over in, which puts the effects third and the oscillators eighth.
+
+**Each tab carries its own section's claim**, as the same dot the legend
+explains, and a section is as confirmed as its least confirmed parameter. That
+is what keeps one panel at a time from hiding the thing this editor is for: a
+bar of green dots with one copper one among them reads as "the sound is the
+synthesizer's, except the part I moved" without opening anything.
+
+Which section somebody is looking at is this window's business and never the
+synthesizer's. It outlives a port being put down, because the sound went away
+and the person did not.
+
 ## Confidence is a fill, not a colour
 
 A claim per parameter, which is more than the library tracks: the library's

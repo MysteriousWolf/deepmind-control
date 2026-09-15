@@ -16,9 +16,18 @@
 //!
 //! # What it produces
 //!
-//! [`Message`], which says a parameter should move and nothing else. What that
-//! costs on a wire, when it is sent, and what it is sent behind is the host
-//! crate's problem: the views do not know that a wire has a speed.
+//! [`Message`], which says a parameter should move, or which section should be
+//! on the screen, and nothing else. What an edit costs on a wire, when it is
+//! sent, and what it is sent behind is the host crate's problem: the views do
+//! not know that a wire has a speed.
+//!
+//! # Fourteen panels, one at a time
+//!
+//! [`group`] draws one section as the instrument lays it out, and [`sections`]
+//! draws the bar that chooses which. Every parameter the synthesizer has is
+//! reachable through the two of them, drawn from the library's own table: what
+//! a control looks like is what the library says the parameter is, so a panel
+//! nobody has laid out by hand is complete before it is beautiful.
 //!
 //! ```
 //! use control_ui::{Confidence, Patch};
@@ -53,12 +62,14 @@ mod confidence;
 mod fader;
 mod panel;
 mod patch;
+mod section;
 mod style;
 
 pub use confidence::Confidence;
 pub use fader::{Fader, fader};
 pub use panel::{Message, group, legend};
 pub use patch::Patch;
+pub use section::{SECTIONS, sections};
 pub use style::{Materials, deepmind, materials, tint};
 
 /// A piece of interface, produced by the views in this crate.
