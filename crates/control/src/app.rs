@@ -7,7 +7,7 @@ use deepmind_host::{Command, Event, Link, Outcome, PortRef, open, ports};
 use deepmind_midi::device::Event as DeviceEvent;
 use deepmind_midi::ids::{Bank, PROGRAMS_PER_BANK, ProgramNumber};
 use deepmind_midi::param::DEFAULT_FIRMWARE;
-use deepmind_midi::param::Group;
+use deepmind_midi::param::{Group, ParamId};
 use deepmind_midi::program::ProgramName;
 use deepmind_midi::sysex::inquiry::{Identity, Version};
 use deepmind_midi::wire::Channel;
@@ -101,6 +101,12 @@ pub struct App {
     patch: Patch,
     /// The section the bar has pressed in.
     section: Group,
+    /// The control the pointer is over, which the footer describes.
+    ///
+    /// Not part of the sound and never sent anywhere: it is where somebody is
+    /// looking, which is the window's own business and is forgotten the moment
+    /// they look somewhere else.
+    pointed: Option<ParamId>,
     /// The sounds that are kept rather than played.
     shelf: Shelf,
     /// The bank the picker is sitting on, which is the one a read would read.
@@ -130,6 +136,7 @@ impl App {
             channel: None,
             patch: Patch::new(),
             section: first_section(),
+            pointed: None,
             shelf: Shelf::new(),
             bank: Bank::A,
             view: View::Panel,
@@ -186,6 +193,12 @@ impl App {
     #[must_use]
     pub const fn identity(&self) -> Option<&Identity> {
         self.identity.as_ref()
+    }
+
+    /// Returns the control the pointer is over, for the footer to describe.
+    #[must_use]
+    pub const fn pointed(&self) -> Option<ParamId> {
+        self.pointed
     }
 
     /// Returns the channel edits go out on, once one is settled.
@@ -284,6 +297,7 @@ impl App {
                 }
             }
             Message::Ui(control_ui::Message::Rename(name)) => self.rename(name),
+            Message::Ui(control_ui::Message::Pointed(parameter)) => self.pointed = parameter,
         }
         self.drain();
     }
@@ -529,10 +543,22 @@ impl App {
                 self.identity = Some(identity);
                 self.channel = Some(channel);
                 self.say(format!(
-                    "A DeepMind answered: firmware {}, channel {}.",
+                    "A DeepMind answered: firmware {}, channel {}. Reading the sound\u{2026}",
                     identity.firmware,
                     channel.number()
                 ));
+                // And read the sound it is making, without being asked. Every
+                // control this window draws is drawn from a value, and until a
+                // dump arrives every one of those is arithmetic: the panel is
+                // the editor's guess at a synthesizer that is sitting right
+                // there with the answer. Asking the moment somebody answers is
+                // the difference between a window that shows the instrument and
+                // one that shows what it would show if it had looked.
+                //
+                // It costs one message and one dump, on a port that has just
+                // proved it works, and the button stays for when a sound has
+                // been changed at the panel since.
+                self.ask(Command::ReadEditBuffer);
             }
             Event::Silent => {
                 self.say("Nothing answered the inquiry. Switch the synthesizer on and ask again.");

@@ -25,12 +25,12 @@
 
 use core::fmt;
 
-use deepmind_midi::param::{Group, Kind, ParamId};
+use deepmind_midi::param::{Group, Kind, ParamId, Shape};
 use deepmind_midi::program::ProgramName;
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::alignment::{Horizontal, Vertical};
 use iced_core::{Background, Border, Font, Length, Theme, border, text::Renderer as TextRenderer};
-use iced_widget::{Space, button, column, container, pick_list, row, text};
+use iced_widget::{Space, button, column, container, mouse_area, pick_list, row, text};
 
 use crate::effect;
 use crate::envelope;
@@ -50,6 +50,40 @@ pub(crate) const SLOT: f32 = 88.0;
 /// in the instrument once its group is taken off the front, and a box that
 /// clips it is a box that lies about which fader is which.
 pub(crate) const NAME: f32 = 44.0;
+
+/// How tall a control that is not a fader stands in a row of them.
+///
+/// A fader lying on its side, which is what makes a row of switches, lists and
+/// lamps one band whatever is standing in it. Named because the front panel has
+/// to know it: the band along the foot of a plate is as tall as this, and a
+/// plate is as tall as its parts.
+pub(crate) const BUTTON: f32 = fader::WIDTH;
+
+/// How tall one lit legend of a named set stands.
+///
+/// One line of the reading face at the size a legend is set in, and no padding
+/// above or below it: a column of seven has to fit beside two faders on the
+/// front panel, which is the tightest room a named set is ever lit in.
+///
+/// Given rather than taken, because a column is laid out into the room it was
+/// given and a legend past the end of that room is drawn no lines tall — which
+/// is a set that silently names fewer things than the library says it has,
+/// rather than one that overflows where somebody would see it.
+pub(crate) const LIT: f32 = 13.0;
+
+/// How far apart two lit legends stand.
+pub(crate) const BETWEEN: f32 = 1.0;
+
+/// How tall a column of `count` lit legends stands.
+///
+/// What a hand layout has to give a named set for all of it to be drawn. The
+/// front panel asks, because the instrument lights its LFO shapes beside the
+/// faders rather than under them and the room beside a fader is the room a
+/// fader runs in.
+pub(crate) fn lit_band(count: usize) -> f32 {
+    let count = f32::from(u16::try_from(count).unwrap_or(u16::MAX));
+    (count * LIT + (count - 1.0) * BETWEEN).max(0.0)
+}
 
 /// Longest named set that is drawn as lit legends rather than as a list.
 ///
@@ -133,7 +167,7 @@ impl Room {
         Self {
             axis: Axis::Down,
             width,
-            height: Length::Fixed(fader::WIDTH),
+            height: Length::Fixed(BUTTON),
             travel: fader::HEIGHT,
             legends: false,
         }
@@ -172,10 +206,11 @@ impl Room {
 
 /// What a view in this crate asks for.
 ///
-/// Three things, and the last one never reaches a wire: a parameter should
-/// move, the program should be called something, or a section should be the one
-/// on the screen. What an edit costs on a wire, when it goes out and what it
-/// goes out behind is the host crate's business.
+/// Four things, and the last two never reach a wire: a parameter should move,
+/// the program should be called something, a section should be the one on the
+/// screen, or the pointer has come to rest on a control. What an edit costs on
+/// a wire, when it goes out and what it goes out behind is the host crate's
+/// business.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Message {
     /// A parameter should move to this value.
@@ -199,6 +234,15 @@ pub enum Message {
     /// front of somebody is the application's state and not the synthesizer's,
     /// so this is the one message that goes nowhere near the port.
     Show(Group),
+    /// The pointer is over this control, or has left the one it was over.
+    ///
+    /// A panel of forty faders under four-letter legends is only readable
+    /// because a hand can ask what one of them is, and this is the asking. The
+    /// answer is drawn somewhere else — the application decides where a footer
+    /// goes — so all a view does is say what is under the pointer.
+    ///
+    /// It never reaches a wire. Looking at a control is not editing it.
+    Pointed(Option<ParamId>),
 }
 
 /// Draws one group of parameters.
@@ -282,27 +326,6 @@ where
         .into()
 }
 
-/// Draws what the three drawings of a value mean.
-#[must_use]
-pub fn legend<'a, Renderer>() -> Element<'a, Renderer>
-where
-    Renderer: TextRenderer<Font = Font> + 'a,
-{
-    row![
-        dot(Confidence::Confirmed),
-        muted("reported"),
-        Space::new().width(Length::Fixed(14.0)),
-        dot(Confidence::Assumed),
-        muted("claimed"),
-        Space::new().width(Length::Fixed(14.0)),
-        dot(Confidence::Unknown),
-        muted("unread"),
-    ]
-    .spacing(6)
-    .align_y(Vertical::Center)
-    .into()
-}
-
 /// Draws one parameter: its address, its control, its value and its name.
 fn slot<'a, Renderer>(
     patch: &Patch,
@@ -377,6 +400,27 @@ where
 /// empty slot in a rack of forty is harder to read than a fader with no cap on
 /// it. The control says so by having nothing to take hold of.
 pub(crate) fn control<'a, Renderer>(
+    parameter: ParamId,
+    value: Option<u8>,
+    claim: Confidence,
+    firmware: Version,
+    room: Room,
+) -> Element<'a, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    // Every control in this editor is drawn through here — a lane of the front
+    // panel, a slot of a rack, a step of the sequencer, a byte of an effect — so
+    // this is the one place that has to notice a pointer for all of them to say
+    // what they are.
+    mouse_area(drawn(parameter, value, claim, firmware, room))
+        .on_enter(Message::Pointed(Some(parameter)))
+        .on_exit(Message::Pointed(None))
+        .into()
+}
+
+/// Draws the control itself, as whatever the library says the parameter is.
+fn drawn<'a, Renderer>(
     parameter: ParamId,
     value: Option<u8>,
     claim: Confidence,
@@ -504,8 +548,9 @@ where
         let on = Some(choice.byte()) == value;
         let byte = choice.byte();
         let face = button(text(choice.name).size(10).font(reading()))
-            .padding([1, 5])
+            .padding([0, 5])
             .width(Length::Fill)
+            .height(Length::Fixed(LIT))
             .style(move |theme: &Theme, _status| lit(theme, on, claim));
         if live {
             face.on_press(Message::Edit {
@@ -517,10 +562,14 @@ where
             Element::from(face)
         }
     });
-    container(column(rows).spacing(2).width(Length::Fixed(room.width)))
-        .height(room.height)
-        .align_y(Vertical::Center)
-        .into()
+    container(
+        column(rows)
+            .spacing(BETWEEN)
+            .width(Length::Fixed(room.width)),
+    )
+    .height(room.height)
+    .align_y(Vertical::Center)
+    .into()
 }
 
 /// Draws a named set too long for legends as the list it is.
@@ -601,9 +650,9 @@ where
         .width(Length::Fixed(5.0))
         .height(Length::Fixed(5.0))
         .style(move |_theme: &Theme| container::Style {
-            background: (moved && heeded).then_some(Background::Color(style::LAMP)),
+            background: (moved && heeded).then_some(Background::Color(style::MODULATION)),
             border: if moved && !heeded {
-                border::rounded(3).width(1.0).color(style::LAMP)
+                border::rounded(3).width(1.0).color(style::MODULATION)
             } else {
                 border::rounded(3)
             },
@@ -644,21 +693,89 @@ fn shown(parameter: ParamId, value: Option<u8>, firmware: Version) -> String {
     };
     match parameter.kind() {
         // The control already carries the name, so this carries the byte.
-        Kind::Switch | Kind::Enumerated(_) => value.to_string(),
+        Kind::Switch | Kind::Enumerated(_) => sits_at(parameter, value),
         _ => parameter
             .label_for(u16::from(value), firmware)
-            .map_or_else(|| value.to_string(), str::to_owned),
+            .map_or_else(|| sits_at(parameter, value), str::to_owned),
     }
 }
 
-/// Grey text, for what is not a value.
-fn muted<Renderer>(what: &str) -> iced_widget::Text<'_, Theme, Renderer>
-where
-    Renderer: TextRenderer,
-{
-    text(what).size(14).style(move |theme: &Theme| text::Style {
-        color: Some(tint(theme, Confidence::Unknown)),
-    })
+/// What the raw byte reads as, which is not always the raw byte.
+///
+/// Two things the library publishes about a value beyond the range it sits in,
+/// and both of them change what a number means rather than how it is drawn:
+///
+/// - A **bipolar** parameter is read about a centre, so `128` on a modulation
+///   depth is not "half way up" but *no modulation at all*, and the reading is
+///   the signed distance from there. A matrix of eight depths set to nothing
+///   reading `128` eight times is a panel stating the wrong musical fact in the
+///   most confident way available to it.
+/// - An **inactive** value means "not set" rather than the smallest setting.
+///   Zero on a sequencer step skips the step; it is not the quietest one.
+///
+/// Both are [`ParamId::shape`] and [`ParamId::inactive`], published by
+/// `deepmind-midi` 26.3, and until then this printed the byte and the strip's
+/// own documentation said which fact it was getting wrong.
+pub(crate) fn sits_at(parameter: ParamId, value: u8) -> String {
+    if parameter.inactive() == Some(u16::from(value)) {
+        return "skip".to_owned();
+    }
+    match parameter.shape() {
+        Shape::Bipolar { centre } => {
+            let from = i32::from(value) - i32::from(centre);
+            // A sign on every reading of a bipolar control, the zero included:
+            // `0` and `+0` are the same number and only one of them says the
+            // control it is under has two directions.
+            format!("{from:+}")
+        }
+        _ => value.to_string(),
+    }
+}
+
+#[cfg(test)]
+#[expect(clippy::panic, reason = "a failed expectation is the test failure")]
+mod readings {
+    use super::sits_at;
+    use deepmind_midi::param::{ParamId, Shape};
+
+    #[test]
+    fn a_bipolar_value_is_read_about_its_centre_and_not_from_the_floor() {
+        // The fact the library published and this used to get wrong: a
+        // modulation depth at 128 is no modulation, and eight of them reading
+        // `128` was a matrix stating the wrong musical fact eight times.
+        let depth = ParamId::Mod1Depth;
+        let Shape::Bipolar { centre } = depth.shape() else {
+            panic!("{depth} is the bipolar one this guards");
+        };
+
+        assert_eq!(
+            sits_at(depth, u8::try_from(centre).unwrap_or_default()),
+            "+0"
+        );
+        assert_eq!(
+            sits_at(depth, u8::try_from(centre).unwrap_or_default() + 40),
+            "+40"
+        );
+        assert_eq!(
+            sits_at(depth, u8::try_from(centre).unwrap_or_default() - 12),
+            "-12"
+        );
+    }
+
+    #[test]
+    fn a_unipolar_value_is_still_the_byte() {
+        assert_eq!(sits_at(ParamId::VcfFrequency, 200), "200");
+        assert_eq!(sits_at(ParamId::VcfFrequency, 0), "0");
+    }
+
+    #[test]
+    fn a_step_of_nothing_is_a_skipped_step_and_not_the_quietest_one() {
+        let step = ParamId::SeqStepValue1;
+
+        assert_eq!(step.inactive(), Some(0), "the library says zero skips it");
+        assert_eq!(sits_at(step, 0), "skip");
+        assert_ne!(sits_at(step, 1), "skip", "and only zero does");
+    }
 }
 
 /// One value of a named set, as a list shows it.

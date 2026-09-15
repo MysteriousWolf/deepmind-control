@@ -20,9 +20,14 @@ authors = ["MysteriousWolf"]
 # the interface draws, and that arrives when the pin is moved rather than on
 # whatever day `cargo update` is run.
 [workspace.dependencies]
-deepmind-midi = { version = "26.2", default-features = false, features = [
+deepmind-midi = { version = "26.3", default-features = false, features = [
     "std",
     "transport",
+    # The manual's sentence for a parameter and for an effect slot, which the
+    # `description` accessors answer `None` for without it. Off by default in
+    # the library because 31 kB of prose is real money on a microcontroller and
+    # free in a window that has a footer to print it along.
+    "descriptions",
 ] }
 midir = "0.10"
 

@@ -1,0 +1,226 @@
+//! What is under the pointer, along the foot of the window.
+//!
+//! A front panel is twenty-odd faders under four-letter legends and a rack is
+//! forty slots under abbreviated ones, and both of them are readable only
+//! because a hand can ask what one of them is. `KYBD` over a fader on the
+//! filter plate is `VCF Keyboard Tracking`, it accepts `0` to `255`, and
+//! controller 74 drives it — none of which fits over a lane forty-six points
+//! wide, and all of which fits along the bottom of a window.
+//!
+//! # Everything here is the library's answer
+//!
+//! The footer writes down nothing about a parameter. The name, the section, the
+//! range, the name of the value it is sitting on and the controller that drives
+//! it are five questions put to `deepmind-midi`, which is the same rule the
+//! controls themselves are drawn under: what a parameter *is* is the library's
+//! table, and this crate is the pixels.
+//!
+//! # And what it does
+//!
+//! The sixth question, and the one somebody points at a control to ask. It had
+//! no getter when this file was written: the library carries the specification
+//! and deliberately not the prose, to keep 31 kB of sentences out of the binary
+//! on the microcontrollers it is also built for.
+//!
+//! [deepmind-midi#28](https://github.com/MysteriousWolf/deepmind-midi/issues/28)
+//! asked for it behind a feature rather than asking for that decision to be
+//! reversed, and 26.3 answers with exactly that: `ParamId::description` returns
+//! `None` unless the `descriptions` feature is on, so the signature is the same
+//! either way and a host writes one code path. This workspace turns the feature
+//! on, because a window with a footer along the bottom of it is precisely the
+//! host that has somewhere to print the answer.
+//!
+//! A parameter with no sentence is still drawn, with the five facts it has.
+//! The library writes `None` rather than a guess where its own specification
+//! does not establish what a parameter does, which is the same refusal every
+//! other drawing in this crate is under.
+
+use deepmind_midi::param::{Controller, Kind, ParamId};
+use deepmind_midi::sysex::inquiry::Version;
+use iced_core::alignment::Vertical;
+use iced_core::{Background, Border, Font, Length, Theme, text::Renderer as TextRenderer};
+use iced_widget::{container, row, text};
+
+use crate::panel::sits_at;
+use crate::style::{materials, printed, reading};
+use crate::{Confidence, Element, Patch};
+
+/// Draws what the pointer is over, or what to do with the panel when it is over
+/// nothing.
+///
+/// The empty state is not a blank strip. A footer that vanishes is a footer
+/// nobody learns is there, and the row it stands in would jump every time the
+/// pointer crossed a gap between two faders.
+#[must_use]
+pub fn footer<'a, Renderer>(
+    pointed: Option<ParamId>,
+    patch: &Patch,
+    firmware: Version,
+) -> Element<'a, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    let line = match pointed {
+        Some(parameter) => described(parameter, patch, firmware),
+        None => vec![Part::Quiet(
+            "Point at a control to read what it is.".to_owned(),
+        )],
+    };
+    let mut across = row![].spacing(10).align_y(Vertical::Center);
+    for part in line {
+        across = across.push(part.draw());
+    }
+    container(across)
+        .width(Length::Fill)
+        .padding([5, 10])
+        .style(|theme: &Theme| {
+            let material = materials(theme);
+            container::Style {
+                background: Some(Background::Color(material.plate)),
+                border: Border {
+                    color: material.recess_edge,
+                    width: 1.0,
+                    radius: 3.into(),
+                },
+                ..container::Style::default()
+            }
+        })
+        .into()
+}
+
+/// One piece of the line, and how loudly it is said.
+enum Part {
+    /// The parameter's own name, which is what somebody pointed at it to read.
+    Name(String),
+    /// A reading: what it is sitting on, in the display's own face.
+    Reading(String),
+    /// Everything that is true of the parameter whatever its value is.
+    Quiet(String),
+    /// What the parameter does, in the library's own sentence.
+    Said(String),
+}
+
+impl Part {
+    /// Draws it in the face and the ink its kind is said in.
+    fn draw<'a, Renderer>(self) -> Element<'a, Renderer>
+    where
+        Renderer: TextRenderer<Font = Font> + 'a,
+    {
+        match self {
+            Self::Name(said) => text(said)
+                .size(13)
+                .font(printed())
+                .style(|theme: &Theme| text::Style {
+                    color: Some(materials(theme).metal_high),
+                })
+                .into(),
+            Self::Reading(said) => text(said)
+                .size(13)
+                .font(reading())
+                .style(|theme: &Theme| text::Style {
+                    color: Some(materials(theme).metal),
+                })
+                .into(),
+            Self::Quiet(said) => text(said)
+                .size(12)
+                .font(printed())
+                .style(|theme: &Theme| text::Style {
+                    color: Some(materials(theme).metal_low),
+                })
+                .into(),
+            // Takes the rest of the line and wraps in it, because a sentence
+            // clipped half way through is a sentence that stops being one.
+            Self::Said(said) => text(said)
+                .size(12)
+                .font(printed())
+                .width(Length::Fill)
+                .style(|theme: &Theme| text::Style {
+                    color: Some(materials(theme).metal),
+                })
+                .into(),
+        }
+    }
+}
+
+/// Everything the library will say about `parameter`, in the order it is read.
+///
+/// The name first, because that is the question; then what it is sitting on,
+/// because that is the second one; then the facts that are true of it whatever
+/// it is sitting on.
+fn described(parameter: ParamId, patch: &Patch, firmware: Version) -> Vec<Part> {
+    let mut line = vec![
+        Part::Name(parameter.name().to_owned()),
+        Part::Quiet(parameter.group().name().to_owned()),
+    ];
+    line.push(Part::Reading(reading_of(parameter, patch, firmware)));
+    line.push(Part::Quiet(range_of(parameter)));
+    if let Some(controller) = Controller::for_parameter(parameter) {
+        line.push(Part::Quiet(format!("CC {}", controller.cc)));
+    }
+    // And what it does, which is the reason somebody pointed at it. Last,
+    // because it is the longest and the other five are what a reader who
+    // already knows the parameter came back for.
+    if let Some(sentence) = parameter.description() {
+        line.push(Part::Said(sentence.to_owned()));
+    }
+    line
+}
+
+/// What the parameter is sitting on, and what backs that.
+///
+/// The claim is in words here rather than in a colour. A footer is a sentence,
+/// and a sentence that said what backs a value by being a different colour
+/// would be saying it only to the readers who see the colour.
+fn reading_of(parameter: ParamId, patch: &Patch, firmware: Version) -> String {
+    let claim = patch.claim(parameter);
+    let Some(value) = patch.value(parameter) else {
+        return "unread".to_owned();
+    };
+    let shown = parameter
+        .label_for(u16::from(value), firmware)
+        .map_or_else(|| sits_at(parameter, value), ToOwned::to_owned);
+    match claim {
+        Confidence::Confirmed => shown,
+        // The distinction the whole editor is built on, said plainly: this is
+        // where the window put it and not where the synthesizer says it is.
+        Confidence::Assumed => format!("{shown} (claimed)"),
+        Confidence::Unknown => format!("{shown} (unread)"),
+    }
+}
+
+/// What the parameter accepts.
+///
+/// The two ends the manual prints, where the library has them —
+/// [`ParamId::display`] is `50.0 Hz to 20000.0 Hz` for the filter's corner —
+/// and the raw range where it does not, which is 216 of the 242. Never a number
+/// between the two ends: the manual publishes what a range runs from and to and
+/// almost never the curve across it, so a footer that turned this byte into a
+/// frequency would be the one place in this window that guessed.
+fn range_of(parameter: ParamId) -> String {
+    if let Some(printed) = parameter.display() {
+        return printed.to_owned();
+    }
+    match parameter.kind() {
+        Kind::Switch if parameter.max() <= 1 => "off or on".to_owned(),
+        Kind::Enumerated(_) => parameter.choices().map_or_else(
+            || ends(parameter),
+            |options| format!("{} named values", options.len()),
+        ),
+        _ => ends(parameter),
+    }
+}
+
+/// The two ends of the raw range, read the way the control reads them.
+///
+/// A bipolar parameter's ends are the two extremes either side of its centre,
+/// not `0` and `255`: a depth that runs `-128` to `+127` said to run `0` to
+/// `255` is the same wrong fact the readings used to state.
+fn ends(parameter: ParamId) -> String {
+    let low = u8::try_from(parameter.min()).unwrap_or(u8::MIN);
+    let high = u8::try_from(parameter.max()).unwrap_or(u8::MAX);
+    format!(
+        "{}\u{2013}{}",
+        sits_at(parameter, low),
+        sits_at(parameter, high)
+    )
+}

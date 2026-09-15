@@ -14,23 +14,20 @@ from a fact this repository transcribed is a second copy of a generated table,
 going stale silently on the next release. So the answer to "the window cannot
 say that" is an issue, not a table.
 
-There is one exception, and it is [#26](https://github.com/MysteriousWolf/deepmind-midi/issues/26):
-the front panel's own contents, which the home screen could not be built without.
-It is written as `ParamId`s so that a rename fails the build rather than
-mislabelling a fader, it is in one file, and that file's first paragraph says it
-is there until the library publishes the same thing. It is the measure of how
-much this repository is prepared to transcribe: one table, said out loud, with
-the issue that deletes it linked from the code.
+There was one exception, and it is gone. The front panel's own contents were a
+table in `control-ui/src/home.rs`, because the home screen could not be built
+without them: written as `ParamId`s so a rename failed the build rather than
+mislabelling a fader, in one file, with that file's first paragraph saying it
+was there until the library published the same thing and the issue that would
+delete it linked from the code. 26.3 published it and the table is deleted.
+That is the measure of the arrangement working: the transcription was named out
+loud, scoped to one file, and removed by the other side of the split rather than
+becoming permanent.
 
 ## Open
 
-| | | |
-| --- | --- | --- |
-| [#22](https://github.com/MysteriousWolf/deepmind-midi/issues/22) | The FX panel layout: the grid, the control shape and the four measured colours per algorithm | The effects panel would be laid out and coloured as the instrument's own figures are, instead of in this editor's rack and materials. It is what the knob in [the interface](interface.md#knob) is waiting for |
-| [#23](https://github.com/MysteriousWolf/deepmind-midi/issues/23) | The FX routing graph as an edge list, and what Insert, Send and Bypass do to the two paths | The chain above the four plates could be drawn, and the window could say which engines currently reach the output. Today the connection mode is the list its value table names and nothing more |
-| [#24](https://github.com/MysteriousWolf/deepmind-midi/issues/24) | A sequencer step is bipolar, `0` skips it, and `Sequence Length` bounds which steps play | The strip gains a centre line, a skip mark and a dimmed tail. Also where the `kind = "switch"` on two steps that accept 256 values gets settled |
-| [#25](https://github.com/MysteriousWolf/deepmind-midi/issues/25) | A parameter's displayed range, as the manual prints it | A fader could say what its two ends mean, the way every effect slot already does. 26 parameters have one |
-| [#26](https://github.com/MysteriousWolf/deepmind-midi/issues/26) | Which parameters the front panel puts a control under, what it prints over them, and in which row | **The one table this repository transcribes.** `control-ui/src/home.rs` holds it until this lands, and says so in its own first paragraph. It is also what a DeepMind 6 would need to be drawn as a 6 |
+Nothing. `deepmind-midi` 26.3 answered all six, which is the first time this
+file has been empty since it was written.
 
 ## Answered
 
@@ -39,6 +36,12 @@ the issue that deletes it linked from the code.
 | [#18](https://github.com/MysteriousWolf/deepmind-midi/issues/18) | The FX panel tables | 26.2. Stage 5: the effects are four engine plates, and every slot is named by the algorithm its engine is running |
 | [#19](https://github.com/MysteriousWolf/deepmind-midi/issues/19) | Which parameter a modulation destination moves | 26.2. The mark on a slot the matrix is pointed at, drawn from the destinations the patch holds rather than by matching names here |
 | [#20](https://github.com/MysteriousWolf/deepmind-midi/issues/20) | The Control App Notify reply, which says what is selected | 26.2 decodes it. Nothing here reads it yet: what a unit actually does with the request is [question 4](plan.md#questions-a-cable-answers), and the librarian's "which slot is this" is worth building once a cable has answered |
+| [#22](https://github.com/MysteriousWolf/deepmind-midi/issues/22) | The FX panel layout: the grid, the control shape, the measured colours | 26.3, as data rather than as the drawings. **Not spent yet** — the effects are still four plates in this editor's own rack and materials, and laying them out as the instrument's figures do is the next piece of work this unblocks |
+| [#23](https://github.com/MysteriousWolf/deepmind-midi/issues/23) | The FX routing graph, and what Insert, Send and Bypass do | 26.3, as edge lists with the two loops declared. **Not spent yet** — the chain above the four plates is drawable now |
+| [#24](https://github.com/MysteriousWolf/deepmind-midi/issues/24) | A sequencer step is bipolar, `0` skips it, and the length bounds the run | 26.3, as `ParamId::shape`, `ParamId::inactive` and `ParamId::bounded_by`. Spent: the strip reads each step about its centre, says `skip` where a step is skipped, and rules the steps that are played |
+| [#25](https://github.com/MysteriousWolf/deepmind-midi/issues/25) | A parameter's displayed range, as the manual prints it | 26.3, as `ParamId::display`. Spent: the footer prints `50.0 Hz to 20000.0 Hz` where the manual has it, and the raw ends where it does not |
+| [#26](https://github.com/MysteriousWolf/deepmind-midi/issues/26) | Which parameters the front panel puts a control under | 26.3, as `front::sections`. **The transcription is deleted.** `control-ui/src/home.rs` reads the panel off the library and spends what it saved on layout: two of the nine sections are drawn as more than one plate |
+| [#28](https://github.com/MysteriousWolf/deepmind-midi/issues/28) | What a parameter does, behind a default-off feature | 26.3, as `ParamId::description` under `descriptions`. Spent: the workspace turns the feature on and the footer prints the sentence |
 
 ## What an answer costs here
 

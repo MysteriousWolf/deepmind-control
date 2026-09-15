@@ -58,7 +58,7 @@ pub(crate) struct Envelope {
 
 impl Envelope {
     /// The four, in the order the shape reads them.
-    fn parameters(self) -> [ParamId; 4] {
+    pub(crate) fn parameters(self) -> [ParamId; 4] {
         [self.attack, self.decay, self.sustain, self.release]
     }
 }
@@ -110,12 +110,30 @@ where
     }))
 }
 
+/// Returns the shape `group` makes, when it is an envelope all four of whose
+/// values have been read.
+///
+/// What the drawing above the rack is read from, and what a display drawing
+/// three envelopes at once on one screen is read from as well: the shape is
+/// the four bytes and nothing else, so there is one place that works out what
+/// they draw and two things that draw it.
+pub(crate) fn corners(patch: &Patch, group: Group) -> Option<Corners> {
+    let envelope = of(group)?;
+    let [attack, decay, sustain, release] = envelope.parameters();
+    Some(Corners::new(
+        patch.value(attack)?,
+        patch.value(decay)?,
+        patch.value(sustain)?,
+        patch.value(release)?,
+    ))
+}
+
 /// The shape, as the four points a line through it turns at.
 ///
 /// Widths are fractions of the drawing and heights are fractions of its height,
 /// so the same numbers draw at any size the layout gives.
 #[derive(Debug, Clone, Copy)]
-struct Corners {
+pub(crate) struct Corners {
     attack: f32,
     decay: f32,
     sustain: f32,
@@ -148,7 +166,7 @@ impl Corners {
     /// the right edge, and the drop has only the end of the axis to happen in.
     /// Drawn as a plateau that reaches the edge and stops, a gate would read as
     /// a sound that never ends.
-    fn height_at(self, x: f32) -> f32 {
+    pub(crate) fn height_at(self, x: f32) -> f32 {
         let decay_ends = self.attack + self.decay;
         let plateau_ends = decay_ends + PLATEAU;
         if x <= self.attack {

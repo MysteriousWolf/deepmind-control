@@ -60,9 +60,12 @@ on the hardware.
 
 ```
 ┌ ARP / SEQ ┐ ┌── LFO 1 ──┐ ┌── LFO 2 ──┐ ┌─────────────┐ ┌ POLY ┐
-│  ▮     ▮  │ │ ▮  ▮ ○Sine│ │ ▮  ▮ ○Sine│ │ Modular Fun │ │  ▮   │
-│ RATE GATE │ │      ●Tri │ │      ●Ramp│ │ this claim  │ │DETUNE│
-│ [on][off] │ │           │ │           │ │             │ │      │
+│ ┌───────┐ │ │ ┌───────┐ │ │ ┌───────┐ │ │▛PROGRAM Pad▜│ │┌────┐│
+│ │▔╷ ▔╷ ▔│ │ │ │╭─╮ ╭─╮│ │ │ │╶╴ ┌─┐ │ │ │             │ ││ ╷╷╷││
+│ └───────┘ │ │ │╯ ╰─╯ ╰│ │ │ │  ─┘ └─│ │ │ Modular Fun │ │└────┘│
+│  ▮     ▮  │ │ └───────┘ │ │ └───────┘ │ │ ▁▁▁▁▁▁▁▁▁▁▁ │ │  ▮   │
+│ RATE GATE │ │ ▮  ▮ ○Sine│ │ ▮  ▮ ○Sine│ │ this claim  │ │DETUNE│
+│ [on][off] │ │      ●Tri │ │      ●Ramp│ │ ▓▓▓▓▓░░░ 84 │ │      │
 │      EDIT │ │      EDIT │ │      EDIT │ │ Read it.    │ │MOD FX│
 └───────────┘ └───────────┘ └───────────┘ └─────────────┘ └──────┘
 ┌─── DCO 1 & 2 ───┐ ┌─── VCF ───┐ ┌VCA┐ ┌HPF┐ ┌ ENVELOPES ┐
@@ -75,6 +78,13 @@ on the hardware.
   display says is which sound is on it, what backs that, and what last happened
   — none of which the view layer knows, and all of which a plugin answers
   differently from a desktop window.
+- **Every plate has a display too, and the instrument has one.** This is the one
+  place the panel deliberately stops being the instrument, and it is the one
+  place where a window has something the hardware does not: room. A `DeepMind`
+  shows whichever section was pressed last, because there is space on its front
+  for a screen and twenty faders; here each plate carries the drawing of its own
+  part, and the envelopes carry the drawing no `DeepMind` can show — all three of
+  them at once. See [Display](#display).
 - **A legend is printed over its control**, not under it, because that is where
   the instrument prints it: the hardware has a screen for readings and no room
   under a fader.
@@ -82,19 +92,91 @@ on the hardware.
   envelopes' `VCA`, `VCF` and `MOD` are the three ways into the three envelope
   panels, where the hardware uses them to choose which envelope its four faders
   address.
-- **The arrangement is the instrument's; the livery is this window's.** The
-  hardware's buttons are white, yellow and cyan. Here a colour already means
-  something — copper is a claim, green is the synthesizer's own account — and a
-  yellow `EDIT` beside them would be a fourth meaning to learn.
+- **A way in is a legend and a lamp, not a word in a box.** `EDIT` is not
+  written on the button on the instrument: it is silkscreened on the panel above
+  a blank square that is lit amber the whole time the synthesizer is powered,
+  and a row of those along the foot of every plate is the thing you see first in
+  a photograph of one. So the legend is printed where every other legend is and
+  what is pressed is the lamp, lit at rest and brighter under the pointer.
+- **The plate's name is knocked out of a light bar**, which is how the
+  instrument prints `ARP / SEQ`, `VCF` and `ENVELOPES`: a pale strip across the
+  top of each group with the name dark on it. It is what the eye follows across
+  the panel before it reads a single legend.
+- **The panel fills the window it is in.** Every dimension here is written at
+  the instrument's own proportions and then drawn through one scale, measured
+  from the widest row against the room there actually is — the lanes, the travel
+  of a fader, the buttons, the type and *the gaps between and inside the plates*.
+  Scaling the gaps is the half that is easy to forget and the half that decides
+  whether it reads as an instrument or as a panel with its parts pushed apart.
+  It stops at 1.75, because a fader as long as an arm is not an improvement, and
+  it never goes below 1: a narrow window wraps its rows, which is an arrangement
+  somebody can still read, where shrunken type is not. The displays are the one
+  thing that does not simply grow — a wider window is a filter curve drawn more
+  finely, not a magnified one. Past 1.75 the panel stands in the middle of the
+  window rather than against its left edge, because that is where an instrument
+  left on a desk that wide would be.
+- **Every row fills it, and not just the widest one.** The top row is the one
+  the panel is measured from; the signal path is a plate narrower and the
+  envelopes are two plates narrower, and drawn at what they measure they leave
+  that difference as bare panel at the right hand end — a photograph of a
+  synthesizer with the end sawn off. A row of a front panel runs the whole width
+  of the instrument, so the difference is shared out among that row's plates in
+  proportion to what each already holds. Every plate of a row grows by the same
+  fraction of itself, so `VCF`, which is five faders, stays twice the width of
+  `OSC 1`, which is two; and nothing inside any of them moves, because what the
+  extra room buys is display — a plate given more glass gains dots rather than
+  magnifying the ones it has. The screen is the exception it has always been: a
+  written width, not what is left over. A row a narrow window has had to break
+  is the one arrangement that is not drawn out, because a line of a broken row
+  is a fraction of a row, and a fraction of a row filling the panel is `POLY`,
+  which is one fader, drawn as wide as the window.
+- **Every plate stands the same height, and so does the screen between them.**
+  A panel whose plates were each as tall as their contents happened to be has a
+  ragged edge under every row and its `EDIT` presses at five different heights,
+  which is the one thing a front panel never is. The height is added up from the
+  parts rather than written down beside them, because two of the parts do not
+  grow with the rest: a display gains dots instead of getting bigger, and the
+  buttons along the foot are drawn in the room this editor gives a control that
+  is not a fader, which is the rack's room and not the panel's. The `EDIT` press
+  stands in the middle of that band, where the switches beside it are.
+- **A lit set is given room for all of it.** A column of legends is laid out
+  into the room it is given and the ones past the end of that room are drawn no
+  lines tall, which is how the panel came to name five of the instrument's seven
+  LFO shapes with nothing saying that `Sample & Hold` and `Sample & Glide` were
+  missing. The strip is a whole lane tall now — the fader's travel, the gap
+  under it and the reading it would have had — and as wide as the longest name
+  it lights, and a test fails if a later table names something that does not
+  fit.
+- **The arrangement is the instrument's, and now so is the livery.** The
+  hardware's buttons are white, amber and cyan, and this window takes the amber
+  and the cyan for the two jobs it has that need a colour: amber opens a
+  section, which is what the hardware's `EDIT` is, and cyan marks a control
+  something other than a hand can move, which is what the hardware's `MOD` is.
+  Earlier this file argued the opposite — that a yellow `EDIT` would be a fourth
+  meaning to learn beside the copper and the green. Taking the instrument's own
+  pairing turned out to be the way through it: the claim moved onto the glass as
+  a depth of ink and off the panel's lamps entirely, so there is no fourth
+  meaning, only the instrument's own two.
 - **The row of twelve lamps over `POLY` is not drawn.** It says how many voices
   are sounding, and nothing on a MIDI port says that. A lamp that cannot be lit
   honestly is not drawn at all.
-- **What is on the panel is the one thing this repository transcribes.** Which
-  parameters have a fader, and what is silkscreened over them, is a fact about
-  the hardware that the library does not publish
-  ([deepmind-midi#26](https://github.com/MysteriousWolf/deepmind-midi/issues/26)).
-  The table is written as parameter identifiers so a rename fails the build, it
-  is in one file, and that file says it is there until the library answers.
+- **Nothing on the panel is transcribed any more.** Which parameters have a
+  fader, what is silkscreened over them and which row they are in was the one
+  table this repository kept; `deepmind-midi` 26.3 publishes it
+  ([#26](https://github.com/MysteriousWolf/deepmind-midi/issues/26)) and the
+  table is deleted. What is left in `home.rs` is layout, which is this window's
+  to decide.
+- **Two sections are drawn as more than one plate**, and both are the same
+  trade as the screens: a window has room the front of a synthesizer does not.
+  `OSC 1` and `OSC 2` are the brackets the instrument prints inside its own
+  `DCO 1 & 2` plate, promoted to a plate each. The envelopes become one plate
+  each with their own four faders and their own screen, because the hardware
+  has four envelope faders and three envelopes and a button pointing one set at
+  the other — and they get a row of their own, which is what the instrument had
+  no room to give them. Both splits are derived through the library: an
+  oscillator's bracket is a slice of its parameters' own names, and an
+  envelope's four faders are the parameters whose short names match the four
+  the section carries.
 
 ## Fourteen panels, one press behind it
 
@@ -183,6 +265,21 @@ outlined-lit, or lit; a readout is blank, outlined, or solid.
 Reading the edit buffer back is what turns a panel of outlines into a panel of
 fills, which is the most useful thing a glance at this application can tell
 somebody: whether they are looking at the sound or at their intentions.
+
+**So the window reads it without being asked.** The moment a synthesizer answers
+the inquiry, the editor asks for the sound it is making: one message and one
+dump on a port that has just proved it works. Until that lands every control on
+the panel is the editor's arithmetic about an instrument sitting right there
+with the answer, and that is not a state worth keeping a score of.
+
+Which is why there is no longer a score. The window used to carry a key reading
+*reported · claimed · unread* and a bar counting how many of the 242 values were
+the synthesizer's own account. Both were bookkeeping about a gap the window
+should be closing rather than measuring: a reader who has to consult a key to
+know what a control means is being asked to do the drawing's job. The three
+drawings stay, because a dragged fader is still a claim until a dump agrees with
+it, and they now have to be legible without a legend beside them — which is the
+bar they should have been held to from the start.
 
 ## Controls
 
@@ -307,6 +404,140 @@ Four faders and the shape they make, drawn above them. An envelope is the one
 group whose meaning is a picture, and four numbers that do not draw it are four
 numbers.
 
+**All three at once, as three plates.** A `DeepMind` has three envelopes, one
+display and three buttons choosing which of them the four faders address, so
+comparing the filter's decay with the amplifier's means comparing one with a
+memory of the other. All three are on screen here, which is the drawing no
+hardware can make — and each is a plate with its own four faders and its own
+full screen rather than a third of one shared drawing. That went through two
+answers: three curves sharing a band told apart by a dash pattern (on a grid of
+dots, two lines crossing are the same dots), then three named panes of one
+strip, and now three plates. Each was the best available given how much room
+the layout had, and unfolding the section is what finally gave them room.
+
+### Footer
+
+A strip along the foot of the window saying what the pointer is over. A panel is
+twenty-odd faders under four-letter legends and a rack is forty slots under
+abbreviated ones, and both are readable only because a hand can ask what one of
+them is: `KYBD` is `VCF Keyboard Tracking`, it takes `0` to `255`, and
+controller 74 drives it — none of which fits over a lane and all of which fits
+along the bottom of a window.
+
+- **Every word of it is the library's answer.** The name, the section, the value's
+  own name, the range and the controller are five questions put to
+  `deepmind-midi`. The footer writes down nothing about a parameter, which is
+  the rule the controls themselves are drawn under.
+- **The claim is in words here, not in a colour.** A footer is a sentence, and a
+  sentence that said what backs a value by being a different colour would be
+  saying it only to the readers who see the colour.
+- **The range is in raw bytes**, never the number the synthesizer's display
+  shows, because the manual prints the two ends of a range and almost never the
+  curve between them. See [#25](https://github.com/MysteriousWolf/deepmind-midi/issues/25).
+- **It does not vanish when the pointer is over nothing.** A footer that
+  disappears is a footer nobody learns is there, and the row would jump every
+  time the pointer crossed the gap between two faders.
+- **What it cannot say yet is what the parameter *does*** — the manual's
+  sentence. The library deliberately keeps the prose out of the binary for the
+  targets it is built for, so the ask is a default-off feature rather than a
+  reversal: [#28](https://github.com/MysteriousWolf/deepmind-midi/issues/28).
+
+### Display
+
+A grid of dots, and the one surface in this editor that gives off light instead
+of catching it. One quad per printed dot, at a pitch every display in the window
+shares: `PITCH` is 2.5 points, of which 1.9 is the dot, and a display given more
+room does not get bigger dots — it gets more of them. That is the difference
+between a second screen and a magnified one, and it is what makes the strip over
+a plate's faders and the panel's own display read as two windows into one
+instrument.
+
+**It is a positive display.** A `DeepMind`'s screen is a pale green-white
+backlit panel with its dots printed dark on it, which is why a photograph of the
+instrument has one bright rectangle in the middle of a dark panel. Pale dots on
+a dark pane would be the negative of the instrument this is a picture of — every
+other synthesizer of the decade, and not this one.
+
+```
+┌────────────────────────┐   glass: #d6e7cd falling to #bfd3b6, the one
+│ ▔▔▔▔▔▔▔▔▔╲╱▔▔▔▔        │   lit surface on the panel, in a dark bezel
+│         ╲    ╱         │   dots 1.9 of a 2.5 pitch, radius 0.5, dark
+│ ▔▔▔▔▔▔▔╲      ╱▔▔▔     │   4 points of dead border inside the bezel
+└────────────────────────┘
+```
+
+- **Only the printed dots are drawn.** A dot the display has not printed is the
+  backlight coming through, and at arm's length there is no grid to see until
+  something is written. Drawing all of them is both a picture nobody can see and
+  eight thousand quads a display. What carries the matrix is the glass between
+  the printed ones.
+- **Text is dots, not a font.** `Screen::write` draws a 5×7 cell out of the
+  table in `glyphs.rs`, which is the fourth face this window sets anything in
+  and the only one that is not asked of the machine. A program name set in the
+  system sans on the instrument's own screen would be the one thing in this
+  window pretending to be something it is not. `Size::Large` is every dot drawn
+  as four, which is what a display does when it has one thing to say and room to
+  say it twice as loudly.
+- **The claim is how hard the dots are printed.** Every other control puts it in
+  the fill of the part that moves; a display has no part that moves. It is
+  exactly the position the [name](#name) field is in, and the pale ground answers
+  it better than a dark one could: `written()` prints a fact hard, a claim in the
+  copper mixed most of the way to the same black, and what nobody has read barely
+  at all. Three depths of one ink — an ordering before it is a set of hues, so it
+  survives a photograph, a projector and the readers who would not see the
+  copper. A screen with nothing read behind it is left blank, which on this
+  display means lit and empty.
+- **A dash pattern is never a claim.** `Ink` is solid, dashed or dotted, and it
+  only ever tells one curve from another — three envelopes on one screen, a
+  drawing against a marker. A screen has one colour of light and this is what it
+  has instead of a second one.
+- **Reverse video is a heading**, for the same reason: `invert` over a band is
+  how a display with one colour says a line is a heading rather than a reading.
+
+The drawings themselves are in `scene.rs`, one per plate, and they are found
+rather than assigned: a scene names the controls it needs, a plate offers the
+ones it holds, and the first that is satisfied is drawn. The two filters are the
+only place a parameter is named instead of a section, because `VCF` and `HPF`
+are two plates of one group.
+
+| | |
+| --- | --- |
+| VCF | The passband, the corner where the byte sits in its own travel, the resonant peak out of it, and the fall past it — twice as steep on four poles as on two. A dotted rule along the top says how far the envelope's depth would move the corner, and which way the polarity points it |
+| HPF | The high-pass corner, and `BOOST` printed where the passband is empty |
+| DCO 1 & 2 | Two lanes. Whichever of `DCO 1`'s shapes are switched on, side by side; `DCO 2`'s square as tall as its own level, with the noise scattered over it at its |
+| ENVELOPES | All three at once. The amplifier's solid and shaded under, the filter's dashed, the modulation envelope's dotted |
+| VCA | The amplifier's envelope under the level it is played at, with the level as a dotted ceiling |
+| LFO 1, LFO 2 | The shape the value table names, over as many cycles as the rate's own travel |
+| ARP / SEQ | A gate train: as many gates as the rate's travel, each as open as the gate time's. An arpeggiator that is switched off is a flat line |
+| POLY | The polyphony mode in words, and the unison detune as five marks spreading from a centre |
+
+**What none of them claim.** The two refusals the envelope drawing is already
+under, because they are the library's:
+
+- **No axis is in anybody's units.** A corner is at the fraction of its own
+  range the byte sits at, not at a frequency; a rate is how many cycles fit
+  across a screen, not a speed. What each of these says is *where in its travel*
+  a value is, which is exactly what the fader beside it says.
+- **Nothing is drawn from a value nobody has read.** A scene's claim is the
+  weakest of everything it read, and a scene with anything unread is not drawn
+  at all: a filter assembled from four values the synthesizer described and one
+  this window invented is a picture of no filter.
+
+Three things are left out by that rule rather than by oversight. The bass boost
+is printed as a word instead of drawn as a shelf, because what it lifts is not
+published and a shelf would be this window choosing a height and then drawing it
+as confidently as the corner beside it. The LFO's `Delay / Fade` is not drawn,
+because it is one parameter doing two things and the manual does not say where
+the byte stops doing one and starts the other. And pulse width modulation is two
+dotted marks either side of the pulse's edge — the depth's own travel, drawn
+where the edge is — because what a byte of it does to a duty cycle is nowhere in
+the manual.
+
+The pole count is the one number read out of a name rather than a byte. `0` is
+`4 Pole` and `1` is `2 Pole` on this instrument, so a drawing that counted the
+value would draw every filter the wrong way round; it reads the digit off what
+the value table calls the value, for the firmware that answered.
+
 ### Matrix
 
 Eight modulation routings, one to a row, read across: the routing's name, where
@@ -405,9 +636,16 @@ interface, and every one of those comes from the mark:
 | Panel | `#282c36` to `#15181e`, the gradient the mark uses |
 | Seam and lip | `#000` at half, and `#454b58` |
 | Recess | `#05070a` through `#11141a` to `#242932`, lit along its lower wall with `#7d838f` |
-| Metal | `#f4f5f8`, `#c9cdd6`, `#8e939f` |
+| Glass | `#d6e7cd` where the backlight enters falling to `#bfd3b6`, with the dots printed dark on it — three depths mixed towards `#101a12` |
+| Metal | `#f4f5f8`, `#c9cdd6`, `#8e939f`; `#8e939f` is also the bar a plate's name is knocked out of |
 | Ink | `#f2f2f4` for a title, `#a5a9b5` for a label, `#7d838f` for anything dim |
-| Lamp | `#ffb95c`, and nothing else is saturated |
+| Lamps | `#ffbe3d` on a way in and `#40d0e6` on a modulated control, and nothing else is saturated |
+
+The two lamps are the instrument's own and so is the pairing. A `DeepMind`'s
+panel is dark and the only colour on it is the light through its buttons: amber
+on every `EDIT`, cyan on `MOD`, `CHORD` and `CURVES`. This window uses the same
+two for the same two jobs — amber opens a section, cyan says something other
+than a hand can move this control — rather than inventing a third.
 
 The effect panels are the exception, and a deliberate one: their colours are
 measured from the manual's own figures, four per algorithm, and a host that
@@ -505,6 +743,12 @@ the editor that needs them.
 
 Text is the expensive part on a panel of 242 parameters, and most of it never
 changes. Addresses and names are static; only the readings move.
+
+A display is one quad per lit dot, which is why only the lit ones are drawn: the
+panel's own screen is 132 by 100 and the ten of them together would be twenty
+thousand quads a frame if the glass were drawn dot by dot. A drawing is a few
+hundred, a line of writing is a few dozen, and the one expensive thing on any of
+them is a heading in reverse video.
 
 ## Not this
 

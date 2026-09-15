@@ -264,8 +264,12 @@ fn a_bank_read_is_a_progress_bar_and_not_a_freeze() {
     let mut app = App::new();
     app.update(Message::Choose(PortRef::simulator()));
     app.update(Message::Connect);
-    until(&mut app, PATIENCE, "an answer to the inquiry", |app| {
-        app.identity().is_some()
+    // Connecting now includes reading the sound the synthesizer is making, so
+    // a bank read starts from a window that has already been answered twice.
+    // Starting one before that dump lands means its reply arrives after the
+    // cancel and takes the status line the cancel had just written.
+    until(&mut app, PATIENCE, "an answer and the sound", |app| {
+        app.identity().is_some() && app.patch().confidence().is_confirmed()
     });
 
     app.update(Message::ReadBank);
@@ -292,8 +296,12 @@ fn a_bank_read_can_be_called_off() {
     let mut app = App::new();
     app.update(Message::Choose(PortRef::simulator()));
     app.update(Message::Connect);
-    until(&mut app, PATIENCE, "an answer to the inquiry", |app| {
-        app.identity().is_some()
+    // Connecting now includes reading the sound the synthesizer is making, so
+    // a bank read starts from a window that has already been answered twice.
+    // Starting one before that dump lands means its reply arrives after the
+    // cancel and takes the status line the cancel had just written.
+    until(&mut app, PATIENCE, "an answer and the sound", |app| {
+        app.identity().is_some() && app.patch().confidence().is_confirmed()
     });
 
     app.update(Message::ReadBank);
