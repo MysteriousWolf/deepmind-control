@@ -28,12 +28,14 @@ synthesizer reported drawn differently from the ones this window put there.
 
 The parameters are fourteen panels, chosen from a section bar that carries each
 section's own claim, and every panel is drawn from the library's table rather
-than laid out by hand: complete first, beautiful group by group after. The
-program's name is the first group laid out — 17 parameters holding a character
-each, drawn as the one display the instrument shows them on — and the envelopes,
-the modulation matrix and the control sequencer are the rest of this stage. The
-librarian is the next one. See [the plan](docs/plan.md) for what is being built
-and in what order. Not usable as a librarian yet.
+than laid out by hand: complete first, beautiful group by group after. Three
+groups have had theirs — the program's name, 17 parameters holding a character
+each drawn as the one display the instrument shows them on; the three envelopes,
+four faders and the shape they make; and the modulation matrix, eight routings
+read across as rows rather than down as twenty-four slots. The control sequencer
+is the rest of this stage and the librarian is the next one. See
+[the plan](docs/plan.md) for what is being built and in what order. Not usable as
+a librarian yet.
 
 It is dark, in the instrument's own colours: the palette is read off the mark in
 `docs/logo.svg`, which draws the same panel, metal and wood, and one file holds
