@@ -83,7 +83,7 @@ pub use event::{Event, Outcome};
 pub use link::Link;
 pub use ports::{PortRef, ports};
 #[cfg(feature = "sim")]
-pub use simulator::Pack;
+pub use simulator::{Pack, Panel};
 
 use backend::Backend;
 use ports::MidiPort;
@@ -146,7 +146,11 @@ pub fn open_with(port: &PortRef, options: Options) -> Result<Link, OpenError> {
     let backend = if port.is_simulator() {
         #[cfg(feature = "sim")]
         {
-            Backend::Simulated(Box::new(simulator::SimPort::new(Pack::empty())))
+            // Nobody is standing at this one: a port picked out of the list is
+            // the unit, and the panel that comes with it belongs to whoever
+            // built the unit. `open_simulator` is where that is somebody.
+            let (port, _panel) = simulator::SimPort::new(Pack::empty());
+            Backend::Simulated(Box::new(port))
         }
         #[cfg(not(feature = "sim"))]
         {
@@ -158,20 +162,25 @@ pub fn open_with(port: &PortRef, options: Options) -> Result<Link, OpenError> {
     Ok(Link::spawn(port.name().to_owned(), backend, options))
 }
 
-/// Starts the device thread on a simulated synthesizer holding `memory`.
+/// Starts the device thread on a simulated synthesizer holding `memory`, and
+/// hands back the unit's front panel with it.
 ///
 /// The simulator is a port you can choose, and this is the one thing a real port
 /// cannot offer: a unit whose memory is a `.syx` pack, so that reading a bank is
-/// testable against a preset pack with nothing plugged in.
+/// testable against a preset pack with nothing plugged in, and a
+/// [`Panel`] to turn its knobs from, so that "the view follows the instrument"
+/// is testable without a hand on the hardware.
 ///
 /// What it cannot do is find out that the manual is wrong. Both ends are
 /// generated from the same specification.
 #[cfg(feature = "sim")]
 #[must_use]
-pub fn open_simulator(memory: Pack, options: Options) -> Link {
-    Link::spawn(
+pub fn open_simulator(memory: Pack, options: Options) -> (Link, Panel) {
+    let (port, panel) = simulator::SimPort::new(memory);
+    let link = Link::spawn(
         PortRef::simulator().name().to_owned(),
-        Backend::Simulated(Box::new(simulator::SimPort::new(memory))),
+        Backend::Simulated(Box::new(port)),
         options,
-    )
+    );
+    (link, panel)
 }

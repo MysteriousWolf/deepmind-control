@@ -12,6 +12,7 @@ authors.workspace = true
 control-ui = { path = "../control-ui" }
 deepmind-host = { path = "../deepmind-host" }
 deepmind-midi = { workspace = true }
+iced = { workspace = true }
 
 [lints]
 workspace = true

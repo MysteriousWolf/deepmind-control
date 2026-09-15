@@ -302,6 +302,23 @@ impl Driver {
                 self.adopt(identity);
                 return;
             }
+            DeviceEvent::Parameter { parameter, value } => {
+                let (parameter, value) = (*parameter, *value);
+                // The library has already applied the report by the time it is
+                // polled, so what it now says about the sound it tracks is what
+                // it made of this message: an NRPN carries the whole value and
+                // leaves a confirmed program confirmed, and a control change
+                // carries seven bits and leaves it assumed. Two reports arriving
+                // in the same pump are read after both, so a coarse one makes
+                // the exact one before it look coarse too, which errs towards
+                // claiming less than is known.
+                self.publish(Event::Parameter {
+                    parameter,
+                    value,
+                    confirmed: self.wire.device().program().is_confirmed(),
+                });
+                return;
+            }
             DeviceEvent::Program { slot, .. } => {
                 let (bank, number) = (slot.bank, slot.number.get());
                 self.publish(Event::Device(event));

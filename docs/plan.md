@@ -1,7 +1,7 @@
 # Plan
 
 What this repository builds, in what order, and what has already been decided.
-Stages 0 and 1 are written; the rest is not. The [order](#order) says which is
+Stages 0 to 2 are written; the rest is not. The [order](#order) says which is
 which.
 
 [`deepmind-midi`](https://github.com/MysteriousWolf/deepmind-midi) owns the
@@ -91,6 +91,12 @@ is the one their own events built.
 buffer, read a slot, read a bank, set a parameter, load a program, cancel. The
 `Device` never leaves the thread.
 
+The window drains that queue once a frame, from a thread and a `thread::sleep`,
+and holds no async runtime to do it. What the drain finds was queued by a thread
+that is still answering the port while the window draws, so the only thing the
+frame rate bounds is how late an answer can appear on the screen. A window with
+no port open subscribes to nothing at all.
+
 ## Assumed and confirmed are different, and are drawn differently
 
 `Known<T>` is the library's most useful idea and the easiest one to throw away
@@ -99,11 +105,30 @@ not the same claim, and the interface is where that distinction finally means
 something to a person: a knob that shows where you put it, and a knob that shows
 where the instrument says it is.
 
-So the view takes `Known<Program>` and not `Program`, and an assumed value is
-drawn differently from a confirmed one. Reading the edit buffer back is what
-turns one into the other, and the application asks for it after a load, on
-reconnect, and when the user asks. Never on a timer: a poll that costs 290 bytes
-of a 3 kB/s link is a poll that competes with the edits it is checking.
+So an assumed value is drawn differently from a confirmed one. Reading the edit
+buffer back is what turns one into the other, and the application asks for it
+after a load, on reconnect, and when the user asks. Never on a timer: a poll that
+costs 290 bytes of a 3 kB/s link is a poll that competes with the edits it is
+checking.
+
+The interface keeps the claim per parameter and the library keeps it per program,
+which is the one place the two copies of the state are shaped differently and it
+is deliberate. `Known<Program>` is a claim about the whole sound, so one dragged
+knob makes all 242 values assumed; on a screen that greys out an entire panel
+because one control moved, and throws away the fact that the other 241 are still
+exactly as the synthesizer described them. `Patch` holds a `Confidence` per
+parameter, downgrades the one that moved, and keeps the library's program-wide
+claim beside it for the header. A dump rewrites both.
+
+What the interface cannot work out for itself is whether a report that arrived
+carried the whole value. An NRPN does and a control change carries seven bits of
+it, and the library says which by what it does to the program it tracks rather
+than on the event, so the host crate reads the tracked claim the moment the
+report lands and publishes it alongside: `Event::Parameter` carries `confirmed`,
+and that is the library's answer and not this repository's arithmetic. It is
+honestly pessimistic in one case, which is the case where nobody could do better:
+a program that was already assumed hides the difference, because a claim nothing
+has confirmed cannot be made more confirmed by a message that might be coarse.
 
 ## Edits are coalesced, not queued
 
@@ -181,6 +206,11 @@ without a synthesizer on the desk, the timeout and cancel paths can be exercised
 by not draining it, and a `.syx` pack can stand in for the unit's memory, so
 "read a bank" is testable against a preset pack. It also means the first bug
 report that arrives without hardware still has something to reproduce against.
+
+Opening one hands back its front panel as well as its port, because the
+instrument is the other editor and a simulated unit nobody can stand in front of
+cannot demonstrate that. Turning a knob on it sends the NRPN a hand would, which
+is how "the view follows the instrument" is tested with no cable in the room.
 
 What it cannot do is find out that the manual is wrong. Both ends are generated
 from the same specification.
@@ -360,6 +390,24 @@ generated from `logo.svg` in the stage that first needs one. Nothing here is
 traced from Behringer's artwork; it is the same drawing the library already
 publishes, with a different thing on the panel.
 
+## The window is the instrument's colours
+
+Dark, because a `DeepMind` is a dark panel between wooden end cheeks with metal
+fader caps on it, and an editor for it that opens white is an editor for
+something else. The palette is read off `docs/logo.svg`, which draws exactly
+those materials: the panel is the ground, the metal of a cap is anything that can
+be touched, and the copper edge of the wood is a claim rather than a fact. Green
+and red are not on the instrument and are chosen to sit with it, because a
+confirmed value has to be told apart from an assumed one at a glance and two
+greys would not do it.
+
+One file holds it. `control-ui/src/style.rs` is the only place in this repository
+that writes down a colour: the theme is built there, both builds ask for it
+there, and every widget that colours anything asks `tint` what the claim is
+worth. A control that hard-coded a colour would be a control that stops matching
+the instrument the day the palette moves, and there is nowhere in this
+repository to hard-code one.
+
 ## Versioning is the year and the release
 
 `Cargo.toml` holds the version and nothing else does, and the scheme is
@@ -395,7 +443,7 @@ needed.
 | --- | --- | --- |
 | 0 | Workspace | **Done.** Four crates, pinned dependencies, CI running the four commands in the README, licence and notice files. |
 | 1 | `deepmind-host` | **Done.** Port enumeration, `Port` over midir, `Clock`, the device thread, commands in and events out, the simulator as a selectable port. Tested against `sim` with no hardware. |
-| 2 | First light | Desktop window, port picker, identity, read the edit buffer, one group (VCF) editable end to end with assumed and confirmed drawn differently. |
+| 2 | First light | **Done.** Desktop window, port picker, identity, read the edit buffer, VCF editable end to end with assumed and confirmed drawn differently. |
 | 3 | Every parameter | The remaining thirteen groups. Generated from `Group::parameters` first, because a complete ugly editor beats a beautiful partial one, then laid out by hand group by group. |
 | 4 | The librarian | Read and write `.syx`, read a bank with progress and cancel, browse a pack, load a program into the edit buffer as a difference. |
 | 5 | The effects | Waits on the library publishing the panel tables. Four engines, 35 algorithms, the routing graph. |

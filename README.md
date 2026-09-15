@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-stage%201-orange" alt="Status: stage 1">
+  <img src="https://img.shields.io/badge/status-stage%202-orange" alt="Status: stage 2">
   <a href="https://github.com/MysteriousWolf/deepmind-control/actions/workflows/ci.yml"><img src="https://github.com/MysteriousWolf/deepmind-control/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/MysteriousWolf/deepmind-midi"><img src="https://img.shields.io/badge/built%20on-deepmind--midi-blue" alt="Built on deepmind-midi"></a>
   <a href="https://github.com/MysteriousWolf/deepmind-control/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-green" alt="License: Apache-2.0"></a>
@@ -21,11 +21,20 @@ DeepMind <--MIDI--> port <--bytes--> deepmind-midi <--events--> the interface
               midir, or the DAW
 ```
 
-**Status: the port works, the window does not.** `deepmind-host` owns a port,
-finds the synthesizer, edits it, reads banks with progress and cancel, and can be
-driven against a simulated unit with nothing plugged in. There is no interface
-yet: the window is the next stage. See [the plan](docs/plan.md) for what is being
-built and in what order. Not usable as an editor.
+**Status: first light.** There is a window. It lists the ports, opens one, finds
+out who is on it and which firmware's value tables are true, reads the edit
+buffer, and edits the VCF group end to end — with the values the synthesizer
+reported drawn differently from the ones this window put there. The other
+thirteen groups are the next stage, and the librarian the one after. See
+[the plan](docs/plan.md) for what is being built and in what order. Not usable as
+an editor yet.
+
+It is dark, in the instrument's own colours: the palette is read off the mark in
+`docs/logo.svg`, which draws the same panel, metal and wood, and one file holds
+it for both builds.
+
+Everything above runs against the library's simulated synthesizer, which is in
+the port list as an ordinary choice, so none of it needs hardware.
 
 ## What it is
 
@@ -56,6 +65,7 @@ Nothing here has been run against a synthesizer yet.
 |  |  |
 | --- | --- |
 | [Plan](docs/plan.md) | What is being built, the decisions behind it, and the order |
+| [Interface](docs/interface.md) | What a control looks like, what its three states are, and why |
 | [Protocol](https://github.com/MysteriousWolf/deepmind-midi/blob/main/docs/midi-spec.md) | Lives in the library, along with the specification it is generated from |
 | [NOTICE](NOTICE) | Trademarks, and where the marks come from |
 
@@ -64,8 +74,8 @@ Nothing here has been run against a synthesizer yet.
 ```
 crates/
   deepmind-host/    port ownership and the device loop. No interface.   written
-  control-ui/       every view and widget. No runtime, no window.       stage 2
-  control/          the desktop application.                            stage 2
+  control-ui/       every view and widget. No runtime, no window.       one group
+  control/          the desktop application.                            first light
   control-plugin/   the plugin.                                         stage 6
 ```
 
@@ -100,6 +110,8 @@ and a C++ toolchain. AU is macOS only.
 
 Linux needs ALSA's development headers for midir (`libasound2-dev`, or
 `alsa-lib` on Arch), and the usual X11 and GL development headers for baseview.
+Running the window also wants `libxkbcommon-x11` at runtime, which a desktop
+already has and a bare container does not.
 macOS and Windows need nothing beyond the toolchain and CMake: midir talks to
 CoreMIDI and WinMM, which are already there.
 

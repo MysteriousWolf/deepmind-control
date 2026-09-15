@@ -1,12 +1,15 @@
 //! The other end of the conversation, as a port you can choose.
 
+use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
+
 use deepmind_midi::ids::{DeviceId, ProtocolVersion, Slot};
+use deepmind_midi::param::ParamId;
 use deepmind_midi::program::{Program, ProgramName};
 use deepmind_midi::sim::{Library, Synth};
 use deepmind_midi::syx::File;
 use deepmind_midi::transport::Port;
 
-use crate::error::PortError;
+use crate::error::{Closed, PortError};
 
 /// What the simulated synthesizer has in its memory.
 ///
@@ -87,6 +90,37 @@ impl Library for Pack {
     }
 }
 
+/// The simulated synthesizer's front panel.
+///
+/// The instrument is the other editor. A real unit has a player standing in
+/// front of it, turning knobs the host never asked about, and this is that
+/// player: [`turn`](Panel::turn) moves a parameter at the unit, which then sends
+/// the NRPN a panel move sends. It is the one thing a real port offers that a
+/// simulated one would not, and without it "the view follows the instrument" is
+/// only testable with a cable.
+///
+/// Handed out by [`open_simulator`](crate::open_simulator), and useful for as
+/// long as that port is open.
+#[derive(Debug, Clone)]
+pub struct Panel {
+    turns: Sender<(ParamId, u16)>,
+}
+
+impl Panel {
+    /// Moves a parameter at the unit, as a hand on the panel would.
+    ///
+    /// Takes effect on the next turn of the device loop. A value the parameter
+    /// does not accept moves nothing, because a knob cannot be turned past its
+    /// end either.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Closed`] when the port this panel belongs to has been closed.
+    pub fn turn(&self, parameter: ParamId, value: u16) -> Result<(), Closed> {
+        self.turns.send((parameter, value)).map_err(|_| Closed)
+    }
+}
+
 /// The library's simulated synthesizer, wired up as a [`Port`].
 ///
 /// One reply per [`receive`](Port::receive), which is what makes a bank read out
@@ -100,19 +134,39 @@ impl Library for Pack {
 pub struct SimPort {
     synth: Synth<Pack>,
     partial: Vec<u8>,
+    turns: Receiver<(ParamId, u16)>,
 }
 
 impl SimPort {
-    /// Builds a unit holding `memory`, with an empty program in its edit buffer.
+    /// Builds a unit holding `memory`, and the panel that stands in front of it.
     #[must_use]
-    pub fn new(memory: Pack) -> Self {
+    pub fn new(memory: Pack) -> (Self, Panel) {
         let mut sound = Program::new(ProtocolVersion::V7);
         if let Ok(name) = ProgramName::new("Simulator") {
             sound.set_name(name);
         }
-        Self {
+        let (turns, pending) = mpsc::channel();
+        let port = Self {
             synth: Synth::with_library(DeviceId::Unit(0), sound, memory),
             partial: Vec::new(),
+            turns: pending,
+        };
+        (port, Panel { turns })
+    }
+
+    /// Turns whatever the panel has been asked to turn.
+    ///
+    /// What that produces is queued for sending like any other reply, so a knob
+    /// moved at the unit reaches the host through the same path a dump does.
+    fn take_panel_moves(&mut self) {
+        loop {
+            match self.turns.try_recv() {
+                Ok((parameter, value)) => {
+                    // A value the parameter does not accept moves nothing.
+                    let _ = self.synth.turn(parameter, value);
+                }
+                Err(TryRecvError::Empty | TryRecvError::Disconnected) => return,
+            }
         }
     }
 }
@@ -132,6 +186,7 @@ impl Port for SimPort {
     }
 
     fn receive(&mut self, into: &mut [u8]) -> Result<usize, Self::Error> {
+        self.take_panel_moves();
         if self.partial.is_empty() {
             let mut taken: Option<Vec<u8>> = None;
             // A reply the closure refuses stays queued, so this takes exactly
