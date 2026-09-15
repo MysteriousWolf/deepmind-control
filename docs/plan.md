@@ -481,7 +481,7 @@ generated from `logo.svg` in the stage that first needs one. Nothing here is
 traced from Behringer's artwork; it is the same drawing the library already
 publishes, with a different thing on the panel.
 
-## The window is the instrument's colours
+## The window is the instrument's colours, and its face
 
 Dark, because a `DeepMind` is a dark panel between wooden end cheeks with metal
 fader caps on it, and an editor for it that opens white is an editor for
@@ -498,6 +498,22 @@ there, and every widget that colours anything asks `tint` what the claim is
 worth. A control that hard-coded a colour would be a control that stops matching
 the instrument the day the palette moves, and there is nowhere in this
 repository to hard-code one.
+
+The same file holds the face and the chrome, for the same reason. The mark sets
+the project's name in Liberation Sans Bold and outlines it so that it renders
+identically wherever the file is shown; a window cannot outline anything, so it
+asks for that family and for the metrically compatible face other platforms
+ship under another name, in one place, with a fallback to the machine's own
+sans. Carrying the file in the binary is what would make both builds identical
+everywhere, and that is a decision about a licence and a megabyte of plugin
+bundle rather than a line of code.
+
+And the parts of a window that are not parameters are drawn on the instrument
+too: the ground is the panel gradient the mark fills its case with, a button is
+the panel with a metal rim rather than a toolkit's filled slab, and a port is
+chosen in the same recess a fader's track is cut as. The panel is for
+parameters and the toolkit is right for everything else; everything else is
+still on the front of the thing being edited.
 
 ## Versioning is the year and the release
 
@@ -635,6 +651,12 @@ tail past the sequence length, which is another; the window opens at a size
 chosen before four engine plates existed; and keyboard focus is not wired
 anywhere, which is the one gap in this editor that is not waiting on anybody
 else.
+
+Which of those are somebody else's to answer is written down rather than
+remembered: [waiting.md](waiting.md) is the list of what this repository has
+asked the library for, what each answer would change here, and what the window
+does meanwhile. It is the file to read at the start of a batch of work, because
+a closed issue on it is a panel that can stop apologising.
 
 Stage 7 waits with it. A cable answers questions about a protocol, and what it
 finds goes to the library rather than here, so nothing in stages 4 and 5 is

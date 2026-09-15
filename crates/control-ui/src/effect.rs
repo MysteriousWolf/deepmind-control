@@ -64,7 +64,7 @@ use iced_core::{Background, Border, Font, Length, Theme, text::Renderer as TextR
 use iced_widget::{Space, column, container, row, text};
 
 use crate::panel::{NAME, Room, SLOT, address, control, modulated, readout};
-use crate::style::materials;
+use crate::style::{materials, reading};
 use crate::{Confidence, Element, Patch, tint};
 
 /// How much room one of the group's own settings is chosen in.
@@ -480,7 +480,7 @@ where
     let name = slot.map_or("", |slot| slot.reference);
     text(name)
         .size(10)
-        .font(Font::MONOSPACE)
+        .font(reading())
         .style(move |theme: &Theme| text::Style {
             color: Some(tint(theme, Confidence::Unknown)),
         })

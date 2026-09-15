@@ -372,7 +372,47 @@ Two faces, because the instrument has two voices.
 - **Sans** for titles, group headings and the rest of the application.
 
 Sizes are 3u for a label, 3.5u for a readout, 4.5u for a group heading. Nothing
-is bold except a group heading, and nothing is italic.
+is bold except a group heading and the project's own name, and nothing is
+italic.
+
+**The sans is the mark's.** `docs/banner.svg` outlines the name from Liberation
+Sans Bold so that it renders identically wherever the file is shown; a window
+cannot outline anything, so it asks for that family by name, and for the
+metrically compatible face other platforms ship under a different one — Arial,
+which Liberation Sans is a clone of. A machine with neither falls back to its
+own sans: the letters stay readable and the proportions are somebody else's.
+
+Carrying the file in the binary is what would make both builds identical on
+every machine, and it is a decision about a licence and about a megabyte in a
+plugin bundle rather than a line of code. Until it is taken, the family is named
+in one place — `control-ui/src/style.rs`, beside the palette — and asked for
+there by both builds.
+
+**The name is set as the mark sets it**: bold, in the metal of a fader cap, over
+the panel. Without the wordmark's slices through it, which at 22 points are a
+smudge rather than a slice — the mark is not improved by being approximated at a
+tenth of its size.
+
+## The window is a panel, and so is its chrome
+
+The port picker, the buttons and the status bay are toolkit widgets, and they
+are still on the instrument:
+
+- **The ground is the panel's gradient**, `#282c36` falling to `#15181e`, which
+  is what `logo.svg` fills its case with. A flat dark window is the bottom of
+  the panel stretched over all of it, which is the one part that is not lit.
+- **A button is the panel with a metal rim**, not a filled slab. A row of filled
+  slabs is the brightest thing on a dark window, and the brightest thing here
+  has to be a fader cap. Pressing lights the rim, the way a section button
+  lights.
+- **Anything chosen from a list is a recess**, closed and open alike: the track
+  of a fader, the field a name is typed in, and the picker a port is chosen
+  from are the same cut into the same panel.
+- **A panel of words is the face plate** a rack of slots sits on, so that what
+  the window says about the instrument sits on the instrument.
+
+All of it comes from `materials()`, which means restyling the chrome is the same
+one file as restyling a fader.
 
 ## Movement
 

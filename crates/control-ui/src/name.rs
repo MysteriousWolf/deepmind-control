@@ -26,7 +26,7 @@ use iced_widget::{column, container, text, text_input};
 
 use crate::fader;
 use crate::panel::{Message, SLOT};
-use crate::style::materials;
+use crate::style::{materials, reading};
 use crate::{Confidence, Element, Patch, tint};
 
 /// How wide the field is, in slots.
@@ -80,14 +80,14 @@ where
     column![
         text(addresses())
             .size(10)
-            .font(Font::MONOSPACE)
+            .font(reading())
             .style(move |theme: &Theme| text::Style {
                 color: Some(tint(theme, Confidence::Unknown)),
             }),
         display(name, claim, known),
-        text(reading(name, known))
+        text(used(name, known))
             .size(13)
-            .font(Font::MONOSPACE)
+            .font(reading())
             .style(move |theme: &Theme| text::Style {
                 color: Some(tint(theme, claim)),
             }),
@@ -114,7 +114,7 @@ where
     container(
         text_input("\u{2014}", name.as_str())
             .on_input_maybe(known.then_some(typed))
-            .font(Font::MONOSPACE)
+            .font(reading())
             .size(14)
             .padding([4, 6])
             .width(Length::Fill)
@@ -145,7 +145,7 @@ fn addresses() -> String {
 /// The control already carries the value, the way a lamp and a legend do, so
 /// what goes here is the thing the control cannot show: how many of the sixteen
 /// characters are left before the instrument stops accepting them.
-fn reading(name: ProgramName, known: bool) -> String {
+fn used(name: ProgramName, known: bool) -> String {
     if known {
         format!("{}/{}", name.len(), ProgramName::MAX_CHARS)
     } else {

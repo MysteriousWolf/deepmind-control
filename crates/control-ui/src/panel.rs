@@ -38,7 +38,7 @@ use crate::fader::{self, Axis, fader};
 use crate::matrix;
 use crate::name;
 use crate::sequencer;
-use crate::style::{self, materials};
+use crate::style::{self, materials, reading};
 use crate::{Confidence, Element, Patch, tint};
 
 /// Width of one slot, which is the fader plus the room a name needs either side.
@@ -301,7 +301,7 @@ where
 {
     text(parameter.offset().to_string())
         .size(10)
-        .font(Font::MONOSPACE)
+        .font(reading())
         .style(move |theme: &Theme| text::Style {
             color: Some(tint(theme, Confidence::Unknown)),
         })
@@ -318,9 +318,9 @@ pub(crate) fn readout<'a, Renderer>(
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
-    text(reading(parameter, value, firmware))
+    text(shown(parameter, value, firmware))
         .size(13)
-        .font(Font::MONOSPACE)
+        .font(reading())
         .style(move |theme: &Theme| text::Style {
             color: Some(tint(theme, claim)),
         })
@@ -421,7 +421,7 @@ where
 {
     let live = !matches!(claim, Confidence::Unknown);
     let face = button(
-        container(text(label).size(11).font(Font::MONOSPACE).center())
+        container(text(label).size(11).font(reading()).center())
             .width(Length::Fixed(fader::WIDTH))
             .align_x(Horizontal::Center),
     )
@@ -456,7 +456,7 @@ where
     let rows = options.iter().map(|choice| {
         let on = choice.byte() == value;
         let byte = choice.byte();
-        let face = button(text(choice.name).size(10).font(Font::MONOSPACE))
+        let face = button(text(choice.name).size(10).font(reading()))
             .padding([1, 5])
             .width(Length::Fill)
             .style(move |theme: &Theme, _status| lit(theme, on, claim));
@@ -591,7 +591,7 @@ where
 /// Raw where the library has no table, because inventing a plausible "2.4 kHz"
 /// for a byte is wrong in a way nobody can see. A measured curve arrives in the
 /// library, parameter by parameter, and this picks it up when it upgrades.
-fn reading(parameter: ParamId, value: Option<u8>, firmware: Version) -> String {
+fn shown(parameter: ParamId, value: Option<u8>, firmware: Version) -> String {
     let Some(value) = value else {
         return "\u{2014}".to_owned();
     };

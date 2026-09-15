@@ -33,9 +33,12 @@ pub fn run() -> iced::Result {
     let named = files::named();
     iced::application(move || App::opening(&named), App::update, view)
         .title(title)
+        // The face the instrument's own legends are printed in, asked for once
+        // here so that every unstyled word in the window is already in it.
+        .default_font(control_ui::printed())
         .theme(theme)
         .subscription(subscription)
-        .window_size((900.0, 760.0))
+        .window_size((900.0, 780.0))
         .run()
 }
 
@@ -95,15 +98,25 @@ fn ticks() -> impl Stream<Item = Message> {
 }
 
 /// The whole window.
+///
+/// Everything stands on the panel: the gradient the mark fills its case with,
+/// lit at the top where the light is, rather than the flat dark the theme's own
+/// background would give. It is the one surface in the window nothing is cut
+/// into, so it is drawn once, here, around all of it.
 fn view(app: &App) -> Element<'_, Message> {
-    column![header(app), identity(app), controls(app), surfaces(app)]
-        .push(match app.view() {
-            View::Editor => editor(app),
-            View::Library => librarian::view(app),
-        })
-        .spacing(12)
-        .padding(16)
-        .into()
+    container(
+        column![header(app), identity(app), controls(app), surfaces(app)]
+            .push(match app.view() {
+                View::Editor => editor(app),
+                View::Library => librarian::view(app),
+            })
+            .spacing(12)
+            .padding(16),
+    )
+    .width(Fill)
+    .height(Fill)
+    .style(control_ui::ground)
+    .into()
 }
 
 /// The two things this application is, and which one is in front of somebody.
@@ -173,26 +186,64 @@ fn editor(app: &App) -> Element<'_, Message> {
     .into()
 }
 
-/// The port picker, and what to do with a port.
+/// The name of the thing, the port picker, and what to do with a port.
 fn header(app: &App) -> Element<'_, Message> {
     let ports = app.ports().to_vec();
     let connection = if app.is_connected() {
-        button("Close").on_press(Message::Disconnect)
+        chrome("Close").on_press(Message::Disconnect)
     } else {
-        button("Open").on_press_maybe(app.chosen().map(|_| Message::Connect))
+        chrome("Open").on_press_maybe(app.chosen().map(|_| Message::Connect))
     };
     row![
-        text("deepmind control").size(20),
+        wordmark(),
         space().width(Fill),
         pick_list(ports, app.chosen().cloned(), Message::Choose)
             .placeholder("MIDI port")
+            .font(control_ui::printed())
+            .text_size(13)
+            .padding([5, 10])
+            .style(control_ui::selector)
+            .menu_style(control_ui::shortlist)
             .width(Length::Fixed(260.0)),
-        button("Rescan").on_press(Message::Rescan),
+        chrome("Rescan").on_press(Message::Rescan),
         connection,
     ]
     .spacing(10)
     .align_y(Center)
     .into()
+}
+
+/// The project's own name, set the way the mark sets it.
+///
+/// `docs/banner.svg` puts it across the panel in the metal of a fader cap, in
+/// Liberation Sans Bold, with the wordmark's lines through it. A window has the
+/// first two of those and not the third: a line 1.5 points thick across a
+/// 22-point word is a smudge rather than a slice, and the mark is not improved
+/// by being approximated. So it is the name, in the face and the metal, over
+/// the panel it is printed on.
+fn wordmark() -> Element<'static, Message> {
+    column![
+        text("deepmind control")
+            .font(control_ui::wordmark())
+            .size(22)
+            .style(|theme: &Theme| text::Style {
+                color: Some(control_ui::materials(theme).metal),
+            }),
+        text("editor and librarian")
+            .size(11)
+            .style(|theme: &Theme| text::Style {
+                color: Some(control_ui::materials(theme).metal_low),
+            }),
+    ]
+    .spacing(1)
+    .into()
+}
+
+/// A button that is not a parameter, in the instrument's own materials.
+fn chrome(label: &str) -> button::Button<'_, Message, Theme, iced::Renderer> {
+    button(text(label).size(13))
+        .padding([5, 12])
+        .style(control_ui::chrome)
 }
 
 /// Who is on the other end, and which value tables that makes true.
@@ -222,7 +273,7 @@ fn identity(app: &App) -> Element<'_, Message> {
     )
     .width(Fill)
     .padding(10)
-    .style(container::bordered_box)
+    .style(control_ui::bay)
     .into()
 }
 
@@ -244,8 +295,8 @@ fn controls(app: &App) -> Element<'_, Message> {
         },
     };
     row![
-        button("Read the edit buffer").on_press_maybe(open.then_some(Message::Read)),
-        button("Ask who is there").on_press_maybe(open.then_some(Message::Identify)),
+        chrome("Read the edit buffer").on_press_maybe(open.then_some(Message::Read)),
+        chrome("Ask who is there").on_press_maybe(open.then_some(Message::Identify)),
         // The sound takes what is left rather than pushing what is beside it:
         // a program name is sixteen characters and the legend is the one thing
         // on this row that has to stay readable whatever the sound is called.

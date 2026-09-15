@@ -73,6 +73,14 @@
 //! with metal fader caps on it, and the palette is read off the mark that draws
 //! exactly those materials.
 //!
+//! The same file holds the three faces anything is set in — [`printed`],
+//! [`wordmark`] and [`reading`] — and what the parts of a window that are not
+//! parameters are drawn as: [`ground`] is the panel gradient the whole window
+//! stands on, and [`chrome`], [`selector`], [`shortlist`] and [`bay`] are a
+//! button, a picker, the list it opens and a panel of words in the instrument's
+//! own materials. A port picker is not a parameter and is still on the
+//! instrument.
+//!
 //! # The theme is shared and the renderer is not
 //!
 //! Views are generic over the renderer, because the desktop build and the plugin
@@ -97,7 +105,10 @@ pub use name::characters as name_characters;
 pub use panel::{Message, group, legend};
 pub use patch::Patch;
 pub use section::{first_section, section_bar, sections};
-pub use style::{Materials, deepmind, materials, tint};
+pub use style::{
+    Materials, bay, chrome, deepmind, ground, materials, printed, reading, selector, shortlist,
+    tint, wordmark,
+};
 
 /// A piece of interface, produced by the views in this crate.
 ///
