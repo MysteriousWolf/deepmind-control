@@ -261,15 +261,18 @@ fn controls(app: &App) -> Element<'_, Message> {
 ///
 /// Printed under the rack rather than left for somebody to work out from a
 /// panel of protocol names. Two sections need it, for opposite reasons: the
-/// effects are complete and ugly until the library publishes their panels, and
-/// the name is the one control that covers more than the parameter under it.
+/// effects draw more than the parameter table knows, and the name draws less
+/// than the seventeen parameters under it.
 fn caveat(section: Group, firmware: Version) -> Option<Element<'static, Message>> {
     let admission = match section {
         Group::Effects => format!(
-            "The slots are under the names the protocol gives them. What one means depends on \
-             which of the {} algorithms is loaded, and the table that says so is generated from \
-             the library's specification rather than transcribed here: the readable panel \
-             arrives when the library publishes it.",
+            "A slot is named by whichever of the {} algorithms its engine is running, read for \
+             the firmware that answered, from the library's own table. What the byte under it \
+             does between the two ends printed on the slot is not published, so the reading \
+             stays the byte; neither are the bytes a slot's named settings sit at, so those \
+             names are printed as what the display will show rather than offered as a choice. \
+             What the connection mode does to each engine's output is in the library's \
+             specification and not in what it publishes.",
             algorithms(firmware)
         ),
         Group::Program => format!(
@@ -297,12 +300,12 @@ fn algorithms(firmware: Version) -> usize {
     }
 }
 
-/// What this window does not draw yet, said out loud.
+/// What this window does not draw, said out loud.
 fn remaining() -> Element<'static, Message> {
     text(format!(
         "Every parameter the instrument has is on these {} panels, drawn from the library's own \
-         table, and every panel that is not a rack is laid out by hand. What is left is the effect \
-         panels, which are stage 5 and whose tables the library published in 26.2. Nothing here \
+         table, and every one of them is laid out: the program's name, the three envelopes, the \
+         modulation matrix, the control sequencer and the four effect engines. Nothing here \
          writes a program into the synthesizer: the manual describes no message that would, so \
          storing a sound into a slot is done at the panel with the instrument's own WRITE, and \
          what the Library does instead is write a file.",

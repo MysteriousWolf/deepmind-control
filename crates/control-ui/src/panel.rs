@@ -32,6 +32,7 @@ use iced_core::alignment::{Horizontal, Vertical};
 use iced_core::{Background, Border, Font, Length, Theme, border, text::Renderer as TextRenderer};
 use iced_widget::{Space, button, column, container, pick_list, row, text};
 
+use crate::effect;
 use crate::envelope;
 use crate::fader::{self, Axis, fader};
 use crate::matrix;
@@ -177,13 +178,18 @@ where
     // row knows about keeps it as a slot rather than losing it to a layout.
     let routed = matrix::routed(group);
     let stepped = sequencer::stepped(group);
+    let claimed = effect::claimed(group);
     // What the eight routings are pointed at, so a slot the matrix moves says
     // so. Read once for the panel rather than once per slot: it is eight
     // lookups either way, and forty slots asking the same question is forty.
     let moved = matrix::moved(patch, firmware);
     let slots: Vec<Element<'a, Renderer>> = group
         .parameters()
-        .filter(|parameter| !routed.contains(parameter) && !stepped.contains(parameter))
+        .filter(|parameter| {
+            !routed.contains(parameter)
+                && !stepped.contains(parameter)
+                && !claimed.contains(parameter)
+        })
         .filter_map(|parameter| {
             if name::holds(parameter) {
                 return name::begins(parameter).then(|| name::field(patch));
@@ -204,6 +210,9 @@ where
     }
     if let Some(strip) = sequencer::strip(patch, group, firmware) {
         body = body.push(strip);
+    }
+    if let Some(engines) = effect::panels(patch, group, firmware, &moved) {
+        body = body.push(engines);
     }
     if !slots.is_empty() {
         body = body.push(row(slots).spacing(0).wrap());
@@ -266,7 +275,7 @@ where
         row![
             address(parameter),
             Space::new().width(Length::Fixed(4.0)),
-            modulated(moved.contains(&parameter)),
+            modulated(moved.contains(&parameter), true),
         ]
         .align_y(Vertical::Center),
         control(parameter, value, claim, firmware, Room::SLOT),
@@ -528,7 +537,16 @@ fn lit(theme: &Theme, on: bool, claim: Confidence) -> button::Style {
 /// The one saturated thing on the panel, and it means one thing: something
 /// other than a hand can move this control. A parameter nothing is pointed at
 /// keeps the space, so a rack does not jostle when a routing changes.
-fn modulated<'a, Renderer>(moved: bool) -> Element<'a, Renderer>
+///
+/// `heeded` is whether the value arriving there does anything, which is a
+/// question only the effects can answer no to: the library says of a slot
+/// whether its engine acts on modulation reaching it, and every slot is
+/// addressable from the matrix regardless. A routing pointed somewhere the
+/// engine ignores gets the mark as an outline, because the matrix really is
+/// pointed there and really is doing nothing, and an editor that drew that the
+/// same way as an effective routing would be hiding the reason a sound is not
+/// moving.
+pub(crate) fn modulated<'a, Renderer>(moved: bool, heeded: bool) -> Element<'a, Renderer>
 where
     Renderer: iced_core::Renderer + 'a,
 {
@@ -536,8 +554,12 @@ where
         .width(Length::Fixed(5.0))
         .height(Length::Fixed(5.0))
         .style(move |_theme: &Theme| container::Style {
-            background: moved.then_some(Background::Color(style::LAMP)),
-            border: border::rounded(3),
+            background: (moved && heeded).then_some(Background::Color(style::LAMP)),
+            border: if moved && !heeded {
+                border::rounded(3).width(1.0).color(style::LAMP)
+            } else {
+                border::rounded(3)
+            },
             ..container::Style::default()
         })
         .into()
@@ -643,6 +665,7 @@ fn choices(parameter: ParamId, firmware: Version, value: u8) -> Option<Vec<Choic
 mod tests {
     use deepmind_midi::param::{Group, ParamId};
 
+    use crate::effect;
     use crate::matrix;
     use crate::sequencer;
 
@@ -657,13 +680,19 @@ mod tests {
         for group in Group::ALL.iter().copied() {
             let routed = matrix::routed(group);
             let stepped = sequencer::stepped(group);
+            let claimed = effect::claimed(group);
             let slots: Vec<ParamId> = group
                 .parameters()
-                .filter(|parameter| !routed.contains(parameter) && !stepped.contains(parameter))
+                .filter(|parameter| {
+                    !routed.contains(parameter)
+                        && !stepped.contains(parameter)
+                        && !claimed.contains(parameter)
+                })
                 .collect();
 
             let mut drawn: Vec<ParamId> = routed;
             drawn.extend(stepped);
+            drawn.extend(claimed);
             drawn.extend(slots);
             let count = drawn.len();
             drawn.sort_unstable_by_key(|parameter| parameter.offset());

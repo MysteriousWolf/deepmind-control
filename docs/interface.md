@@ -1,7 +1,7 @@
 # Interface
 
 What the editor looks like, why, and the numbers to build it from. The views
-themselves are stages 2 and 3 of [the plan](plan.md); this is what they are
+themselves are stages 2, 3 and 5 of [the plan](plan.md); this is what they are
 written against.
 
 ## It is a panel, not a window
@@ -38,7 +38,7 @@ the anatomy rather than inventing a second one:
 | Abbreviation above | Mono, as the synthesizer's own display writes it: `DCY`, `PDY`, `HiSvFreq` |
 | Control in the middle | Fader, knob, switch, selector or readout |
 | Title below | The same parameter written out, for a panel with room to be readable |
-| Modulation dot | A small mark at the top right of a slot the modulation matrix reaches. Not drawn yet: the library names a destination the way the display prints it and does not say which parameter that is ([deepmind-midi#19](https://github.com/MysteriousWolf/deepmind-midi/issues/19)) |
+| Modulation dot | A small mark at the top right of a slot the modulation matrix reaches, read off the eight destinations the patch holds. `ValueTable::parameters_of`, from `deepmind-midi` 26.2, is what joins `VCF Freq` to the parameter it moves ([deepmind-midi#19](https://github.com/MysteriousWolf/deepmind-midi/issues/19)); a destination this window has not read moves nothing, because a mark drawn from an unread value says the instrument is doing something it may not be |
 | Column pitch | One slot per column, filled left to right, wrapping onto a second row |
 
 Two of those are worth keeping even though a bigger screen does not need them.
@@ -176,10 +176,17 @@ covered in.
 
 ### Knob
 
-Used where the source uses one, which today means the effect panels, so that
-half of the editor keeps looking like the figures it was drawn from. A 270
-degree arc open at the bottom, a body, a pointer, and a tick ring when the
-parameter selects rather than sweeps.
+Where the source uses one, which means the effect panels, so that half of the
+editor keeps looking like the figures it was drawn from. A 270 degree arc open
+at the bottom, a body, a pointer, and a tick ring when the parameter selects
+rather than sweeps.
+
+**Not drawn yet**, and the effect slots are the rack's own faders until it is.
+What the library publishes about a slot is its name, its band and the two ends
+of its reading; the grid, the control shapes and the measured panel colours are
+in its `spec/layout.toml` and are not published, so an editor drawing knobs
+there today would be choosing the shapes itself. It is an arrangement and never
+a control, which is the one kind of change this design lets a later pass make.
 
 Knobs are not an alternative to faders for the main editor. Two ways to draw the
 same kind of parameter is how a panel stops being readable.
@@ -284,6 +291,55 @@ Mod 1   [ LFO 1        v]  ->  [ VCF Freq    v]  [======|========]
 - **A parameter no row claimed stays in the rack**, under the table, so a group
   that grows one keeps it rather than losing it to a layout.
 
+### Effects
+
+Four engine plates, cut into the group's face plate the way a section tab is cut
+into the panel. Each is the engine's own settings and then its twelve bytes, and
+the settings that are no engine's — the connection mode, and whether the effects
+are inserted, sent or bypassed — are the first thing on the panel rather than a
+rack of two underneath four plates.
+
+```
+FX 1   179 Type              Midas Equaliser          219 Output Gain
+       [ MidasEQ        v]   Processing                   [=====|======]
+       13                                                 0
+
+  low                          low-mid
+  180 LSG     181 LSF          182 LMG     183 LMF     184 LMQ
+  [ | ]       [ | ]            [ | ]       [ | ]       [ | ]
+  0           19               38          57          76
+  Low Shelf   Low Shelf        Low-Mid     Low-Mid     Low-Mid Q
+  Gain        Frequency        Gain        Frequency
+  -12.0-12.0  30.0-20000.0 Hz  -12.0-12.0  30.0-20000  0.3-5.0
+```
+
+- **A slot is named by the algorithm, and drawn by the parameter table.** Those
+  are two different claims and only one of them is published: `Freeze` is two
+  states on the display and a parameter that accepts 256 values on the wire, and
+  the curve between them is nowhere in the manual. So the control is the same
+  code from the same table as every other slot in the editor, and the algorithm
+  supplies the title, the abbreviation, the band and the two ends of the
+  reading.
+- **The ends are printed under the title and never interpolated.** `0.1-6.0 s`
+  says what the two ends of the display read; the readout above it stays the
+  byte, because a plausible `2.4 s` for a byte is wrong in a way nobody can see.
+- **A slot the display names is not a list.** The manual prints `Ambience`,
+  `Church`, `Gate` and never the bytes they sit at. The names are printed under
+  the plate as what the display will show, the fader stays, and nothing offers
+  to send one of them.
+- **Bands are the library's runs.** One side of a stereo engine, one band of an
+  equaliser: a heading over the cluster, and a slot the library labelled nothing
+  stands on its own.
+- **Twelve bytes, however many the algorithm uses.** The rest are at the end of
+  the plate under `Param 9`, in a cluster that says the algorithm does not use
+  them. They are still in the program, still reachable from the modulation
+  matrix, and still sent. An engine whose algorithm nobody has read draws all
+  twelve that way.
+- **The modulation dot has a second state here.** Every slot is addressable from
+  the matrix as `Fx n Param m`, and the library says which ones the engine acts
+  on. A routing pointed somewhere the engine ignores draws the mark as an
+  outline: it really is pointed there, and really is doing nothing.
+
 ## Colour is meaning, not decoration
 
 The chassis is monochrome. Panel, recess, metal and ink carry the whole
@@ -301,9 +357,11 @@ interface, and every one of those comes from the mark:
 The effect panels are the exception, and a deliberate one: their colours are
 measured from the manual's own figures, four per algorithm, and a host that
 draws a chorus in the chorus panel's colours is telling the truth about what it
-is editing. Those come from the library when it publishes them. Nothing else in
-the editor gets a colour for being itself: fourteen groups in fourteen hues is
-decoration pretending to be information.
+is editing. Those come from the library when it publishes them, which it has not
+— they are in its `spec/layout.toml` and stay there — so the four engine plates
+are the editor's own materials today. Nothing else in the editor gets a colour
+for being itself: fourteen groups in fourteen hues is decoration pretending to
+be information.
 
 ## Type
 

@@ -41,6 +41,15 @@
 //! in, and they are drawn as the one display it shows them on, because
 //! seventeen faders are not a name.
 //!
+//! The effects are the panel that needs the library most. `FX 1 Param 3` is
+//! `Size` on a Room Reverb and `Depth` on a Phaser, and which of the two it is
+//! depends on a byte somewhere else in the same program: the panel reads the
+//! algorithm each engine is running and names its twelve slots from the table
+//! `deepmind-midi` 26.2 publishes, for the firmware that answered the inquiry.
+//! The control is still the parameter table's own, because what the display
+//! reads there and what the byte is are two different claims and only one of
+//! them is published.
+//!
 //! ```
 //! use control_ui::{Confidence, Patch};
 //! use deepmind_midi::param::ParamId;
@@ -71,6 +80,7 @@
 //! [`iced_core::Theme`] is what both of them have.
 
 mod confidence;
+mod effect;
 mod envelope;
 mod fader;
 mod matrix;
