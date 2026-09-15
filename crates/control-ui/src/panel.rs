@@ -26,6 +26,7 @@ use iced_core::alignment::{Horizontal, Vertical};
 use iced_core::{Background, Border, Font, Length, Theme, border, text::Renderer as TextRenderer};
 use iced_widget::{Space, button, column, container, pick_list, row, text};
 
+use crate::envelope;
 use crate::fader::{self, fader};
 use crate::name;
 use crate::style::materials;
@@ -99,7 +100,15 @@ where
         }
         Some(slot(patch, group, parameter, firmware))
     });
-    container(row(slots).spacing(0).wrap())
+    let rack = row(slots).spacing(0).wrap();
+    // An envelope's meaning is a picture, so the picture goes above its rack.
+    // The slots are untouched: hand layout changes the arrangement and never
+    // what a control is.
+    let body: Element<'a, Renderer> = match envelope::shape(patch, group) {
+        Some(shape) => column![shape, rack].spacing(10).into(),
+        None => rack.into(),
+    };
+    container(body)
         .padding(8)
         .style(|theme: &Theme| {
             // The face plate the library's own panels draw their slots on.

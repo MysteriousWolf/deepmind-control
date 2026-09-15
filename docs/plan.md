@@ -450,13 +450,21 @@ group and changes only the arrangement, never what a control is:
 | | |
 | --- | --- |
 | Program | **Done.** The name is 17 parameters, one character each, and 17 faders is not a name, so the 17 slots are the one display the instrument shows them on |
-| VCF, VCA and Mod envelopes | Four faders and the shape they make, which is the one group whose meaning is a picture |
+| VCF, VCA and Mod envelopes | **Done.** Four faders and the shape they make, drawn above the rack, which is the one group whose meaning is a picture |
 | Mod Matrix | Eight rows of source, destination and depth, read across rather than down |
 | Control Sequencer | 32 steps, which is a sequencer and not a rack |
 | Effects | Four engines, waiting on the library publishing `spec/panels.toml` |
 
 Until a group is laid out, it is complete and honest and looks like the
 specification it came from, which is the trade this order is making.
+
+An envelope is the first group whose hand layout adds a drawing rather than
+rearranging controls, and it is drawn under the same two refusals as everything
+else here. Its horizontal axis is proportion and not time, because the manual
+gives the ends of each range and not the curve between them. And its four curve
+parameters do not bend the segments: what a curve byte does to the shape is not
+published, a drawing that guessed would be wrong in a way nobody could see, and
+they stay faders in the rack until the library measures them.
 
 Hand layout changes the arrangement and never what a control is, and the name is
 the one place even that is bent. Seventeen parameters holding a character each
@@ -486,7 +494,7 @@ needed.
 | 0 | Workspace | **Done.** Four crates, pinned dependencies, CI running the four commands in the README, licence and notice files. |
 | 1 | `deepmind-host` | **Done.** Port enumeration, `Port` over midir, `Clock`, the device thread, commands in and events out, the simulator as a selectable port. Tested against `sim` with no hardware. |
 | 2 | First light | **Done.** Desktop window, port picker, identity, read the edit buffer, VCF editable end to end with assumed and confirmed drawn differently. |
-| 3 | Every parameter | **Generated, and being laid out.** All fourteen groups from `Group::parameters`, one at a time behind a section bar, because a complete ugly editor beats a beautiful partial one. The program's name is laid out; the envelopes, the modulation matrix and the control sequencer are what remains. |
+| 3 | Every parameter | **Generated, and being laid out.** All fourteen groups from `Group::parameters`, one at a time behind a section bar, because a complete ugly editor beats a beautiful partial one. The program's name and the three envelopes are laid out; the modulation matrix and the control sequencer are what remains. |
 | 4 | The librarian | Read and write `.syx`, read a bank with progress and cancel, browse a pack, load a program into the edit buffer as a difference. |
 | 5 | The effects | Waits on the library publishing the panel tables. Four engines, 35 algorithms, the routing graph. |
 | 6 | The plugin | Simple mode, then state, then advanced mode in the same window. The CLAP comes out first, having nothing to settle; then the AU, once the bundle signs and `auval` passes; then the VST3, once Steinberg's terms are. |
