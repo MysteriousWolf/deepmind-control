@@ -36,6 +36,7 @@ use crate::envelope;
 use crate::fader::{self, Axis, fader};
 use crate::matrix;
 use crate::name;
+use crate::sequencer;
 use crate::style::{self, materials};
 use crate::{Confidence, Element, Patch, tint};
 
@@ -94,6 +95,18 @@ impl Room {
             axis: Axis::Down,
             width,
             height: Length::Fixed(fader::WIDTH),
+        }
+    }
+
+    /// Room for one lane of a strip, `width` points across.
+    ///
+    /// Narrower than a slot and as tall, so a row of thirty-two stands as one
+    /// block the width of the rack beneath it.
+    pub(crate) const fn step(width: f32) -> Self {
+        Self {
+            axis: Axis::Down,
+            width,
+            height: Length::Fixed(fader::HEIGHT),
         }
     }
 
@@ -163,13 +176,14 @@ where
     // leaves anything it did not claim in it: a group that grows a parameter no
     // row knows about keeps it as a slot rather than losing it to a layout.
     let routed = matrix::routed(group);
+    let stepped = sequencer::stepped(group);
     // What the eight routings are pointed at, so a slot the matrix moves says
     // so. Read once for the panel rather than once per slot: it is eight
     // lookups either way, and forty slots asking the same question is forty.
     let moved = matrix::moved(patch, firmware);
     let slots: Vec<Element<'a, Renderer>> = group
         .parameters()
-        .filter(|parameter| !routed.contains(parameter))
+        .filter(|parameter| !routed.contains(parameter) && !stepped.contains(parameter))
         .filter_map(|parameter| {
             if name::holds(parameter) {
                 return name::begins(parameter).then(|| name::field(patch));
@@ -187,6 +201,9 @@ where
     }
     if let Some(table) = matrix::table(patch, group, firmware) {
         body = body.push(table);
+    }
+    if let Some(strip) = sequencer::strip(patch, group, firmware) {
+        body = body.push(strip);
     }
     if !slots.is_empty() {
         body = body.push(row(slots).spacing(0).wrap());
@@ -322,7 +339,14 @@ where
         return sweep(parameter, low..=high, low, Confidence::Unknown, room);
     };
     match parameter.kind() {
-        Kind::Switch => lamp(
+        // A switch is two states, and the library says which parameters are
+        // switches. Where it also says one accepts 256 values, the two answers
+        // contradict each other and the lamp is the one that cannot be right:
+        // it offers 0 and 1 and no way to reach the other 254. `Seq Step Value
+        // 9` and `11` are the two that say it today, from a `kind = "switch"`
+        // in `spec/parameters.toml` that their own range and their own note
+        // disagree with. Drawing the sweep is the reading that loses nothing.
+        Kind::Switch if parameter.max() <= 1 => lamp(
             parameter,
             value != 0,
             claim,
@@ -362,6 +386,10 @@ where
         Message::Edit { parameter, value }
     });
     match room.axis {
+        // A fader takes as much room across as it is given and never more than
+        // it needs: a slot gives it more than its width, and a strip's lane
+        // gives it less, which is the lane it draws in.
+        Axis::Down if room.width < fader::WIDTH => fader.narrow(room.width).into(),
         Axis::Down => fader.into(),
         Axis::Across => fader.across(room.width).into(),
     }
@@ -616,6 +644,7 @@ mod tests {
     use deepmind_midi::param::{Group, ParamId};
 
     use crate::matrix;
+    use crate::sequencer;
 
     #[test]
     fn every_parameter_is_drawn_once_whatever_its_panel_is_laid_out_as() {
@@ -627,12 +656,14 @@ mod tests {
         // fourteen.
         for group in Group::ALL.iter().copied() {
             let routed = matrix::routed(group);
+            let stepped = sequencer::stepped(group);
             let slots: Vec<ParamId> = group
                 .parameters()
-                .filter(|parameter| !routed.contains(parameter))
+                .filter(|parameter| !routed.contains(parameter) && !stepped.contains(parameter))
                 .collect();
 
             let mut drawn: Vec<ParamId> = routed;
+            drawn.extend(stepped);
             drawn.extend(slots);
             let count = drawn.len();
             drawn.sort_unstable_by_key(|parameter| parameter.offset());
@@ -642,7 +673,7 @@ mod tests {
             assert_eq!(
                 drawn.len(),
                 group.parameters().count(),
-                "{group} loses a parameter between its table and its rack"
+                "{group} loses a parameter between its hand layout and its rack"
             );
         }
     }

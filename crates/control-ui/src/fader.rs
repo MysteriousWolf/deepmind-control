@@ -106,6 +106,7 @@ pub struct Fader<'a, Message> {
     claim: Confidence,
     axis: Axis,
     length: f32,
+    thickness: f32,
     on_change: Box<dyn Fn(u8) -> Message + 'a>,
 }
 
@@ -126,11 +127,26 @@ pub fn fader<'a, Message>(
         claim,
         axis: Axis::Down,
         length: HEIGHT,
+        thickness: WIDTH,
         on_change: Box::new(on_change),
     }
 }
 
 impl<Message> Fader<'_, Message> {
+    /// Narrows the fader across its travel, to `thickness` points.
+    ///
+    /// For a panel whose hand layout is a row of many: thirty-two sequencer
+    /// steps at a rack slot's width are eight feet of window. The track keeps
+    /// its width, because a recess that thin is a line; the cap narrows with
+    /// the fader, and the scale goes when there is no longer room for an arm of
+    /// it either side. What the control is does not change, and neither does
+    /// its travel: a step is still dragged the way every other value is.
+    #[must_use]
+    pub fn narrow(mut self, thickness: f32) -> Self {
+        self.thickness = thickness;
+        self
+    }
+
     /// Turns the fader onto its side, `length` points of travel long.
     ///
     /// For a panel whose hand layout is rows. The control is the same one; the
@@ -166,8 +182,8 @@ impl<Message> Fader<'_, Message> {
     /// Returns how long the fader is, and how wide, in that order.
     fn size_of(&self) -> (Length, Length) {
         match self.axis {
-            Axis::Down => (Length::Fixed(WIDTH), Length::Fixed(self.length)),
-            Axis::Across => (Length::Fixed(self.length), Length::Fixed(WIDTH)),
+            Axis::Down => (Length::Fixed(self.thickness), Length::Fixed(self.length)),
+            Axis::Across => (Length::Fixed(self.length), Length::Fixed(self.thickness)),
         }
     }
 
@@ -232,21 +248,30 @@ impl<Message> Fader<'_, Message> {
         }
     }
 
+    /// Returns how wide the cap is across the travel.
+    ///
+    /// The full cap unless the fader is narrower than one, and never so narrow
+    /// that there is nothing to take hold of.
+    fn cap_across(&self) -> f32 {
+        CAP_WIDTH.min((self.thickness - 6.0).max(8.0))
+    }
+
     /// Returns where the cap is.
     fn cap(&self, bounds: Rectangle) -> Rectangle {
         let travelled = self.fraction() * self.travel(bounds);
+        let across = self.cap_across();
         match self.axis {
             Axis::Down => Rectangle {
-                x: bounds.x + (bounds.width - CAP_WIDTH) / 2.0,
+                x: bounds.x + (bounds.width - across) / 2.0,
                 y: bounds.y + self.travel(bounds) - travelled,
-                width: CAP_WIDTH,
+                width: across,
                 height: CAP_HEIGHT,
             },
             Axis::Across => Rectangle {
                 x: bounds.x + travelled,
-                y: bounds.y + (bounds.height - CAP_WIDTH) / 2.0,
+                y: bounds.y + (bounds.height - across) / 2.0,
                 width: CAP_HEIGHT,
-                height: CAP_WIDTH,
+                height: across,
             },
         }
     }
@@ -254,24 +279,35 @@ impl<Message> Fader<'_, Message> {
     /// Returns the line a cap's value is read against.
     fn indicator(&self, cap: Rectangle) -> Rectangle {
         match self.axis {
-            Axis::Down => Rectangle {
-                x: cap.x + 6.0,
-                y: cap.y + cap.height / 2.0 - 1.0,
-                width: cap.width - 12.0,
-                height: 2.0,
-            },
-            Axis::Across => Rectangle {
-                x: cap.x + cap.width / 2.0 - 1.0,
-                y: cap.y + 6.0,
-                width: 2.0,
-                height: cap.height - 12.0,
-            },
+            Axis::Down => {
+                let inset = (cap.width / 6.0).min(6.0);
+                Rectangle {
+                    x: cap.x + inset,
+                    y: cap.y + cap.height / 2.0 - 1.0,
+                    width: cap.width - inset * 2.0,
+                    height: 2.0,
+                }
+            }
+            Axis::Across => {
+                let inset = (cap.height / 6.0).min(6.0);
+                Rectangle {
+                    x: cap.x + cap.width / 2.0 - 1.0,
+                    y: cap.y + inset,
+                    width: 2.0,
+                    height: cap.height - inset * 2.0,
+                }
+            }
         }
     }
 
     /// Returns the two arms of the scale tick at `fraction` of the travel.
     fn tick(&self, bounds: Rectangle, fraction: f32) -> [Rectangle; 2] {
         let travelled = fraction * self.travel(bounds);
+        if self.thickness < TRACK + (TICK + 2.0) * 2.0 {
+            // Nothing to print a scale on. An arm overlapping the track reads
+            // as a mark on the fader rather than a scale beside it.
+            return [Rectangle::default(); 2];
+        }
         match self.axis {
             Axis::Down => {
                 let y = bounds.y + CAP_HEIGHT / 2.0 + self.travel(bounds) - travelled;
