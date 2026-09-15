@@ -651,6 +651,16 @@ widest row: the lanes, the faders, the buttons, the type and the gaps between
 and inside the plates. Scaling the gaps is the half that decides whether it
 reads as an instrument or as a panel with its parts pushed apart.
 
+Filling it is every row and not only the widest one. The signal path measures a
+plate less than the top row and the envelopes measure two plates less, and rows
+drawn at what they measure leave that difference as bare panel at the right hand
+end — plates bunched into a corner, which is not a front panel. So a row shares
+its spare width out among its own plates in proportion to what each already
+holds: no proportion changes, and what the extra room buys is display, because a
+plate given more glass gains dots. Every plate stands the same height as well,
+so a row has one edge along the bottom of it and the `EDIT` presses are on one
+line, which is what they are on the instrument.
+
 ## A panel is generated before it is drawn
 
 Every one of the 242 parameters is a slot in the rack of its group, and what the

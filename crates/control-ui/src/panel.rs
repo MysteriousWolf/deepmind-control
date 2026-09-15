@@ -51,6 +51,40 @@ pub(crate) const SLOT: f32 = 88.0;
 /// clips it is a box that lies about which fader is which.
 pub(crate) const NAME: f32 = 44.0;
 
+/// How tall a control that is not a fader stands in a row of them.
+///
+/// A fader lying on its side, which is what makes a row of switches, lists and
+/// lamps one band whatever is standing in it. Named because the front panel has
+/// to know it: the band along the foot of a plate is as tall as this, and a
+/// plate is as tall as its parts.
+pub(crate) const BUTTON: f32 = fader::WIDTH;
+
+/// How tall one lit legend of a named set stands.
+///
+/// One line of the reading face at the size a legend is set in, and no padding
+/// above or below it: a column of seven has to fit beside two faders on the
+/// front panel, which is the tightest room a named set is ever lit in.
+///
+/// Given rather than taken, because a column is laid out into the room it was
+/// given and a legend past the end of that room is drawn no lines tall — which
+/// is a set that silently names fewer things than the library says it has,
+/// rather than one that overflows where somebody would see it.
+pub(crate) const LIT: f32 = 13.0;
+
+/// How far apart two lit legends stand.
+pub(crate) const BETWEEN: f32 = 1.0;
+
+/// How tall a column of `count` lit legends stands.
+///
+/// What a hand layout has to give a named set for all of it to be drawn. The
+/// front panel asks, because the instrument lights its LFO shapes beside the
+/// faders rather than under them and the room beside a fader is the room a
+/// fader runs in.
+pub(crate) fn lit_band(count: usize) -> f32 {
+    let count = f32::from(u16::try_from(count).unwrap_or(u16::MAX));
+    (count * LIT + (count - 1.0) * BETWEEN).max(0.0)
+}
+
 /// Longest named set that is drawn as lit legends rather than as a list.
 ///
 /// Beyond this a list is the honest control: the modulation matrix has 130
@@ -133,7 +167,7 @@ impl Room {
         Self {
             axis: Axis::Down,
             width,
-            height: Length::Fixed(fader::WIDTH),
+            height: Length::Fixed(BUTTON),
             travel: fader::HEIGHT,
             legends: false,
         }
@@ -514,8 +548,9 @@ where
         let on = Some(choice.byte()) == value;
         let byte = choice.byte();
         let face = button(text(choice.name).size(10).font(reading()))
-            .padding([1, 5])
+            .padding([0, 5])
             .width(Length::Fill)
+            .height(Length::Fixed(LIT))
             .style(move |theme: &Theme, _status| lit(theme, on, claim));
         if live {
             face.on_press(Message::Edit {
@@ -527,10 +562,14 @@ where
             Element::from(face)
         }
     });
-    container(column(rows).spacing(2).width(Length::Fixed(room.width)))
-        .height(room.height)
-        .align_y(Vertical::Center)
-        .into()
+    container(
+        column(rows)
+            .spacing(BETWEEN)
+            .width(Length::Fixed(room.width)),
+    )
+    .height(room.height)
+    .align_y(Vertical::Center)
+    .into()
 }
 
 /// Draws a named set too long for legends as the list it is.

@@ -112,7 +112,41 @@ on the hardware.
   it never goes below 1: a narrow window wraps its rows, which is an arrangement
   somebody can still read, where shrunken type is not. The displays are the one
   thing that does not simply grow — a wider window is a filter curve drawn more
-  finely, not a magnified one.
+  finely, not a magnified one. Past 1.75 the panel stands in the middle of the
+  window rather than against its left edge, because that is where an instrument
+  left on a desk that wide would be.
+- **Every row fills it, and not just the widest one.** The top row is the one
+  the panel is measured from; the signal path is a plate narrower and the
+  envelopes are two plates narrower, and drawn at what they measure they leave
+  that difference as bare panel at the right hand end — a photograph of a
+  synthesizer with the end sawn off. A row of a front panel runs the whole width
+  of the instrument, so the difference is shared out among that row's plates in
+  proportion to what each already holds. Every plate of a row grows by the same
+  fraction of itself, so `VCF`, which is five faders, stays twice the width of
+  `OSC 1`, which is two; and nothing inside any of them moves, because what the
+  extra room buys is display — a plate given more glass gains dots rather than
+  magnifying the ones it has. The screen is the exception it has always been: a
+  written width, not what is left over. A row a narrow window has had to break
+  is the one arrangement that is not drawn out, because a line of a broken row
+  is a fraction of a row, and a fraction of a row filling the panel is `POLY`,
+  which is one fader, drawn as wide as the window.
+- **Every plate stands the same height, and so does the screen between them.**
+  A panel whose plates were each as tall as their contents happened to be has a
+  ragged edge under every row and its `EDIT` presses at five different heights,
+  which is the one thing a front panel never is. The height is added up from the
+  parts rather than written down beside them, because two of the parts do not
+  grow with the rest: a display gains dots instead of getting bigger, and the
+  buttons along the foot are drawn in the room this editor gives a control that
+  is not a fader, which is the rack's room and not the panel's. The `EDIT` press
+  stands in the middle of that band, where the switches beside it are.
+- **A lit set is given room for all of it.** A column of legends is laid out
+  into the room it is given and the ones past the end of that room are drawn no
+  lines tall, which is how the panel came to name five of the instrument's seven
+  LFO shapes with nothing saying that `Sample & Hold` and `Sample & Glide` were
+  missing. The strip is a whole lane tall now — the fader's travel, the gap
+  under it and the reading it would have had — and as wide as the longest name
+  it lights, and a test fails if a later table names something that does not
+  fit.
 - **The arrangement is the instrument's, and now so is the livery.** The
   hardware's buttons are white, amber and cyan, and this window takes the amber
   and the cyan for the two jobs it has that need a colour: amber opens a

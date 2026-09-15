@@ -89,8 +89,15 @@ const TRAVEL: f32 = 76.0;
 /// How much room a lit set of legends is given beside the faders.
 ///
 /// Wide enough for the longest name in the set it lights: a legend clipped to
-/// `Triang` is a legend that lies about which shape is lit.
-const LAMPS: f32 = 76.0;
+/// `Triang` is a legend that lies about which shape is lit. A set with a name
+/// missing lies about more than that, which is what [`lit`] is for.
+///
+/// The set it lights is the LFO's seven shapes and the longest of those is
+/// `Sample & Glide`, which is fourteen characters of the reading face at the
+/// size a legend is set in, and the room a legend is inset by either side. A
+/// name that does not fit is drawn on a second line the strip has no room for,
+/// so a strip a few points too narrow is a shape with half its name missing.
+const LAMPS: f32 = 104.0;
 
 /// How many dots tall the display over a plate's faders is.
 ///
@@ -108,12 +115,20 @@ const STRIP: i32 = 20;
 /// the same trade the modulation matrix's rows make.
 const NARROWEST: i32 = 40;
 
-/// How tall a plate of the upper row stands.
+/// How tall the light bar across the top of a plate stands.
 ///
-/// The screen is cut to it rather than given what is left: a display that took
-/// the height it was offered would be as tall as the window, and the panel
-/// under it would be somewhere below the fold.
-const PLATE: f32 = LEGEND + TRAVEL + 96.0 + lcd::room(STRIP) + 6.0;
+/// Given rather than taken, like the [legend](LEGEND) over a lane and for the
+/// same reason: what a heading measures is what a face measures it at, and a
+/// plate whose height depended on that is a plate this file cannot put a number
+/// on. It has to put a number on it, because the screen between the rows is cut
+/// to the plates either side of it.
+const HEAD: f32 = 20.0;
+
+/// How much room the reading under a lane is given.
+///
+/// The reading is the rack's own, at the rack's own size on every surface in
+/// this window, so this does not grow with the panel around it.
+const READ: f32 = 18.0;
 
 /// How wide the screen is.
 ///
@@ -158,6 +173,16 @@ const WITHIN: f32 = 6.0;
 /// over a plate's faders has to know it: a plate's width is the room it takes
 /// on the panel, and what a display fits into is the room inside that.
 const PAD: f32 = 6.0;
+
+/// How far the parts of one control stand apart: its legend, it, and its
+/// reading.
+const APART: f32 = 4.0;
+
+/// How far a button stands under its legend.
+///
+/// Closer than a fader stands under its own, because there is no reading
+/// underneath it to leave room for.
+const UNDER: f32 = 2.0;
 
 /// How far the panel is stretched to fill the window it was given.
 ///
@@ -238,6 +263,43 @@ fn widest() -> f32 {
         .fold(0.0_f32, f32::max)
 }
 
+/// How wide the panel stands in a window `room` points across.
+///
+/// All of it, less the gap a row keeps at its end, and every line
+/// [drawn out](Share) to that — a front panel is a rectangle — until the window
+/// is wider than the panel is allowed to grow. Past that the panel is as wide
+/// as it is ever drawn and stands in the middle of the room, which is where an
+/// instrument on a desk that size would be.
+///
+/// The two agree at the point they meet: the panel stops growing where
+/// [`Scale::filling`] stops, so nothing jumps as a window is dragged past it.
+/// So do this and [`panel_width`], which is the same measurement with that gap
+/// still on it: a window opened at what the panel wants holds the instrument's
+/// own arrangement, on one line a row.
+fn span(room: f32, scale: Scale) -> f32 {
+    (room.min(widest() * Scale::MOST) - scale.of(ACROSS)).max(0.0)
+}
+
+/// How tall a plate stands at `scale`, and with it the screen between the rows.
+///
+/// Every plate, and not every plate of a row: a panel whose plates were each as
+/// tall as they happened to be is a panel with a ragged edge under every row
+/// and its `EDIT` presses at five different heights, which is the one thing a
+/// front panel never is.
+///
+/// Added up from the parts rather than written down beside them, because two of
+/// those parts do not grow with the rest. A display gains dots instead of
+/// getting bigger, so the strip over a plate's faders is the same height in any
+/// window; and the buttons along the foot are drawn in the room the rest of
+/// this editor gives a control that is not a fader, which is the rack's room
+/// and not the panel's. What is left scales, and this is the sum.
+fn standing(scale: Scale) -> f32 {
+    scale.of(PAD * 2.0 + HEAD + WITHIN * 3.0 + LEGEND + APART + TRAVEL + APART + LEGEND + UNDER)
+        + READ
+        + lcd::room(STRIP)
+        + crate::panel::BUTTON
+}
+
 /// How wide one row stands: its plates, the screen if it holds it, and the gaps.
 fn row_width(plates: &[Plate], holds_screen: bool, scale: Scale) -> f32 {
     let across: f32 = plates.iter().map(|plate| plate.width(scale)).sum();
@@ -252,6 +314,155 @@ fn row_width(plates: &[Plate], holds_screen: bool, scale: Scale) -> f32 {
 /// cast out of a layout.
 fn count(of: usize) -> f32 {
     f32::from(u16::try_from(of).unwrap_or(u16::MAX))
+}
+
+/// What stands in one row of the panel: its plates, and the screen among them.
+///
+/// A row is not only plates — the instrument cuts its display into the top row
+/// between what a player reaches for and the voicing — and the two are laid out
+/// by the same arithmetic, so they are one type while it is being done.
+#[derive(Debug, Clone, Copy)]
+enum Standing<'a> {
+    /// One of the library's sections, as a plate of the panel.
+    Plate(&'a Plate),
+    /// The hole the application's own display is cut into.
+    Screen,
+}
+
+impl Standing<'_> {
+    /// How wide it measures, before a line shares out what it has spare.
+    fn width(self, scale: Scale) -> f32 {
+        match self {
+            Self::Plate(plate) => plate.width(scale),
+            Self::Screen => scale.of(SCREEN),
+        }
+    }
+
+    /// Whether a line may draw it out.
+    ///
+    /// The plates, and not the screen. A screen given what a row had spare
+    /// would take the whole of it and push the voicing onto a line of its own,
+    /// which is the same reason it is a written width and not what is left.
+    const fn grows(self) -> bool {
+        matches!(self, Self::Plate(_))
+    }
+}
+
+/// What stands in `plates`' row, with the screen cut in where it belongs.
+fn standing_in(plates: &[Plate], holds_screen: bool) -> Vec<Standing<'_>> {
+    let mut row = Vec::with_capacity(plates.len() + usize::from(holds_screen));
+    // The instrument cuts its display in before the last plate of the row:
+    // between what a player reaches for and what the voicing does.
+    let cut = plates.len().saturating_sub(1);
+    for (at, plate) in plates.iter().enumerate() {
+        if holds_screen && at == cut {
+            row.push(Standing::Screen);
+        }
+        row.push(Standing::Plate(plate));
+    }
+    if holds_screen && !row.iter().any(|item| matches!(item, Standing::Screen)) {
+        row.push(Standing::Screen);
+    }
+    row
+}
+
+/// Breaks a row into the lines a panel `across` points wide has room for.
+///
+/// A window narrower than the panel gets as many lines as the row takes, which
+/// is the arrangement the panel has always fallen back to and is still
+/// readable: two rows and a screen is what the instrument is, and a row with
+/// its end clipped off is nothing at all.
+///
+/// The lines are broken here rather than left to the toolkit's own wrapping for
+/// the reason every line is [drawn out](Share) afterwards: a wrapped line is a
+/// line, and a panel whose last three plates sat in the top left corner of an
+/// empty one is exactly what a row that fills its width is not.
+fn lines<'a>(row: &[Standing<'a>], across: f32, scale: Scale) -> Vec<Vec<Standing<'a>>> {
+    let gap = scale.of(ACROSS);
+    let mut lines: Vec<Vec<Standing<'a>>> = Vec::new();
+    let mut line: Vec<Standing<'a>> = Vec::new();
+    let mut taken = 0.0;
+    for item in row {
+        let width = item.width(scale);
+        if !line.is_empty() && taken + gap + width > across {
+            lines.push(core::mem::take(&mut line));
+            taken = 0.0;
+        }
+        taken += if line.is_empty() { width } else { gap + width };
+        line.push(*item);
+    }
+    if !line.is_empty() {
+        lines.push(line);
+    }
+    lines
+}
+
+/// How a line's spare width is shared out among its plates.
+///
+/// The panel is as wide as its widest row and the others measure less — the
+/// signal path by a plate's worth, the envelopes by two plates' — and a row
+/// drawn at what it measures leaves that difference as bare panel at its right
+/// hand end. There is no such thing on the instrument: a row of a front panel
+/// runs the whole width of the instrument, because the plates are cut to fill
+/// it. A window whose lower rows stopped two thirds of the way across would be
+/// a photograph of a synthesizer with the end sawn off.
+///
+/// So the difference is shared out in proportion to what each plate already
+/// holds, which is the one way of spending it that changes no proportion: a
+/// five-fader plate stays twice the width of a two-fader one, every plate of a
+/// line grows by the same fraction of itself, and nothing inside any of them
+/// moves except the display, which gains dots rather than magnifying the ones
+/// it has. It is the same trade the narrowest plates already make for their
+/// screens, spent across a row instead of on one plate.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Share {
+    /// Points of panel the line has spare.
+    slack: f32,
+    /// What the things it may draw out measure between them, which is what the
+    /// slack is shared out in proportion to.
+    holding: f32,
+}
+
+impl Share {
+    /// Nothing to share out: everything is drawn at what it measures.
+    ///
+    /// What a row that had to be broken gets. A line of a broken row is a
+    /// fraction of a row, and drawing a fraction of a row out to the width of
+    /// the panel is how `POLY`, which is one fader, ends up as wide as the
+    /// window: filling is what a row does, and a narrow window has already lost
+    /// the rows. It keeps the written arrangement instead, which is what the
+    /// panel fell back to before any of this and is still readable.
+    const MEASURED: Self = Self {
+        slack: 0.0,
+        holding: 0.0,
+    };
+
+    /// How one line fills a panel `across` points wide.
+    ///
+    /// A line already wider than the panel has nothing to share: it is the one
+    /// the panel is measured from, or it is a single plate too wide for the
+    /// window it is in, and stretching either would be inventing room.
+    fn of(line: &[Standing], across: f32, scale: Scale) -> Self {
+        let measured: f32 = line.iter().map(|item| item.width(scale)).sum();
+        let gaps = count(line.len().saturating_sub(1)) * scale.of(ACROSS);
+        Self {
+            slack: (across - measured - gaps).max(0.0),
+            holding: line
+                .iter()
+                .filter(|item| item.grows())
+                .map(|item| item.width(scale))
+                .sum(),
+        }
+    }
+
+    /// How wide `item` is drawn, with its share of what the line had spare.
+    fn width(self, item: Standing, scale: Scale) -> f32 {
+        let measured = item.width(scale);
+        if !item.grows() || self.holding <= 0.0 {
+            return measured;
+        }
+        measured + self.slack * (measured / self.holding)
+    }
 }
 
 /// One control of the panel: what is printed over it, and what it moves.
@@ -567,31 +778,49 @@ where
 {
     responsive(move |room| {
         let scale = Scale::filling(room.width);
+        // What every line of the panel is drawn out to.
+        let panel_across = span(room.width, scale);
         let mut panel = column![].spacing(scale.of(DOWN));
         let mut hole = true;
         for (index, plates) in rows().iter().enumerate() {
-            let mut across = row![].spacing(scale.of(ACROSS)).align_y(Vertical::Top);
-            // The instrument cuts its display into the top row between what a
-            // player reaches for and the voicing, which is before the last
-            // plate of that row.
-            let last = plates.last().map(Plate::name);
-            for plate in plates {
-                // The screen sits in the top row where the instrument puts it:
-                // between what a player reaches for and what the voicing does.
-                if index == 0 && hole && last == Some(plate.name()) {
-                    hole = false;
-                    across = across.push(display(patch, &paint, scale));
+            let standing = standing_in(plates, index == 0);
+            hole &= !standing.iter().any(|item| !item.grows());
+            let drawn = lines(&standing, panel_across, scale);
+            // A row the window had room for fills it. A row it did not is the
+            // written arrangement, wrapped, which is what a narrow window has
+            // always shown.
+            let broken = drawn.len() > 1;
+            for line in drawn {
+                let share = if broken {
+                    Share::MEASURED
+                } else {
+                    Share::of(&line, panel_across, scale)
+                };
+                let mut across = row![].spacing(scale.of(ACROSS)).align_y(Vertical::Top);
+                for item in line {
+                    across = across.push(match item {
+                        Standing::Plate(plate) => {
+                            group(patch, plate, firmware, scale, share.width(item, scale))
+                        }
+                        Standing::Screen => display(patch, &paint, scale),
+                    });
                 }
-                across = across.push(group(patch, plate, firmware, scale));
+                panel = panel.push(across);
             }
-            panel = panel.push(across.wrap());
         }
-        // A screen with nowhere to go still goes somewhere: a row renamed out
-        // from under this loses the instrument's arrangement, not its display.
+        // A screen with nowhere to go still goes somewhere: a panel with no
+        // rows in it loses the instrument's arrangement, not its display.
         if hole {
             panel = panel.push(display(patch, &paint, scale));
         }
-        panel.into()
+        // And the panel stands in the middle of the window rather than against
+        // its left edge. It only ever has room to spare when the window is
+        // wider than the panel is allowed to grow, and an instrument left on a
+        // desk that wide is in the middle of it and not pushed into a corner.
+        container(panel)
+            .width(Length::Fill)
+            .align_x(Horizontal::Center)
+            .into()
     })
     .into()
 }
@@ -610,7 +839,7 @@ pub fn screen() -> Screen {
 fn blank(scale: Scale) -> Screen {
     Screen::new(
         lcd::fits(scale.of(SCREEN)),
-        lcd::fits(scale.of(PLATE - GAP * 2.0)),
+        lcd::fits(standing(scale) - scale.of(GAP * 2.0)),
     )
 }
 
@@ -627,11 +856,18 @@ pub fn panelled() -> Vec<ParamId> {
 }
 
 /// Draws one group of the panel: its name, its controls, and its way in.
+///
+/// How wide it is drawn is the row's business rather than the plate's — see
+/// [`Share`] — because a plate's width is what makes a row fill the panel, and
+/// a plate given its own measured width is a row that stops short. How tall it
+/// [stands](standing) is every plate's, so that a row has one edge along the
+/// bottom of it.
 fn group<'a, Renderer>(
     patch: &Patch,
     plate: &'a Plate,
     firmware: Version,
     scale: Scale,
+    width: f32,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -652,14 +888,15 @@ where
     container(
         column![
             heading(plate.name(), scale),
-            glass(patch, plate, firmware, scale),
+            glass(patch, plate, firmware, scale, width),
             controls,
             buttons
         ]
         .spacing(scale.of(WITHIN))
         .align_x(Horizontal::Center),
     )
-    .width(Length::Fixed(plate.width(scale)))
+    .width(Length::Fixed(width))
+    .height(Length::Fixed(standing(scale)))
     .padding(scale.of(PAD))
     .style(|theme: &Theme| {
         let material = materials(theme);
@@ -692,11 +929,12 @@ fn glass<'a, Renderer>(
     plate: &Plate,
     firmware: Version,
     scale: Scale,
+    width: f32,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
-    let columns = lcd::fits(plate.width(scale) - scale.of(PAD * 2.0));
+    let columns = lcd::fits(width - scale.of(PAD * 2.0));
     scene::display(patch, plate.parameters(), firmware, columns, STRIP).unwrap_or_else(|| {
         container(Space::new())
             .height(Length::Fixed(lcd::room(STRIP)))
@@ -722,8 +960,10 @@ where
             }),
     )
     .width(Length::Fill)
-    .padding([scale.of(2.0), scale.of(6.0)])
+    .height(Length::Fixed(scale.of(HEAD)))
+    .padding([0.0, scale.of(6.0)])
     .align_x(Horizontal::Center)
+    .align_y(Vertical::Center)
     .style(|theme: &Theme| {
         let material = materials(theme);
         container::Style {
@@ -770,9 +1010,11 @@ where
             firmware,
             Room::lane(scale.of(LANE), scale.of(TRAVEL)),
         ),
-        readout(parameter, value, claim, firmware),
+        container(readout(parameter, value, claim, firmware))
+            .height(Length::Fixed(READ))
+            .align_y(Vertical::Center),
     ]
-    .spacing(scale.of(4.0))
+    .spacing(scale.of(APART))
     .width(Length::Fixed(scale.of(LANE)))
     .align_x(Horizontal::Center)
     .into()
@@ -783,6 +1025,12 @@ where
 /// The LFO's shape is a column of lamps beside its two faders on the hardware,
 /// one of them lit, and seven of them is more than a rack's slot has room to
 /// light. The panel has the room, so it says so.
+///
+/// The room is [everything a lane holds](lit) and not the travel of the fader
+/// beside it, because seven legends are taller than a panel fader is long: a
+/// strip given the fader's travel lights five of the instrument's seven shapes
+/// and drops `Sample & Hold` and `Sample & Glide` off the bottom of the panel,
+/// where nothing says they are missing.
 fn strip<'a, Renderer>(
     patch: &Patch,
     control: Control,
@@ -800,13 +1048,39 @@ where
             patch.value(parameter),
             patch.claim(parameter),
             firmware,
-            Room::lamps(scale.of(LAMPS), scale.of(TRAVEL)),
+            Room::lamps(scale.of(LAMPS), lit(scale, named(control, firmware))),
         ),
     ]
-    .spacing(scale.of(4.0))
+    .spacing(scale.of(APART))
     .width(Length::Fixed(scale.of(LAMPS)))
     .align_x(Horizontal::Center)
     .into()
+}
+
+/// How many things a control's named set names, as the library has them.
+fn named(control: Control, firmware: Version) -> usize {
+    control
+        .parameter
+        .choices_for(firmware)
+        .map_or(0, <[_]>::len)
+}
+
+/// How much room a strip of lit legends naming `named` things is given.
+///
+/// A whole lane: the fader's travel, the gap under it and the reading it would
+/// have had. A strip has no reading — the lit legend is the reading — so this
+/// is the room a lane spends on a number, spent on the words instead, and the
+/// two stand the same height whatever the window is doing.
+///
+/// And never less than the set itself needs. A column of legends is laid out
+/// into the room it is given and the ones past the end of it are drawn no lines
+/// tall, so a strip too short for its own set is a panel that names five of the
+/// instrument's seven LFO shapes and says nothing about the other two. A strip
+/// standing a little past its lane is something somebody can see; the test
+/// beside this one is what says no set on the panel needs that today.
+fn lit(scale: Scale, named: usize) -> f32 {
+    let lane = scale.of(TRAVEL + APART) + READ;
+    lane.max(crate::panel::lit_band(named))
 }
 
 /// Draws one of the buttons under a plate's faders.
@@ -834,7 +1108,7 @@ where
             Room::listed(scale.of(SWITCH)),
         ),
     ]
-    .spacing(scale.of(2.0))
+    .spacing(scale.of(UNDER))
     .width(Length::Fixed(scale.of(SWITCH)))
     .align_x(Horizontal::Center)
     .into()
@@ -874,13 +1148,21 @@ where
 {
     column![
         legend(label, scale),
-        button(Space::new().width(Length::Fill).height(Length::Fill))
-            .width(Length::Fixed(scale.of(WAY)))
-            .height(Length::Fixed(scale.of(PRESS)))
-            .style(crate::style::way_in)
-            .on_press(Message::Show(group)),
+        // In the room a button of the row beside it is drawn in, and standing
+        // in the middle of it. The lamp is smaller than a switch and the band
+        // along the foot of a plate is one band: an `EDIT` that sat at the top
+        // of it would be a lamp half a legend above every lamp next to it.
+        container(
+            button(Space::new().width(Length::Fill).height(Length::Fill))
+                .width(Length::Fixed(scale.of(WAY)))
+                .height(Length::Fixed(scale.of(PRESS)))
+                .style(crate::style::way_in)
+                .on_press(Message::Show(group)),
+        )
+        .height(Length::Fixed(crate::panel::BUTTON))
+        .align_y(Vertical::Center),
     ]
-    .spacing(scale.of(2.0))
+    .spacing(scale.of(UNDER))
     .width(Length::Fixed(scale.of(WAY)))
     .align_x(Horizontal::Center)
     .into()
@@ -907,7 +1189,7 @@ where
     paint(&mut screen);
     container(crate::lcd::lcd(screen, patch.confidence()))
         .width(Length::Fixed(scale.of(SCREEN)))
-        .height(Length::Fixed(scale.of(PLATE)))
+        .height(Length::Fixed(standing(scale)))
         .align_x(Horizontal::Center)
         .align_y(Vertical::Center)
         .padding([scale.of(2.0), 0.0])
@@ -915,11 +1197,20 @@ where
 }
 
 #[cfg(test)]
+#[expect(
+    clippy::expect_used,
+    reason = "a failed expectation is the test failure"
+)]
 mod tests {
     use deepmind_midi::param::{Group, ParamId};
 
-    use super::{ACROSS, DOWN, GAP, NARROWEST, PAD, Plate, Scale, WITHIN, rows};
-    use super::{lcd, panel_width, panelled, row_width, widest};
+    use deepmind_midi::param::DEFAULT_FIRMWARE;
+
+    use super::{ACROSS, DOWN, GAP, NARROWEST, PAD, Plate, SCREEN, Scale, Share, WITHIN, rows};
+    use super::{
+        blank, count, lcd, lines, lit, panel_width, panelled, row_width, span, standing,
+        standing_in, widest,
+    };
 
     #[test]
     fn a_control_is_on_the_panel_once() {
@@ -1102,6 +1393,171 @@ mod tests {
             "{widened} points of panel left {} of window empty",
             room - widened
         );
+    }
+
+    #[test]
+    fn every_row_is_drawn_out_to_the_width_of_the_panel() {
+        // The complaint this exists to prevent: the signal path is a plate
+        // narrower than the top row and the envelopes are two plates narrower,
+        // and drawn at what they measure they leave that difference as bare
+        // panel at the right hand end — a front panel with the end sawn off.
+        let panel = span(panel_width(), Scale::NATURAL);
+
+        for (index, plates) in rows().iter().enumerate() {
+            let standing = standing_in(plates, index == 0);
+            let drawn = lines(&standing, panel, Scale::NATURAL);
+            assert_eq!(
+                drawn.len(),
+                1,
+                "row {index} does not fit the panel it was measured from"
+            );
+            for line in drawn {
+                let share = Share::of(&line, panel, Scale::NATURAL);
+                let across: f32 = line
+                    .iter()
+                    .map(|item| share.width(*item, Scale::NATURAL))
+                    .sum::<f32>()
+                    + count(line.len().saturating_sub(1)) * ACROSS;
+
+                assert!(
+                    (across - panel).abs() < 0.01,
+                    "row {index} is {across} across a {panel} panel"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_window_too_narrow_for_a_row_breaks_it_into_lines_that_fit() {
+        // The fallback, and the one arrangement that is not drawn out: a line
+        // of a broken row is a fraction of a row, and a fraction of a row
+        // filling the panel is `POLY` drawn as wide as the window. What a
+        // narrow window owes somebody is every plate, in an order they can
+        // read, which is what this asserts.
+        let panel = span(panel_width() * 0.6, Scale::NATURAL);
+        let plates = rows().first().expect("the top row");
+        let standing = standing_in(plates, true);
+        let drawn = lines(&standing, panel, Scale::NATURAL);
+
+        assert!(drawn.len() > 1, "a narrow window did not break the row");
+        assert_eq!(
+            drawn.iter().map(Vec::len).sum::<usize>(),
+            standing.len(),
+            "a plate fell out of the panel when the row broke"
+        );
+        for line in drawn {
+            let across: f32 = line
+                .iter()
+                .map(|item| Share::MEASURED.width(*item, Scale::NATURAL))
+                .sum::<f32>()
+                + count(line.len().saturating_sub(1)) * ACROSS;
+
+            assert!(
+                across <= panel + 0.01 || line.len() == 1,
+                "a line of {across} in a {panel} panel"
+            );
+        }
+    }
+
+    #[test]
+    fn sharing_out_a_row_s_spare_width_changes_no_proportion() {
+        // How the difference is spent. A row whose plates grew by a fixed
+        // amount each would draw `VCA`, which is one fader, as wide as `VCF`,
+        // which is five: the whole arrangement is that a plate is as wide as
+        // what it holds, so every plate grows by the same fraction of itself.
+        let plates = rows().get(1).expect("the signal path");
+        let line = standing_in(plates, false);
+        let share = Share::of(&line, span(panel_width(), Scale::NATURAL), Scale::NATURAL);
+        let first = *line.first().expect("a plate");
+        let grown = share.width(first, Scale::NATURAL) / first.width(Scale::NATURAL);
+
+        assert!(grown > 1.0, "the row was not drawn out at all");
+        for item in line {
+            let each = share.width(item, Scale::NATURAL) / item.width(Scale::NATURAL);
+            assert!(
+                (each - grown).abs() < 0.001,
+                "something grew by {each} where the row grew by {grown}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_screen_is_the_one_thing_a_row_does_not_draw_out() {
+        // It is a written width and not what is left over, because a screen
+        // given what the top row had spare would take all of it and push the
+        // voicing onto a line of its own.
+        let plates = rows().first().expect("the top row");
+        let line = standing_in(plates, true);
+        let share = Share::of(
+            &line,
+            span(panel_width() * 2.0, Scale::NATURAL),
+            Scale::NATURAL,
+        );
+        let screen = *line
+            .iter()
+            .find(|item| !item.grows())
+            .expect("the top row holds the screen");
+
+        assert!(
+            (share.width(screen, Scale::NATURAL) - SCREEN).abs() < 0.01,
+            "the screen was drawn out with the plates"
+        );
+    }
+
+    #[test]
+    fn every_lit_set_on_the_panel_fits_the_room_it_is_given() {
+        // A column of legends is laid out into the room it was given and the
+        // ones past the end of that room are drawn no lines tall, which is a
+        // panel that quietly names five of the instrument's seven LFO shapes.
+        // The room is the tightest it ever is at the written size, so this is
+        // where an eighth shape in a later table fails — loudly, here, rather
+        // than by dropping off the bottom of a plate.
+        for plate in rows().iter().flat_map(|row| row.iter()) {
+            let Some(control) = plate.lamps else {
+                continue;
+            };
+            let named = control
+                .parameter
+                .choices_for(DEFAULT_FIRMWARE)
+                .map_or(0, <[_]>::len);
+            assert!(named > 0, "{} lights nothing", plate.name());
+
+            let band = crate::panel::lit_band(named);
+            assert!(
+                (lit(Scale::NATURAL, named) - lit(Scale::NATURAL, 0)).abs() < 0.01,
+                "{} names {named} things in {band} points, past the lane beside it",
+                plate.name()
+            );
+        }
+    }
+
+    #[test]
+    fn the_screen_fits_the_hole_the_plates_leave_it_at_any_size() {
+        // The screen is cut to the plates either side of it, and the dots are
+        // cut to the screen. Two of the things a plate is made of do not grow
+        // with the window — the strip over its faders gains dots instead, and
+        // the buttons along its foot are drawn in the rack's own room — so a
+        // hole worked out by scaling one number would be the wrong height
+        // everywhere except where that number was written.
+        for scale in [
+            Scale::NATURAL,
+            Scale::filling(widest() * 1.4),
+            Scale::filling(widest() * 8.0),
+        ] {
+            let hole = standing(scale) - scale.of(GAP * 2.0);
+            let screen = blank(scale);
+
+            assert!(
+                lcd::room(screen.rows()) <= hole,
+                "a screen of {} dots stands {} in a {hole} hole",
+                screen.rows(),
+                lcd::room(screen.rows())
+            );
+            assert!(
+                lcd::room(screen.rows() + 1) > hole,
+                "the hole has room for a dot the screen is not using"
+            );
+        }
     }
 
     #[test]

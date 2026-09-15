@@ -14,6 +14,21 @@ use iced::{Background, Center, Element, Fill, Length, Subscription, Theme, borde
 use crate::app::{App, Message, View};
 use crate::{files, librarian};
 
+/// How much window there is between a surface and the bar it scrolls on.
+///
+/// The bar takes its own room rather than floating over the last thing in the
+/// row, which is what a scroll bar cut into a panel does.
+const BESIDE: f32 = 6.0;
+
+/// How wide that bar is, which is the toolkit's own width for one.
+///
+/// Written down here because the window opens wide enough for the panel and
+/// everything beside it, and the bar is beside it.
+const BAR: f32 = 10.0;
+
+/// How much window there is around everything in it.
+const GROUND: f32 = 16.0;
+
 /// How often the window looks at what the device thread has said.
 ///
 /// A frame. The thread is already coalescing edits at its own rate and queueing
@@ -38,11 +53,14 @@ pub fn run() -> iced::Result {
         .default_font(control_ui::printed())
         .theme(theme)
         .subscription(subscription)
-        // As wide as the panel measures, plus the ground it stands on, so a
-        // window opens on the instrument's own arrangement rather than on a
-        // wrapped one. Narrower than this and the rows wrap, which is readable
-        // and is no longer two rows and a screen.
-        .window_size((control_ui::panel_width() + 16.0 * 2.0, 940.0))
+        // As wide as the panel measures, plus the ground it stands on and the
+        // bar it scrolls on, so a window opens on the instrument's own
+        // arrangement rather than on a wrapped one. Narrower than this and the
+        // rows wrap, which is readable and is no longer two rows and a screen.
+        .window_size((
+            control_ui::panel_width() + GROUND * 2.0 + BAR + BESIDE,
+            940.0,
+        ))
         .run()
 }
 
@@ -120,6 +138,14 @@ fn view(app: &App) -> Element<'_, Message> {
                     control_ui::panel(app.patch(), app.firmware(), |screen| paint(screen, app))
                         .map(Message::Ui),
                 )
+                // The bar is cut into the window beside the panel rather than
+                // laid over it. The panel is drawn out to the room it is given
+                // now, so a bar that floated over the end of it would be a bar
+                // over the last plate of every row — and a panel that shrank
+                // away from one the moment there was enough of it to scroll.
+                .direction(scrollable::Direction::Vertical(
+                    scrollable::Scrollbar::new().spacing(BESIDE),
+                ))
                 .height(Fill)
                 .into(),
                 View::Editor => editor(app),
@@ -130,7 +156,7 @@ fn view(app: &App) -> Element<'_, Message> {
             // moved with the surface would be a different footer each time.
             .push(control_ui::footer(app.pointed(), app.patch(), app.firmware()).map(Message::Ui))
             .spacing(12)
-            .padding(16),
+            .padding(GROUND),
     )
     .width(Fill)
     .height(Fill)
