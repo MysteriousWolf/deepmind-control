@@ -241,12 +241,11 @@ fn algorithms(firmware: Version) -> usize {
 fn remaining() -> Element<'static, Message> {
     text(format!(
         "Every parameter the instrument has is on these {} panels, drawn from the library's own \
-         table. The program's name is the first panel laid out by hand; the envelopes, the \
-         modulation matrix and the control sequencer are the rest of stage 3, the librarian is \
-         stage 4, and the effect panels wait on the library publishing their tables. Nothing \
-         here writes a program into the synthesizer: the manual describes no message that \
-         would, so storing a sound into a slot is done at the panel with the instrument's own \
-         WRITE.",
+         table. The program's name and the three envelopes are laid out by hand; the modulation \
+         matrix and the control sequencer are the rest of stage 3, the librarian is stage 4, and \
+         the effect panels wait on the library publishing their tables. Nothing here writes a \
+         program into the synthesizer: the manual describes no message that would, so storing a \
+         sound into a slot is done at the panel with the instrument's own WRITE.",
         Group::ALL.len()
     ))
     .size(12)
