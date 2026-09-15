@@ -1,8 +1,8 @@
 # Plan
 
 What this repository builds, in what order, and what has already been decided.
-Stages 0 to 2 are written; the rest is not. The [order](#order) says which is
-which.
+Stages 0 to 2 are written, stage 3 is generated and not yet laid out by hand,
+and the rest is not written. The [order](#order) says which is which.
 
 [`deepmind-midi`](https://github.com/MysteriousWolf/deepmind-midi) owns the
 protocol and refuses to own anything else: it never opens a port, never spawns a
@@ -434,6 +434,38 @@ not before it. A release job for an application is not the library's: it builds
 binaries for three platforms and signs two of them, and writing it against a
 release that has not been designed yet is writing it twice.
 
+## A panel is generated before it is drawn
+
+Every one of the 242 parameters is a slot in the rack of its group, and what the
+slot holds is whatever the library says the parameter is: a sweep gets a fader,
+two states get a lamp, a named set gets its names, and a table that does not name
+every value the parameter accepts is not used at all. Nothing in this repository
+decides what a value means.
+
+That gets the whole instrument editable in one stage and leaves it ugly in the
+places where the instrument is not a list of forty faders. Hand layout is per
+group and changes only the arrangement, never what a control is:
+
+| | |
+| --- | --- |
+| Program | The name is 17 parameters, one character each, and 17 faders is not a name |
+| VCF, VCA and Mod envelopes | Four faders and the shape they make, which is the one group whose meaning is a picture |
+| Mod Matrix | Eight rows of source, destination and depth, read across rather than down |
+| Control Sequencer | 32 steps, which is a sequencer and not a rack |
+| Effects | Four engines, waiting on the library publishing `spec/panels.toml` |
+
+Until a group is laid out, it is complete and honest and looks like the
+specification it came from, which is the trade this order is making.
+
+The same rule covers the arrangement and not only the controls. Which panels
+exist and what order they are in is read off the parameter table's own offsets
+rather than written down here, so a group a later library adds appears in its
+right place with nothing in this repository to edit. A number a person would
+read — how many algorithms an effect engine has, how many panels there are — is
+asked of the library at the moment it is drawn, for the firmware that answered
+the inquiry, rather than typed into a sentence that goes quietly wrong on the
+next release.
+
 ## Order
 
 Each stage ends somewhere usable. Nothing is built two stages before it is
@@ -444,7 +476,7 @@ needed.
 | 0 | Workspace | **Done.** Four crates, pinned dependencies, CI running the four commands in the README, licence and notice files. |
 | 1 | `deepmind-host` | **Done.** Port enumeration, `Port` over midir, `Clock`, the device thread, commands in and events out, the simulator as a selectable port. Tested against `sim` with no hardware. |
 | 2 | First light | **Done.** Desktop window, port picker, identity, read the edit buffer, VCF editable end to end with assumed and confirmed drawn differently. |
-| 3 | Every parameter | The remaining thirteen groups. Generated from `Group::parameters` first, because a complete ugly editor beats a beautiful partial one, then laid out by hand group by group. |
+| 3 | Every parameter | **Generated.** All fourteen groups from `Group::parameters`, one at a time behind a section bar, because a complete ugly editor beats a beautiful partial one. Laying them out by hand, group by group, is what remains. |
 | 4 | The librarian | Read and write `.syx`, read a bank with progress and cancel, browse a pack, load a program into the edit buffer as a difference. |
 | 5 | The effects | Waits on the library publishing the panel tables. Four engines, 35 algorithms, the routing graph. |
 | 6 | The plugin | Simple mode, then state, then advanced mode in the same window. The CLAP comes out first, having nothing to settle; then the AU, once the bundle signs and `auval` passes; then the VST3, once Steinberg's terms are. |

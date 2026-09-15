@@ -1,6 +1,6 @@
 //! The interface's copy of the sound.
 
-use deepmind_midi::param::{PARAMETER_COUNT, ParamId};
+use deepmind_midi::param::{Group, PARAMETER_COUNT, ParamId};
 use deepmind_midi::program::{Program, ProgramName};
 
 use crate::Confidence;
@@ -72,6 +72,28 @@ impl Patch {
             .get(usize::from(parameter.offset()))
             .copied()
             .unwrap_or_default()
+    }
+
+    /// Returns what backs a whole section's worth of values.
+    ///
+    /// The weakest claim any parameter in it makes, because a section is only
+    /// as confirmed as its least confirmed parameter: one fader moved in a
+    /// panel nobody is looking at is exactly the thing a tab has to be able to
+    /// say. A sound nobody has read is unknown throughout.
+    #[must_use]
+    pub fn claim_of(&self, group: Group) -> Confidence {
+        if self.program.is_none() {
+            return Confidence::Unknown;
+        }
+        let mut claim = Confidence::Confirmed;
+        for parameter in group.parameters() {
+            match self.claim(parameter) {
+                Confidence::Unknown => return Confidence::Unknown,
+                Confidence::Assumed => claim = Confidence::Assumed,
+                Confidence::Confirmed => {}
+            }
+        }
+        claim
     }
 
     /// Returns one parameter's value, once one is known.
@@ -182,7 +204,7 @@ impl Patch {
 mod tests {
     use deepmind_midi::ids::ProtocolVersion;
 
-    use super::{Confidence, ParamId, Patch, Program};
+    use super::{Confidence, Group, ParamId, Patch, Program};
 
     fn read() -> Patch {
         let mut patch = Patch::new();
@@ -266,6 +288,22 @@ mod tests {
         assert_eq!(patch.value(ParamId::VcfFrequency), Some(200));
         assert_eq!(patch.claim(ParamId::VcfFrequency), Confidence::Assumed);
         assert_eq!(patch.confidence(), Confidence::Assumed);
+    }
+
+    #[test]
+    fn a_section_is_as_confirmed_as_its_least_confirmed_parameter() {
+        let mut patch = Patch::new();
+
+        assert_eq!(patch.claim_of(Group::Vcf), Confidence::Unknown);
+
+        patch.confirm(Program::new(ProtocolVersion::V7));
+        assert_eq!(patch.claim_of(Group::Vcf), Confidence::Confirmed);
+
+        // One fader in a panel nobody is looking at is the whole point of
+        // drawing the claim on the tab.
+        patch.edit(ParamId::VcfFrequency, 200);
+        assert_eq!(patch.claim_of(Group::Vcf), Confidence::Assumed);
+        assert_eq!(patch.claim_of(Group::Lfo1), Confidence::Confirmed);
     }
 
     #[test]

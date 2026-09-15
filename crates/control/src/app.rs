@@ -1,9 +1,10 @@
 //! What the window holds, and what happens to it.
 
-use control_ui::Patch;
+use control_ui::{Patch, first_section};
 use deepmind_host::{Command, Event, Link, PortRef, open, ports};
 use deepmind_midi::device::Event as DeviceEvent;
 use deepmind_midi::param::DEFAULT_FIRMWARE;
+use deepmind_midi::param::Group;
 use deepmind_midi::sysex::inquiry::{Identity, Version};
 use deepmind_midi::wire::Channel;
 
@@ -50,6 +51,8 @@ pub struct App {
     channel: Option<Channel>,
     /// The sound, as far as this window knows it.
     patch: Patch,
+    /// The section the bar has pressed in.
+    section: Group,
     /// The last thing worth saying, in words.
     status: String,
 }
@@ -72,6 +75,7 @@ impl App {
             identity: None,
             channel: None,
             patch: Patch::new(),
+            section: first_section(),
             status: "Choose a port.".to_owned(),
         }
     }
@@ -137,6 +141,16 @@ impl App {
         &self.patch
     }
 
+    /// Returns the section the bar has pressed in.
+    ///
+    /// Which panel somebody is looking at, which is this window's business and
+    /// nothing the synthesizer is told about. It survives a port being put
+    /// down, because the sound went away and the person did not.
+    #[must_use]
+    pub const fn section(&self) -> Group {
+        self.section
+    }
+
     /// Returns the last thing worth saying.
     #[must_use]
     pub fn status(&self) -> &str {
@@ -154,6 +168,7 @@ impl App {
             Message::Identify => self.ask(Command::Identify),
             Message::Read => self.ask(Command::ReadEditBuffer),
             Message::Tick => {}
+            Message::Ui(control_ui::Message::Show(section)) => self.section = section,
             Message::Ui(control_ui::Message::Edit { parameter, value }) => {
                 // The view moved it, so the window already shows it there. What
                 // the synthesizer is told is the same thing, once: an edit it

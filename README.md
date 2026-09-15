@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-stage%202-orange" alt="Status: stage 2">
+  <img src="https://img.shields.io/badge/status-stage%203-orange" alt="Status: stage 3">
   <a href="https://github.com/MysteriousWolf/deepmind-control/actions/workflows/ci.yml"><img src="https://github.com/MysteriousWolf/deepmind-control/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/MysteriousWolf/deepmind-midi"><img src="https://img.shields.io/badge/built%20on-deepmind--midi-blue" alt="Built on deepmind-midi"></a>
   <a href="https://github.com/MysteriousWolf/deepmind-control/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-green" alt="License: Apache-2.0"></a>
@@ -21,13 +21,17 @@ DeepMind <--MIDI--> port <--bytes--> deepmind-midi <--events--> the interface
               midir, or the DAW
 ```
 
-**Status: first light.** There is a window. It lists the ports, opens one, finds
-out who is on it and which firmware's value tables are true, reads the edit
-buffer, and edits the VCF group end to end — with the values the synthesizer
-reported drawn differently from the ones this window put there. The other
-thirteen groups are the next stage, and the librarian the one after. See
+**Status: every parameter.** There is a window. It lists the ports, opens one,
+finds out who is on it and which firmware's value tables are true, reads the edit
+buffer, and edits all 242 parameters end to end — with the values the
+synthesizer reported drawn differently from the ones this window put there.
+
+The parameters are fourteen panels, chosen from a section bar that carries each
+section's own claim, and every panel is drawn from the library's table rather
+than laid out by hand: complete first, beautiful group by group after. Laying
+them out is the rest of this stage, and the librarian is the next one. See
 [the plan](docs/plan.md) for what is being built and in what order. Not usable as
-an editor yet.
+a librarian yet.
 
 It is dark, in the instrument's own colours: the palette is read off the mark in
 `docs/logo.svg`, which draws the same panel, metal and wood, and one file holds
@@ -74,8 +78,8 @@ Nothing here has been run against a synthesizer yet.
 ```
 crates/
   deepmind-host/    port ownership and the device loop. No interface.   written
-  control-ui/       every view and widget. No runtime, no window.       one group
-  control/          the desktop application.                            first light
+  control-ui/       every view and widget. No runtime, no window.       generated
+  control/          the desktop application.                            every parameter
   control-plugin/   the plugin.                                         stage 6
 ```
 

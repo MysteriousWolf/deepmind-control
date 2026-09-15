@@ -4,7 +4,8 @@ use std::thread;
 use std::time::Duration;
 
 use control_ui::Confidence;
-use deepmind_midi::param::Group;
+use deepmind_midi::param::{Group, Kind, ParamId};
+use deepmind_midi::sysex::inquiry::Version;
 use iced::futures::Stream;
 use iced::futures::channel::mpsc;
 use iced::widget::{button, column, container, pick_list, row, scrollable, space, text};
@@ -91,16 +92,22 @@ fn ticks() -> impl Stream<Item = Message> {
 
 /// The whole window.
 fn view(app: &App) -> Element<'_, Message> {
+    let section = app.section();
     column![
         header(app),
         identity(app),
         controls(app),
+        // The bar stays put while the rack under it scrolls: it is how a panel
+        // is left, and a control that scrolls away is a control that is looked
+        // for.
+        control_ui::section_bar(app.patch(), section).map(Message::Ui),
         scrollable(
             column![
-                text(Group::Vcf.name()).size(18),
-                control_ui::group(app.patch(), Group::Vcf, app.firmware()).map(Message::Ui),
-                remaining(),
+                text(section.name()).size(18),
+                control_ui::group(app.patch(), section, app.firmware()).map(Message::Ui),
             ]
+            .extend(caveat(section, app.firmware()))
+            .push(remaining())
             .spacing(12)
             .padding([0, 12]),
         )
@@ -190,14 +197,53 @@ fn controls(app: &App) -> Element<'_, Message> {
     .into()
 }
 
+/// What a section cannot say for itself yet, where it has something to admit.
+///
+/// Printed under the rack rather than left for somebody to work out from a
+/// panel of protocol names. A panel drawn from the library's own table is
+/// complete and, in two places, ugly, and saying which two is cheaper than
+/// pretending otherwise.
+fn caveat(section: Group, firmware: Version) -> Option<Element<'static, Message>> {
+    let admission = match section {
+        Group::Effects => format!(
+            "The slots are under the names the protocol gives them. What one means depends on \
+             which of the {} algorithms is loaded, and the table that says so is generated from \
+             the library's specification rather than transcribed here: the readable panel \
+             arrives when the library publishes it.",
+            algorithms(firmware)
+        ),
+        Group::Program => "The name is one parameter per character, because that is how the \
+                           instrument stores it. The title bar reads them as a word."
+            .to_owned(),
+        _ => return None,
+    };
+    Some(text(admission).size(12).into())
+}
+
+/// How many effect algorithms this firmware has.
+///
+/// Counted off the table the library gives `FX 1 Type`, because firmware is
+/// what decides which table that is, and a number written down here is a number
+/// that goes wrong quietly the day the library learns another algorithm.
+fn algorithms(firmware: Version) -> usize {
+    match ParamId::Fx1Type.kind() {
+        Kind::Enumerated(table) => table.table_for(firmware).entries.len(),
+        // Unreachable: the type of an engine is what it selects from a named
+        // set. A parameter the library has made continuous has no set to count.
+        _ => 0,
+    }
+}
+
 /// What this window does not draw yet, said out loud.
 fn remaining() -> Element<'static, Message> {
-    text(
-        "The other thirteen groups are stage 3, the librarian is stage 4, and the effects wait \
-         on the library publishing its panel tables. Nothing here writes a program into the \
-         synthesizer: the manual describes no message that would, so storing a sound into a slot \
-         is done at the panel with the instrument's own WRITE.",
-    )
+    text(format!(
+        "Every parameter the instrument has is on these {} panels, drawn from the library's own \
+         table. Laying each panel out by hand is the rest of stage 3, the librarian is stage 4, \
+         and the effect panels wait on the library publishing their tables. Nothing here writes \
+         a program into the synthesizer: the manual describes no message that would, so storing \
+         a sound into a slot is done at the panel with the instrument's own WRITE.",
+        Group::ALL.len()
+    ))
     .size(12)
     .into()
 }
