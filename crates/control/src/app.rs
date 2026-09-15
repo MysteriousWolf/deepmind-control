@@ -1,6 +1,6 @@
 //! What the window holds, and what happens to it.
 
-use control_ui::{Patch, SECTIONS};
+use control_ui::{Patch, first_section};
 use deepmind_host::{Command, Event, Link, PortRef, open, ports};
 use deepmind_midi::device::Event as DeviceEvent;
 use deepmind_midi::param::DEFAULT_FIRMWARE;
@@ -75,7 +75,7 @@ impl App {
             identity: None,
             channel: None,
             patch: Patch::new(),
-            section: SECTIONS[0],
+            section: first_section(),
             status: "Choose a port.".to_owned(),
         }
     }

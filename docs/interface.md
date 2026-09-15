@@ -48,10 +48,15 @@ does not put them on one surface either: a player presses a section and the
 display becomes that section. So does this. A bar of fourteen tabs sits above
 the rack, it does not scroll with it, and the panel below it is the one section.
 
-The bar is in the order the sound passes through the instrument — program,
-voicing, oscillators, filter, envelopes, LFOs, modulation, arpeggiator,
-sequencer, effects — and not the alphabetical order the library hands the groups
-over in, which puts the effects third and the oscillators eighth.
+**The order of the tabs is not written down anywhere.** A parameter's offset is
+its NRPN number and its place in a dump, the library's parameter table is in
+offset order, and so the order the groups first appear in that table is the
+order the instrument itself keeps them in: LFOs, oscillators, filter, the
+envelopes and the VCA, voicing, modulation, sequencing, effects, and the
+program's own settings last. Reading it off the table is both more honest than
+an order invented here and one less thing to edit when the library grows a
+group; what it is not is alphabetical, which is how the library hands the groups
+over and which puts the effects third and the oscillators eighth.
 
 **Each tab carries its own section's claim**, as the same dot the legend
 explains, and a section is as confirmed as its least confirmed parameter. That

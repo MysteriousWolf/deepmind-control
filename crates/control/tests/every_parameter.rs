@@ -23,7 +23,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use control::{App, Message};
-use control_ui::{Confidence, SECTIONS};
+use control_ui::{Confidence, first_section, sections};
 use deepmind_host::PortRef;
 use deepmind_midi::param::{Group, ParamId};
 
@@ -153,7 +153,7 @@ fn every_parameter_survives_the_wire() {
 fn every_section_holds_parameters_and_the_bar_holds_every_section() {
     let mut app = read();
 
-    for section in SECTIONS {
+    for section in sections().iter().copied() {
         app.update(Message::Ui(control_ui::Message::Show(section)));
 
         assert_eq!(app.section(), section);
@@ -165,7 +165,15 @@ fn every_section_holds_parameters_and_the_bar_holds_every_section() {
         // own account of itself.
         assert_eq!(app.patch().claim_of(section), Confidence::Confirmed);
     }
-    assert_eq!(SECTIONS.len(), Group::ALL.len());
+    assert_eq!(sections().len(), Group::ALL.len());
+}
+
+#[test]
+fn a_window_opens_on_a_panel_the_instrument_has() {
+    let app = read();
+
+    assert_eq!(app.section(), first_section());
+    assert!(Group::ALL.contains(&app.section()));
 }
 
 #[test]

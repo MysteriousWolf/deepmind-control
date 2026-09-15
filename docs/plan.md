@@ -457,6 +457,15 @@ group and changes only the arrangement, never what a control is:
 Until a group is laid out, it is complete and honest and looks like the
 specification it came from, which is the trade this order is making.
 
+The same rule covers the arrangement and not only the controls. Which panels
+exist and what order they are in is read off the parameter table's own offsets
+rather than written down here, so a group a later library adds appears in its
+right place with nothing in this repository to edit. A number a person would
+read — how many algorithms an effect engine has, how many panels there are — is
+asked of the library at the moment it is drawn, for the firmware that answered
+the inquiry, rather than typed into a sentence that goes quietly wrong on the
+next release.
+
 ## Order
 
 Each stage ends somewhere usable. Nothing is built two stages before it is

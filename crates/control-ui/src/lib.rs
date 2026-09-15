@@ -23,11 +23,17 @@
 //!
 //! # Fourteen panels, one at a time
 //!
-//! [`group`] draws one section as the instrument lays it out, and [`sections`]
-//! draws the bar that chooses which. Every parameter the synthesizer has is
-//! reachable through the two of them, drawn from the library's own table: what
-//! a control looks like is what the library says the parameter is, so a panel
-//! nobody has laid out by hand is complete before it is beautiful.
+//! [`group`] draws one section as the instrument lays it out, and
+//! [`section_bar`] draws the bar that chooses which. Every parameter the
+//! synthesizer has is reachable through the two of them, drawn from the
+//! library's own table: what a control looks like is what the library says the
+//! parameter is, so a panel nobody has laid out by hand is complete before it
+//! is beautiful.
+//!
+//! Nothing here re-tabulates the library, the order of the panels included:
+//! [`sections`] is read off the parameter table's own offsets rather than
+//! written down, so a group a later library adds arrives in its right place
+//! with nothing here to edit.
 //!
 //! ```
 //! use control_ui::{Confidence, Patch};
@@ -69,7 +75,7 @@ pub use confidence::Confidence;
 pub use fader::{Fader, fader};
 pub use panel::{Message, group, legend};
 pub use patch::Patch;
-pub use section::{SECTIONS, sections};
+pub use section::{first_section, section_bar, sections};
 pub use style::{Materials, deepmind, materials, tint};
 
 /// A piece of interface, produced by the views in this crate.

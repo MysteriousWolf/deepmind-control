@@ -11,7 +11,9 @@
 //! sound is the synthesizer's, except the part I moved", read without opening
 //! anything.
 
-use deepmind_midi::param::Group;
+use std::sync::LazyLock;
+
+use deepmind_midi::param::{Group, ParamId};
 use iced_core::alignment::Vertical;
 use iced_core::{Background, Font, Theme, border, text::Renderer as TextRenderer};
 use iced_widget::{button, row, text};
@@ -20,37 +22,54 @@ use crate::panel::{Message, dot};
 use crate::style::materials;
 use crate::{Element, Patch};
 
-/// The sections, in the order the sound passes through them.
+/// The sections, in the order the instrument itself lays them out.
 ///
-/// [`Group::ALL`] is alphabetical, which is the order a generated table comes
-/// out in and the order nothing on the instrument is in: it puts the effects
-/// third and the oscillators eighth. This is the signal path, starting with what
-/// the program is and ending with what happens to it on the way out, so that
-/// moving left to right along the bar is moving forward through the voice.
-pub const SECTIONS: [Group; 14] = [
-    Group::Program,
-    Group::Voicing,
-    Group::Oscillators,
-    Group::Vcf,
-    Group::VcfEnvelope,
-    Group::Vca,
-    Group::VcaEnvelope,
-    Group::Lfo1,
-    Group::Lfo2,
-    Group::ModEnvelope,
-    Group::ModMatrix,
-    Group::Arpeggiator,
-    Group::ControlSequencer,
-    Group::Effects,
-];
+/// Not a list written down here, and not `Group::ALL` either, which is
+/// alphabetical and puts the effects third and the oscillators eighth.
+/// A parameter's offset is its NRPN number and its place in a dump, `ParamId::ALL`
+/// is in offset order, and so the order the groups first appear in it is the
+/// order the instrument keeps them in: LFOs, oscillators, filter, the envelopes
+/// and the VCA, voicing, modulation, sequencing, effects, and the program's own
+/// settings last.
+///
+/// Reading it off the table rather than writing it down means a group a later
+/// library adds arrives in its right place, rather than at the end of an array
+/// somebody has to remember to edit. This repository does not re-tabulate the
+/// library, and the order of the panels is a fact about the instrument like any
+/// other.
+#[must_use]
+pub fn sections() -> &'static [Group] {
+    static ORDER: LazyLock<Vec<Group>> = LazyLock::new(|| {
+        let mut order: Vec<Group> = Vec::with_capacity(Group::ALL.len());
+        for parameter in ParamId::ALL.iter().copied() {
+            let group = parameter.group();
+            if !order.contains(&group) {
+                order.push(group);
+            }
+        }
+        order
+    });
+    &ORDER
+}
+
+/// The panel a window opens on, which is the first one the instrument lays out.
+///
+/// The fallback is unreachable: the library is a table of 242 parameters and
+/// every one of them is in a group, so the order above has a first element. It
+/// costs one line, and a window that opened on no panel at all would be worse
+/// than one that opened on the wrong panel.
+#[must_use]
+pub fn first_section() -> Group {
+    sections().first().copied().unwrap_or(Group::Vcf)
+}
 
 /// Draws the bar, with `showing` pressed in.
 #[must_use]
-pub fn sections<'a, Renderer>(patch: &Patch, showing: Group) -> Element<'a, Renderer>
+pub fn section_bar<'a, Renderer>(patch: &Patch, showing: Group) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
-    let tabs = SECTIONS.into_iter().map(|group| {
+    let tabs = sections().iter().copied().map(|group| {
         let pressed = group == showing;
         button(
             row![dot(patch.claim_of(group)), text(group.name()).size(12)]
@@ -94,23 +113,53 @@ fn tab(theme: &Theme, pressed: bool) -> button::Style {
 }
 
 #[cfg(test)]
+#[expect(
+    clippy::expect_used,
+    reason = "a failed expectation is the test failure"
+)]
 mod tests {
     use deepmind_midi::param::Group;
 
-    use super::SECTIONS;
+    use super::{first_section, sections};
 
     #[test]
     fn the_bar_reaches_every_parameter() {
         for group in Group::ALL {
             assert!(
-                SECTIONS.contains(group),
+                sections().contains(group),
                 "{group} is not on the bar, so its parameters cannot be reached"
             );
         }
         assert_eq!(
-            SECTIONS.len(),
+            sections().len(),
             Group::ALL.len(),
-            "a section appears on the bar twice, or the library grew one"
+            "a section appears on the bar twice"
         );
+    }
+
+    #[test]
+    fn the_bar_is_in_the_instrument_s_own_order() {
+        let starts: Vec<u8> = sections()
+            .iter()
+            .map(|group| {
+                group
+                    .parameters()
+                    .next()
+                    .expect("a group the table produced has a parameter in it")
+                    .offset()
+            })
+            .collect();
+        let mut sorted = starts.clone();
+        sorted.sort_unstable();
+
+        assert_eq!(
+            starts, sorted,
+            "the bar is not in the order the instrument lays its parameters out"
+        );
+    }
+
+    #[test]
+    fn a_window_opens_on_the_first_panel() {
+        assert_eq!(Some(first_section()), sections().first().copied());
     }
 }
