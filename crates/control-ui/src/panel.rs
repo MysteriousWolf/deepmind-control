@@ -16,6 +16,12 @@
 //! seventeen parameters holding one character each are one word to the person
 //! reading them: the slots are still the library's, and seventeen of them are
 //! drawn as the display the instrument shows them on.
+//!
+//! What a hand layout may do is give a control more room, or a different way to
+//! run in it. [`Room`] is how it says so, and it is the only thing that changes
+//! between a rack's slot and the [matrix](crate::matrix)'s rows: the control in
+//! either is whatever the library says the parameter is, chosen by the same
+//! code from the same table.
 
 use core::fmt;
 
@@ -27,7 +33,8 @@ use iced_core::{Background, Border, Font, Length, Theme, border, text::Renderer 
 use iced_widget::{Space, button, column, container, pick_list, row, text};
 
 use crate::envelope;
-use crate::fader::{self, fader};
+use crate::fader::{self, Axis, fader};
+use crate::matrix;
 use crate::name;
 use crate::style::materials;
 use crate::{Confidence, Element, Patch, tint};
@@ -47,6 +54,63 @@ pub(crate) const NAME: f32 = 44.0;
 /// Beyond this a list is the honest control: the modulation matrix has 130
 /// destinations, and a column of 130 legends is a joke at the reader's expense.
 const LEGENDS: usize = 6;
+
+/// How much of the panel a control has been given, and which way it runs.
+///
+/// A slot in the rack gives a fader its own width and a list no more than the
+/// slot it stands in; a row of a hand-laid-out table gives a list the width its
+/// names need and turns a fader onto its side. It is the whole of what hand
+/// layout is allowed to change about a control, which is why it is one type
+/// rather than an argument each.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct Room {
+    /// Which way a fader runs in it.
+    axis: Axis,
+    /// How much room across the panel, which is a fader's travel when it runs
+    /// across it.
+    width: f32,
+    /// How tall the control stands, so that a rack's slots line up whatever is
+    /// in them and a row is only as tall as what it holds.
+    height: Length,
+}
+
+impl Room {
+    /// The room a slot in the rack gives.
+    ///
+    /// Every slot is the same height whatever its control, because a rack of
+    /// forty that jostles is a rack nobody can read across.
+    pub(crate) const SLOT: Self = Self {
+        axis: Axis::Down,
+        width: fader::WIDTH + 28.0,
+        height: Length::Fixed(fader::HEIGHT),
+    };
+
+    /// Room for something chosen from a list in a row, `width` points of it.
+    ///
+    /// As tall as a fader lying on its side, so that a table's cells are one
+    /// band whatever is standing in them and its columns line up.
+    pub(crate) const fn listed(width: f32) -> Self {
+        Self {
+            axis: Axis::Down,
+            width,
+            height: Length::Fixed(fader::WIDTH),
+        }
+    }
+
+    /// Room for a fader lying on its side, `width` points of travel long.
+    pub(crate) const fn across(width: f32) -> Self {
+        Self {
+            axis: Axis::Across,
+            width,
+            height: Length::Fixed(fader::WIDTH),
+        }
+    }
+
+    /// Returns how much room across the panel this is.
+    pub(crate) const fn width(self) -> f32 {
+        self.width
+    }
+}
 
 /// What a view in this crate asks for.
 ///
@@ -94,20 +158,35 @@ where
     // are one field, drawn where the first of them sits, so the rack keeps the
     // instrument's own order and loses seventeen faders nobody could name a
     // sound on.
-    let slots = group.parameters().filter_map(|parameter| {
-        if name::holds(parameter) {
-            return name::begins(parameter).then(|| name::field(patch));
-        }
-        Some(slot(patch, group, parameter, firmware))
-    });
-    let rack = row(slots).spacing(0).wrap();
-    // An envelope's meaning is a picture, so the picture goes above its rack.
-    // The slots are untouched: hand layout changes the arrangement and never
-    // what a control is.
-    let body: Element<'a, Renderer> = match envelope::shape(patch, group) {
-        Some(shape) => column![shape, rack].spacing(10).into(),
-        None => rack.into(),
-    };
+    //
+    // A panel drawn as a table takes its own parameters out of the rack, and
+    // leaves anything it did not claim in it: a group that grows a parameter no
+    // row knows about keeps it as a slot rather than losing it to a layout.
+    let routed = matrix::routed(group);
+    let slots: Vec<Element<'a, Renderer>> = group
+        .parameters()
+        .filter(|parameter| !routed.contains(parameter))
+        .filter_map(|parameter| {
+            if name::holds(parameter) {
+                return name::begins(parameter).then(|| name::field(patch));
+            }
+            Some(slot(patch, group, parameter, firmware))
+        })
+        .collect();
+    // An envelope's meaning is a picture, so the picture goes above its rack,
+    // and the modulation matrix is eight sentences, so they are read across
+    // above what is left of one. The slots themselves are untouched: hand
+    // layout changes the arrangement and never what a control is.
+    let mut body = column![].spacing(10);
+    if let Some(shape) = envelope::shape(patch, group) {
+        body = body.push(shape);
+    }
+    if let Some(table) = matrix::table(patch, group, firmware) {
+        body = body.push(table);
+    }
+    if !slots.is_empty() {
+        body = body.push(row(slots).spacing(0).wrap());
+    }
     container(body)
         .padding(8)
         .style(|theme: &Theme| {
@@ -163,21 +242,9 @@ where
     let claim = patch.claim(parameter);
     let value = patch.value(parameter);
     column![
-        // The NRPN number, which is also the parameter's byte offset in a dump,
-        // so one number is both its name on the wire and its address in memory.
-        text(parameter.offset().to_string())
-            .size(10)
-            .font(Font::MONOSPACE)
-            .style(move |theme: &Theme| text::Style {
-                color: Some(tint(theme, Confidence::Unknown)),
-            }),
-        control(parameter, value, claim, firmware),
-        text(reading(parameter, value, firmware))
-            .size(13)
-            .font(Font::MONOSPACE)
-            .style(move |theme: &Theme| text::Style {
-                color: Some(tint(theme, claim)),
-            }),
+        address(parameter),
+        control(parameter, value, claim, firmware, Room::SLOT),
+        readout(parameter, value, claim, firmware),
         container(text(short(group, parameter)).size(11).center())
             .height(Length::Fixed(NAME))
             .width(Length::Fill)
@@ -200,12 +267,25 @@ fn short(group: Group, parameter: ParamId) -> &'static str {
         .map_or(name, |rest| rest.trim_start())
 }
 
-/// Draws the control a parameter is edited with.
+/// Draws where a parameter lives.
 ///
-/// A parameter of a sound nobody has read still draws its control, because an
-/// empty slot in a rack of forty is harder to read than a fader with no cap on
-/// it. The control says so by having nothing to take hold of.
-fn control<'a, Renderer>(
+/// The NRPN number, which is also the parameter's byte offset in a dump, so one
+/// number is both its name on the wire and its address in memory.
+pub(crate) fn address<'a, Renderer>(parameter: ParamId) -> Element<'a, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    text(parameter.offset().to_string())
+        .size(10)
+        .font(Font::MONOSPACE)
+        .style(move |theme: &Theme| text::Style {
+            color: Some(tint(theme, Confidence::Unknown)),
+        })
+        .into()
+}
+
+/// Draws what a parameter is holding, in the colour of what backs it.
+pub(crate) fn readout<'a, Renderer>(
     parameter: ParamId,
     value: Option<u8>,
     claim: Confidence,
@@ -214,13 +294,34 @@ fn control<'a, Renderer>(
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
+    text(reading(parameter, value, firmware))
+        .size(13)
+        .font(Font::MONOSPACE)
+        .style(move |theme: &Theme| text::Style {
+            color: Some(tint(theme, claim)),
+        })
+        .into()
+}
+
+/// Draws the control a parameter is edited with.
+///
+/// A parameter of a sound nobody has read still draws its control, because an
+/// empty slot in a rack of forty is harder to read than a fader with no cap on
+/// it. The control says so by having nothing to take hold of.
+pub(crate) fn control<'a, Renderer>(
+    parameter: ParamId,
+    value: Option<u8>,
+    claim: Confidence,
+    firmware: Version,
+    room: Room,
+) -> Element<'a, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
     let low = u8::try_from(parameter.min()).unwrap_or(u8::MIN);
     let high = u8::try_from(parameter.max()).unwrap_or(u8::MAX);
     let Some(value) = value else {
-        return fader(low..=high, low, Confidence::Unknown, move |value| {
-            Message::Edit { parameter, value }
-        })
-        .into();
+        return sweep(parameter, low..=high, low, Confidence::Unknown, room);
     };
     match parameter.kind() {
         Kind::Switch => lamp(
@@ -229,17 +330,20 @@ where
             claim,
             u8::from(value == 0),
             if value == 0 { "off" } else { "on" },
+            room,
         ),
         Kind::Enumerated(table) => match choices(table, parameter, firmware, value) {
-            Some(options) if options.len() <= LEGENDS => legends(parameter, &options, value, claim),
-            Some(options) => list(parameter, options, value),
+            Some(options) if options.len() <= LEGENDS => {
+                legends(parameter, &options, value, claim, room)
+            }
+            Some(options) => list(parameter, options, value, room),
             // A table that does not name this value is a table that would drop
             // the value on the next click, so the raw number stays draggable.
-            None => sweep(parameter, low..=high, value, claim),
+            None => sweep(parameter, low..=high, value, claim, room),
         },
         // A sweep, and anything a later library adds that this build has not
         // heard of: every parameter is a number underneath.
-        _ => sweep(parameter, low..=high, value, claim),
+        _ => sweep(parameter, low..=high, value, claim, room),
     }
 }
 
@@ -249,16 +353,20 @@ fn sweep<'a, Renderer>(
     range: core::ops::RangeInclusive<u8>,
     value: u8,
     claim: Confidence,
+    room: Room,
 ) -> Element<'a, Renderer>
 where
     Renderer: iced_core::Renderer + 'a,
 {
     let low = *range.start();
     let high = *range.end();
-    fader(range, value.clamp(low, high), claim, move |value| {
+    let fader = fader(range, value.clamp(low, high), claim, move |value| {
         Message::Edit { parameter, value }
-    })
-    .into()
+    });
+    match room.axis {
+        Axis::Down => fader.into(),
+        Axis::Across => fader.across(room.width).into(),
+    }
 }
 
 /// Draws a lamp: lit for on, and what it says under it.
@@ -271,6 +379,7 @@ fn lamp<'a, Renderer>(
     claim: Confidence,
     next: u8,
     label: &'a str,
+    room: Room,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -292,7 +401,7 @@ where
         face
     };
     container(face)
-        .height(Length::Fixed(fader::HEIGHT))
+        .height(room.height)
         .align_y(Vertical::Center)
         .into()
 }
@@ -303,6 +412,7 @@ fn legends<'a, Renderer>(
     options: &[Choice],
     value: u8,
     claim: Confidence,
+    room: Room,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -325,18 +435,19 @@ where
             Element::from(face)
         }
     });
-    container(
-        column(rows)
-            .spacing(2)
-            .width(Length::Fixed(fader::WIDTH + 28.0)),
-    )
-    .height(Length::Fixed(fader::HEIGHT))
-    .align_y(Vertical::Center)
-    .into()
+    container(column(rows).spacing(2).width(Length::Fixed(room.width)))
+        .height(room.height)
+        .align_y(Vertical::Center)
+        .into()
 }
 
 /// Draws a named set too long for legends as the list it is.
-fn list<'a, Renderer>(parameter: ParamId, options: Vec<Choice>, value: u8) -> Element<'a, Renderer>
+fn list<'a, Renderer>(
+    parameter: ParamId,
+    options: Vec<Choice>,
+    value: u8,
+    room: Room,
+) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
@@ -351,9 +462,9 @@ where
         })
         .text_size(11)
         .padding([2, 6])
-        .width(Length::Fixed(fader::WIDTH + 28.0)),
+        .width(Length::Fixed(room.width)),
     )
-    .height(Length::Fixed(fader::HEIGHT))
+    .height(room.height)
     .align_y(Vertical::Center)
     .into()
 }
@@ -486,4 +597,41 @@ fn choices(
         .iter()
         .find(|choice| choice.value == u16::from(value))?;
     Some(options)
+}
+
+#[cfg(test)]
+mod tests {
+    use deepmind_midi::param::{Group, ParamId};
+
+    use crate::matrix;
+
+    #[test]
+    fn every_parameter_is_drawn_once_whatever_its_panel_is_laid_out_as() {
+        // A hand-laid-out table takes its parameters out of the rack, and what
+        // it did not claim stays in it. Two ways to lose a parameter: a table
+        // that claims one twice, and a rack that filters one out for a table
+        // that was not drawing it. A group nobody has laid out by hand passes
+        // this trivially, which is the point — the rule is the same for all
+        // fourteen.
+        for group in Group::ALL.iter().copied() {
+            let routed = matrix::routed(group);
+            let slots: Vec<ParamId> = group
+                .parameters()
+                .filter(|parameter| !routed.contains(parameter))
+                .collect();
+
+            let mut drawn: Vec<ParamId> = routed;
+            drawn.extend(slots);
+            let count = drawn.len();
+            drawn.sort_unstable_by_key(|parameter| parameter.offset());
+            drawn.dedup();
+
+            assert_eq!(drawn.len(), count, "{group} draws a parameter twice");
+            assert_eq!(
+                drawn.len(),
+                group.parameters().count(),
+                "{group} loses a parameter between its table and its rack"
+            );
+        }
+    }
 }

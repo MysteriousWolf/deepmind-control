@@ -451,12 +451,30 @@ group and changes only the arrangement, never what a control is:
 | --- | --- |
 | Program | **Done.** The name is 17 parameters, one character each, and 17 faders is not a name, so the 17 slots are the one display the instrument shows them on |
 | VCF, VCA and Mod envelopes | **Done.** Four faders and the shape they make, drawn above the rack, which is the one group whose meaning is a picture |
-| Mod Matrix | Eight rows of source, destination and depth, read across rather than down |
+| Mod Matrix | **Done.** Eight rows of source, destination and depth, read across rather than down, because twenty-four slots in one wrapping line are eight sentences with their words in the wrong order |
 | Control Sequencer | 32 steps, which is a sequencer and not a rack |
 | Effects | Four engines, waiting on the library publishing `spec/panels.toml` |
 
 Until a group is laid out, it is complete and honest and looks like the
 specification it came from, which is the trade this order is making.
+
+The modulation matrix is the first one whose arrangement is a table. Eight
+routings of source, destination and depth are eight sentences, and a rack puts
+the three words of one in three places with the next sentence between them: the
+row is what makes it readable, and the parameters' own names move into the
+column headings rather than being repeated eight times over. The eight are
+found by what the library calls them — a `Source` with a `Destination` and a
+`Depth` sharing its prefix — so a ninth routing draws a ninth row and a lone
+`Source` somewhere else is not a matrix.
+
+That is also where hand layout stops being only an arrangement of whole
+controls. A row gives a list the width its names need and turns the depth fader
+onto its side, because eight rows cannot each be 128 points tall and eight
+depths that do not line up are eight numbers nobody can compare. The control is
+still whatever the library says the parameter is, chosen by the same code from
+the same table: a depth a later library gives a value table arrives as a list,
+in the row, with nothing here to edit. How much room a control has and which way
+it runs is what a hand layout may change; what the control is, is not.
 
 An envelope is the first group whose hand layout adds a drawing rather than
 rearranging controls, and it is drawn under the same two refusals as everything
@@ -494,7 +512,7 @@ needed.
 | 0 | Workspace | **Done.** Four crates, pinned dependencies, CI running the four commands in the README, licence and notice files. |
 | 1 | `deepmind-host` | **Done.** Port enumeration, `Port` over midir, `Clock`, the device thread, commands in and events out, the simulator as a selectable port. Tested against `sim` with no hardware. |
 | 2 | First light | **Done.** Desktop window, port picker, identity, read the edit buffer, VCF editable end to end with assumed and confirmed drawn differently. |
-| 3 | Every parameter | **Generated, and being laid out.** All fourteen groups from `Group::parameters`, one at a time behind a section bar, because a complete ugly editor beats a beautiful partial one. The program's name and the three envelopes are laid out; the modulation matrix and the control sequencer are what remains. |
+| 3 | Every parameter | **Generated, and being laid out.** All fourteen groups from `Group::parameters`, one at a time behind a section bar, because a complete ugly editor beats a beautiful partial one. The program's name, the three envelopes and the modulation matrix are laid out; the control sequencer is what remains. |
 | 4 | The librarian | Read and write `.syx`, read a bank with progress and cancel, browse a pack, load a program into the edit buffer as a difference. |
 | 5 | The effects | Waits on the library publishing the panel tables. Four engines, 35 algorithms, the routing graph. |
 | 6 | The plugin | Simple mode, then state, then advanced mode in the same window. The CLAP comes out first, having nothing to settle; then the AU, once the bundle signs and `auval` passes; then the VST3, once Steinberg's terms are. |

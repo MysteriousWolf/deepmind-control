@@ -14,6 +14,21 @@
 //! on a fader takes hold of the cap where it already is, and the drag is
 //! relative from there.
 //!
+//! # It runs down the panel, or across it
+//!
+//! Down, everywhere the rack draws one, because that is the way every fader on
+//! the instrument runs. [`Axis::Across`] turns the same fader onto its side and
+//! changes nothing else about it: the same recessed track, the same scale in
+//! pairs, the same metal cap, the same relative grab, and the drag follows the
+//! axis the cap does.
+//!
+//! That exists for one reason. A panel laid out by hand as rows — eight
+//! modulation routings read across, source to destination to depth — cannot
+//! give each row a column 128 points tall, and a value drawn as a number
+//! because it would not fit is a value nobody can compare with the seven
+//! above it. Turning the fader is the arrangement changing. What the control is
+//! is untouched, which is the line hand layout does not cross.
+//!
 //! # What the claim changes
 //!
 //! Everything about the cap, and nothing about the track. A confirmed value is
@@ -27,27 +42,33 @@ use core::ops::RangeInclusive;
 use iced_core::layout::{self, Layout};
 use iced_core::widget::{Tree, tree};
 use iced_core::{
-    Background, Border, Clipboard, Element, Event, Length, Rectangle, Shell, Size, Theme, Widget,
-    keyboard, mouse, renderer, touch,
+    Background, Border, Clipboard, Element, Event, Length, Point, Rectangle, Shell, Size, Theme,
+    Widget, keyboard, mouse, renderer, touch,
 };
 
 use crate::Confidence;
 use crate::style::{materials, tint};
 
 /// Width of a fader, including the room its scale needs.
+///
+/// Across the travel rather than left to right: it is the height of one that
+/// runs across the panel.
 pub const WIDTH: f32 = 44.0;
 
 /// Height of a fader, which is the travel plus the cap.
+///
+/// Along the travel, and the length one is given unless a caller asks for
+/// another.
 pub const HEIGHT: f32 = 128.0;
 
 /// Width of the track cut into the panel.
 const TRACK: f32 = 7.0;
 
-/// Width of the cap.
+/// The cap across its travel.
 const CAP_WIDTH: f32 = 38.0;
 
-/// Height of the cap. Travel is the track less this, so the ends of the range
-/// put the cap flush with the ends of the track.
+/// The cap along its travel. Travel is the track less this, so the ends of the
+/// range put the cap flush with the ends of the track.
 const CAP_HEIGHT: f32 = 15.0;
 
 /// Length of one arm of a scale tick.
@@ -59,7 +80,22 @@ const TICKS: [f32; 5] = [0.0, 0.25, 0.5, 0.75, 1.0];
 /// How much of the range a fine drag covers: an eighth.
 const FINE: f32 = 0.125;
 
-/// A vertical fader over one parameter's range.
+/// Which way a fader runs.
+///
+/// The way the cap travels, the way a drag is measured, and the way the scale
+/// is ticked. Nothing else about the control depends on it.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+pub enum Axis {
+    /// Down the panel, with the top of the travel the top of the range.
+    ///
+    /// Which is every fader the instrument has, and every fader the rack draws.
+    #[default]
+    Down,
+    /// Across it, with the right of the travel the top of the range.
+    Across,
+}
+
+/// A fader over one parameter's range.
 #[expect(
     missing_debug_implementations,
     reason = "the callback is a closure, and a widget is not inspected"
@@ -68,13 +104,16 @@ pub struct Fader<'a, Message> {
     value: u8,
     range: RangeInclusive<u8>,
     claim: Confidence,
+    axis: Axis,
+    length: f32,
     on_change: Box<dyn Fn(u8) -> Message + 'a>,
 }
 
 /// Builds a fader over `range`, sitting at `value`.
 ///
 /// `claim` is what backs the value, and it decides whether there is a cap to
-/// take hold of at all.
+/// take hold of at all. It runs down the panel until [`Fader::across`] says
+/// otherwise.
 pub fn fader<'a, Message>(
     range: RangeInclusive<u8>,
     value: u8,
@@ -85,7 +124,22 @@ pub fn fader<'a, Message>(
         value,
         range,
         claim,
+        axis: Axis::Down,
+        length: HEIGHT,
         on_change: Box::new(on_change),
+    }
+}
+
+impl<Message> Fader<'_, Message> {
+    /// Turns the fader onto its side, `length` points of travel long.
+    ///
+    /// For a panel whose hand layout is rows. The control is the same one; the
+    /// row is what changed.
+    #[must_use]
+    pub fn across(mut self, length: f32) -> Self {
+        self.axis = Axis::Across;
+        self.length = length;
+        self
     }
 }
 
@@ -97,7 +151,8 @@ pub fn fader<'a, Message>(
 #[derive(Debug, Clone, Copy)]
 struct Grab {
     value: f32,
-    last_y: f32,
+    /// Where the pointer was along the fader's own axis.
+    last: f32,
 }
 
 /// What a fader remembers between events.
@@ -108,9 +163,42 @@ struct State {
 }
 
 impl<Message> Fader<'_, Message> {
+    /// Returns how long the fader is, and how wide, in that order.
+    fn size_of(&self) -> (Length, Length) {
+        match self.axis {
+            Axis::Down => (Length::Fixed(WIDTH), Length::Fixed(self.length)),
+            Axis::Across => (Length::Fixed(self.length), Length::Fixed(WIDTH)),
+        }
+    }
+
     /// Returns how far the cap can travel.
-    fn travel(bounds: Rectangle) -> f32 {
-        (bounds.height - CAP_HEIGHT).max(1.0)
+    fn travel(&self, bounds: Rectangle) -> f32 {
+        let along = match self.axis {
+            Axis::Down => bounds.height,
+            Axis::Across => bounds.width,
+        };
+        (along - CAP_HEIGHT).max(1.0)
+    }
+
+    /// Returns where a pointer is along the travel.
+    fn along(&self, position: Point) -> f32 {
+        match self.axis {
+            Axis::Down => position.y,
+            Axis::Across => position.x,
+        }
+    }
+
+    /// Returns how much of the range the pointer covered going `from` to `to`.
+    ///
+    /// Up is more on a fader that runs down the panel, and right is more on one
+    /// that runs across it, which is the only place the axis reaches the
+    /// arithmetic.
+    fn advance(&self, from: f32, to: f32, bounds: Rectangle) -> f32 {
+        let moved = match self.axis {
+            Axis::Down => from - to,
+            Axis::Across => to - from,
+        };
+        moved / self.travel(bounds) * self.span()
     }
 
     /// Returns the range as a span of values, never zero.
@@ -120,16 +208,108 @@ impl<Message> Fader<'_, Message> {
         (high - low).max(1.0)
     }
 
-    /// Returns where the top of the cap sits for `value`.
-    fn cap_top(&self, bounds: Rectangle) -> f32 {
+    /// Returns how far along its travel the cap sits, as a fraction.
+    fn fraction(&self) -> f32 {
         let low = f32::from(*self.range.start());
-        let fraction = (f32::from(self.value) - low) / self.span();
-        bounds.y + (1.0 - fraction.clamp(0.0, 1.0)) * Self::travel(bounds)
+        ((f32::from(self.value) - low) / self.span()).clamp(0.0, 1.0)
+    }
+
+    /// Returns the track cut into the panel.
+    fn track(&self, bounds: Rectangle) -> Rectangle {
+        match self.axis {
+            Axis::Down => Rectangle {
+                x: bounds.x + (bounds.width - TRACK) / 2.0,
+                y: bounds.y,
+                width: TRACK,
+                height: bounds.height,
+            },
+            Axis::Across => Rectangle {
+                x: bounds.x,
+                y: bounds.y + (bounds.height - TRACK) / 2.0,
+                width: bounds.width,
+                height: TRACK,
+            },
+        }
+    }
+
+    /// Returns where the cap is.
+    fn cap(&self, bounds: Rectangle) -> Rectangle {
+        let travelled = self.fraction() * self.travel(bounds);
+        match self.axis {
+            Axis::Down => Rectangle {
+                x: bounds.x + (bounds.width - CAP_WIDTH) / 2.0,
+                y: bounds.y + self.travel(bounds) - travelled,
+                width: CAP_WIDTH,
+                height: CAP_HEIGHT,
+            },
+            Axis::Across => Rectangle {
+                x: bounds.x + travelled,
+                y: bounds.y + (bounds.height - CAP_WIDTH) / 2.0,
+                width: CAP_HEIGHT,
+                height: CAP_WIDTH,
+            },
+        }
+    }
+
+    /// Returns the line a cap's value is read against.
+    fn indicator(&self, cap: Rectangle) -> Rectangle {
+        match self.axis {
+            Axis::Down => Rectangle {
+                x: cap.x + 6.0,
+                y: cap.y + cap.height / 2.0 - 1.0,
+                width: cap.width - 12.0,
+                height: 2.0,
+            },
+            Axis::Across => Rectangle {
+                x: cap.x + cap.width / 2.0 - 1.0,
+                y: cap.y + 6.0,
+                width: 2.0,
+                height: cap.height - 12.0,
+            },
+        }
+    }
+
+    /// Returns the two arms of the scale tick at `fraction` of the travel.
+    fn tick(&self, bounds: Rectangle, fraction: f32) -> [Rectangle; 2] {
+        let travelled = fraction * self.travel(bounds);
+        match self.axis {
+            Axis::Down => {
+                let y = bounds.y + CAP_HEIGHT / 2.0 + self.travel(bounds) - travelled;
+                [bounds.x + 2.0, bounds.x + bounds.width - 2.0 - TICK].map(|x| Rectangle {
+                    x,
+                    y,
+                    width: TICK,
+                    height: 1.0,
+                })
+            }
+            Axis::Across => {
+                let x = bounds.x + CAP_HEIGHT / 2.0 + travelled;
+                [bounds.y + 2.0, bounds.y + bounds.height - 2.0 - TICK].map(|y| Rectangle {
+                    x,
+                    y,
+                    width: 1.0,
+                    height: TICK,
+                })
+            }
+        }
     }
 
     /// Returns whether there is anything here to take hold of.
     fn is_live(&self) -> bool {
         !matches!(self.claim, Confidence::Unknown)
+    }
+
+    /// Rounds a value a drag has accumulated into the byte a parameter holds.
+    fn byte(&self, value: f32) -> u8 {
+        let clamped = value.clamp(f32::from(*self.range.start()), f32::from(*self.range.end()));
+        // The float is what a drag accumulates; the parameter is a byte.
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "clamped to the range, which is a u8 either end"
+        )]
+        let byte = clamped.round() as u8;
+        byte
     }
 }
 
@@ -146,7 +326,8 @@ where
     }
 
     fn size(&self) -> Size<Length> {
-        Size::new(Length::Fixed(WIDTH), Length::Fixed(HEIGHT))
+        let (width, height) = self.size_of();
+        Size::new(width, height)
     }
 
     fn layout(
@@ -155,7 +336,8 @@ where
         _renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
-        layout::atomic(limits, Length::Fixed(WIDTH), Length::Fixed(HEIGHT))
+        let (width, height) = self.size_of();
+        layout::atomic(limits, width, height)
     }
 
     fn update(
@@ -185,7 +367,7 @@ where
                     // Take hold of the cap where it is. Nothing jumps.
                     state.grab = Some(Grab {
                         value: f32::from(self.value),
-                        last_y: position.y,
+                        last: self.along(position),
                     });
                     shell.capture_event();
                 }
@@ -196,25 +378,21 @@ where
             }
             Event::Mouse(mouse::Event::CursorMoved { position, .. })
             | Event::Touch(touch::Event::FingerMoved { position, .. }) => {
-                let Some(grab) = state.grab.as_mut() else {
+                let Some(grab) = state.grab else {
                     return;
                 };
                 let rate = if state.fine { FINE } else { 1.0 };
-                let moved = (grab.last_y - position.y) / Self::travel(bounds) * self.span() * rate;
-                grab.last_y = position.y;
-                grab.value = (grab.value + moved)
-                    .clamp(f32::from(*self.range.start()), f32::from(*self.range.end()));
-
-                // The float is what a drag accumulates; the parameter is a byte.
-                #[expect(
-                    clippy::cast_possible_truncation,
-                    clippy::cast_sign_loss,
-                    reason = "clamped to the range, which is a u8 either end"
-                )]
-                let value = grab.value.round() as u8;
-                if value != self.value {
-                    self.value = value;
-                    shell.publish((self.on_change)(value));
+                let now = self.along(*position);
+                let value = grab.value + self.advance(grab.last, now, bounds) * rate;
+                let byte = self.byte(value);
+                state.grab = Some(Grab {
+                    value: value
+                        .clamp(f32::from(*self.range.start()), f32::from(*self.range.end())),
+                    last: now,
+                });
+                if byte != self.value {
+                    self.value = byte;
+                    shell.publish((self.on_change)(byte));
                 }
                 shell.capture_event();
             }
@@ -231,17 +409,10 @@ where
                 if moved.abs() < f32::EPSILON {
                     return;
                 }
-                let next = (f32::from(self.value) + moved)
-                    .clamp(f32::from(*self.range.start()), f32::from(*self.range.end()));
-                #[expect(
-                    clippy::cast_possible_truncation,
-                    clippy::cast_sign_loss,
-                    reason = "clamped to the range, which is a u8 either end"
-                )]
-                let value = next as u8;
-                if value != self.value {
-                    self.value = value;
-                    shell.publish((self.on_change)(value));
+                let byte = self.byte(f32::from(self.value) + moved);
+                if byte != self.value {
+                    self.value = byte;
+                    shell.publish((self.on_change)(byte));
                 }
                 shell.capture_event();
             }
@@ -279,18 +450,13 @@ where
     ) {
         let bounds = layout.bounds();
         let material = materials(theme);
-        let centre = bounds.x + bounds.width / 2.0;
+        let track = self.track(bounds);
 
         // The track: a recess cut into the panel, lit along its lower wall, so a
         // fader at the bottom of its travel still reads as a fader.
         renderer.fill_quad(
             renderer::Quad {
-                bounds: Rectangle {
-                    x: centre - TRACK / 2.0,
-                    y: bounds.y,
-                    width: TRACK,
-                    height: bounds.height,
-                },
+                bounds: track,
                 border: Border {
                     color: material.recess_edge,
                     width: 1.0,
@@ -303,9 +469,9 @@ where
         renderer.fill_quad(
             renderer::Quad {
                 bounds: Rectangle {
-                    x: centre - TRACK / 2.0 + 1.0,
-                    y: bounds.y + bounds.height - 3.0,
-                    width: TRACK - 2.0,
+                    x: track.x + 1.0,
+                    y: track.y + track.height - 3.0,
+                    width: track.width - 2.0,
                     height: 2.0,
                 },
                 border: Border::default().rounded(1.0),
@@ -315,18 +481,11 @@ where
         );
 
         // The scale, in pairs either side of the track.
-        let travel = Self::travel(bounds);
         for fraction in TICKS {
-            let y = bounds.y + CAP_HEIGHT / 2.0 + (1.0 - fraction) * travel;
-            for x in [bounds.x + 2.0, bounds.x + bounds.width - 2.0 - TICK] {
+            for arm in self.tick(bounds, fraction) {
                 renderer.fill_quad(
                     renderer::Quad {
-                        bounds: Rectangle {
-                            x,
-                            y,
-                            width: TICK,
-                            height: 1.0,
-                        },
+                        bounds: arm,
                         ..renderer::Quad::default()
                     },
                     Background::Color(material.scale),
@@ -339,12 +498,7 @@ where
             return;
         }
 
-        let cap = Rectangle {
-            x: centre - CAP_WIDTH / 2.0,
-            y: self.cap_top(bounds),
-            width: CAP_WIDTH,
-            height: CAP_HEIGHT,
-        };
+        let cap = self.cap(bounds);
         let confirmed = self.claim.is_confirmed();
         renderer.fill_quad(
             renderer::Quad {
@@ -372,12 +526,7 @@ where
         // The line a cap's value is read against.
         renderer.fill_quad(
             renderer::Quad {
-                bounds: Rectangle {
-                    x: cap.x + 6.0,
-                    y: cap.y + CAP_HEIGHT / 2.0 - 1.0,
-                    width: CAP_WIDTH - 12.0,
-                    height: 2.0,
-                },
+                bounds: self.indicator(cap),
                 border: Border::default().rounded(1.0),
                 ..renderer::Quad::default()
             },
@@ -397,5 +546,95 @@ where
 {
     fn from(fader: Fader<'a, Message>) -> Self {
         Self::new(fader)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Axis, CAP_HEIGHT, Fader, HEIGHT, WIDTH, fader};
+    use crate::Confidence;
+    use iced_core::{Point, Rectangle};
+
+    /// A fader over a whole byte, sitting at `value`.
+    fn at(value: u8) -> Fader<'static, ()> {
+        fader(u8::MIN..=u8::MAX, value, Confidence::Confirmed, |_| ())
+    }
+
+    /// The bounds a fader running down the panel is laid out in.
+    const DOWN: Rectangle = Rectangle {
+        x: 0.0,
+        y: 0.0,
+        width: WIDTH,
+        height: HEIGHT,
+    };
+
+    /// The bounds the same fader is laid out in on its side.
+    const ACROSS: Rectangle = Rectangle {
+        x: 0.0,
+        y: 0.0,
+        width: HEIGHT,
+        height: WIDTH,
+    };
+
+    #[test]
+    fn both_ends_of_the_range_put_the_cap_flush_with_the_track() {
+        // A control whose extremes are unreachable is a bug people file, and
+        // the arithmetic that reaches them is the same either way round.
+        let bottom = at(u8::MIN).cap(DOWN);
+        assert!((bottom.y + bottom.height - DOWN.height).abs() < f32::EPSILON);
+        assert!((at(u8::MAX).cap(DOWN).y - DOWN.y).abs() < f32::EPSILON);
+
+        let left = at(u8::MIN).across(HEIGHT).cap(ACROSS);
+        assert!((left.x - ACROSS.x).abs() < f32::EPSILON);
+        let right = at(u8::MAX).across(HEIGHT).cap(ACROSS);
+        assert!((right.x + right.width - ACROSS.width).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn the_cap_rides_the_travel_and_never_the_whole_length() {
+        let travel = at(0).travel(DOWN);
+
+        assert!((travel - (HEIGHT - CAP_HEIGHT)).abs() < f32::EPSILON);
+        assert!((at(0).across(HEIGHT).travel(ACROSS) - travel).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn up_is_more_down_the_panel_and_right_is_more_across_it() {
+        let down = at(128);
+        let across = at(128).across(HEIGHT);
+
+        // The pointer goes up: from a larger y to a smaller one.
+        assert!(down.advance(100.0, 40.0, DOWN) > 0.0);
+        assert!(down.advance(40.0, 100.0, DOWN) < 0.0);
+        // And to the right: from a smaller x to a larger one.
+        assert!(across.advance(40.0, 100.0, ACROSS) > 0.0);
+        assert!(across.advance(100.0, 40.0, ACROSS) < 0.0);
+    }
+
+    #[test]
+    fn a_drag_the_length_of_the_travel_covers_the_whole_range() {
+        let down = at(0);
+        let travel = down.travel(DOWN);
+
+        let covered = down.advance(travel, 0.0, DOWN);
+        assert!((covered - down.span()).abs() < 0.01, "covered {covered}");
+
+        let across = at(0).across(HEIGHT);
+        let covered = across.advance(0.0, travel, ACROSS);
+        assert!((covered - across.span()).abs() < 0.01, "covered {covered}");
+    }
+
+    #[test]
+    fn a_pointer_is_read_along_the_axis_the_cap_travels() {
+        let position = Point::new(30.0, 90.0);
+
+        assert!((at(0).along(position) - position.y).abs() < f32::EPSILON);
+        assert!((at(0).across(HEIGHT).along(position) - position.x).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn a_fader_runs_down_the_panel_until_it_is_asked_not_to() {
+        assert_eq!(at(0).axis, Axis::Down);
+        assert_eq!(at(0).across(HEIGHT).axis, Axis::Across);
     }
 }

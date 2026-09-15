@@ -73,6 +73,7 @@
 mod confidence;
 mod envelope;
 mod fader;
+mod matrix;
 mod name;
 mod panel;
 mod patch;
@@ -80,7 +81,7 @@ mod section;
 mod style;
 
 pub use confidence::Confidence;
-pub use fader::{Fader, fader};
+pub use fader::{Axis, Fader, fader};
 pub use name::characters as name_characters;
 pub use panel::{Message, group, legend};
 pub use patch::Patch;

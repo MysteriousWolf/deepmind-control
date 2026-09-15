@@ -133,6 +133,12 @@ covered in.
   throws `VCF Frequency` from 20 to 200 is audible, sent, and not undone by
   letting go. Pressing takes hold of the cap where it is, and the drag is
   relative from there.
+- **It runs down the panel, and across it where a row needs it to.** Down
+  everywhere the rack draws one, which is the way every fader on the instrument
+  runs. A panel laid out by hand as rows turns the same fader onto its side and
+  changes nothing else about it: the same recessed track, the same scale in
+  pairs, the same cap, the same relative grab, and right is more where up was.
+  It is the arrangement that turned, not the control.
 - The address above each slot is the parameter's NRPN number, which is also its
   byte offset in a dump: one number is both its name on the wire and where it
   lives in memory.
@@ -207,6 +213,45 @@ reading below it counting the characters used out of the sixteen.
 Four faders and the shape they make, drawn above them. An envelope is the one
 group whose meaning is a picture, and four numbers that do not draw it are four
 numbers.
+
+### Matrix
+
+Eight modulation routings, one to a row, read across: the routing's name, where
+the modulation comes from, an arrow, where it goes, and how much.
+
+```
+        Source              Destination          Depth
+
+Mod 1   [ LFO 1        v]  ->  [ VCF Freq    v]  [======|========]
+93-95   2                   44                   138
+```
+
+
+- **A rack is the wrong drawing for it.** Three parameters are one sentence, and
+  twenty-four slots in one wrapping line put the words of a sentence in three
+  places with the next sentence between them.
+- **Each cell is a slot with what the row already says taken out of it**: the
+  control and the reading under it. The title is gone because the column
+  heading says `Source`, `Destination` and `Depth` once rather than eight times,
+  which is the rule that takes a group's own name off the front of a slot's
+  title.
+- **The addresses are the row's**, printed under its name as the run they are —
+  `93-95` — the way the name field prints the seventeen it occupies. Three
+  addresses above three controls in a row is three numbers where the row needs
+  one; a library that scattered the three would print all three instead.
+- **The controls are the rack's own.** A list where the library names every
+  value the parameter accepts, a fader where it does not, and the same claim
+  drawn the same way under both. A depth a later library gives a value table
+  arrives here as a list with nothing in the layout to change.
+- **The depth fader runs across.** Eight rows cannot each be 128 points tall,
+  and eight depths in a column of bars can be compared at a glance where eight
+  numbers cannot.
+- **The rows are the library's.** A parameter whose name ends in `Source`, with
+  a `Destination` and a `Depth` sharing its prefix, is a routing: a ninth
+  routing draws a ninth row, and a lone source somewhere else — the oscillators
+  have one — is not a matrix and is not drawn as one.
+- **A parameter no row claimed stays in the rack**, under the table, so a group
+  that grows one keeps it rather than losing it to a layout.
 
 ## Colour is meaning, not decoration
 
