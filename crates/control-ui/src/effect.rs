@@ -151,7 +151,7 @@
 use deepmind_midi::effect::{
     self, Algorithm, Colour, Control, Engine, FxSlot, Panel, Quantity, grid,
 };
-use deepmind_midi::param::{Group, ParamId};
+use deepmind_midi::param::{DEFAULT_FIRMWARE, Group, ParamId};
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::alignment::{Horizontal, Vertical};
 use iced_core::{Background, Border, Color, Font, Length, Theme, text::Renderer as TextRenderer};
@@ -362,12 +362,35 @@ pub(crate) fn switched_on(
 /// The horizontal is `Scale::Normalised` — the ratios between the taps are
 /// published and the master time they are ratios *of* is a byte with no
 /// published curve — so the glass carries the train and no axis.
-fn picture<'a, Renderer>(patch: &Patch, engine: Engine) -> Option<Element<'a, Renderer>>
+fn picture<'a, Renderer>(
+    patch: &Patch,
+    engine: Engine,
+    firmware: Version,
+) -> Option<Element<'a, Renderer>>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
+    // The library reads the type byte on the newest firmware, as a program's own
+    // accessors do, and this page reads it on whichever one answered the
+    // inquiry. On a unit running 1.0 those are two different algorithms above
+    // the one 1.1 inserted, so where they disagree there is no picture: a delay
+    // drawn for an engine this firmware calls something else is the one thing a
+    // screen must not do.
+    let loaded = algorithm(patch, engine, firmware)?;
+    let value = patch.value(engine.algorithm_parameter())?;
+    if Algorithm::for_value(value, DEFAULT_FIRMWARE) != Some(loaded) {
+        return None;
+    }
     let response = effect::response(patch.program()?, engine)?;
-    let claim = patch.claim_across(engine.slot_parameters().iter().copied());
+    // The type as well as the twelve, because which of the twelve are taps is
+    // what the type says.
+    let claim = patch.claim_across(
+        engine
+            .slot_parameters()
+            .iter()
+            .copied()
+            .chain([engine.algorithm_parameter()]),
+    );
     let mut screen = Screen::new(PICTURE, PICTURE_ROWS);
     if !matches!(claim, Confidence::Unknown) {
         let band = screen.all();
@@ -957,7 +980,7 @@ where
     // What the engine is doing to a signal, for the two of the 35 whose panels
     // say it outright. Above the grid, because it is a reading of the whole of
     // what those twelve bytes make and not of any one of them.
-    drawn = drawn.extend(picture(patch, engine));
+    drawn = drawn.extend(picture(patch, engine, firmware));
     for line in &grid {
         drawn = drawn.extend(over(line));
         drawn = drawn.push(line_of(patch, engine, line, firmware, moved, figure));
@@ -1922,6 +1945,37 @@ mod tests {
             .collect();
 
         assert_eq!(drawn, ["3TapDelay", "4TapDelay"], "found {drawn:?}");
+    }
+
+    #[test]
+    fn a_picture_is_not_drawn_for_an_algorithm_the_two_firmwares_disagree_on() {
+        // The library reads the type byte on the newest firmware and this page
+        // reads it on whichever answered the inquiry. 1.1 inserted Vintage
+        // Pitch rather than appending it, so a byte above that point is two
+        // different algorithms, and the picture is the one drawing that cannot
+        // survive being wrong about which.
+        let mut disagreed = 0;
+        for algorithm in Algorithm::all() {
+            let Some(value) = algorithm.value_for(FIRMWARE_1_0) else {
+                continue;
+            };
+            let mut patch = Patch::new();
+            patch.confirm(Program::new(ProtocolVersion::V7));
+            patch.edit(Engine::One.algorithm_parameter(), value);
+
+            let agreed = Algorithm::for_value(value, DEFAULT_FIRMWARE) == Some(algorithm);
+            let drawn: Option<crate::Element<'_, iced_widget::renderer::Renderer>> =
+                super::picture(&patch, Engine::One, FIRMWARE_1_0);
+            assert!(
+                agreed || drawn.is_none(),
+                "{} draws a picture the two firmwares disagree about",
+                algorithm.name
+            );
+            disagreed += usize::from(!agreed);
+        }
+        // And the guard is not vacuous: the two firmwares really do read some
+        // of the bytes as different algorithms, which is why it is there.
+        assert!(disagreed > 0, "the two firmwares agree about all 35");
     }
 
     #[test]
