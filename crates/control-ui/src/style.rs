@@ -297,6 +297,37 @@ pub fn mix(colour: Color, into: Color, amount: f32) -> Color {
     }
 }
 
+/// Returns the ink to print on `surface` so that it can be read.
+///
+/// The instrument's own two, chosen by how much light the surface throws back:
+/// a recess is what a legend is knocked out of on a pale part, and a metal
+/// highlight is what one is printed in on a dark one. Neither is a new colour —
+/// the whole point of this file is that there are no new colours — and the
+/// choice between them is the one thing a caller cannot make for itself,
+/// because a caller holding a measured colour does not know which way round the
+/// palette runs.
+///
+/// Whichever of the two the surface is further from, rather than a threshold
+/// somebody chose: a measured chassis half way between the instrument's ink and
+/// its metal is exactly where a threshold flips on a rounding error, and the
+/// larger of two differences never does. Light is weighted the way an eye
+/// weighs the three channels — a saturated green is bright and a saturated blue
+/// of the same numbers is not, and a mean of the three puts dark ink on the
+/// second one.
+#[must_use]
+pub fn ink_on(surface: Color, theme: &Theme) -> Color {
+    let material = materials(theme);
+    let light = |colour: Color| colour.r.mul_add(0.299, colour.g * 0.587) + colour.b * 0.114;
+    let under = light(surface);
+    let dark = (under - light(material.recess)).abs();
+    let pale = (under - light(material.metal_high)).abs();
+    if dark > pale {
+        material.recess
+    } else {
+        material.metal_high
+    }
+}
+
 /// How round the corner of a button's cap is.
 ///
 /// A `DeepMind`'s buttons are moulded rubber and not keycaps: the corners are

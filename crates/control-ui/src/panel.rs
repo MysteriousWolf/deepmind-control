@@ -30,7 +30,9 @@ use deepmind_midi::param::{Group, Kind, ParamId, Shape};
 use deepmind_midi::program::ProgramName;
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::alignment::{Horizontal, Vertical};
-use iced_core::{Background, Border, Font, Length, Theme, border, text::Renderer as TextRenderer};
+use iced_core::{
+    Background, Border, Color, Font, Length, Theme, border, text::Renderer as TextRenderer,
+};
 use iced_widget::{Space, button, column, container, mouse_area, pick_list, row, text};
 
 use crate::effect;
@@ -144,6 +146,23 @@ pub(crate) struct Room {
     /// [`knob`](crate::knob) — so this belongs here, beside the axis a fader
     /// runs along, rather than anywhere near what a parameter is.
     form: Form,
+    /// How big the thing a hand takes hold of is drawn, when the room is more
+    /// than the control's own size.
+    ///
+    /// A rack's slot is cut to its fader, so the two are the same number and
+    /// this is `None`. An effect plate's column is not: the instrument's own FX
+    /// page puts six of them across a whole page, so a column there is twice a
+    /// slot wide and a control drawn at the column's width would be a knob the
+    /// size of a fist.
+    body: Option<f32>,
+    /// What the thing a hand takes hold of is made of, when it is not the
+    /// window's own metal.
+    ///
+    /// The colour the library measured off an algorithm's printed panel. It is
+    /// room in the sense the rest of this type is: a plate that has been given
+    /// a whole page to be one rack unit on may wear that unit's cap, and every
+    /// other control in the window is the metal it has always been.
+    cap: Option<Color>,
 }
 
 /// What a control that sweeps a range is drawn as.
@@ -172,6 +191,8 @@ impl Room {
         travel: fader::HEIGHT,
         legends: false,
         form: Form::Fader,
+        body: None,
+        cap: None,
     };
 
     /// Room for one lane of the instrument's own front panel.
@@ -187,6 +208,8 @@ impl Room {
             travel,
             legends: false,
             form: Form::Fader,
+            body: None,
+            cap: None,
         }
     }
 
@@ -199,6 +222,8 @@ impl Room {
             travel: height,
             legends: true,
             form: Form::Fader,
+            body: None,
+            cap: None,
         }
     }
 
@@ -214,6 +239,8 @@ impl Room {
             travel: fader::HEIGHT,
             legends: false,
             form: Form::Fader,
+            body: None,
+            cap: None,
         }
     }
 
@@ -229,6 +256,8 @@ impl Room {
             travel: fader::HEIGHT,
             legends: false,
             form: Form::Fader,
+            body: None,
+            cap: None,
         }
     }
 
@@ -241,6 +270,8 @@ impl Room {
             travel: fader::HEIGHT,
             legends: false,
             form: Form::Fader,
+            body: None,
+            cap: None,
         }
     }
 
@@ -253,6 +284,29 @@ impl Room {
     pub(crate) const fn turned(self) -> Self {
         Self {
             form: Form::Knob,
+            ..self
+        }
+    }
+
+    /// The same room, with the control drawn `across` points rather than
+    /// filling it.
+    ///
+    /// For a panel whose columns are wider than its controls, which is what the
+    /// effects page became when it took the instrument's own six-column grid
+    /// and gave it a whole page to lie on. The travel is untouched: how far a
+    /// drag runs is what makes every control in this window move at one rate,
+    /// and it is not a thing a layout may bargain with.
+    pub(crate) const fn sized(self, across: f32) -> Self {
+        Self {
+            body: Some(across),
+            ..self
+        }
+    }
+
+    /// The same room, with the control's cap painted `colour`.
+    pub(crate) const fn worn(self, colour: Color) -> Self {
+        Self {
+            cap: Some(colour),
             ..self
         }
     }
@@ -542,24 +596,35 @@ where
     let high = *range.end();
     if matches!(room.form, Form::Knob) {
         // A knob is as wide as it is tall and takes the room across the panel
-        // it was given, which for a slot in the rack is the fader's own width.
-        return knob(range, value.clamp(low, high), claim, move |value| {
+        // it was given, which for a slot in the rack is the fader's own width
+        // and for a column of an effect plate is the size that plate asked for.
+        let turned = knob(range, value.clamp(low, high), claim, move |value| {
             Message::Edit { parameter, value }
         })
-        .size(room.width.min(knob::SIZE))
+        .size(room.body.unwrap_or_else(|| room.width.min(knob::SIZE)));
+        return match room.cap {
+            Some(colour) => turned.cap(colour),
+            None => turned,
+        }
         .into();
     }
     let fader = fader(range, value.clamp(low, high), claim, move |value| {
         Message::Edit { parameter, value }
     });
+    let fader = match room.cap {
+        Some(colour) => fader.cap(colour),
+        None => fader,
+    };
+    // A plate that asked for a size gets it across the fader as well, so that a
+    // row of knobs and a row of faders are the same row seen two ways.
+    let across = room.body.unwrap_or(room.width);
     match room.axis {
         // A fader takes as much room across as it is given and never more than
         // it needs: a slot gives it more than its width, and a strip's lane
         // gives it less, which is the lane it draws in. How long it runs is the
         // room's too, because the instrument's own panel holds two rows of them.
-        Axis::Down if room.width < fader::WIDTH => {
-            fader.narrow(room.width).travel(room.travel).into()
-        }
+        Axis::Down if across < fader::WIDTH => fader.narrow(across).travel(room.travel).into(),
+        Axis::Down if room.body.is_some() => fader.narrow(across).travel(room.travel).into(),
         Axis::Down => fader.travel(room.travel).into(),
         Axis::Across => fader.across(room.width).into(),
     }

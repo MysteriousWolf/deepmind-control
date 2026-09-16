@@ -617,25 +617,30 @@ Mod 1   [ LFO 1        v]  ->  [ VCF Freq    v]  [======|========]
 
 ### Effects
 
-Four engine plates, cut into the group's face plate the way a section tab is cut
-into the panel. Each is the engine's own settings and then its twelve bytes, and
-the settings that are no engine's — the connection mode, and whether the effects
-are inserted, sent or bypassed — are the first thing on the panel rather than a
-rack of two underneath four plates.
+One engine plate at a time, cut into the group's face plate the way a section
+tab is cut into the panel, with the four engines chosen along a row of tabs
+above it. The plate is a strip of the engine's own settings and then its twelve
+bytes on the instrument's own grid; the settings that are no engine's — the
+connection mode, and whether the effects are inserted, sent or bypassed — sit
+with the chain they shape, on one surface under the display that draws it.
 
 ```
-FX 1   179 Type              Midas Equaliser          219 Output Gain
-       [ MidasEQ        v]   Processing                   [=====|======]
-       13                                                 0
+ FX 1   179 Type            Midas Equaliser        219 Output Gain
+        [ MidasEQ       v]  Processing                 [=========|===]
+        13                                             150
 
-  low                          low-mid
-  180 LSG     181 LSF          182 LMG     183 LMF     184 LMQ
-  [ | ]       [ | ]            [ | ]       [ | ]       [ | ]
-  0           19               38          57          76
-  Low Shelf   Low Shelf        Low-Mid     Low-Mid     Low-Mid Q
-  Gain        Frequency        Gain        Frequency
-  -12.0-12.0  30.0-20000.0 Hz  -12.0-12.0  30.0-20000  0.3-5.0
+  ╶── low ───────────────╴ ╶── low-mid ───────────────────────╴ ╶─ high-mid ─╴
+   180 LSG      181 LSF      182 LMG      183 LMF      184 LMQ      185 HMG
+    (  |  )      (  |  )      (  |  )      (  |  )      (  |  )      (  |  )
+      0            19           38           57           76           95
+  Low Shelf    Low Shelf     Low-Mid      Low-Mid      Low-Mid Q   High-Mid
+    Gain       Frequency       Gain      Frequency                   Gain
+ -12.0-12.0 dB 30-20000 Hz -12.0-12.0 dB 30-20000 Hz    0.3-5.0   -12.0-12.0 dB
 ```
+
+Six columns, every one of them there whether or not a slot stands in it, spread
+across the whole page. That is what makes the second row readable down against
+the first.
 
 - **A slot is named by the algorithm, and drawn by the parameter table.** Those
   are two different claims and only one of them is published: `Freeze` is two
@@ -651,17 +656,33 @@ FX 1   179 Type              Midas Equaliser          219 Output Gain
   `Church`, `Gate` and never the bytes they sit at. The names are printed under
   the plate as what the display will show, the fader stays, and nothing offers
   to send one of them.
-- **The rows are the instrument's own FX page.** Six columns and two rows,
-  measured off the 35 screenshots in the manual, with every slot's place on it
-  published — so a plate is the arrangement anybody who has edited an effect on
-  the hardware already knows, rather than twelve slots wrapped into whatever
-  width the window happened to have.
+- **The grid is the instrument's own FX page.** Six columns and two rows,
+  measured off the 35 screenshots in the manual, and every slot drawn in the
+  column and row published for it — so a plate is the arrangement anybody who
+  has edited an effect on the hardware already knows, and the third column of
+  the second row stands under the third column of the first. Reading the
+  publication as the *order* of a row instead, and packing each row against the
+  left at the width of a rack's slot, is what left two rows that did not line up
+  in the left half of an empty plate. The library's own `align` is what it
+  offers a host laying a partial row out some other way; a slot here is in its
+  measured column, so there is no room left over to place.
+- **The size is the window's, and only the size.** The grid also publishes a
+  proportion — a control 11.9 wide in a column pitched 20, on a 128 point
+  display — and a page this wide would make that a knob a hundred points across
+  with its title set in a face a tenth of its size. That proportion measures a
+  dot matrix drawing its own labels in dots. So the arrangement is taken, which
+  is exact, and the size is not: twelve controls on a page have room the rack's
+  forty do not, and it is spent on the thing a hand touches.
 - **The shape is the algorithm's own figure.** 29 of the 35 draw rotary knobs,
   five draw faders, one draws numeric displays. A knob is [the fader turned](#knob)
   and nothing about the control changes with it.
-- **Bands are the library's runs.** One side of a stereo engine, one band of an
-  equaliser: a heading over the cluster within its row, and a slot the library
-  labelled nothing stands on its own.
+- **Bands are the library's runs, printed the way the instrument prints a
+  group.** One side of a stereo engine, one band of an equaliser: a pale strip
+  over the columns the band covers with its name knocked out of it, which is how
+  a `DeepMind` prints `ARP / SEQ` and `VCF` across the top of a group. The strip
+  divides a row exactly the way the row divides itself, so a band of three
+  stands over its three. Two columns the library labelled nothing are two
+  columns and not a pair, and a row it grouped nothing on has no strip at all.
 - **The chain is drawn, on a display over the settings it is a picture of.**
   Ten topologies as edge lists: what the block's input reaches, what feeds what,
   what is summed at the end, the loop dashed under the engines it returns
@@ -671,11 +692,18 @@ FX 1   179 Type              Midas Equaliser          219 Output Gain
   the input, and a backwards edge is the loop. `Bypass` draws the engines as
   something the signal is not going through, because the library says the DSP is
   out of circuit rather than muted.
-- **Twelve bytes, however many the algorithm uses.** The rest are at the end of
-  the plate under `Param 9`, in a cluster that says the algorithm does not use
-  them. They are still in the program, still reachable from the modulation
-  matrix, and still sent. An engine whose algorithm nobody has read draws all
-  twelve that way.
+- **Twelve bytes, however many the algorithm uses.** An algorithm can leave
+  seven of its twelve unnamed, and seven controls the size of the five that do
+  something is a plate whose loudest half is the half that does nothing. So what
+  the grid has no place for goes in a strip cut into the plate below it: smaller
+  controls under `Param 9`, one heading that says how many and what they are.
+  They are still in the program, still reachable from the modulation matrix, and
+  still sent. An engine whose algorithm nobody has read is all twelve in that
+  strip and no grid at all, which is stage 3's rack for exactly as long as there
+  is nothing better to say.
+- **Units land on one line.** A title is set in a box two lines tall whatever it
+  needs, so a name that wraps pushes nothing down but itself and the readings
+  across a row are read along one line rather than up and down a ragged one.
 - **The modulation dot has a second state here.** Every slot is addressable from
   the matrix as `Fx n Param m`, and the library says which ones the engine acts
   on. A routing pointed somewhere the engine ignores draws the mark as an
@@ -695,13 +723,33 @@ are about the block rather than about an engine.
 **That is what let the measured colours be spent properly.** The library
 publishes four per algorithm ([#22](https://github.com/MysteriousWolf/deepmind-midi/issues/22)):
 the chassis around the controls, the face they sit on, the cap a finger moves
-and the accent. This file used to argue that they had to stay a tint, because
+and the accent, and all four are spent. This file used to argue that they had to
+stay a tint, because
 four measured liveries side by side would be a collage of other people's
 instruments in a window whose whole argument is that it is one instrument. With
 one panel on the surface that objection goes: the open plate wears its own
-chassis and its own face, the tabs carry a sixth of each so the row is four
-recognisable units rather than four words, and the controls on it stay the
-editor's own — which is the part that keeps it one instrument.
+chassis, its own face and its own cap — the colour of the knob body or fader cap
+printed on the algorithm's figure — and the tabs carry a hairline of each one's
+accent so the row is four recognisable units rather than four words.
+
+The cap was the last one refused, on the grounds that a control repainted to
+match a figure would break the one rule this window keeps everywhere. It is the
+same reversal the chassis went through and it has the same reason: the rule was
+protecting a surface with four liveries on it, and there is one. What a livery
+may not touch is what a control *means* — the recess it is cut into, the scale
+printed round it, how far a drag runs, and above all the claim, which is still
+the fill for a value the synthesizer reported and the stroke for one this window
+put there. A cap that painted an assumed value the same as a confirmed one would
+be buying a colour with the one distinction this editor exists to draw.
+
+Two things follow from a plate that can be cream as easily as black. Everything
+printed on the face — a title, a legend, an address, the pointer on a knob — is
+printed in whichever of the instrument's two inks that face can be read against,
+chosen by which one it is further from rather than by a threshold. And *which
+tab is open* is a fixed step of the window's own light and never the chassis: a
+closed tab carries no chassis at all, so a cream unit sitting closed cannot
+outshine a black one standing open, which is what a tint mixed into every tab
+did and it read as the wrong engine being the one on the page.
 
 ## Colour is meaning, not decoration
 
@@ -731,11 +779,12 @@ editing. 26.3 publishes them, and they are spent as an identity rather than as a
 finish — enough of the algorithm's chassis in the plate to tell the reverb from
 the distortion at arm's length, and a hairline of its accent around the edge.
 Painted as measured, four imaginary rack units side by side would be a collage
-in a window whose whole argument is that it is one instrument, and a cap
-repainted to match a figure would break the one rule that holds everywhere: what
-carries a claim is the fill of the thing that moves. Nothing else in the editor
-gets a colour for being itself: fourteen groups in fourteen hues is decoration
-pretending to be information.
+in a window whose whole argument is that it is one instrument — so one is open
+at a time and that one wears the lot, case, face and cap. The rule that still
+holds through it is the one that holds everywhere: what carries a claim is the
+fill of the thing that moves, and the cap is a material rather than a claim.
+Nothing else in the editor gets a colour for being itself: fourteen groups in
+fourteen hues is decoration pretending to be information.
 
 ## Type
 

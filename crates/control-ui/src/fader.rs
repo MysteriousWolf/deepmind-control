@@ -42,12 +42,12 @@ use core::ops::RangeInclusive;
 use iced_core::layout::{self, Layout};
 use iced_core::widget::{Tree, tree};
 use iced_core::{
-    Background, Border, Clipboard, Element, Event, Length, Point, Rectangle, Shell, Size, Theme,
-    Widget, keyboard, mouse, renderer, touch,
+    Background, Border, Clipboard, Color, Element, Event, Length, Point, Rectangle, Shell, Size,
+    Theme, Widget, keyboard, mouse, renderer, touch,
 };
 
 use crate::Confidence;
-use crate::style::{materials, tint};
+use crate::style::{ink_on, materials, tint};
 
 /// Width of a fader, including the room its scale needs.
 ///
@@ -64,8 +64,11 @@ pub const HEIGHT: f32 = 128.0;
 /// Width of the track cut into the panel.
 const TRACK: f32 = 7.0;
 
-/// The cap across its travel.
-const CAP_WIDTH: f32 = 38.0;
+/// How much of the fader's width is the shoulder its scale is printed on.
+///
+/// The rest is the cap, so a fader given more room across than a rack's slot
+/// gives it has a cap to match and not a handle adrift in a wider track.
+const SHOULDER: f32 = 6.0;
 
 /// The cap along its travel. Travel is the track less this, so the ends of the
 /// range put the cap flush with the ends of the track.
@@ -107,6 +110,7 @@ pub struct Fader<'a, Message> {
     axis: Axis,
     length: f32,
     thickness: f32,
+    cap: Option<Color>,
     on_change: Box<dyn Fn(u8) -> Message + 'a>,
 }
 
@@ -128,6 +132,7 @@ pub fn fader<'a, Message>(
         axis: Axis::Down,
         length: HEIGHT,
         thickness: WIDTH,
+        cap: None,
         on_change: Box::new(on_change),
     }
 }
@@ -167,6 +172,19 @@ impl<Message> Fader<'_, Message> {
     pub fn across(mut self, length: f32) -> Self {
         self.axis = Axis::Across;
         self.length = length;
+        self
+    }
+
+    /// Draws the cap in `colour` rather than in the window's own metal.
+    ///
+    /// The knob's builder, for the same reason and under the same rule: the
+    /// library measured the colour of the cap printed on an algorithm's own
+    /// figure, and the five algorithms whose figure is a fader have one. The
+    /// track it rides, the scale beside it and the claim in the fill stay the
+    /// window's, so an assumed value is still the stroke rather than the fill.
+    #[must_use]
+    pub fn cap(mut self, colour: Color) -> Self {
+        self.cap = Some(colour);
         self
     }
 }
@@ -262,14 +280,17 @@ impl<Message> Fader<'_, Message> {
 
     /// Returns how wide the cap is across the travel.
     ///
-    /// The full cap unless the fader is narrower than one, and never so narrow
-    /// that there is nothing to take hold of.
+    /// The fader less the [shoulder](SHOULDER) its scale is printed on, and
+    /// never so narrow that there is nothing to take hold of: a strip of
+    /// thirty-two lanes narrows the cap with the fader, and an effect plate
+    /// whose columns are the instrument's own grid spread across a page widens
+    /// it with one.
     fn cap_across(&self) -> f32 {
-        CAP_WIDTH.min((self.thickness - 6.0).max(8.0))
+        (self.thickness - SHOULDER).max(8.0)
     }
 
     /// Returns where the cap is.
-    fn cap(&self, bounds: Rectangle) -> Rectangle {
+    fn cap_of(&self, bounds: Rectangle) -> Rectangle {
         let travelled = self.fraction() * self.reach(bounds);
         let across = self.cap_across();
         match self.axis {
@@ -546,8 +567,11 @@ where
             return;
         }
 
-        let cap = self.cap(bounds);
+        let cap = self.cap_of(bounds);
         let confirmed = self.claim.is_confirmed();
+        // Whatever the cap is made of: the window's own metal, or the colour
+        // the library measured off this algorithm's printed fader.
+        let face = self.cap.unwrap_or(material.metal);
         renderer.fill_quad(
             renderer::Quad {
                 bounds: cap,
@@ -556,7 +580,9 @@ where
                     // as a stroke for what this window claims. The fill is what
                     // carries it; the colour only agrees with the fill.
                     color: if confirmed {
-                        material.metal_low
+                        self.cap.map_or(material.metal_low, |worn| {
+                            crate::style::mix(worn, material.recess, 0.35)
+                        })
                     } else {
                         tint(theme, self.claim)
                     },
@@ -565,11 +591,7 @@ where
                 },
                 ..renderer::Quad::default()
             },
-            Background::Color(if confirmed {
-                material.metal
-            } else {
-                material.panel
-            }),
+            Background::Color(if confirmed { face } else { material.panel }),
         );
         // The line a cap's value is read against.
         renderer.fill_quad(
@@ -579,7 +601,10 @@ where
                 ..renderer::Quad::default()
             },
             Background::Color(if confirmed {
-                material.panel
+                // Whichever of the instrument's two inks the cap can be read
+                // against, because a measured cap is as likely to be cream as
+                // it is to be black.
+                self.cap.map_or(material.panel, |worn| ink_on(worn, theme))
             } else {
                 tint(theme, self.claim)
             }),
@@ -628,13 +653,13 @@ mod tests {
     fn both_ends_of_the_range_put_the_cap_flush_with_the_track() {
         // A control whose extremes are unreachable is a bug people file, and
         // the arithmetic that reaches them is the same either way round.
-        let bottom = at(u8::MIN).cap(DOWN);
+        let bottom = at(u8::MIN).cap_of(DOWN);
         assert!((bottom.y + bottom.height - DOWN.height).abs() < f32::EPSILON);
-        assert!((at(u8::MAX).cap(DOWN).y - DOWN.y).abs() < f32::EPSILON);
+        assert!((at(u8::MAX).cap_of(DOWN).y - DOWN.y).abs() < f32::EPSILON);
 
-        let left = at(u8::MIN).across(HEIGHT).cap(ACROSS);
+        let left = at(u8::MIN).across(HEIGHT).cap_of(ACROSS);
         assert!((left.x - ACROSS.x).abs() < f32::EPSILON);
-        let right = at(u8::MAX).across(HEIGHT).cap(ACROSS);
+        let right = at(u8::MAX).across(HEIGHT).cap_of(ACROSS);
         assert!((right.x + right.width - ACROSS.width).abs() < f32::EPSILON);
     }
 

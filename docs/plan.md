@@ -308,15 +308,16 @@ which is the thing the library exists to prevent.
 for: `effect::Engine` is the four engines and which parameter each of their
 slots is, `effect::Algorithm` is the 35 and what value selects one on a given
 firmware, and `effect::FxSlot` is what a slot of the loaded algorithm is called.
-So the panel is four plates. Each is the engine's own settings — which algorithm
-it is running, chosen from the parameter's own value table under the display's
-own abbreviations, and how loud its output — and then its twelve bytes under the
-names that algorithm gives them, with what the algorithm is called in full
-written out beside the list rather than substituted into it. The settings that
-are no engine's, the connection mode and whether the effects are inserted, sent
-or bypassed, are the first thing on the panel, found by subtraction rather than
-by name, which is also where a parameter a later library adds to this group will
-appear.
+So the panel is one plate at a time, with the four engines along a row of tabs
+above it. The plate is the engine's own settings — which algorithm it is
+running, chosen from the parameter's own value table under the display's own
+abbreviations, and how loud its output — on one strip across the top of the
+unit, and then its twelve bytes under the names that algorithm gives them, with
+what the algorithm is called in full written out beside the list rather than
+substituted into it. The settings that are no engine's, the connection mode and
+whether the effects are inserted, sent or bypassed, sit with the chain they
+shape, found by subtraction rather than by name, which is also where a parameter
+a later library adds to this group will appear.
 
 **A named slot is the same control it was.** The library says two things about a
 slot and they are not the same thing: `FxSlot::kind` is how the display reads
@@ -339,14 +340,16 @@ byte, with the two ends the manual prints written under the title, because
 
 **Twelve bytes, however many the algorithm uses.** An engine holds twelve
 whatever it is running and `Algorithm::slots` is as short as five. The ones the
-algorithm names are drawn as that name; the rest are drawn at the end of the
-plate under the library's own `Fx 1 Param 6`, in a cluster that says the
-algorithm does not use them. They are still in the program, still reachable from
+algorithm names stand on the grid; the rest go in a strip cut into the plate
+below it, smaller, under the library's own `Fx 1 Param 6` and one heading that
+says how many the algorithm does not use. Below rather than among, because seven
+controls the size of the five that do something is a plate whose loudest half is
+the half that does nothing. They are still in the program, still reachable from
 the modulation matrix, and still sent, because a panel that quietly stopped
 sending them would lose part of a sound the moment somebody changed an effect.
 An engine whose algorithm this firmware's table does not name, or whose type
-nobody has read, draws all twelve that way, which is stage 3's rack for exactly
-as long as there is nothing better to say.
+nobody has read, is all twelve in that strip and no grid at all, which is stage
+3's rack for exactly as long as there is nothing better to say.
 
 **The matrix mark grows a second state here.** Every slot is addressable from
 the modulation matrix as `Fx n Param m`, and the library says which ones the
@@ -355,28 +358,55 @@ mark as an outline rather than filled: the matrix really is pointed there and
 really is doing nothing, and drawing that the same way as an effective routing
 would hide the reason a sound is not moving.
 
-**The page is the instrument's own, and so is the shape.** 26.3 published what
+**The grid is the instrument's own, and so is the shape.** 26.3 published what
 was held back ([deepmind-midi#22](https://github.com/MysteriousWolf/deepmind-midi/issues/22)):
 the grid the synthesizer's own FX page lays a slot out on, measured off the 35
 screenshots in the manual, and what the figure printed beside each algorithm is
-made of. So a plate is the rows that page puts its slots in, six across and two
-down, which is the arrangement anybody who has edited an effect on the hardware
-already knows; and a slot on one of the 29 algorithms whose figure draws rotary
-knobs is drawn as a knob. A knob is the fader turned — the same byte, the same
-relative grab, the same claim in the fill of the thing that moves — which is why
-the shape belongs beside the axis a fader runs along rather than anywhere near
-what a parameter is.
+made of. Six columns and two rows, with the column and row published per slot.
+So a plate draws six columns, each of them there whether or not a slot stands in
+it and all of them spread across the page, and puts every slot in the cell
+measured for it — which is the arrangement anybody who has edited an effect on
+the hardware already knows, and the arrangement a second row can be read down
+against. Reading the publication as the order of a row instead, and packing each
+row against the left at the width of a rack's slot, is what left two rows that
+did not line up in the left half of an empty plate.
 
-**The measured colours are an identity, not a finish.** The library publishes
-four per algorithm, and they are the colours of 35 imaginary rack units: a cream
-fader panel, a black one, a blue-grey one. Painted as measured, four of them
-side by side would be a collage of other people's instruments in a window whose
-whole argument is that it is one instrument. So a plate carries enough of its
-algorithm's chassis to tell the reverb from the distortion at arm's length, and
-a hairline of its accent around the edge, and the controls stay the editor's
-own. A cap is what carries the claim everywhere in this window, and a cap
-repainted to match a figure would break that rule exactly where it is least
-affordable.
+What the grid also publishes is a proportion: a control 11.9 wide in a column
+pitched 20, on the 128 point display those screenshots were measured on. That is
+not taken. It measures a dot matrix drawing its own labels in dots, and a page
+this wide would make it a knob a hundred points across with its title set in a
+face a tenth of its size. The arrangement is exact and is taken whole; the size
+is the window's, and twelve controls on a page have room the rack's forty do
+not.
+
+A slot on one of the 29 algorithms whose figure draws rotary knobs is drawn as a
+knob. A knob is the fader turned — the same byte, the same relative grab, the
+same claim in the fill of the thing that moves — which is why the shape belongs
+beside the axis a fader runs along rather than anywhere near what a parameter
+is.
+
+**The measured colours are an identity, and one unit may wear all of it.** The
+library publishes four per algorithm, and they are the colours of 35 imaginary
+rack units: a cream fader panel, a black one, a blue-grey one. Painted as
+measured, four of them side by side would be a collage of other people's
+instruments in a window whose whole argument is that it is one instrument — and
+that, rather than the colours, is what was wrong. So one engine is open at a
+time and the open one is that unit: its chassis, the face its controls sit on, a
+hairline of its accent, and the cap a finger moves.
+
+The cap took two goes. It was refused first on the grounds that what carries a
+claim is the fill of the thing that moves, so a cap repainted to match a figure
+would break the one rule that holds everywhere. The rule survives the repaint:
+the claim is *which* fill, not which colour — a value the synthesizer reported
+is the cap filled, and one this window put there is the cap as a stroke round
+the panel, whatever the cap is made of. What a livery may not touch is the
+recess a control is cut into, the scale printed round it, how far a drag runs,
+and that distinction. What follows from a plate that can be cream as easily as
+black is that everything printed on it — a title, a legend, an address, a knob's
+pointer — is printed in whichever of the instrument's two inks that face can be
+read against, and that which tab is open is a fixed step of the window's own
+light rather than of the chassis, so a cream unit sitting closed cannot outshine
+a black one standing open.
 
 **The chain is drawn, because the graph is published.** What the connection mode
 does to each engine's output was in the library's specification and not in what
