@@ -31,7 +31,7 @@
 //! flags as feedback are the two that have one, and the picture agrees with the
 //! flag rather than being told by it.
 //!
-//! # It is drawn on the instrument's own glass, at the instrument's own size
+//! # It is drawn on glass cut to the longest name the library publishes
 //!
 //! A dot matrix at the pitch every display in this window shares, over the two
 //! settings it is a picture of, which is the arrangement the front panel's
@@ -39,14 +39,19 @@
 //! list — and that is the same reason the panel's plates carry drawings the
 //! hardware has no room for.
 //!
-//! [`COLUMNS`] by [`ROWS`] of them, which is the resolution of the display in
-//! the middle of the instrument's front panel and is the same however the
-//! routing byte moves. Every other display in this window is as many dots as
-//! the room it was given, because a plate's width is what the row it stands in
-//! decides; this one was too, and a screen that took whatever width the window
-//! had while keeping the height its topology wanted was a picture whose
-//! proportions were an accident of the window. Four engines on a strip nine
-//! times as wide as it is tall are four engines nobody can see the wiring of.
+//! [`ROWS`] down, and [`columns`] across. The height is the instrument's own
+//! display. The width is not: it is what four boxes in a line need in order to
+//! each carry the name of what is running in them, measured off the longest
+//! abbreviation in the library's own table at the size this glass writes. Twice
+//! the instrument's display and then some, and every dot of that is a name in a
+//! box rather than a name in a list under one.
+//!
+//! It is still one width for all ten topologies rather than one per topology —
+//! a page that resized itself when a routing byte moved was a page that jumped
+//! under the hand that moved it — and it is still derived rather than chosen.
+//! A firmware that adds a longer abbreviation makes this glass wider, in the
+//! same breath and without anybody editing a number, which is the same rule the
+//! front panel opens its window by.
 //!
 //! One size for the ten topologies, rather than one per topology. A page that
 //! resized itself when a routing byte moved was a page that jumped under the
@@ -54,6 +59,8 @@
 //! are not filling is spend it: a column holding one engine draws a taller box,
 //! and a box with the room for it carries the mark of the family its algorithm
 //! is in.
+
+use std::sync::LazyLock;
 
 use deepmind_midi::effect::{
     Algorithm, ENGINE_COUNT, Engine, MARK_PIXEL_SIDE, Mode, Pixels, Routing, Source,
@@ -67,10 +74,63 @@ use crate::{Confidence, Element, Patch};
 
 /// How many dots across the glass is.
 ///
-/// The instrument's own display, which is 128 by 64. Fixed rather than fitted
-/// to the room, because a picture of four boxes and the wires between them has
-/// a shape, and a shape that changes with the window is not one.
-pub(crate) const COLUMNS: i32 = 128;
+/// Enough that the widest topology — four engines in a line, which is the one
+/// the instrument ships on — gives every box the room to say what is running in
+/// it. That is the whole derivation: the longest abbreviation in the library's
+/// own table, with an engine's number in front of it, written at the size this
+/// glass writes, inside a frame, four of those across with the gutters between
+/// them and the rails at either end.
+///
+/// Asked of the library rather than written down. A number here would be a
+/// number that was right about the 35 algorithms that shipped and wrong about
+/// the first one a firmware adds, and the way it would be wrong is a name
+/// printed past the edge of its own box — which is a box belonging to whichever
+/// engine the reader guesses.
+pub(crate) fn columns() -> i32 {
+    static ACROSS: LazyLock<i32> = LazyLock::new(|| {
+        let widest = Algorithm::all()
+            .iter()
+            .map(|algorithm| Screen::width_of(algorithm.name, Size::Small))
+            .max()
+            .unwrap_or(0);
+        let boxes = i32(ENGINE_COUNT) * (widest + PADDING);
+        let gutters = i32(ENGINE_COUNT - 1) * BETWEEN;
+        // The dot of glass at either side that `draw` keeps clear of the bezel,
+        // and the rails the block's own input and output are written on.
+        2 + IN + OUT + boxes + gutters
+    });
+    *ACROSS
+}
+
+/// How much glass a box keeps clear inside its own frame.
+const PADDING: i32 = 4;
+
+/// What a box writes inside its own frame, in the room it has.
+///
+/// Three answers, in the order of how much they say. The engine's number and
+/// the abbreviation on one line, where the box is wide enough for both — which
+/// is a column holding two engines or more, where a box is half the graph or
+/// all of it. The number over the name on two lines, where the box is wide
+/// enough for the name and tall enough to stack them, which is what four
+/// engines in a line get: narrow boxes on a graph one box deep, with the height
+/// to spare that the width has not got. And the number alone where it is
+/// neither, which is when [`listing`] carries the name under the graph instead.
+///
+/// The same answer decides how wide the glass is cut and what is written on it,
+/// so the two cannot disagree: see [`columns`].
+fn writing(number: &str, name: Option<&str>, room: i32, height: i32) -> Vec<String> {
+    let Some(name) = name else {
+        return vec![number.to_owned()];
+    };
+    let together = format!("{number} {name}");
+    if Screen::width_of(&together, Size::Small) <= room {
+        return vec![together];
+    }
+    if Screen::width_of(name, Size::Small) <= room && height >= 2 * LINE + 1 + PADDING {
+        return vec![number.to_owned(), name.to_owned()];
+    }
+    vec![number.to_owned()]
+}
 
 /// How many dots down it is.
 ///
@@ -83,9 +143,10 @@ pub(crate) const ROWS: i32 = 64;
 ///
 /// A column holding four gets a quarter of the graph and a column holding one
 /// would get all of it, which is a box as tall as the picture. This is where a
-/// box stops growing: two lines of the display's own face, a mark over them,
-/// and a dot of glass at each edge.
-const PLATE: i32 = MARK + 2 + LINE + 4;
+/// box stops growing: the mark of the family its algorithm is in, the engine's
+/// number, and what it is running — which is the most a box has to say, and is
+/// what a column holding one engine spends the room on.
+const PLATE: i32 = MARK + 2 + LINE + 1 + LINE + 4;
 
 /// How many dots a line of the display's own face takes inside a box.
 const LINE: i32 = Screen::height_of(Size::Small);
@@ -325,12 +386,12 @@ where
     let chain = (!matches!(claim, Confidence::Unknown))
         .then(|| Chain::read(patch, firmware))
         .flatten();
-    let mut screen = Screen::new(COLUMNS, ROWS);
+    let mut screen = Screen::new(columns(), ROWS);
     if let Some(chain) = chain {
         draw(&mut screen, chain);
     }
     container(lcd::lcd(screen, claim))
-        .width(Length::Fixed(lcd::room(COLUMNS)))
+        .width(Length::Fixed(lcd::room(columns())))
         .height(Length::Fixed(lcd::room(ROWS)))
         .into()
 }
@@ -383,8 +444,14 @@ fn draw(screen: &mut Screen, chain: Chain) {
 /// never shorter than one can be read at — and the list takes what is left,
 /// less the lane a loop turns in and less whatever the analog path has taken
 /// off the foot. That is what makes one size of glass do for all ten
-/// topologies: a shallow one spends on the list what a deep one spends on
-/// boxes.
+/// topologies: the glass is as tall as four engines stacked, and the ones that
+/// do not stack four leave the rest of it clear.
+///
+/// What is left over is split above and below rather than left at the bottom.
+/// The glass is cut for the deepest of the ten and four engines in a line are
+/// the shallowest, so the difference is most of the screen on the topology the
+/// instrument ships on: a row of boxes hard against the heading with a third of
+/// the display blank under it reads as a picture that has lost something.
 fn shape(chain: Chain, glass: Band, listed: usize) -> (Band, Band) {
     let deepest = i32(chain.deepest());
     let gaps = (deepest - 1) * APART;
@@ -397,7 +464,10 @@ fn shape(chain: Chain, glass: Band, listed: usize) -> (Band, Band) {
     let tall = (room - wanted)
         .clamp(deepest * LEGIBLE + gaps, deepest * PLATE + gaps)
         .min(room);
-    let graph = Band::new(glass.x, glass.y, glass.width, tall);
+    // Half the slack, so the graph sits in the middle of what it was given and
+    // the list still has every dot it asked for under it.
+    let spare = (room - wanted - tall).max(0) / 2;
+    let graph = Band::new(glass.x, glass.y + spare, glass.width, tall);
     // Under the graph, and under the lane the loop turns in.
     let below = graph.y + graph.height + chain.under();
     (
@@ -420,7 +490,7 @@ fn shape(chain: Chain, glass: Band, listed: usize) -> (Band, Band) {
 /// the graph, and a line under it saying the same four things again is a line
 /// spent twice.
 fn listing(chain: Chain, glass: Band) -> Vec<String> {
-    let room = column_room(chain, glass) - 4;
+    let room = column_room(chain, glass) - PADDING;
     Engine::ALL
         .into_iter()
         .filter_map(|engine| {
@@ -429,8 +499,14 @@ fn listing(chain: Chain, glass: Band) -> Vec<String> {
                 .get(usize::from(engine.index()))
                 .copied()
                 .flatten()?;
-            let named = format!("{} {}", engine.number(), algorithm.name);
-            (Screen::width_of(&named, Size::Small) > room).then_some(named)
+            let number = engine.number().to_string();
+            // Against the height a box has when nothing is listed, which is
+            // the height it will have if this list comes back empty. Asking
+            // against the height the list itself would leave would be a
+            // question whose answer changes its own premise.
+            let written = writing(&number, Some(algorithm.name), room, PLATE);
+            (!written.iter().any(|line| line.ends_with(algorithm.name)))
+                .then(|| format!("{number} {}", algorithm.name))
         })
         .collect()
 }
@@ -578,25 +654,23 @@ fn plate(screen: &mut Screen, engine: Engine, chain: Chain, band: Band, ink: Ink
         .get(usize::from(engine.index()))
         .copied()
         .flatten();
-    let named = running.map_or_else(
-        || number.clone(),
-        |algorithm| format!("{number} {}", algorithm.name),
+    // A name written past the edge of its own box is a box belonging to
+    // whichever engine the reader guesses, so the box writes what it has the
+    // room for. The glass is cut so that what it has the room for is the name,
+    // on all ten topologies — see [`columns`].
+    let lines = writing(
+        &number,
+        running.map(|algorithm| algorithm.name),
+        band.width - PADDING,
+        band.height,
     );
-    let room = band.width - 4;
-    // The abbreviation where it fits and the number where it does not: a name
-    // written past the edge of its own box is a box belonging to whichever
-    // engine the reader guesses.
-    let written = if Screen::width_of(&named, Size::Small) <= room {
-        named
-    } else {
-        number
-    };
+    let written = i32(lines.len()) * LINE + i32(lines.len().saturating_sub(1));
     // The mark over the writing, where the box has a line to spare for it and
     // the algorithm is one this firmware's table names.
     let marked = running
-        .filter(|_| band.height >= LINE + MARK + 4 && band.width >= MARK + 4)
+        .filter(|_| band.height >= written + MARK + 4 && band.width >= MARK + PADDING)
         .map(Algorithm::mark);
-    let stack = LINE + marked.map_or(0, |_| MARK + 2);
+    let stack = written + marked.map_or(0, |_| MARK + 2);
     let top = band.y + (band.height - stack) / 2;
     if let Some(mark) = marked {
         blit(
@@ -606,8 +680,12 @@ fn plate(screen: &mut Screen, engine: Engine, chain: Chain, band: Band, ink: Ink
             top,
         );
     }
-    let x = band.x + (band.width - Screen::width_of(&written, Size::Small)) / 2;
-    screen.write(x.max(band.x + 1), top + stack - LINE, &written, Size::Small);
+    let mut y = top + stack - written;
+    for line in &lines {
+        let x = band.x + (band.width - Screen::width_of(line, Size::Small)) / 2;
+        screen.write(x.max(band.x + 1), y, line, Size::Small);
+        y += LINE + 1;
+    }
 }
 
 /// Blits a family's mark, a lit pixel to a printed dot.
@@ -878,7 +956,7 @@ fn up(screen: &mut Screen, x: i32, y: i32) {
 )]
 mod tests {
     use super::{Chain, draw, plates};
-    use crate::lcd::{Band, Screen};
+    use crate::lcd::{Band, Screen, Size};
     use deepmind_midi::effect::{Algorithm, Engine, Mode, Routing, Source};
 
     /// The chain a topology makes, with nothing read about the engines.
@@ -1012,7 +1090,7 @@ mod tests {
         // size of glass: what used to be checked at three widths is now checked
         // at the one the page actually draws.
         for routing in Routing::all() {
-            let mut screen = Screen::new(super::COLUMNS, super::ROWS);
+            let mut screen = Screen::new(super::columns(), super::ROWS);
             draw(&mut screen, wired(routing.value()));
 
             assert!(!screen.is_blank(), "{routing} draws nothing on the glass");
@@ -1024,7 +1102,7 @@ mod tests {
         Band::new(
             1,
             super::HEADING,
-            super::COLUMNS - 2,
+            super::columns() - 2,
             super::ROWS - super::HEADING,
         )
     }
@@ -1053,48 +1131,88 @@ mod tests {
     }
 
     #[test]
-    fn a_shallow_topology_spends_its_glass_on_what_a_deep_one_spends_on_boxes() {
-        // The whole of what one size of glass costs and buys. Four engines in a
-        // line leave three boxes' worth of glass over, and rather than drawing
-        // it empty the picture lists what the four are running — which is what
-        // those four narrow boxes cannot say. Four stacked need the glass for
-        // the boxes, and those boxes are wide enough to say it themselves.
+    fn every_engine_is_named_inside_its_own_box_on_every_topology() {
+        // What the glass is cut for. A name under the graph is a name the
+        // reader has to carry back up to a box, and the box is where it
+        // belongs — so the width is derived from the longest of the 35 rather
+        // than chosen, and this is the check that the derivation is the one the
+        // drawing actually needs.
+        //
+        // Every algorithm against every topology, because the worst case is a
+        // long name in the topology with the narrowest boxes and neither half
+        // of that is worth guessing at.
+        for routing in Routing::all() {
+            for algorithm in Algorithm::all() {
+                let mut chain = wired(routing.value());
+                chain.running = [Some(algorithm); super::ENGINE_COUNT];
+
+                assert!(
+                    super::listing(chain, glass()).is_empty(),
+                    "{routing} cannot name {} in its own box",
+                    algorithm.name
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_box_a_topology_draws_holds_what_the_list_said_it_would() {
+        // The list and the box answer the same question against two different
+        // heights — the list against the cap a box grows to, the box against
+        // the band it was actually given — so this is the check that the two
+        // cannot fall out of step: a name the list decided not to carry is a
+        // name the box really does write.
+        for routing in Routing::all() {
+            for algorithm in Algorithm::all() {
+                let mut chain = wired(routing.value());
+                chain.running = [Some(algorithm); super::ENGINE_COUNT];
+                let (graph, _) = super::shape(chain, glass(), 0);
+
+                for band in plates(chain, graph) {
+                    let written = super::writing(
+                        "1",
+                        Some(algorithm.name),
+                        band.width - super::PADDING,
+                        band.height,
+                    );
+
+                    assert!(
+                        written.iter().any(|line| line.ends_with(algorithm.name)),
+                        "{routing} draws a box with no room for {}",
+                        algorithm.name
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_glass_is_no_wider_than_naming_them_needs() {
+        // The other half of a derived width: a dot more than the drawing asks
+        // for is a page that gave the routing selector beside it less room for
+        // nothing. One dot narrower has to break the test above.
+        let narrower = super::columns() - 1;
+        let glass = Band::new(
+            1,
+            super::HEADING,
+            narrower - 2,
+            super::ROWS - super::HEADING,
+        );
+        let widest = Algorithm::all()
+            .iter()
+            .max_by_key(|algorithm| Screen::width_of(algorithm.name, Size::Small))
+            .expect("the library names 35 algorithms");
         let serial = Routing::all()
             .iter()
             .find(|routing| routing.name().starts_with("Serial 1-2-3-4"))
             .expect("the topology that is four engines in a line");
-        let parallel = Routing::all()
-            .iter()
-            .find(|routing| !routing.is_feedback() && routing.output().len() == super::ENGINE_COUNT)
-            .expect("the topology whose four engines all reach the output");
-
-        let listed = |routing: &Routing| {
-            let mut chain = wired(routing.value());
-            chain.running = [
-                Algorithm::by_name("RoomRev"),
-                Algorithm::by_name("3TapDelay"),
-                Algorithm::by_name("Phaser"),
-                Algorithm::by_name("MulBndDist"),
-            ];
-            super::listing(chain, glass())
-        };
+        let mut chain = wired(serial.value());
+        chain.running = [Some(widest); super::ENGINE_COUNT];
 
         assert_eq!(
-            listed(serial).len(),
+            super::listing(chain, glass).len(),
             super::ENGINE_COUNT,
-            "a serial chain's boxes are not wide enough to name themselves"
-        );
-        assert!(
-            listed(parallel).is_empty(),
-            "a stacked topology lists names its own boxes already carry"
-        );
-
-        // And the list it asks for is a list the glass has room for.
-        let chain = wired(serial.value());
-        let (_, under) = super::shape(chain, glass(), listed(serial).len());
-        assert!(
-            under.height >= super::i32(super::ENGINE_COUNT) * (super::LINE + 1) - 1,
-            "the list is cut short on the topology that needs it most"
+            "the glass is wider than the longest name in the widest topology needs"
         );
     }
 }

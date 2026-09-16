@@ -161,22 +161,48 @@ use crate::chain;
 use crate::fader;
 use crate::lcd::{self, Ink, Screen};
 use crate::mark::mark;
-use crate::panel::{Room, control, lit_rather_than_listed, modulated, shown};
+use crate::panel::{self, Room, control, lit_rather_than_listed, modulated, shown};
 use crate::style::{self, materials, reading as reading_face};
 use crate::{Confidence, Element, Patch, tint};
 
-/// How much room one of the group's own settings is chosen in.
+/// How much room the ten topologies are laid out in.
 ///
-/// `Parallel 1/2, parallel 3/4` is what the routing's names read like, and a
-/// list that clips one is a list that offers ten indistinguishable topologies.
-const SETTING: f32 = 192.0;
+/// `Parallel 1/2, parallel 3/4` is what their names read like, so a column is
+/// as wide as the longest of them and there are [`SETTING_COLUMNS`] of those.
+/// They were a drop-down until the glass over them grew wide enough to name
+/// four engines in a line, which is what freed the band under it: a list of ten
+/// shows whichever one is already chosen and hides the nine a person is
+/// choosing between.
+const SETTING: f32 = 500.0;
+
+/// How many columns they stand in.
+///
+/// Two of five rather than five of two, because they are read down: the manual
+/// numbers them `M-1` to `M-10` and the byte follows that order, so a column is
+/// a run of consecutive topologies.
+const SETTING_COLUMNS: usize = 2;
 
 /// How much room one whose choices are lit rather than listed is given.
 ///
-/// `Insert`, `Send` and `Bypass` are three short words in a column of lamps,
-/// and the room a list of ten topologies needs is room taken off the display
-/// beside it — which is the one thing on this page that has to be wide.
+/// `Insert`, `Send` and `Bypass` are three short words in a column of lamps.
 const LIT_SETTING: f32 = 86.0;
+
+/// Returns how one of the group's own settings is chosen.
+///
+/// Both of them are lit rather than listed now: three words for the mode, and
+/// the ten topologies laid out in columns. Which of the two a parameter is, is
+/// asked of how many choices the library gives it rather than of its name, so a
+/// firmware that adds an eleventh topology gets another lamp.
+fn chosen_in(parameter: ParamId, firmware: Version) -> Room {
+    if lit_rather_than_listed(parameter, firmware) {
+        Room::lamps(LIT_SETTING, panel::lit_band(MODE_CHOICES))
+    } else {
+        Room::spread(SETTING, SETTING_COLUMNS)
+    }
+}
+
+/// How many settings `FX Mode` has, which is what its column of lamps is tall.
+const MODE_CHOICES: usize = 3;
 
 /// How much room an engine's algorithm is chosen in.
 ///
@@ -237,6 +263,12 @@ const TRAVEL: f32 = 50.0;
 
 /// How big one is drawn where the algorithm does not use the byte.
 const SPARE: f32 = 22.0;
+
+/// How much of the strip the slot's own number is given.
+///
+/// `FX 1` set in the reading face, and the same room whichever of the four it
+/// is, so that the names start in one place down a column of cases.
+const SLOT_NUMBER: f32 = 34.0;
 
 /// How large the mark on an engine's strip is drawn.
 ///
@@ -606,43 +638,46 @@ where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
     let engines = engines(group)?;
-    // The picture, and beside it the two settings that shape it. The routing
+    // The picture, and under it the two settings that shape it. The routing
     // *is* the chain — which engine feeds which is the drawing, and whether the
     // four of them are inserted, sent or bypassed is the rest of the same
-    // sentence — so they stand together, and standing beside the display rather
-    // than under it is what keeps the whole block one strip deep.
+    // sentence — so they stand together.
+    //
+    // Under rather than beside, which is what changed when the glass grew wide
+    // enough to name what each engine is running inside its own box. The
+    // display takes the width of the block now, and a topology chosen from a
+    // drop-down beside it was the one control on this page that hid nine of its
+    // ten choices behind the one already taken.
     let mut block = row(settings(group).into_iter().map(|parameter| {
-        let room = if lit_rather_than_listed(parameter, firmware) {
-            LIT_SETTING
-        } else {
-            SETTING
-        };
         cell(
             patch,
             parameter,
             firmware,
-            Room::listed(room),
+            chosen_in(parameter, firmware),
             parameter.short_name(),
             moved,
             On::Recess,
         )
     }))
-    .spacing(10);
+    .spacing(14)
+    .align_y(Vertical::Top);
     if let Some(note) = chain::note(patch) {
         block = block
             .push(container(printing(note.to_owned(), On::Recess).size(9)).width(Length::Fill));
     }
     let wiring = container(
-        row![
-            // The glass at its own size rather than at the window's. It is the
-            // instrument's own display, 128 dots by 64, and a picture of four
-            // boxes and the wires between them has a shape that a rubber band
-            // across the page is not.
-            container(chain::display(patch, firmware)).width(Length::Shrink),
-            container(block).width(Length::Fill),
+        column![
+            // The glass at its own size rather than at the window's, and its
+            // own size is what four boxes in a line need in order to each name
+            // what is running in them — see [`chain::columns`]. A picture of
+            // four boxes and the wires between them has a shape that a rubber
+            // band across the page is not.
+            container(chain::display(patch, firmware))
+                .width(Length::Fill)
+                .align_x(Horizontal::Center),
+            block,
         ]
-        .spacing(14)
-        .align_y(Vertical::Center),
+        .spacing(10),
     )
     .padding(8)
     .width(Length::Fill)
@@ -1128,12 +1163,19 @@ fn colour(measured: Colour) -> Color {
 
 /// Draws the strip across the top of one engine's case.
 ///
-/// Everything an engine is, on one line: its number, what it is running, and
-/// how loud it comes out. The algorithm is the parameter's own value table
-/// under the abbreviations the instrument's display prints — a list, which is
-/// to say the thing you press to change it — with what those stand for written
-/// out beside it rather than substituted into it, because the control is the
-/// library's and the prose is the panel's.
+/// Everything an engine is, in the order somebody reads it. What it is, on the
+/// left: the mark of its family, the slot it is in, and what it is running
+/// written out, with the manual's own category under that. What to do about it,
+/// on the right: the list that changes the algorithm and the fader that sets
+/// how loud it comes out.
+///
+/// That split is the whole of the arrangement. Six things strung along one line
+/// left a name squeezed between a drop-down and a fader, and the name is the
+/// thing on the strip that is read rather than operated. The algorithm is still
+/// the parameter's own value table under the abbreviations the instrument's
+/// display prints — a list, which is to say the thing you press to change it —
+/// with what those stand for written out beside it rather than substituted into
+/// it, because the control is the library's and the prose is the panel's.
 ///
 /// This is where the page it replaced had a whole header band of its own, under
 /// a row of tabs that had the name on it as well. Two places saying which
@@ -1186,23 +1228,23 @@ where
         .width(Length::Fixed(BADGE))
         .height(Length::Fixed(BADGE))
         .align_y(Vertical::Center),
-        text(format!("FX {}", engine.number()))
-            .size(13)
-            .font(reading_face())
-            .style(move |theme: &Theme| text::Style {
-                color: Some(ink(theme, on)),
-            }),
-        control(
-            engine.algorithm_parameter(),
-            patch.value(engine.algorithm_parameter()),
-            patch.claim(engine.algorithm_parameter()),
-            firmware,
-            Room::listed(ALGORITHM),
-        ),
+        // Which slot this is, and what is in it. The slot is set in the face
+        // the instrument's own readings are set in and held at one width, so
+        // that four cases stacked two by two have their names starting in the
+        // same place down the page rather than wherever `FX 1` happened to end.
+        container(
+            text(format!("FX {}", engine.number()))
+                .size(13)
+                .font(reading_face())
+                .style(move |theme: &Theme| text::Style {
+                    color: Some(ink(theme, on)),
+                })
+        )
+        .width(Length::Fixed(SLOT_NUMBER)),
         container(
             column![
                 text(named)
-                    .size(12)
+                    .size(13)
                     .style(move |theme: &Theme| text::Style {
                         color: Some(ink(theme, on)),
                     }),
@@ -1211,6 +1253,13 @@ where
             .spacing(0)
         )
         .width(Length::Fill),
+        control(
+            engine.algorithm_parameter(),
+            patch.value(engine.algorithm_parameter()),
+            patch.claim(engine.algorithm_parameter()),
+            firmware,
+            Room::listed(ALGORITHM),
+        ),
         // Cut into the case rather than printed on it. A reading carries its
         // claim in its colour, and the claims were chosen against this
         // window's own dark panel: on the palest of the 35 cases both of them
