@@ -805,8 +805,10 @@ second row readable down against the first.
   the grid it was a pale rectangle two of six columns wide with nothing beside
   it, and squeezed into the strip itself it took the width the engine's name was
   standing in — the name being the thing it is a picture of. On its own line it
-  is wide and short, which suits a train of taps along a time, and the grid
-  starts at the top of the plate where it belongs.
+  is small: three or four taps along a time is what it draws, and a screen big
+  enough to be a panel of its own would claim to say more about the engine than
+  four gains and four times can. The grid starts at the top of the plate where
+  it belongs.
   Every other engine gets nothing, which is the answer rather than a gap —
   a reverb's impulse response is its designer's, and a plausible one drawn here
   would look like information and not be any.
@@ -851,6 +853,14 @@ second row readable down against the first.
   picture above it. Three columns rather than two because the band is wide and
   the page is better spent across than down: ten of them four deep is a block
   the eye takes in, and five deep was a column as tall as the plates beside it.
+
+  **They take the whole band.** `Room::spread` says the room left over rather
+  than a width, because the routing is the widest thing in the group and there
+  is nothing else on that line to give the room to: a number written down for it
+  was a band half full with the rest of the page blank beside it. The sentence
+  the specification records about the two topologies that have a loop sits under
+  the settings rather than beside them, for the same reason — a sentence sharing
+  that row is a sentence taking the room the ten are laid out in.
 - **Twelve bytes, however many the algorithm uses.** An algorithm can leave
   seven of its twelve unnamed, and seven controls the size of the five that do
   something is a plate whose loudest half is the half that does nothing. So what
