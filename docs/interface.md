@@ -675,18 +675,30 @@ engine is running, and the two settings that shape it — the connection mode, a
 whether the effects are inserted, sent or bypassed — stand in the band under it.
 
 Every engine carries its own strip, and it is read left to right in two halves.
-What it *is*, on the left: the mark of the family its algorithm is in, the slot
-it stands in, what it is running written out, and the manual's own category
-after it. What to *do about it*, on the right: the list that changes the
-algorithm and the fader that sets how loud it comes out.
+Four things on one line: which slot it is, **the list that is also the title**,
+the picture of what it is doing where there is one, and how loud it comes out.
 
-**It is one line tall.** The category sat on a line of its own under the name,
-which made every strip two lines of text — and a strip is a label on a case, not
-the thing on the page anybody is reading, so four of them down a page cost that
-four times over. `Reverb` and `Processing` are one word each and they follow a
-name the way a subtitle does, so they stand beside it at legend weight and the
-strip comes down to roughly two thirds of what it was. The mark came down with
-the line it stands on. Six things strung along
+**The list is the title.** It was a list of the display's own abbreviations with
+what they stand for written out beside it, which is two controls' worth of room
+saying one thing — the name is what a reader wants and the list is what a hand
+wants, and a list whose entries are the names is both. `Algorithm::full_name` is
+the library's own join between its two names for an algorithm, so this is the
+panel choosing which published name has the room rather than translating
+anything. The abbreviation has not gone anywhere: it is what the chain's glass
+prints in every box, and what the footer says about the byte.
+
+**The level is a knob.** It was a fader lying on its side and it was the widest
+thing on the strip by some way — a hundred and fifty points for one byte, on a
+line that also had to hold the name of the algorithm. A knob is a quarter of
+that, and what the difference bought is the room the response picture stands in,
+which is why that picture no longer needs a line of its own or a page-wide
+reservation to keep four cases level.
+
+**The category and the badge are gone from it.** The category was a second line
+of text on every strip, which is four extra lines down a page of four engines
+for one word about a family whose mark is already on the case; the footer says
+it of whatever is under the pointer. The mark left the strip for the case
+itself — see below. Six things strung along
 one line left the name squeezed between a drop-down and a fader, and the name is
 the thing on the strip that is read rather than operated. The slot number is
 held at one width so that four cases stacked two by two start their names in the
@@ -782,15 +794,27 @@ second row readable down against the first.
   the same function that draws them, so the two cannot disagree — and centres
   that in the room.
 
-  **Centred, and as large as fits in the direction it is longer.** The box the
-  library publishes is a coordinate system rather than a claim about relative
-  sizes — it never says a rotary mark is larger than an imaging one — and drawn
-  at that box's own scale the nine come out between seven and thirteen points
-  tall in a sixteen point space, which reads as a drawing that has slipped
-  rather than as a set. The aspect is kept, so nothing is distorted: the imaging
-  mark stays wide and flat, it is simply as wide as the rotary mark is round.
-  Where a stroke sits inside the box is the library's business; how big the
-  drawing comes out on a strip is this window's.
+  **It is a hero on the case rather than a badge on the strip.** Sixteen points
+  of line drawing beside a name that says the same thing in words is a hard
+  place for a mark: at that size a shallow drawing and a round one cannot be
+  made to sit against each other, and three attempts at placing them all looked
+  like a drawing that had slipped. The same nine strokes at ten times the area
+  have no such problem. It is drawn across the face the controls stand on, in
+  that surface's own ink carried a thirteenth of the way towards it, anchored
+  into the bottom right and running a third of itself off the corner, clipped to
+  the case.
+
+  Two numbers make it a watermark rather than a picture the controls are
+  standing on. It is taken from the case's *depth* and not its width, because a
+  case is half again as wide as it is deep and a mark sized off the width sweeps
+  the whole plate. And its strokes are laid down at a fraction of their usual
+  weight: weight is a share of the side, so the rule that keeps a badge visible
+  at sixteen points gives a hero lines a quarter of an inch thick, which is not
+  faint at any colour.
+
+  It says which family without being read, which is what a mark is for, and it
+  never competes with a word because it is barely there. It also lands exactly
+  where a case that is deeper than its algorithm needs has nothing on it.
 - **An effect that is out of circuit says so, and 32 of the 35 cannot.**
   `FX n Type` is 35 effects with no `Off` in the table, and what takes effects
   out is the `Bypass` mode, which is the whole block of four. Three algorithms
@@ -906,6 +930,13 @@ second row readable down against the first.
   on. A routing pointed somewhere the engine ignores draws the mark as an
   outline: it really is pointed there, and really is doing nothing.
 
+- **The case has a grain.** A rack unit's face is brushed rather than painted
+  flat, and what a window can do about that at this size is put a little light
+  across it: a gradient from a fraction above the case's own colour at the top,
+  through the colour itself, to a fraction below at the foot. Faint enough to
+  read as a surface rather than as stripes. It is there to stop four large
+  blocks of flat colour looking like four large blocks of flat colour, which is
+  the one way a case measured off a photograph still gives itself away.
 - **Nothing on the page is an essay.** Two paragraphs used to stand under every
   rack — what the effects page cannot know about a byte, and what this window
   does not write into the synthesizer — printed under whichever panel somebody

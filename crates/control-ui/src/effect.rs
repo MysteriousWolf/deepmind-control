@@ -156,14 +156,18 @@ use deepmind_midi::effect::{
 use deepmind_midi::param::{DEFAULT_FIRMWARE, Group, ParamId};
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::alignment::{Horizontal, Vertical};
-use iced_core::{Background, Border, Color, Font, Length, Theme, text::Renderer as TextRenderer};
-use iced_widget::{Space, column, container, row, text};
+use iced_core::gradient::Linear;
+use iced_core::{
+    Background, Border, Color, Font, Gradient, Length, Radians, Theme,
+    text::Renderer as TextRenderer,
+};
+use iced_widget::{Space, column, container, pick_list, row, stack, text};
 
 use crate::chain;
 use crate::fader;
 use crate::lcd::{self, Ink, Screen};
-use crate::mark::mark;
-use crate::panel::{self, Room, control, lit_rather_than_listed, modulated, shown};
+use crate::mark;
+use crate::panel::{self, Message, Room, control, lit_rather_than_listed, modulated, shown};
 use crate::style::{self, materials, reading as reading_face};
 use crate::{Confidence, Element, Patch, tint};
 
@@ -212,22 +216,14 @@ fn chosen_in(parameter: ParamId, firmware: Version) -> Room {
 /// How many settings `FX Mode` has, which is what its column of lamps is tall.
 const MODE_CHOICES: usize = 3;
 
-/// How much room an engine's algorithm is chosen in.
+/// How large the output gain is drawn on the strip.
 ///
-/// The display's own abbreviations — `RoomRev`, `MulBndDist` — because the
-/// control is the parameter's value table and not this panel's prose. What the
-/// algorithm is called in full is printed beside it.
-const ALGORITHM: f32 = 104.0;
-
-/// How long the output gain's fader is, along the top of an engine's case.
-const GAIN: f32 = 84.0;
-
-/// How thick it is across its travel.
-///
-/// A band of the strip rather than a rack's fader lying on its side: the strip
-/// is one line of an engine's case, and a control as deep as a rack fader is
-/// wide would be most of it.
-const GAIN_THICK: f32 = 16.0;
+/// A knob, and a small one. It was a fader lying on its side and it was the
+/// widest thing on the strip by some way — a hundred and fifty points for one
+/// byte, on a line where the name of the algorithm had to fit as well. A knob
+/// of this size is a quarter of that, and what the difference bought is the
+/// room the response picture now stands in.
+const GAIN: f32 = 26.0;
 
 /// Height of the box a slot's title is set in.
 ///
@@ -364,12 +360,64 @@ const SPARE: f32 = 22.0;
 /// is, so that the names start in one place down a column of cases.
 const SLOT_NUMBER: f32 = 34.0;
 
-/// How large the mark on an engine's strip is drawn.
+/// Draws the family's mark large and faint across an engine's face.
 ///
-/// The height of the line it stands on, so it reads as the first word of the
-/// strip rather than as a picture beside one. That line is one line now rather
-/// than two, so this came down with it.
-const BADGE: f32 = 16.0;
+/// Nothing at all where the algorithm is one this firmware cannot name, which is
+/// the same rule everything else on the plate follows: there is no family to
+/// mark, and a mark chosen anyway would be a guess drawn at the size of a case.
+fn hero<'a, Renderer>(patch: &Patch, engine: Engine, firmware: Version) -> Element<'a, Renderer>
+where
+    Renderer: iced_core::Renderer + 'a,
+{
+    let Some(algorithm) = algorithm(patch, engine, firmware) else {
+        return Space::new().into();
+    };
+    mark::hero(algorithm.mark(), |theme: &Theme| {
+        let material = materials(theme);
+        style::mix(material.plate, ink(theme, On::Face), HERO_INK)
+    })
+}
+
+/// Draws the grain of the case an engine is in.
+///
+/// A rack unit's face is brushed rather than painted flat, and the one thing a
+/// window can do about that at this size is put a few lines of light across it.
+/// Faint enough that it reads as a surface rather than as stripes: it is there
+/// to stop four large blocks of flat colour looking like four large blocks of
+/// flat colour, which is the one way a case measured off a photograph still
+/// gives itself away.
+fn grain<'a, Renderer>(figure: Option<(Colour, Colour)>) -> Element<'a, Renderer>
+where
+    Renderer: iced_core::Renderer + 'a,
+{
+    container(Space::new().width(Length::Fill).height(Length::Fill))
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .style(move |theme: &Theme| {
+            let case = chassis(theme, figure);
+            let lit = style::mix(case, ink(theme, On::Case(figure)), GRAIN_INK);
+            container::Style {
+                background: Some(Background::Gradient(Gradient::Linear(
+                    Linear::new(Radians(std::f32::consts::PI))
+                        .add_stop(0.0, lit)
+                        .add_stop(0.45, case)
+                        .add_stop(1.0, style::mix(case, lit, 0.6)),
+                ))),
+                ..container::Style::default()
+            }
+        })
+        .into()
+}
+
+/// How far the hero mark is carried from the case towards the case's own ink.
+///
+/// Barely. It is a watermark: enough that the eye finds it without looking and
+/// never enough that a word standing over it is harder to read, which is the
+/// whole difference between a mark under a panel and a picture behind one.
+const HERO_INK: f32 = 0.075;
+
+/// How far the grain is carried the same way, and how far apart its lines run.
+const GRAIN_INK: f32 = 0.05;
 
 /// How many dots across the picture of what an engine is doing is drawn.
 ///
@@ -816,22 +864,11 @@ where
     // Two across, in the order the instrument numbers them. `chunks` rather
     // than a pair of indexes so that a library that ever published a fifth
     // engine gets a third row rather than a panel nobody can reach.
-    // Whether a line is kept for the picture at all is the page's question and
-    // not an engine's: two of the 35 publish a response, so a page holding one
-    // of them keeps that line on all four of its cases and a page holding none
-    // keeps it on none. An engine that reserved it for itself would be four
-    // cases of two depths again, and one that did not would be the page moving
-    // under the hand when a type byte changed.
-    let responding = patch.program().is_some_and(|program| {
-        engines
-            .iter()
-            .any(|engine| effect::response(program, *engine).is_some())
-    });
     for pair in engines.chunks(2) {
         body = body.push(
             row(pair
                 .iter()
-                .map(|engine| plate(patch, *engine, firmware, moved, responding)))
+                .map(|engine| plate(patch, *engine, firmware, moved)))
             .spacing(8),
         );
     }
@@ -1155,7 +1192,6 @@ fn plate<'a, Renderer>(
     engine: Engine,
     firmware: Version,
     moved: &[ParamId],
-    responding: bool,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1181,7 +1217,10 @@ where
             .height(Length::Fixed(shown_room()))
             .width(Length::Fill),
     );
-    let drawn = container(drawn)
+    // The family's mark, large and faint, under the grid rather than under the
+    // case: the face plate the controls stand on is opaque, so a watermark
+    // behind that is a watermark nobody sees. See [`mark::hero`].
+    let drawn = container(stack![drawn].push_under(hero(patch, engine, firmware)))
         .width(Length::Fill)
         .padding(7)
         .style(|theme: &Theme| {
@@ -1196,7 +1235,7 @@ where
                 ..container::Style::default()
             }
         });
-    let body = column![header(patch, engine, firmware, moved, panel, responding)]
+    let body = column![header(patch, engine, firmware, moved, panel)]
         .push(drawn)
         // The twelve under the library's own names, for an engine running an
         // algorithm this firmware's table cannot name. That is the only case
@@ -1210,9 +1249,17 @@ where
         )
         .spacing(6);
     let figure_colours = panel.map(|panel| (panel.chassis(), panel.accent()));
-    container(body)
+    // The family's mark, large and faint, under everything the case carries,
+    // and the case's own grain under that. See [`mark::hero`] for why the mark
+    // is there rather than on the strip.
+    // `push_under` rather than a layer over the top, because a stack takes its
+    // size from its base and the base has to be what is actually on the case: a
+    // grain is as tall as whatever it is behind, and a stack sized from one is
+    // a case with no height at all.
+    container(stack![body].push_under(grain(figure_colours)))
         .padding(6)
         .width(Length::Fill)
+        .clip(true)
         // The same depth as the case beside it, and it gets there by being the
         // same shape rather than by being stretched: every plate draws the
         // grid's own two rows whether or not its algorithm fills them, every
@@ -1374,53 +1421,15 @@ fn header<'a, Renderer>(
     firmware: Version,
     moved: &[ParamId],
     panel: Option<&'static Panel>,
-    responding: bool,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
-    let loaded = algorithm(patch, engine, firmware);
-    let named = loaded.map_or_else(
-        || {
-            patch.value(engine.algorithm_parameter()).map_or_else(
-                || "nothing has been read".to_owned(),
-                |value| format!("{value}, firmware {firmware} does not name it"),
-            )
-        },
-        |algorithm| algorithm.full_name.to_owned(),
-    );
-    // What the manual files it under, and — where the engine carries its own
-    // switch and that switch is off — that it is out of circuit. Three of the
-    // 35 can say that and the other 32 cannot, which is the instrument's answer
-    // rather than this window's.
-    let category = loaded.map_or_else(String::new, |algorithm| {
-        match loaded.and_then(|algorithm| switched_on(patch, engine, algorithm)) {
-            Some(false) => format!("{} \u{2014} out of circuit", algorithm.category),
-            _ => algorithm.category.to_owned(),
-        }
-    });
     let on = On::Case(panel.map(|panel| (panel.chassis(), panel.accent())));
-    let drawing = picture(patch, engine, firmware);
-    let strip = row![
-        // The mark of the family the algorithm is in, which is nine drawings
-        // across the 35 and the one thing on this strip that can be read
-        // without reading. The library publishes the strokes and this window
-        // lays them out, for the reason it publishes the panels as data.
-        container(
-            loaded
-                .map(|algorithm| mark(algorithm.mark(), BADGE, move |theme: &Theme| ink(theme, on)))
-                .map_or_else(
-                    || Element::from(Space::new().width(Length::Fixed(BADGE))),
-                    Element::from,
-                )
-        )
-        .width(Length::Fixed(BADGE))
-        .height(Length::Fixed(BADGE))
-        .align_y(Vertical::Center),
-        // Which slot this is, and what is in it. The slot is set in the face
-        // the instrument's own readings are set in and held at one width, so
-        // that four cases stacked two by two have their names starting in the
-        // same place down the page rather than wherever `FX 1` happened to end.
+    row![
+        // Which slot this is. Set in the face the instrument's own readings are
+        // set in and held at one width, so that four cases stacked two by two
+        // have their names starting in the same place down the page.
         container(
             text(format!("FX {}", engine.number()))
                 .size(13)
@@ -1430,45 +1439,100 @@ where
                 })
         )
         .width(Length::Fixed(SLOT_NUMBER)),
-        container(
-            row![
-                text(named)
+        // The list *is* the title. It was a list of the display's own
+        // abbreviations with what they stand for written out beside it, which
+        // is two controls' worth of room saying one thing: the name is what a
+        // reader wants and the list is what a hand wants, and a list whose
+        // entries are the names is both. The abbreviation has not gone
+        // anywhere — it is what the chain's own glass prints in every box, and
+        // what the footer says about the byte.
+        container(named(patch, engine, firmware, on)).width(Length::Fill),
+        // Where an engine carries its own switch and that switch is off, that
+        // it is out of circuit. Three of the 35 can say it and the other 32
+        // cannot, which is the instrument's answer rather than this window's.
+        // The manual's category went with the second line the strip used to
+        // have: it is one word about a family whose mark is already on the
+        // case, and the footer says it of whatever is under the pointer.
+    ]
+    // What the engine is doing to a signal, for the two of the 35 whose panels
+    // say it outright. On the strip, between the name and the level, which is
+    // the room the gain gave up by turning into a knob.
+    .extend(picture(patch, engine, firmware))
+    .push(output(patch, engine, firmware, moved))
+    .spacing(10)
+    .align_y(Vertical::Center)
+    .into()
+}
+
+/// Draws the list of what an engine could be running, under the names.
+///
+/// The same parameter, the same value table and the same bytes as the rack's
+/// own control draws; what changes is which of the library's two names for an
+/// algorithm each entry carries. `Algorithm::full_name` is the library's own
+/// join between the two, so this is not the panel translating anything — it is
+/// the panel choosing which of the published names has the room.
+fn named<'a, Renderer>(
+    patch: &Patch,
+    engine: Engine,
+    firmware: Version,
+    on: On,
+) -> Element<'a, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    let parameter = engine.algorithm_parameter();
+    let loaded = algorithm(patch, engine, firmware);
+    let live = !matches!(patch.claim(parameter), Confidence::Unknown);
+    // Only the algorithms this firmware's table has a byte for. A unit running
+    // the older firmware names two fewer, and an entry that cannot be selected
+    // is an entry that does nothing when it is.
+    let offered: Vec<&'static Algorithm> = Algorithm::all()
+        .iter()
+        .filter(|algorithm| algorithm.value_for(firmware).is_some())
+        .collect();
+    let chosen = loaded.map(Named);
+    let list = pick_list(
+        offered.into_iter().map(Named).collect::<Vec<_>>(),
+        chosen,
+        move |Named(algorithm)| match algorithm.value_for(firmware) {
+            Some(value) => Message::Edit { parameter, value },
+            // Unreachable: the list only offers what this firmware names.
+            None => Message::Pointed(None),
+        },
+    )
+    .text_size(13)
+    .padding([3, 8])
+    .width(Length::Fill)
+    .style(style::selector);
+    if live {
+        Element::from(list)
+    } else {
+        // Nothing has been read, so there is nothing to change: the same list,
+        // and no way to send a byte the window would then be claiming.
+        Element::from(
+            container(
+                text(loaded.map_or("nothing has been read", |algorithm| algorithm.full_name))
                     .size(13)
                     .style(move |theme: &Theme| text::Style {
                         color: Some(ink(theme, on)),
                     }),
-                printing(category, on).size(9),
-            ]
-            .spacing(7)
-            .align_y(Vertical::Bottom)
+            )
+            .padding([3, 8]),
         )
-        .width(Length::Fill),
-    ]
-    .spacing(8)
-    .align_y(Vertical::Center);
-    // What the engine is doing to a signal, for the two of the 35 whose panels
-    let strip = strip
-        .push(control(
-            engine.algorithm_parameter(),
-            patch.value(engine.algorithm_parameter()),
-            patch.claim(engine.algorithm_parameter()),
-            firmware,
-            Room::listed(ALGORITHM),
-        ))
-        .push(output(patch, engine, firmware, moved));
-    // What the engine is doing to a signal, for the two of the 35 whose panels
-    // say it outright. On its own line under the strip, because everything on
-    // that line is already claiming the width: a display squeezed in beside
-    // them took the room the engine's own name was standing in, and the name is
-    // what the picture is a picture of.
-    column![strip]
-        .extend(responding.then(|| {
-            drawing.unwrap_or_else(|| {
-                Element::from(Space::new().height(Length::Fixed(lcd::room(PICTURE_ROWS))))
-            })
-        }))
-        .spacing(5)
-        .into()
+    }
+}
+
+/// An algorithm, named the way the list names it.
+///
+/// A wrapper because the list needs `Display`, and what it displays is the
+/// library's `full_name` rather than the abbreviation its `Debug` would give.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Named(&'static Algorithm);
+
+impl core::fmt::Display for Named {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        formatter.write_str(self.0.full_name)
+    }
 }
 
 /// Draws how loud an engine comes out, cut into its case.
@@ -1491,15 +1555,19 @@ where
     let gain = engine.gain_parameter();
     container(
         row![
-            printing("gain".to_owned(), On::Recess).size(9),
+            column![
+                printing("gain".to_owned(), On::Recess).size(9),
+                modulated(moved.contains(&gain), true),
+            ]
+            .spacing(1)
+            .align_x(Horizontal::Center),
             control(
                 gain,
                 patch.value(gain),
                 patch.claim(gain),
                 firmware,
-                Room::across(GAIN).sized(GAIN_THICK),
+                Room::SLOT.turned().sized(GAIN),
             ),
-            modulated(moved.contains(&gain), true),
             reading(
                 gain,
                 patch.value(gain),
@@ -1508,10 +1576,10 @@ where
                 On::Recess,
             ),
         ]
-        .spacing(5)
+        .spacing(4)
         .align_y(Vertical::Center),
     )
-    .padding([2, 6])
+    .padding([2, 5])
     .style(|theme: &Theme| {
         let material = materials(theme);
         container::Style {

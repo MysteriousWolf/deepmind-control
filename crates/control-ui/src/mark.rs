@@ -68,10 +68,43 @@ fn steps(length: f32, width: f32) -> usize {
 /// The ink is a closure rather than a colour because every word and line on the
 /// effects page names the surface it lands on and asks which of the
 /// instrument's two can be read there: a mark on a cream chassis and the same
-/// mark on the window's own plate are not the same colour.
-pub(crate) fn mark<'a, Renderer, Ink>(
+/// How large a hero mark is drawn, as a share of the shorter side of the case.
+///
+/// Most of the case's depth, so what is left on the plate is about a third of
+/// its width. Larger than this and it stops being a watermark in a corner and
+/// becomes a drawing the controls are standing on: a case is half again as wide
+/// as it is deep, so a mark taken from the width sweeps the whole plate.
+const HERO: f32 = 0.85;
+
+/// How far a hero mark hangs off the corner it is anchored to, as a share of
+/// its own side.
+///
+/// A third of it, which is what makes it read as a mark on a case rather than a
+/// picture placed on one. A drawing wholly inside its corner is a badge that
+/// grew.
+const HANGS: f32 = 0.35;
+
+/// How much of its usual weight a hero's strokes are laid down at.
+///
+/// Much less. Weight is a share of the side, so the same rule that keeps a
+/// badge's lines visible at sixteen points gives a hero lines a quarter of an
+/// inch thick — which is not faint at any colour.
+const HERO_WEIGHT: f32 = 0.38;
+
+/// Draws `mark` large and faint across the case it is the mark of.
+///
+/// The other way to put a family's mark on an engine, and the one that leaves
+/// the strip alone: a badge on the strip is sixteen points of line drawing
+/// beside a name that says the same thing in words, at a size where a shallow
+/// mark and a round one are hard to place against each other. This is the same
+/// nine strokes at ten times the area, in the case's own ink taken almost all
+/// the way back to the case, anchored into a corner and running off it.
+///
+/// It says which family without being read, which is what a mark is for, and it
+/// never competes with a word because it is barely there.
+#[must_use]
+pub(crate) fn hero<'a, Renderer, Ink>(
     mark: &'static Mark,
-    side: f32,
     ink: Ink,
 ) -> Element<'a, crate::Message, Theme, Renderer>
 where
@@ -80,9 +113,10 @@ where
 {
     Element::new(Drawing {
         mark,
-        side,
+        side: 0.0,
         ink,
         fits: Fits::of(mark),
+        anchored: true,
     })
 }
 
@@ -92,6 +126,13 @@ struct Drawing<Ink> {
     mark: &'static Mark,
     side: f32,
     ink: Ink,
+    /// Whether this is a hero rather than a badge.
+    ///
+    /// A badge is a square of its own and fills it. A hero takes whatever room
+    /// it is put in, draws itself larger than that room's shorter side, and
+    /// hangs off the far corner — so `at` is answering a different question and
+    /// `size` is a different answer.
+    anchored: bool,
     /// What of the library's unit box this mark's own strokes reach.
     ///
     /// Measured once, when the mark is built, because it is a property of the
@@ -243,6 +284,16 @@ impl<Ink> Drawing<Ink> {
     fn at(&self, bounds: Rectangle, point: Point) -> (f32, f32) {
         let scale = self.scale(bounds);
         let (across, down) = (self.fits.width * scale, self.fits.height * scale);
+        if self.anchored {
+            // Into the bottom right and off it, so the case keeps the corner
+            // the eye starts at and the drawing runs out of the one it does not.
+            return (
+                bounds.x + bounds.width - across * (1.0 - HANGS)
+                    + (point.x() - self.fits.left) * scale,
+                bounds.y + bounds.height - down * (1.0 - HANGS)
+                    + (point.y() - self.fits.top) * scale,
+            );
+        }
         (
             bounds.x + (bounds.width - across) / 2.0 + (point.x() - self.fits.left) * scale,
             bounds.y + (bounds.height - down) / 2.0 + (point.y() - self.fits.top) * scale,
@@ -269,8 +320,19 @@ impl<Ink> Drawing<Ink> {
     /// Everything measured in the unit box goes through this, a disc's radius
     /// included, or a mark would be placed at one size and drawn at another.
     fn scale(&self, bounds: Rectangle) -> f32 {
-        (bounds.width / self.fits.width.max(f32::EPSILON))
-            .min(bounds.height / self.fits.height.max(f32::EPSILON))
+        let room = if self.anchored {
+            // Larger than the room, which is the whole of what a hero is.
+            let side = bounds.width.min(bounds.height) * HERO;
+            Rectangle {
+                width: side,
+                height: side,
+                ..bounds
+            }
+        } else {
+            bounds
+        };
+        (room.width / self.fits.width.max(f32::EPSILON))
+            .min(room.height / self.fits.height.max(f32::EPSILON))
     }
 }
 
@@ -280,6 +342,9 @@ where
     Ink: Fn(&Theme) -> Color,
 {
     fn size(&self) -> Size<Length> {
+        if self.anchored {
+            return Size::new(Length::Fill, Length::Fill);
+        }
         Size::new(Length::Fixed(self.side), Length::Fixed(self.side))
     }
 
@@ -289,6 +354,9 @@ where
         _renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
+        if self.anchored {
+            return layout::atomic(limits, Length::Fill, Length::Fill);
+        }
         layout::atomic(limits, Length::Fixed(self.side), Length::Fixed(self.side))
     }
 
@@ -304,7 +372,26 @@ where
     ) {
         let bounds = layout.bounds();
         let ink = (self.ink)(theme);
-        let width = (bounds.width.min(bounds.height) * WEIGHT).max(HAIRLINE);
+        // A hero runs off two edges of the case, so what falls outside is cut
+        // rather than drawn over the plate beside it.
+        renderer.with_layer(bounds, |renderer| {
+            self.strokes(renderer, bounds, ink);
+        });
+    }
+}
+
+impl<Ink> Drawing<Ink> {
+    /// Lays every stroke of the mark down in `bounds`.
+    fn strokes<Renderer>(&self, renderer: &mut Renderer, bounds: Rectangle, ink: Color)
+    where
+        Renderer: iced_core::Renderer,
+    {
+        let weight = if self.anchored {
+            WEIGHT * HERO_WEIGHT
+        } else {
+            WEIGHT
+        };
+        let width = (bounds.width.min(bounds.height) * weight).max(HAIRLINE);
         for stroke in self.mark.strokes() {
             match *stroke {
                 Stroke::Line { points } => {
@@ -439,6 +526,7 @@ mod tests {
             side: ROOM.width,
             ink: (|_: &Theme| Color::BLACK) as fn(&Theme) -> Color,
             fits: Fits::of(mark),
+            anchored: false,
         }
     }
 
