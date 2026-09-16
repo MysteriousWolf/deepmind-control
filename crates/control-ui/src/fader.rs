@@ -269,7 +269,7 @@ impl<Message> Fader<'_, Message> {
     }
 
     /// Returns where the cap is.
-    fn cap(&self, bounds: Rectangle) -> Rectangle {
+    fn cap_of(&self, bounds: Rectangle) -> Rectangle {
         let travelled = self.fraction() * self.reach(bounds);
         let across = self.cap_across();
         match self.axis {
@@ -546,7 +546,7 @@ where
             return;
         }
 
-        let cap = self.cap(bounds);
+        let cap = self.cap_of(bounds);
         let confirmed = self.claim.is_confirmed();
         renderer.fill_quad(
             renderer::Quad {
@@ -628,13 +628,13 @@ mod tests {
     fn both_ends_of_the_range_put_the_cap_flush_with_the_track() {
         // A control whose extremes are unreachable is a bug people file, and
         // the arithmetic that reaches them is the same either way round.
-        let bottom = at(u8::MIN).cap(DOWN);
+        let bottom = at(u8::MIN).cap_of(DOWN);
         assert!((bottom.y + bottom.height - DOWN.height).abs() < f32::EPSILON);
-        assert!((at(u8::MAX).cap(DOWN).y - DOWN.y).abs() < f32::EPSILON);
+        assert!((at(u8::MAX).cap_of(DOWN).y - DOWN.y).abs() < f32::EPSILON);
 
-        let left = at(u8::MIN).across(HEIGHT).cap(ACROSS);
+        let left = at(u8::MIN).across(HEIGHT).cap_of(ACROSS);
         assert!((left.x - ACROSS.x).abs() < f32::EPSILON);
-        let right = at(u8::MAX).across(HEIGHT).cap(ACROSS);
+        let right = at(u8::MAX).across(HEIGHT).cap_of(ACROSS);
         assert!((right.x + right.width - ACROSS.width).abs() < f32::EPSILON);
     }
 

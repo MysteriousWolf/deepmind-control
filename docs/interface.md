@@ -617,25 +617,33 @@ Mod 1   [ LFO 1        v]  ->  [ VCF Freq    v]  [======|========]
 
 ### Effects
 
-Four engine plates, cut into the group's face plate the way a section tab is cut
-into the panel. Each is the engine's own settings and then its twelve bytes, and
-the settings that are no engine's — the connection mode, and whether the effects
-are inserted, sent or bypassed — are the first thing on the panel rather than a
-rack of two underneath four plates.
+All four engines at once, in the two-by-two the four of them make, each cut
+into the group's face plate the way a section tab is cut into the panel. The
+chain runs across the top with the two settings that shape it — the connection
+mode, and whether the effects are inserted, sent or bypassed — beside the
+display that draws it, so the block's own strip is one control deep.
+
+Every engine carries its own strip: its number, the list that says what it is
+running, what that is called in full, and how loud it comes out. There is no
+header below that and no row of tabs above it, because both of those were a
+second place saying which algorithm an engine was running and neither of them
+was the engine.
 
 ```
-FX 1   179 Type              Midas Equaliser          219 Output Gain
-       [ MidasEQ        v]   Processing                   [=====|======]
-       13                                                 0
-
-  low                          low-mid
-  180 LSG     181 LSF          182 LMG     183 LMF     184 LMQ
-  [ | ]       [ | ]            [ | ]       [ | ]       [ | ]
-  0           19               38          57          76
-  Low Shelf   Low Shelf        Low-Mid     Low-Mid     Low-Mid Q
-  Gain        Frequency        Gain        Frequency
-  -12.0-12.0  30.0-20000.0 Hz  -12.0-12.0  30.0-20000  0.3-5.0
+ FX 2  [ MidasEQ  v]  Midas Equaliser          ┌ gain [====|==] 150 ┐
+                      Processing
+  ╶── low ─────╴ ╶── low-mid ───────────╴ ╶ high-mid ╴
+   180 LSG  181 LSF  182 LMG  183 LMF  184 LMQ  185 HMG
+    ( | )    ( | )    ( | )    ( | )    ( | )    ( | )
+      0        19       38       57       76       95
+  Low Shelf Low Shelf  Low-Mid  Low-Mid  Low-Mid Q High-Mid
+    Gain    Frequency   Gain   Frequency            Gain
+ -12.0-12.0 30-20000Hz -12.0-12 30-20000  0.3-5.0  -12.0-12
 ```
+
+Six columns, every one of them there whether or not a slot stands in it, spread
+across the whole of this engine's half of the page. That is what makes the
+second row readable down against the first.
 
 - **A slot is named by the algorithm, and drawn by the parameter table.** Those
   are two different claims and only one of them is published: `Freeze` is two
@@ -651,17 +659,33 @@ FX 1   179 Type              Midas Equaliser          219 Output Gain
   `Church`, `Gate` and never the bytes they sit at. The names are printed under
   the plate as what the display will show, the fader stays, and nothing offers
   to send one of them.
-- **The rows are the instrument's own FX page.** Six columns and two rows,
-  measured off the 35 screenshots in the manual, with every slot's place on it
-  published — so a plate is the arrangement anybody who has edited an effect on
-  the hardware already knows, rather than twelve slots wrapped into whatever
-  width the window happened to have.
+- **The grid is the instrument's own FX page.** Six columns and two rows,
+  measured off the 35 screenshots in the manual, and every slot drawn in the
+  column and row published for it — so a plate is the arrangement anybody who
+  has edited an effect on the hardware already knows, and the third column of
+  the second row stands under the third column of the first. Reading the
+  publication as the *order* of a row instead, and packing each row against the
+  left at the width of a rack's slot, is what left two rows that did not line up
+  in the left half of an empty plate. The library's own `align` is what it
+  offers a host laying a partial row out some other way; a slot here is in its
+  measured column, so there is no room left over to place.
+- **The size is the window's, and only the size.** The grid also publishes a
+  proportion — a control 11.9 wide in a column pitched 20, on a 128 point
+  display — and a page this wide would make that a knob a hundred points across
+  with its title set in a face a tenth of its size. That proportion measures a
+  dot matrix drawing its own labels in dots. So the arrangement is taken, which
+  is exact, and the size is not: twelve controls on a page have room the rack's
+  forty do not, and it is spent on the thing a hand touches.
 - **The shape is the algorithm's own figure.** 29 of the 35 draw rotary knobs,
   five draw faders, one draws numeric displays. A knob is [the fader turned](#knob)
   and nothing about the control changes with it.
-- **Bands are the library's runs.** One side of a stereo engine, one band of an
-  equaliser: a heading over the cluster within its row, and a slot the library
-  labelled nothing stands on its own.
+- **Bands are the library's runs, printed the way the instrument prints a
+  group.** One side of a stereo engine, one band of an equaliser: a pale strip
+  over the columns the band covers with its name knocked out of it, which is how
+  a `DeepMind` prints `ARP / SEQ` and `VCF` across the top of a group. The strip
+  divides a row exactly the way the row divides itself, so a band of three
+  stands over its three. Two columns the library labelled nothing are two
+  columns and not a pair, and a row it grouped nothing on has no strip at all.
 - **The chain is drawn, on a display over the settings it is a picture of.**
   Ten topologies as edge lists: what the block's input reaches, what feeds what,
   what is summed at the end, the loop dashed under the engines it returns
@@ -671,37 +695,95 @@ FX 1   179 Type              Midas Equaliser          219 Output Gain
   the input, and a backwards edge is the loop. `Bypass` draws the engines as
   something the signal is not going through, because the library says the DSP is
   out of circuit rather than muted.
-- **Twelve bytes, however many the algorithm uses.** The rest are at the end of
-  the plate under `Param 9`, in a cluster that says the algorithm does not use
-  them. They are still in the program, still reachable from the modulation
-  matrix, and still sent. An engine whose algorithm nobody has read draws all
-  twelve that way.
+- **Twelve bytes, however many the algorithm uses.** An algorithm can leave
+  seven of its twelve unnamed, and seven controls the size of the five that do
+  something is a plate whose loudest half is the half that does nothing. So what
+  the grid has no place for goes in a strip cut into the plate below it, at half
+  the size, under the library's own `Param 9`. Nothing is written over them:
+  they are below the grid, cut into the case, half size, and named by the
+  library rather than by the algorithm, which is four ways of saying the same
+  thing, and a sentence saying it a fifth time is a sentence taking room from
+  the controls it is about. They are still in the program, still reachable from
+  the modulation matrix, and still sent. An engine whose algorithm nobody has
+  read is all twelve in that strip and no grid at all, which is stage 3's rack
+  for exactly as long as there is nothing better to say.
+- **A case is as deep as what is in it.** Two engines side by side are two
+  cards of different heights whenever their algorithms fill different numbers of
+  rows or leave different numbers of bytes unnamed. Stretching the shallower to
+  match would be a panel with empty case at the bottom of it, which is a worse
+  lie than two cases of different depths.
+- **Units land on one line.** A title is set in a box two lines tall whatever it
+  needs, so a name that wraps pushes nothing down but itself and the readings
+  across a row are read along one line rather than up and down a ragged one.
 - **The modulation dot has a second state here.** Every slot is addressable from
   the matrix as `Fx n Param m`, and the library says which ones the engine acts
   on. A routing pointed somewhere the engine ignores draws the mark as an
   outline: it really is pointed there, and really is doing nothing.
 
-## One effect at a time, in its own livery
+## Four at once, and what that costs the livery
 
-The effects are the one section with four of everything. Four engine plates
-stacked was four algorithms' worth of controls on one surface, a scroll to reach
-the fourth, and the wrong shape for an instrument that gives its own FX page to
-one engine at a time.
+The effects are the one section with four of everything, and the page has been
+three shapes. Four plates stacked was four algorithms' worth of controls on one
+surface and a scroll to reach the fourth. One at a time behind a row of tabs was
+an engine you could see and three you had to remember — on a page whose whole
+subject is what four effects are doing *together*, with the chain drawn across
+the top of it as a picture of exactly that.
 
-So the engines are a row of tabs across the top and the chosen one is drawn
-below, with the chain and the block's own settings above both — the things that
-are about the block rather than about an engine.
+So all four are on it, in the two-by-two the four of them make, with the chain
+and the block's own settings above them: the things that are about the block
+rather than about an engine.
 
 **That is what let the measured colours be spent properly.** The library
 publishes four per algorithm ([#22](https://github.com/MysteriousWolf/deepmind-midi/issues/22)):
 the chassis around the controls, the face they sit on, the cap a finger moves
-and the accent. This file used to argue that they had to stay a tint, because
+and the accent, and all four are spent. This file used to argue that they had to
+stay a tint, because
 four measured liveries side by side would be a collage of other people's
 instruments in a window whose whole argument is that it is one instrument. With
-one panel on the surface that objection goes: the open plate wears its own
-chassis and its own face, the tabs carry a sixth of each so the row is four
-recognisable units rather than four words, and the controls on it stay the
-editor's own — which is the part that keeps it one instrument.
+**how many of the four can be spent depends on how many units are on the
+surface.** With one open at a time the page wore the lot — case, face and cap,
+the colour of the knob body printed on the algorithm's own figure — because a
+single unit can be that unit without the window becoming a shelf of other
+people's boxes. Four stand on it now, and four liveries side by side are exactly
+the objection. So the face went back to the window's own plate and the cap back
+to the window's own metal, and an engine wears its case and a hairline of its
+accent: enough to tell the reverb from the distortion at arm's length, which is
+all four units at once can afford to say.
+
+The cap is therefore the one measurement this window has spent and handed back,
+and the ledger is worth keeping. It was refused first on the grounds that what
+carries a claim is the fill of the thing that moves, so a control repainted to
+match a figure would break the one rule that holds everywhere. That argument was
+wrong and the refusal was right: the claim is *which* fill and not which colour,
+so a cap can be repainted — but there is only room for it on a page with one
+unit on it, and this is not one.
+
+### Nothing is printed in a colour that cannot be read on what is under it
+
+Half the 35 measured chassis are pale and half are dark, so no word on this page
+names an ink of its own. It names the surface it lands on — the face, a case, a
+band's strip, the recess the chain is cut into — and the ink is whichever of the
+instrument's two that surface is further from, measured rather than judged. A
+legend is that ink half way back towards the surface and then lifted until it
+clears the [contrast threshold](#contrast-is-measured-not-judged); a reading
+keeps the colour of its claim and is lifted the same way, because how light it
+is is what contrast is made of and which colour it is is what it means.
+
+Two things fell out of measuring rather than eyeballing, and neither was visible
+in a screenshot:
+
+- **A case is carried as far into the panel as it can go and still be printed
+  on.** The measured chassis half way in puts the cream ones in the exact middle
+  of the instrument's two inks, where the best either can manage is 4.45 against
+  it. So the carry is not a number somebody picked: it is the most of the livery
+  that leaves the case readable, found by backing off towards the panel until it
+  is.
+- **A value is never printed on a case.** On the palest of the 35, an amber
+  claim and a green one both have to be lifted so far to be read that they
+  arrive as the same ink — which would spend the one distinction this editor
+  exists to draw on a livery. The one value an engine's strip carries, its
+  output gain, sits in a recess cut into the case, which is where a control
+  belongs anyway.
 
 ## Colour is meaning, not decoration
 
@@ -731,11 +813,35 @@ editing. 26.3 publishes them, and they are spent as an identity rather than as a
 finish — enough of the algorithm's chassis in the plate to tell the reverb from
 the distortion at arm's length, and a hairline of its accent around the edge.
 Painted as measured, four imaginary rack units side by side would be a collage
-in a window whose whole argument is that it is one instrument, and a cap
-repainted to match a figure would break the one rule that holds everywhere: what
-carries a claim is the fill of the thing that moves. Nothing else in the editor
-gets a colour for being itself: fourteen groups in fourteen hues is decoration
-pretending to be information.
+in a window whose whole argument is that it is one instrument — and four is what
+is on the page, so what an engine wears is its case and a hairline of its
+accent. The face and the cap went back to the window's own materials when the
+fourth unit arrived. The rule that holds through all of it is the one that holds
+everywhere: what carries a claim is the fill of the thing that moves. Nothing
+else in the editor gets a colour for being itself: fourteen groups in fourteen
+hues is decoration pretending to be information.
+
+### Contrast is measured, not judged
+
+A colour that is right in a palette and unreadable on a panel is not right, and
+half the measured chassis are pale. So `style.rs` carries the measurement as
+well as the colours:
+
+| | |
+| --- | --- |
+| `contrast` | the ratio the web has used since anybody measured it: both colours' relative luminance, larger over smaller, lifted by a twentieth so black on black is 1 |
+| `READABLE` | 4.5, the threshold for text at the sizes this window sets it in, written down once rather than judged per panel |
+| `ink_on` | whichever of the instrument's two inks a surface is further from, by distance rather than by a threshold — a chassis half way between them is exactly where a threshold flips on a rounding error |
+| `legible` | an ink moved the least it has to be to clear `READABLE` on what it is printed on, towards an ink rather than replaced by one, so an amber claim stays amber |
+
+Relative luminance and not a mean of the channels: a saturated green is bright
+and a saturated blue of the same numbers is not, and an average puts dark ink on
+the second one.
+
+The effects page is drawn under all four, and a test walks every word it prints
+against every surface it can land on — the face, the recess, and the case in all
+35 of its liveries. Both of the two findings above came out of that test rather
+than out of a screenshot.
 
 ## Type
 

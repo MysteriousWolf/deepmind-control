@@ -25,7 +25,6 @@
 
 use core::fmt;
 
-use deepmind_midi::effect::Engine;
 use deepmind_midi::param::{Group, Kind, ParamId, Shape};
 use deepmind_midi::program::ProgramName;
 use deepmind_midi::sysex::inquiry::Version;
@@ -108,6 +107,16 @@ pub(crate) fn lit_band(count: usize) -> f32 {
 /// destinations, and a column of 130 legends is a joke at the reader's expense.
 const LEGENDS: usize = 6;
 
+/// Returns whether a parameter's choices are lit rather than listed.
+///
+/// The rule [`drawn`] follows, asked in advance: a hand layout that has to
+/// decide how much room a control needs before it draws it wants the same
+/// answer the control will give itself, and a second rule written here would
+/// be a second rule to keep in step.
+pub(crate) fn lit_rather_than_listed(parameter: ParamId, firmware: Version) -> bool {
+    choices(parameter, firmware, None).is_some_and(|options| options.len() <= LEGENDS)
+}
+
 /// How much of the panel a control has been given, and which way it runs.
 ///
 /// A slot in the rack gives a fader its own width and a list no more than the
@@ -144,6 +153,15 @@ pub(crate) struct Room {
     /// [`knob`](crate::knob) — so this belongs here, beside the axis a fader
     /// runs along, rather than anywhere near what a parameter is.
     form: Form,
+    /// How big the thing a hand takes hold of is drawn, when the room is more
+    /// than the control's own size.
+    ///
+    /// A rack's slot is cut to its fader, so the two are the same number and
+    /// this is `None`. An effect plate's column is not: the instrument's own FX
+    /// page puts six of them across a whole page, so a column there is twice a
+    /// slot wide and a control drawn at the column's width would be a knob the
+    /// size of a fist.
+    body: Option<f32>,
 }
 
 /// What a control that sweeps a range is drawn as.
@@ -172,6 +190,7 @@ impl Room {
         travel: fader::HEIGHT,
         legends: false,
         form: Form::Fader,
+        body: None,
     };
 
     /// Room for one lane of the instrument's own front panel.
@@ -187,6 +206,7 @@ impl Room {
             travel,
             legends: false,
             form: Form::Fader,
+            body: None,
         }
     }
 
@@ -199,6 +219,7 @@ impl Room {
             travel: height,
             legends: true,
             form: Form::Fader,
+            body: None,
         }
     }
 
@@ -214,6 +235,7 @@ impl Room {
             travel: fader::HEIGHT,
             legends: false,
             form: Form::Fader,
+            body: None,
         }
     }
 
@@ -229,6 +251,7 @@ impl Room {
             travel: fader::HEIGHT,
             legends: false,
             form: Form::Fader,
+            body: None,
         }
     }
 
@@ -241,6 +264,7 @@ impl Room {
             travel: fader::HEIGHT,
             legends: false,
             form: Form::Fader,
+            body: None,
         }
     }
 
@@ -253,6 +277,25 @@ impl Room {
     pub(crate) const fn turned(self) -> Self {
         Self {
             form: Form::Knob,
+            ..self
+        }
+    }
+
+    /// The same room, with the control drawn `across` points rather than
+    /// filling it.
+    ///
+    /// For a panel whose columns are wider than its controls, which is what the
+    /// effects page became when it took the instrument's own six-column grid
+    /// and gave it a whole page to lie on. The travel is untouched: how far a
+    /// drag runs is what makes every control in this window move at one rate,
+    /// and it is not a thing a layout may bargain with.
+    ///
+    /// A fader standing up takes it only to narrow, because a fader is as wide
+    /// as its cap and there is one cap in this window; a knob is as wide as it
+    /// is drawn, and a fader lying down is as thick as it is asked to be.
+    pub(crate) const fn sized(self, across: f32) -> Self {
+        Self {
+            body: Some(across),
             ..self
         }
     }
@@ -293,13 +336,6 @@ pub enum Message {
     /// front of somebody is the application's state and not the synthesizer's,
     /// so this is the one message that goes nowhere near the port.
     Show(Group),
-    /// This effect engine should be the one on the screen.
-    ///
-    /// The effects are the one section with four of everything, and four
-    /// engine panels at once is a surface nobody reads across. Which of them is
-    /// open is the application's state and not the synthesizer's, so like
-    /// [`Show`](Message::Show) this never reaches a wire.
-    Open(Engine),
     /// The pointer is over this control, or has left the one it was over.
     ///
     /// A panel of forty faders under four-letter legends is only readable
@@ -318,12 +354,7 @@ pub enum Message {
 /// mean something else on 1.0. Until a synthesizer has answered, the caller
 /// passes the library's default and says so on the screen.
 #[must_use]
-pub fn group<'a, Renderer>(
-    patch: &Patch,
-    group: Group,
-    firmware: Version,
-    opened: Option<Engine>,
-) -> Element<'a, Renderer>
+pub fn group<'a, Renderer>(patch: &Patch, group: Group, firmware: Version) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
@@ -370,7 +401,7 @@ where
     if let Some(strip) = sequencer::strip(patch, group, firmware) {
         body = body.push(strip);
     }
-    if let Some(engines) = effect::panels(patch, group, firmware, &moved, opened) {
+    if let Some(engines) = effect::panels(patch, group, firmware, &moved) {
         body = body.push(engines);
     }
     if !slots.is_empty() {
@@ -542,25 +573,29 @@ where
     let high = *range.end();
     if matches!(room.form, Form::Knob) {
         // A knob is as wide as it is tall and takes the room across the panel
-        // it was given, which for a slot in the rack is the fader's own width.
+        // it was given, which for a slot in the rack is the fader's own width
+        // and for a column of an effect plate is the size that plate asked for.
         return knob(range, value.clamp(low, high), claim, move |value| {
             Message::Edit { parameter, value }
         })
-        .size(room.width.min(knob::SIZE))
+        .size(room.body.unwrap_or_else(|| room.width.min(knob::SIZE)))
         .into();
     }
     let fader = fader(range, value.clamp(low, high), claim, move |value| {
         Message::Edit { parameter, value }
     });
+    let across = room.body.unwrap_or(room.width);
     match room.axis {
         // A fader takes as much room across as it is given and never more than
         // it needs: a slot gives it more than its width, and a strip's lane
         // gives it less, which is the lane it draws in. How long it runs is the
         // room's too, because the instrument's own panel holds two rows of them.
-        Axis::Down if room.width < fader::WIDTH => {
-            fader.narrow(room.width).travel(room.travel).into()
-        }
+        Axis::Down if across < fader::WIDTH => fader.narrow(across).travel(room.travel).into(),
         Axis::Down => fader.travel(room.travel).into(),
+        // A fader lying down is narrowed the same way, so that a gain along the
+        // top of an effect panel is a band of that panel's header rather than a
+        // rack fader turned on its side in a row half its height.
+        Axis::Across if room.body.is_some() => fader.across(room.width).narrow(across).into(),
         Axis::Across => fader.across(room.width).into(),
     }
 }
@@ -841,7 +876,7 @@ where
 /// Raw where the library has no table, because inventing a plausible "2.4 kHz"
 /// for a byte is wrong in a way nobody can see. A measured curve arrives in the
 /// library, parameter by parameter, and this picks it up when it upgrades.
-fn shown(parameter: ParamId, value: Option<u8>, firmware: Version) -> String {
+pub(crate) fn shown(parameter: ParamId, value: Option<u8>, firmware: Version) -> String {
     let Some(value) = value else {
         return "\u{2014}".to_owned();
     };
