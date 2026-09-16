@@ -490,11 +490,23 @@ between a second screen and a magnified one, and it is what makes the strip over
 a plate's faders and the panel's own display read as two windows into one
 instrument.
 
-**It is a positive display.** A `DeepMind`'s screen is a pale green-white
-backlit panel with its dots printed dark on it, which is why a photograph of the
-instrument has one bright rectangle in the middle of a dark panel. Pale dots on
-a dark pane would be the negative of the instrument this is a picture of — every
-other synthesizer of the decade, and not this one.
+**It is a positive display, and it can be turned over.** A `DeepMind`'s screen
+is a pale green-white backlit panel with its dots printed dark on it, which is
+why a photograph of the instrument has one bright rectangle in the middle of a
+dark panel. Pale dots on a dark pane would be the negative of the instrument
+this is a picture of — every other synthesizer of the decade, and not this one.
+So that is where the window starts, and a press at the end of the row that
+chooses a surface turns every display in it over at once, the way a screen has
+one backlight.
+
+The negative livery is the same two greens driven the other way: the lit one
+becomes the dots and the dark one becomes the ground. Nothing else in the window
+changes — the panel, the metal, the recesses and both claims stay exactly what
+they are — and the claim on the glass needs no second rule to follow it. Each of
+the three is already mixed towards the material it is printed *on* or the
+material it is printed *in*, so swapping those two swaps the ordering with them:
+the strongest reading is the one furthest from the ground either way, which is
+the whole of what that ordering has to mean.
 
 ```
 ┌────────────────────────┐   glass: #d6e7cd falling to #bfd3b6, the one
@@ -545,7 +557,7 @@ are two plates of one group.
 | DCO 1 & 2 | Two lanes. Whichever of `DCO 1`'s shapes are switched on, side by side; `DCO 2`'s square as tall as its own level, with the noise scattered over it at its |
 | ENVELOPES | One envelope a plate, from `generator::envelope`: the four times and levels, bent by the four curve bytes |
 | VCA | The amplifier's envelope under the level it is played at, with the level as a dotted ceiling |
-| LFO 1, LFO 2 | `generator::lfo` — the seven the value table names, the sampled two included — over as many of the library's own horizontals as the rate's travel |
+| LFO 1, LFO 2 | `generator::lfo` — the seven the value table names, the sampled two included — over as many of the library's own horizontals as the rate's travel, never fewer than two, about a ruled centre and with a tick a cycle along the foot |
 | ARP / SEQ | `generator::arpeggiator_gates`: four steps, each as open as the gate time says. An arpeggiator that is switched off is a flat line |
 | POLY | The polyphony mode in words, and the unison detune as five marks spreading from a centre |
 
@@ -563,15 +575,34 @@ under, because they are the library's:
 - **No axis is in anybody's units unless the library publishes one.** Two are
   and are drawn as published: a filter's vertical is decibels, because the slope
   of a pole is, and an LFO's horizontal is turns, because a cycle is a cycle
-  whatever the rate byte does. Everything else is `Scale::Normalised`, which is
-  the library saying outright that the axis is an ordering — so a corner is at
-  the fraction of its own range the byte sits at, not at a frequency. What each
-  of those says is *where in its travel* a value is, which is exactly what the
-  fader beside it says.
+  whatever the rate byte does. Those two are also the only two that are *ruled* —
+  a tick an octave along the foot of the filter plates, a tick a cycle along the
+  foot of the LFOs, both taken off the library's own `Scale` rather than
+  measured here. Everything else is `Scale::Normalised`, which is the library
+  saying outright that the axis is an ordering — so a corner is at the fraction
+  of its own range the byte sits at, not at a frequency, and a plate drawn on
+  one gets no ticks, because a scale nobody measured is a screen that looks like
+  information. What each of those says is *where in its travel* a value is,
+  which is exactly what the fader beside it says.
+
+  Ruling the rest is [#36](https://github.com/MysteriousWolf/deepmind-midi/issues/36):
+  the marks worth drawing on a `Normalised` shape are where its segments join,
+  and the library is the one that knows.
 - **Nothing is drawn from a value nobody has read.** A scene's claim is the
   weakest of everything it read, and a scene with anything unread is not drawn
   at all: a filter assembled from four values the synthesizer described and one
   this window invented is a picture of no filter.
+
+**A wave is drawn about the line it swings around.** Every shape in the
+library's table starts at the bottom of its range, so that the seven can be
+drawn side by side without one looking shifted — which means one turn of a sine
+is a hill. It leaves the floor, reaches the top and comes back, and a picture of
+that reads as a bump rather than as something going round. So an LFO gets at
+least two turns however slow its rate is, and a dotted rule across the middle of
+the band for the level it swings about. The two turns are this window's; the
+middle is an assumption, marked where it is made and asked for in
+[#35](https://github.com/MysteriousWolf/deepmind-midi/issues/35), because
+`LFO n Unipolar` is a byte and the generator is not reading it.
 
 Three things are left out by that rule rather than by oversight. The bass boost
 is printed as a word instead of drawn as a shelf, because what it lifts is not
@@ -639,19 +670,27 @@ Mod 1   [ LFO 1        v]  ->  [ VCF Freq    v]  [======|========]
 
 All four engines at once, in the two-by-two the four of them make, each cut
 into the group's face plate the way a section tab is cut into the panel. The
-chain runs across the top with the two settings that shape it — the connection
-mode, and whether the effects are inserted, sent or bypassed — beside the
-display that draws it, so the block's own strip is one control deep.
+chain runs across the top of the block, at the width it needs to name what each
+engine is running, and the two settings that shape it — the connection mode, and
+whether the effects are inserted, sent or bypassed — stand in the band under it.
 
-Every engine carries its own strip: the mark of the family its algorithm is in,
-its number, the list that says what it is running, what that is called in full,
-and how loud it comes out. There is no header below that and no row of tabs
-above it, because both of those were a second place saying which algorithm an
-engine was running and neither of them was the engine.
+Every engine carries its own strip, and it is read left to right in two halves.
+What it *is*, on the left: the mark of the family its algorithm is in, the slot
+it stands in, what it is running written out, and the manual's own category
+under that. What to *do about it*, on the right: the list that changes the
+algorithm and the fader that sets how loud it comes out. Six things strung along
+one line left the name squeezed between a drop-down and a fader, and the name is
+the thing on the strip that is read rather than operated. The slot number is
+held at one width so that four cases stacked two by two start their names in the
+same place down the page.
+
+There is no header below that and no row of tabs above it, because both of those
+were a second place saying which algorithm an engine was running and neither of
+them was the engine.
 
 ```
- ╱╲   FX 2  [ MidasEQ  v]  Midas Equaliser     ┌ gain [====|==] 150 ┐
-╱  ╲                       Processing
+ ╱╲   FX 2   Midas Equaliser        [ MidasEQ  v]  ┌ gain [==|=] 150 ┐
+╱  ╲         Processing
   ╶── low ─────╴ ╶── low-mid ───────────╴ ╶ high-mid ╴
    180 LSG  181 LSF  182 LMG  183 LMF  184 LMQ  185 HMG
     ( | )    ( | )    ( | )    ( | )    ( | )    ( | )
@@ -748,16 +787,29 @@ second row readable down against the first.
   the input, and a backwards edge is the loop. `Bypass` draws the engines as
   something the signal is not going through, because the library says the DSP is
   out of circuit rather than muted.
-- **The chain's glass is one size, and it is the instrument's own.** 128 dots by
-  64, for all ten topologies. It took whatever width the window had while
-  keeping the height its own topology wanted, so its proportions were an
-  accident of the window — four engines on a strip nine times as wide as it is
-  tall — and the page moved under the hand when the routing byte did. One size
-  leaves the shallow topologies holding glass the deep ones need, so they spend
-  it: the graph takes what its boxes need, each box carries its family's mark,
-  and the room left over lists what the four engines are running for the ones
-  whose box was too narrow to say. A topology that stacks its four has boxes
-  wide enough to say it themselves and no list at all.
+- **The chain's glass is one size, and the size is what naming them costs.**
+  64 dots down, which is the instrument's own display and is what four engines
+  stacked need. Across, it is derived: the longest abbreviation in the library's
+  own table of 35, written at the size this glass writes, inside a frame, four of
+  those across with the gutters and the rails at either end. That comes out at
+  nearly three times the instrument's own width, and every dot of it is a name
+  in a box rather than a name in a list under one. Nothing about it is chosen —
+  a firmware that adds a longer abbreviation makes this glass wider in the same
+  breath, which is the rule the front panel already opens its window by.
+
+  It is still one size for all ten topologies, because a page that resized
+  itself when a routing byte moved was a page that jumped under the hand that
+  moved it. A box says the engine's number and what it is running on one line
+  where it has the width, and stacks the number over the name where it has the
+  height instead — which is what four engines in a line get, narrow boxes on a
+  graph one box deep. The list under the graph is still there and is now never
+  used; it is what would happen on the day a name outgrew the derivation.
+- **The settings are under the display, not beside it.** That is what the wider
+  glass cost, and it bought the better half of the trade: the ten topologies are
+  laid out as two columns of lit legends rather than hidden in a drop-down. A
+  list of ten shows whichever one is already chosen and hides the nine somebody
+  is choosing between, on the one control on this page where the choice *is* the
+  picture above it.
 - **Twelve bytes, however many the algorithm uses.** An algorithm can leave
   seven of its twelve unnamed, and seven controls the size of the five that do
   something is a plate whose loudest half is the half that does nothing. So what

@@ -315,9 +315,13 @@ called in full written out beside the list rather than substituted into it, and
 how loud its output. Nothing above them and nothing below — a row of tabs and a
 header both said which algorithm an engine was running, and neither of them was
 where the engine was. The settings that are no engine's, the connection mode and
-whether the effects are inserted, sent or bypassed, sit beside the chain they
-shape, found by subtraction rather than by name, which is also where a parameter
-a later library adds to this group will appear.
+whether the effects are inserted, sent or bypassed, sit in the band under the
+chain they shape, found by subtraction rather than by name, which is also where
+a parameter a later library adds to this group will appear. Under rather than
+beside is what the wider glass cost and what bought the ten topologies a layout:
+they are two columns of lit legends now instead of a drop-down, and a drop-down
+of ten shows whichever one is already chosen and hides the nine somebody is
+choosing between.
 
 **A named slot is the same control it was.** The library says two things about a
 slot and they are not the same thing: `FxSlot::kind` is how the display reads
@@ -437,6 +441,15 @@ matching `Serial 1-2-3-4` against a string would be an eleventh copy of the
 table — and where an engine stands is worked out from the edges rather than
 written down, so a column is how far it is from the input and a backwards edge
 is the loop.
+
+The glass it is drawn on is cut to the longest abbreviation the library
+publishes: four boxes in a line, each wide enough to name what is running in it,
+with the gutters between them and the rails at either end. That is nearly three
+times the instrument's own display, and what it buys is that the name of an
+effect is in the box for that effect rather than in a list under the picture.
+The number stacks over the name where a box has the height and not the width,
+which is what four engines in a line have. Nothing about the width is chosen — a
+firmware that adds a longer abbreviation widens the glass on the same day.
 
 ## One view layer, two runtimes
 

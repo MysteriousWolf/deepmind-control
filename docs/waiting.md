@@ -14,7 +14,8 @@ from a fact this repository transcribed is a second copy of a generated table,
 going stale silently on the next release. So the answer to "the window cannot
 say that" is an issue, not a table.
 
-There were two, and both are gone. The front panel's own contents were a table in
+There were two, and both are gone, and a third is being written down before it
+settles. The front panel's own contents were a table in
 `control-ui/src/home.rs`, because the home screen could not be built without
 them; 26.3 published the same thing and the table is deleted. The shapes the
 plate displays draw were arithmetic about the instrument written in
@@ -24,20 +25,28 @@ so they are deleted too.
 
 That is the measure of the arrangement working: both were named out loud, scoped
 to the files they were in, and removed by the other side of the split rather than
-becoming permanent. What is left in those two files is a sample loop and the one
-number the library declines to draw, which is the high-pass slope, marked where
-it is used.
+becoming permanent. What is left in those two files is a sample loop, the one
+number the library declines to draw — the high-pass slope, marked where it is
+used and now asked for in [#37](https://github.com/MysteriousWolf/deepmind-midi/issues/37)
+— and one assumption about where an LFO rests, marked the same way and asked for
+in [#35](https://github.com/MysteriousWolf/deepmind-midi/issues/35). Both are in
+the open list above rather than quietly correct, which is the only way a number
+like that does not become permanent.
 
 ## Open
 
-None. The four rows that were here — the effects page asking for more than the
-library published — were answered together in 26.4 and are in the table below.
+Three, all from one pass over the section plates' own displays. 26.4 published
+the shapes; these are what a shape still cannot say about itself.
 
-That is the arrangement working rather than a milestone: every one of them was
-something this editor was drawing less well than it could, the fix was a
-released version and a pin bump, and the tree they were blocking is smaller for
-each one landing. When the next thing this window cannot say turns up, it goes
-here as an issue and not as a table in `control-ui`.
+| | | What the window does meanwhile |
+| --- | --- | --- |
+| [#35](https://github.com/MysteriousWolf/deepmind-midi/issues/35) | `generator::lfo` reads the shape byte and ignores the four other parameters that shape an LFO | Draws the shape it is given, over at least two turns, with a dotted rule across the middle of the band for the level it swings about. **The middle is assumed.** `LFO n Unipolar` is what says whether an LFO swings about the centre of its range or rides up from the floor, and the generator is not reading it, so a unipolar LFO is drawn with its rest line in the wrong place. `Slew Rate`, `Delay / Fade` and `Key Sync` are not drawn at all |
+| [#36](https://github.com/MysteriousWolf/deepmind-midi/issues/36) | The marks along a generator's horizontal | Rules the two axes that are regular enough to derive — an octave a tick on the filter plates out of `Scale::Octaves`, a cycle a tick on the LFO plates out of `Scale::Turns`. The envelope plates have no marks at all: the four bytes a player is editing are the four segments of that line and nothing on the screen says which part is which |
+| [#37](https://github.com/MysteriousWolf/deepmind-midi/issues/37) | The high-pass response, and what the oscillators are making | Draws both by hand. The high-pass is the one number about the instrument still written down in this tree — `HIGH_PASS_SLOPE`, transcribed out of a doc comment in the library — and the two oscillator plates assemble their own shapes and their own mixing law out of six parameters |
+
+None of the three blocks anything. They are each a place where the window is
+deciding something the library would decide better, which is the same argument
+every row in the table below was filed on.
 
 ## Answered
 
