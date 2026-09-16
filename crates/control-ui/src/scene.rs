@@ -54,7 +54,7 @@
 
 use deepmind_midi::generator::{self, FILTER_UNITY, GATES_DRAWN, Gate, LfoId};
 use deepmind_midi::param::{Group, ParamId};
-use deepmind_midi::program::LfoShape;
+use deepmind_midi::program::{LfoShape, Program, VcfEnvelopePolarity};
 use deepmind_midi::sysex::inquiry::Version;
 
 use crate::envelope;
@@ -307,7 +307,7 @@ impl Scene {
     ) -> Screen {
         let mut screen = Screen::new(columns, rows);
         match self {
-            Self::Filter => filter(&mut screen, patch, firmware),
+            Self::Filter => filter(&mut screen, patch),
             Self::HighPass => high_pass(&mut screen, patch),
             Self::Oscillator(which) => oscillator(&mut screen, patch, which),
             Self::Envelope(group) => envelope_on(&mut screen, patch, group),
@@ -383,7 +383,7 @@ fn decibels(gain: f32) -> f32 {
 /// gain on that vertical, and the headroom above it is what a resonant peak
 /// rises into. It is ruled, because a filter drawn without the level it passes
 /// at is a curve with nothing to read it against.
-fn filter(screen: &mut Screen, patch: &Patch, firmware: Version) {
+fn filter(screen: &mut Screen, patch: &Patch) {
     let band = screen.all();
     let (Some(program), Some(corner)) = (patch.program(), travel(patch, ParamId::VcfFrequency))
     else {
@@ -395,7 +395,7 @@ fn filter(screen: &mut Screen, patch: &Patch, firmware: Version) {
     // The corner sits at `0.5` along the generator, so a column of the screen
     // is half a span either side of wherever the byte put it.
     screen.curve(band, Ink::Solid, |x| response.at(0.5 + x - corner));
-    reach(screen, patch, corner, firmware);
+    reach(screen, patch, corner);
 }
 
 /// Draws how far the envelope moves the corner, and which way.
@@ -406,14 +406,18 @@ fn filter(screen: &mut Screen, patch: &Patch, firmware: Version) {
 /// that the two parameters are in the same units is exactly what the manual
 /// does not say, so this says how much of its own travel the depth is using and
 /// which way the polarity points it, and stops there.
-fn reach(screen: &mut Screen, patch: &Patch, corner: f32, firmware: Version) {
+fn reach(screen: &mut Screen, patch: &Patch, corner: f32) {
     let Some(depth) = travel(patch, ParamId::VcfEnvelopeDepth) else {
         return;
     };
     if depth <= 0.0 {
         return;
     }
-    let positive = named(patch, ParamId::VcfEnvelopePolarity, firmware) != Some("Negative");
+    // The library's own reading of the byte rather than the word its display
+    // prints: a drawing that matched on `Negative` would point the reach the
+    // wrong way on the day that word moved, and there is a type for it.
+    let positive = patch.program().and_then(Program::vcf_envelope_polarity)
+        != Some(VcfEnvelopePolarity::Negative);
     let band = screen.all();
     let moved = if positive {
         corner + depth
