@@ -169,8 +169,8 @@ pub use panel::{Message, group};
 pub use patch::Patch;
 pub use section::{first_section, section_bar, sections};
 pub use style::{
-    Materials, READABLE, bay, chrome, contrast, deepmind, ground, ink_on, legible, materials,
-    printed, reading, selector, shortlist, tint, wordmark, written,
+    Materials, READABLE, bay, chrome, contrast, deepmind, ground, ink_on, is_negative, legible,
+    materials, negative, printed, reading, selector, shortlist, tint, wordmark, written,
 };
 
 /// A piece of interface, produced by the views in this crate.

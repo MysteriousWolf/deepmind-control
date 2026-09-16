@@ -15,7 +15,7 @@
 use std::sync::LazyLock;
 
 use iced_core::gradient::Linear;
-use iced_core::theme::Palette;
+use iced_core::theme::{Base, Palette};
 use iced_core::{Background, Border, Color, Font, Gradient, Radians, Shadow, Theme, border, color};
 use iced_widget::overlay::menu;
 use iced_widget::{button, container, pick_list};
@@ -192,13 +192,22 @@ pub struct Materials {
 )]
 pub fn materials(theme: &Theme) -> Materials {
     let palette = theme.extended_palette();
+    // The glass driven the other way, where the window is wearing that livery.
+    // The same two greens: the lit one is what a backlight puts through the
+    // panel and the dark one is the panel with nothing driving it, so turning
+    // them over is the display turned over rather than a second palette.
+    let (glass, glass_low, ink) = if is_negative(theme) {
+        (color!(0x101a12), color!(0x18231b), color!(0xd6e7cd))
+    } else {
+        (color!(0xd6e7cd), color!(0xbfd3b6), color!(0x101a12))
+    };
     Materials {
         panel: palette.background.base.color,
         plate: color!(0x1b1f26),
         recess: color!(0x080a0e),
-        glass: color!(0xd6e7cd),
-        glass_low: color!(0xbfd3b6),
-        ink: color!(0x101a12),
+        glass,
+        glass_low,
+        ink,
         recess_edge: color!(0x242932),
         lit: color!(0x7d838f),
         scale: palette.background.strong.color,
@@ -208,6 +217,15 @@ pub fn materials(theme: &Theme) -> Materials {
     }
 }
 
+/// What the theme of the window with a negative display is called.
+///
+/// The livery is carried on the theme's own name rather than in a flag beside
+/// it, because it is not a flag: it is which of two ways this window is
+/// painted, and every drawing in it already asks the theme what it is made of.
+/// A second channel saying the same thing is a second channel to thread through
+/// nine files and keep in step with the first.
+const NEGATIVE: &str = "DeepMind Negative";
+
 /// The theme both builds are drawn in.
 ///
 /// Built once. Cloning it is cloning a pointer, which is what the window does
@@ -216,6 +234,33 @@ pub fn materials(theme: &Theme) -> Materials {
 pub fn deepmind() -> Theme {
     static THEME: LazyLock<Theme> = LazyLock::new(|| Theme::custom("DeepMind".to_owned(), PALETTE));
     THEME.clone()
+}
+
+/// The same window with the display the other way up.
+///
+/// Every `DeepMind` ships with a positive display — dark dots printed on lit
+/// glass — and the panel around it is dark, so the screen is the one thing on
+/// the instrument that is brighter than its surroundings. That is what
+/// [`deepmind`] draws. A negative display is the same glass driven the other
+/// way: the ground goes dark and the dots light up, which is what most dot
+/// matrix screens on dark equipment look like and is what somebody reading this
+/// window in a dark room is likely to want.
+///
+/// Nothing else in the window changes. The panel, the metal, the recesses and
+/// both claims stay exactly what they are, and the claim on the glass stays
+/// three depths of one ink rather than three colours — see [`written`], which
+/// turns the ordering over with the glass so that the strongest reading is
+/// still the one that stands out most.
+#[must_use]
+pub fn negative() -> Theme {
+    static THEME: LazyLock<Theme> = LazyLock::new(|| Theme::custom(NEGATIVE.to_owned(), PALETTE));
+    THEME.clone()
+}
+
+/// Returns whether `theme` draws its displays the other way up.
+#[must_use]
+pub fn is_negative(theme: &Theme) -> bool {
+    theme.name() == NEGATIVE
 }
 
 /// The colour a value is written in, given what backs it.
@@ -257,6 +302,14 @@ pub fn tint(theme: &Theme, confidence: Confidence) -> Color {
 /// survives being photographed, projected, or read by somebody who does not see
 /// the copper, because the three are three lightnesses before they are three
 /// hues.
+///
+/// It turns over with the glass and needs no second rule to do it. Every one of
+/// the three is mixed towards the material it is printed on or the material it
+/// is printed in, and [`negative`] swaps those two: on lit glass the strongest
+/// reading is the one mixed furthest towards the dark ink, and on dark glass
+/// the same arithmetic mixes it furthest towards the light one. Strongest is
+/// still furthest from the ground either way, which is the whole of what the
+/// ordering has to mean.
 ///
 /// Mixed from the theme's own colours rather than written down, for the reason
 /// [`tint`] takes them from the theme: a window somebody has themed differently

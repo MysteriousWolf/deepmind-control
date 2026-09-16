@@ -69,8 +69,12 @@ pub fn run() -> iced::Result {
 /// The instrument is a dark panel, so the window is one. Every colour in it
 /// comes from this theme, which lives in `control-ui` because the plugin is
 /// drawn in the same one.
-fn theme(_app: &App) -> Theme {
-    control_ui::deepmind()
+fn theme(app: &App) -> Theme {
+    if app.is_negative() {
+        control_ui::negative()
+    } else {
+        control_ui::deepmind()
+    }
 }
 
 /// What the title bar says.
@@ -189,9 +193,34 @@ fn surfaces(app: &App) -> Element<'_, Message> {
         tab(View::Editor, app.section().name().to_owned()),
         tab(View::Library, "Library".to_owned()),
     ]
+    .push(space::horizontal())
+    .push(livery(app))
     .spacing(6)
     .align_y(Center)
     .into()
+}
+
+/// The press that turns the displays over.
+///
+/// At the far end of the row that chooses a surface, because it belongs to the
+/// window rather than to any one of the three: every display in all of them
+/// turns over together, the way a screen has one backlight.
+///
+/// It says which way up they will be rather than which way up they are, because
+/// that is what a press does — and it is the one control in this window that
+/// changes nothing about the sound, which is why it is a plain press and not
+/// something that lights.
+fn livery(app: &App) -> Element<'_, Message> {
+    let label = if app.is_negative() {
+        "Positive display"
+    } else {
+        "Negative display"
+    };
+    button(text(label).size(12))
+        .padding([5, 10])
+        .style(control_ui::chrome)
+        .on_press(Message::Invert)
+        .into()
 }
 
 /// What the instrument's own display would be showing.
