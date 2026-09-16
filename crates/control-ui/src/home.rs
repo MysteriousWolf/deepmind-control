@@ -137,7 +137,8 @@ const READ: f32 = 18.0;
 /// take the whole of it and push the voicing onto a line of its own.
 const SCREEN: f32 = 340.0;
 
-/// Height of the legend over a lane, so that lanes line up whatever they hold.
+/// Height of the legend printed with a control, so that lanes line up whatever
+/// they hold.
 ///
 /// Two lines of it, because the panel prints `PITCH MOD` on two.
 const LEGEND: f32 = 22.0;
@@ -146,14 +147,11 @@ const LEGEND: f32 = 22.0;
 const SWITCH: f32 = 58.0;
 
 /// How much room a way into a section is given.
-const WAY: f32 = 40.0;
-
-/// How tall the lamp under a way in stands.
 ///
-/// A square-ish button rather than a word in a box: the instrument's are wider
-/// than they are tall by about this much, and the legend is on the panel above
-/// rather than inside them.
-const PRESS: f32 = 15.0;
+/// The cap it holds and no more. The cap is the rack's own and does not stretch
+/// with the panel — see [`way`] — so the lane it stands in starts at its width
+/// and grows around it rather than under it.
+const WAY: f32 = crate::panel::CAP;
 
 /// How much panel there is above and below the display in the panel's own hole.
 const GAP: f32 = 2.0;
@@ -1099,7 +1097,6 @@ where
 {
     let parameter = control.parameter;
     column![
-        legend(control.legend, scale),
         crate::panel::control(
             parameter,
             patch.value(parameter),
@@ -1107,6 +1104,7 @@ where
             firmware,
             Room::listed(scale.of(SWITCH)),
         ),
+        legend(control.legend, scale),
     ]
     .spacing(scale.of(UNDER))
     .width(Length::Fixed(scale.of(SWITCH)))
@@ -1114,7 +1112,14 @@ where
     .into()
 }
 
-/// What the panel prints over a control.
+/// What the panel prints with a control.
+///
+/// Over a fader, which is where the instrument prints it and where a rack's
+/// slot does not: the hardware has a screen to put readings on and no room
+/// under a fader. Under a button, for the same reason read the other way — a
+/// `DeepMind` silkscreens `POLY` and `EDIT` on the panel *below* the cap they
+/// belong to, because a finger on a button covers what is printed above it and
+/// a lit cap with nothing over it is the thing the eye finds first.
 fn legend<'a, Renderer>(printed_as: &'a str, scale: Scale) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1137,30 +1142,32 @@ where
 /// The way into a section, which is the button the hardware calls `EDIT`.
 ///
 /// Two things and not one. On the instrument the word is silkscreened on the
-/// panel and the button under it is a blank square that is lit amber the whole
+/// panel and the button it names is a blank rubber cap, lit amber the whole
 /// time it is powered; a row of those along the foot of every plate is the
 /// first thing anybody sees in a photograph of a `DeepMind`. So the label is
-/// printed over it in the same ink as every other legend, and what is pressed
+/// printed under it in the same ink as every other legend, and what is pressed
 /// is the lamp.
 fn way<'a, Renderer>(label: &'a str, group: Group, scale: Scale) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
     column![
-        legend(label, scale),
         // In the room a button of the row beside it is drawn in, and standing
-        // in the middle of it. The lamp is smaller than a switch and the band
-        // along the foot of a plate is one band: an `EDIT` that sat at the top
-        // of it would be a lamp half a legend above every lamp next to it.
+        // in the middle of it. The cap is the rack's own — the same width and
+        // the same height as the lamp on the next plate along — because the
+        // band along the foot of a plate is one band, and two sizes of button
+        // in it is a row of presses that do not line up. That band is the one
+        // part of the panel the window does not stretch, so neither is this.
         container(
             button(Space::new().width(Length::Fill).height(Length::Fill))
-                .width(Length::Fixed(scale.of(WAY)))
-                .height(Length::Fixed(scale.of(PRESS)))
+                .width(Length::Fixed(crate::panel::CAP))
+                .height(Length::Fixed(crate::panel::PRESS))
                 .style(crate::style::way_in)
                 .on_press(Message::Show(group)),
         )
         .height(Length::Fixed(crate::panel::BUTTON))
         .align_y(Vertical::Center),
+        legend(label, scale),
     ]
     .spacing(scale.of(UNDER))
     .width(Length::Fixed(scale.of(WAY)))
@@ -1206,7 +1213,8 @@ mod tests {
 
     use deepmind_midi::param::DEFAULT_FIRMWARE;
 
-    use super::{ACROSS, DOWN, GAP, NARROWEST, PAD, Plate, SCREEN, Scale, Share, WITHIN, rows};
+    use super::{ACROSS, DOWN, GAP, LEGEND, NARROWEST, PAD, Plate, SCREEN, SWITCH, Scale};
+    use super::{Share, UNDER, WAY, WITHIN, rows};
     use super::{
         blank, count, lcd, lines, lit, panel_width, panelled, row_width, span, standing,
         standing_in, widest,
@@ -1557,6 +1565,33 @@ mod tests {
                 lcd::room(screen.rows() + 1) > hole,
                 "the hole has room for a dot the screen is not using"
             );
+        }
+    }
+
+    #[test]
+    fn a_plate_s_foot_holds_its_buttons_and_what_is_printed_under_them() {
+        // The band along the foot of a plate is drawn in the room the rest of
+        // the editor gives a control that is not a fader, and it is the one
+        // part of the panel that does not grow with the window. So the cap is
+        // written at a size rather than scaled, and this is what says that size
+        // still fits: a cap taller than the band is a row of buttons pushed
+        // through the bottom of every plate at once, and a lane narrower than a
+        // cap is a button drawn over the legend of the one beside it.
+        for scale in [Scale::NATURAL, Scale::filling(widest() * 8.0)] {
+            let foot = crate::panel::BUTTON + scale.of(UNDER + LEGEND);
+            let printed = crate::panel::PRESS + scale.of(UNDER + LEGEND);
+            assert!(
+                printed <= foot,
+                "a cap and its legend stand {printed} in the {foot} a plate's foot has"
+            );
+            for (lane, name) in [(WAY, "a way in"), (SWITCH, "a switch")] {
+                assert!(
+                    crate::panel::CAP <= scale.of(lane),
+                    "{name} is {} across, holding a cap of {}",
+                    scale.of(lane),
+                    crate::panel::CAP
+                );
+            }
         }
     }
 

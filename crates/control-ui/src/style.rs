@@ -280,7 +280,13 @@ pub fn written(theme: &Theme, confidence: Confidence) -> Color {
 /// Straight linear interpolation in whatever space the channels are already in,
 /// which for darkening one colour towards another dark one is close enough that
 /// a colour space would be arithmetic nobody could see the result of.
-fn mix(colour: Color, into: Color, amount: f32) -> Color {
+///
+/// Public because a control that lights mixes its own lamp through the panel —
+/// an unlit cap is the panel with a little metal in it, a claimed one is the
+/// claim's colour a fifth of the way up — and a caller doing that with its own
+/// arithmetic is a second mixer to keep in step with this one.
+#[must_use]
+pub fn mix(colour: Color, into: Color, amount: f32) -> Color {
     let across = amount.clamp(0.0, 1.0);
     let channel = |from: f32, to: f32| from + (to - from) * across;
     Color {
@@ -288,6 +294,58 @@ fn mix(colour: Color, into: Color, amount: f32) -> Color {
         g: channel(colour.g, into.g),
         b: channel(colour.b, into.b),
         a: colour.a,
+    }
+}
+
+/// How round the corner of a button's cap is.
+///
+/// A `DeepMind`'s buttons are moulded rubber and not keycaps: the corners are
+/// turned far enough that the cap reads as something soft pushed through a hole
+/// in the panel. It is most of what separates a lit button from a coloured
+/// rectangle, and it is a measurement rather than a taste, so it is written
+/// down once and every cap in the window is cut to it.
+pub const MOULD: f32 = 7.0;
+
+/// The face of a button's cap, moulded rather than filled.
+///
+/// What makes a button on the instrument read as rubber: the cap stands proud
+/// of the panel, the room's light falls across its crown, and its foot sits in
+/// its own shadow. So a cap is a gradient down its own height and never one
+/// flat colour — the same reason [`ground`] is a gradient and not the dark end
+/// of one.
+///
+/// `pressed` turns it over. A cap pushed into the panel catches the light along
+/// its foot instead, which is the same face seen from the other side of the
+/// press and is why nothing here needs a second colour to say it is held down.
+#[must_use]
+pub fn moulded(face: Color, pressed: bool) -> Background {
+    let (crown, foot) = if pressed {
+        (shade(face, -0.22), shade(face, 0.14))
+    } else {
+        (shade(face, 0.24), shade(face, -0.28))
+    };
+    Background::Gradient(Gradient::Linear(
+        // Down the cap, like the panel behind it: the light end at the top,
+        // where the light is.
+        Linear::new(Radians(std::f32::consts::PI))
+            .add_stop(0.0, crown)
+            // Past the middle rather than at it, because the crown of a moulded
+            // cap is flatter than its sides and a gradient that turned halfway
+            // down is a bevel.
+            .add_stop(0.58, face)
+            .add_stop(1.0, foot),
+    ))
+}
+
+/// `colour` lifted towards the light, or dropped into shadow.
+///
+/// One knob rather than two calls to [`mix`], because a cap is lit and shaded
+/// by the same light and the two ends of it should be written the same way.
+fn shade(colour: Color, amount: f32) -> Color {
+    if amount >= 0.0 {
+        mix(colour, Color::WHITE, amount)
+    } else {
+        mix(colour, Color::BLACK, -amount)
     }
 }
 
@@ -345,14 +403,16 @@ pub fn chrome(theme: &Theme, status: button::Status) -> button::Style {
 
 /// What a press that opens a section is drawn as: a lamp behind a cap.
 ///
-/// The hardware's `EDIT` is not a word on the panel. It is a square button that
-/// is lit amber all the time, with `EDIT` silkscreened on the panel above it,
+/// The hardware's `EDIT` is not a word on the panel. It is a rubber button that
+/// is lit amber all the time, with `EDIT` silkscreened on the panel beside it,
 /// and a row of them along the bottom of every plate is the thing you see first
 /// in a photograph of the instrument. So this is a lamp rather than a label: it
-/// carries no text, because the text is printed over it where the panel prints
+/// carries no text, because the text is printed under it where the panel prints
 /// it, and it is lit when nothing is happening to it, because that is the state
 /// the instrument leaves them in.
 ///
+/// It is [moulded](moulded) like every other cap in the window, so what is lit
+/// is a soft thing standing proud of the panel rather than a filled rectangle.
 /// Pressing takes the cap off the lamp — the face goes to the full colour and
 /// the rim with it — and hovering is halfway there, so that the press has
 /// somewhere to go. A button with nothing to open loses the lamp altogether and
@@ -365,28 +425,32 @@ pub fn way_in(theme: &Theme, status: button::Status) -> button::Style {
     // still a cap over a lamp and not the lamp itself, so even the pressed
     // state keeps a little of the panel in it.
     let through = match status {
-        button::Status::Active => 0.42,
-        button::Status::Hovered => 0.68,
+        button::Status::Active => 0.54,
+        button::Status::Hovered => 0.78,
         button::Status::Pressed => 0.92,
         button::Status::Disabled => 0.0,
     };
+    let held = matches!(status, button::Status::Pressed);
     let face = mix(material.panel, WAY_IN, through);
     button::Style {
-        background: Some(Background::Color(face)),
+        background: Some(moulded(face, held)),
         // Nothing is set in it, and a colour that would be unreadable if
         // something were is a trap for whoever puts a word there later.
         text_color: material.ink,
-        border: border::rounded(2).width(1.0).color(mix(
-            material.recess_edge,
+        border: border::rounded(MOULD).width(1.0).color(mix(
+            material.recess,
             WAY_IN,
-            through.max(0.25),
+            through.max(0.2) * 0.6,
         )),
         shadow: Shadow {
             color: Color {
                 a: through * 0.55,
                 ..WAY_IN
             },
-            offset: iced_core::Vector::ZERO,
+            // A cap that is not held down stands off the panel, and the light
+            // it spills falls a little below it; held, it is level with the
+            // panel and the spill is level with it too.
+            offset: iced_core::Vector::new(0.0, if held { 0.0 } else { 1.5 }),
             blur_radius: 6.0,
         },
         ..button::Style::default()

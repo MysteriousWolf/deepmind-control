@@ -59,6 +59,21 @@ pub(crate) const NAME: f32 = 44.0;
 /// plate is as tall as its parts.
 pub(crate) const BUTTON: f32 = fader::WIDTH;
 
+/// How wide the cap of a button that lights is.
+///
+/// A fader's width, so that a lamp in a rack's slot is the same width as the
+/// fader in the slot beside it and a row of controls is one row.
+pub(crate) const CAP: f32 = fader::WIDTH;
+
+/// How tall that cap stands.
+///
+/// Square-ish, and taller than a line of text needs. The buttons on a
+/// `DeepMind` are moulded rubber about half again as wide as they are tall, and
+/// a cap drawn as tall as its own label is a menu item with a light behind it:
+/// the height is what makes it read as something a finger presses rather than
+/// something a pointer clicks.
+pub(crate) const PRESS: f32 = 28.0;
+
 /// How tall one lit legend of a named set stands.
 ///
 /// One line of the reading face at the size a legend is set in, and no padding
@@ -485,10 +500,19 @@ where
     }
 }
 
-/// Draws a lamp: lit for on, and what it says under it.
+/// Draws a lamp: a moulded cap, lit for on, with what it says on its face.
 ///
 /// Not a checkbox and not something that slides. An instrument says *on* with a
 /// light, and this is the only place a saturated colour appears.
+///
+/// The cap is [the panel's own](CAP): square-ish, rounded the way a rubber
+/// button is moulded, and lit across its crown rather than filled flat, so that
+/// a row of them along the foot of a plate reads as the row of buttons a
+/// photograph of the instrument shows. What the panel prints about it goes
+/// beside the cap and never on it — the front panel prints its legends under
+/// the buttons, which is [`home`](crate::home)'s business rather than this
+/// one's — and what stays on the face is the reading, which is the one thing
+/// the hardware's own lamp says by being lit.
 ///
 /// A switch nobody has read is drawn as the switch it is, unlit and saying
 /// neither: what a control is does not depend on whether a sound has arrived,
@@ -511,13 +535,11 @@ where
         Some(_) => "on",
     };
     let live = !matches!(claim, Confidence::Unknown);
-    let face = button(
-        container(text(label).size(11).font(reading()).center())
-            .width(Length::Fixed(fader::WIDTH))
-            .align_x(Horizontal::Center),
-    )
-    .padding(6)
-    .style(move |theme: &Theme, _status| lit(theme, on, claim));
+    let face = button(text(label).size(11).font(reading()).center())
+        .width(Length::Fixed(CAP.min(room.width)))
+        .height(Length::Fixed(PRESS))
+        .padding(0)
+        .style(move |theme: &Theme, status| capped(theme, on, claim, status));
     let face = if live {
         face.on_press(Message::Edit {
             parameter,
@@ -528,6 +550,8 @@ where
     };
     container(face)
         .height(room.height)
+        .width(Length::Fixed(room.width))
+        .align_x(Horizontal::Center)
         .align_y(Vertical::Center)
         .into()
 }
@@ -600,12 +624,14 @@ where
     .into()
 }
 
-/// The style a lamp is drawn in: lit, outlined, or dark.
+/// The style one legend of a lit set is drawn in.
 ///
-/// The same rule the fader's cap follows. Filled for what the synthesizer
-/// reported, an outline for what this window claims, and neither for a value
-/// nobody has read, so the fill carries the difference and the colour agrees
-/// with it.
+/// Flat, and not [a cap](capped): a strip of legends is the row of lamps beside
+/// the instrument's own LFO faders, where the light is behind the name rather
+/// than under a finger, and seven moulded caps in the room two faders leave
+/// would be seven buttons nobody can press. So this carries the claim the same
+/// way a cap does — filled for a fact, an outline for a claim, neither for a
+/// value nobody has read — and nothing else about it is a button.
 fn lit(theme: &Theme, on: bool, claim: Confidence) -> button::Style {
     let material = materials(theme);
     let colour = tint(theme, claim);
@@ -624,6 +650,51 @@ fn lit(theme: &Theme, on: bool, claim: Confidence) -> button::Style {
         border: border::rounded(2)
             .width(1.0)
             .color(if on { colour } else { material.recess_edge }),
+        ..button::Style::default()
+    }
+}
+
+/// The style a cap is drawn in: lit, outlined, or dark.
+///
+/// The same rule the fader's cap follows. Filled for what the synthesizer
+/// reported, an outline for what this window claims, and neither for a value
+/// nobody has read, so the fill carries the difference and the colour agrees
+/// with it.
+///
+/// Whatever it is carrying, it is [moulded](style::moulded): an unlit button on
+/// the instrument is still a rubber cap standing in the panel, and drawing that
+/// one as a hole and the lit one as a light would be two controls wearing one
+/// name. So the dark state is the panel's own colour moulded, and what lighting
+/// it changes is the colour and not the shape.
+fn capped(theme: &Theme, on: bool, claim: Confidence, status: button::Status) -> button::Style {
+    let material = materials(theme);
+    let colour = tint(theme, claim);
+    let confirmed = claim.is_confirmed();
+    let held = matches!(status, button::Status::Pressed);
+    // A cap a pointer is over is lit a little before it is pressed, which is
+    // the whole of what hovering means on a panel that has no cursor.
+    let hover = matches!(status, button::Status::Hovered);
+    let face = match (on, confirmed) {
+        (true, true) => colour,
+        (true, false) => style::mix(material.panel, colour, 0.22),
+        (false, _) => style::mix(
+            material.panel,
+            material.metal_low,
+            if hover { 0.22 } else { 0.12 },
+        ),
+    };
+    button::Style {
+        background: Some(style::moulded(face, held)),
+        text_color: if on {
+            if confirmed { material.panel } else { colour }
+        } else {
+            material.metal_low
+        },
+        border: border::rounded(style::MOULD).width(1.0).color(if on {
+            colour
+        } else {
+            material.recess_edge
+        }),
         ..button::Style::default()
     }
 }
