@@ -296,6 +296,9 @@ impl Room {
     /// and gave it a whole page to lie on. The travel is untouched: how far a
     /// drag runs is what makes every control in this window move at one rate,
     /// and it is not a thing a layout may bargain with.
+    ///
+    /// A fader takes it only to narrow, because a fader is as wide as its cap
+    /// and there is one cap in this window; a knob is as wide as it is drawn.
     pub(crate) const fn sized(self, across: f32) -> Self {
         Self {
             body: Some(across),
@@ -615,8 +618,6 @@ where
         Some(colour) => fader.cap(colour),
         None => fader,
     };
-    // A plate that asked for a size gets it across the fader as well, so that a
-    // row of knobs and a row of faders are the same row seen two ways.
     let across = room.body.unwrap_or(room.width);
     match room.axis {
         // A fader takes as much room across as it is given and never more than
@@ -624,7 +625,6 @@ where
         // gives it less, which is the lane it draws in. How long it runs is the
         // room's too, because the instrument's own panel holds two rows of them.
         Axis::Down if across < fader::WIDTH => fader.narrow(across).travel(room.travel).into(),
-        Axis::Down if room.body.is_some() => fader.narrow(across).travel(room.travel).into(),
         Axis::Down => fader.travel(room.travel).into(),
         Axis::Across => fader.across(room.width).into(),
     }

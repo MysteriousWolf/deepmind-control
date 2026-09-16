@@ -64,11 +64,8 @@ pub const HEIGHT: f32 = 128.0;
 /// Width of the track cut into the panel.
 const TRACK: f32 = 7.0;
 
-/// How much of the fader's width is the shoulder its scale is printed on.
-///
-/// The rest is the cap, so a fader given more room across than a rack's slot
-/// gives it has a cap to match and not a handle adrift in a wider track.
-const SHOULDER: f32 = 6.0;
+/// The cap across its travel.
+const CAP_WIDTH: f32 = 38.0;
 
 /// The cap along its travel. Travel is the track less this, so the ends of the
 /// range put the cap flush with the ends of the track.
@@ -280,13 +277,10 @@ impl<Message> Fader<'_, Message> {
 
     /// Returns how wide the cap is across the travel.
     ///
-    /// The fader less the [shoulder](SHOULDER) its scale is printed on, and
-    /// never so narrow that there is nothing to take hold of: a strip of
-    /// thirty-two lanes narrows the cap with the fader, and an effect plate
-    /// whose columns are the instrument's own grid spread across a page widens
-    /// it with one.
+    /// The full cap unless the fader is narrower than one, and never so narrow
+    /// that there is nothing to take hold of.
     fn cap_across(&self) -> f32 {
-        (self.thickness - SHOULDER).max(8.0)
+        CAP_WIDTH.min((self.thickness - 6.0).max(8.0))
     }
 
     /// Returns where the cap is.

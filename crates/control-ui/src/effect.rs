@@ -169,18 +169,18 @@ const BAND: f32 = 15.0;
 /// and this is that room spent on the thing a hand actually touches.
 const BODY: f32 = 72.0;
 
-/// How wide a fader is drawn on one, for the same reason.
-///
-/// Less than a knob's diameter. A knob grows in both directions at once and a
-/// fader only across its travel, which is already as long as a rack's.
-const TRACK: f32 = 58.0;
-
 /// How big one of them is drawn where the algorithm does not use the byte.
 ///
 /// A rack slot's own control, near enough: the strip under the grid is where a
 /// byte the algorithm has no name for goes, and it is not competing with the
 /// twelve above it.
 const SPARE: f32 = 34.0;
+
+/// How much room the heading over that strip is given.
+///
+/// Beside the controls rather than over them, so that a strip holding one byte
+/// is a line across the plate and not a panel with a knob in the corner of it.
+const SHELF: f32 = 150.0;
 
 /// How much room the engine's number is stencilled in.
 const NUMERAL: f32 = 52.0;
@@ -637,12 +637,12 @@ impl Figure {
     fn room(self, spare: bool) -> Room {
         let room = match self.control {
             Some(Control::Knob) => Room::SLOT.turned().sized(if spare { SPARE } else { BODY }),
-            // A fader is widened rather than turned, and by less: a knob grows
-            // in both directions at once and a fader only across its travel,
-            // so the two end up the same weight in a column at different
-            // numbers.
-            _ if spare => Room::SLOT,
-            _ => Room::SLOT.sized(TRACK),
+            // A fader is left at the width a fader is. There is one cap in this
+            // window and it is as wide as it is, so a fader stretched to a
+            // column of the grid would be a handle adrift in a track — and
+            // widening it here would widen the instrument's own two rows, which
+            // are drawn by the same code from the same constants.
+            _ => Room::SLOT,
         };
         match self.cap {
             Some(worn) => room.worn(colour(worn)),
@@ -788,18 +788,24 @@ where
     });
     Some(
         container(
-            column![
-                printing(
-                    match lanes.len() {
-                        1 => "one byte this algorithm does not use".to_owned(),
-                        many => format!("{many} bytes this algorithm does not use"),
-                    },
-                    None,
+            row![
+                container(
+                    printing(
+                        match lanes.len() {
+                            1 => "one byte this\nalgorithm does not use".to_owned(),
+                            many => format!("{many} bytes this\nalgorithm does not use"),
+                        },
+                        None,
+                    )
+                    .size(10),
                 )
-                .size(10),
+                .width(Length::Fixed(SHELF))
+                .height(Length::Fill)
+                .align_y(Vertical::Center),
                 row(bytes).spacing(6).wrap(),
             ]
-            .spacing(4),
+            .spacing(10)
+            .align_y(Vertical::Center),
         )
         .width(Length::Fill)
         .padding(8)
