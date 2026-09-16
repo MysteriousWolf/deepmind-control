@@ -677,8 +677,16 @@ whether the effects are inserted, sent or bypassed — stand in the band under i
 Every engine carries its own strip, and it is read left to right in two halves.
 What it *is*, on the left: the mark of the family its algorithm is in, the slot
 it stands in, what it is running written out, and the manual's own category
-under that. What to *do about it*, on the right: the list that changes the
-algorithm and the fader that sets how loud it comes out. Six things strung along
+after it. What to *do about it*, on the right: the list that changes the
+algorithm and the fader that sets how loud it comes out.
+
+**It is one line tall.** The category sat on a line of its own under the name,
+which made every strip two lines of text — and a strip is a label on a case, not
+the thing on the page anybody is reading, so four of them down a page cost that
+four times over. `Reverb` and `Processing` are one word each and they follow a
+name the way a subtitle does, so they stand beside it at legend weight and the
+strip comes down to roughly two thirds of what it was. The mark came down with
+the line it stands on. Six things strung along
 one line left the name squeezed between a drop-down and a fader, and the name is
 the thing on the strip that is read rather than operated. The slot number is
 held at one width so that four cases stacked two by two start their names in the
@@ -689,8 +697,8 @@ were a second place saying which algorithm an engine was running and neither of
 them was the engine.
 
 ```
- ╱╲   FX 2   Midas Equaliser        [ MidasEQ  v]  ┌ gain [==|=] 150 ┐
-╱  ╲         Processing
+ ╱╲  FX 2  Midas Equaliser  Processing   [ MidasEQ  v]  ┌ gain [==|=] 150 ┐
+╱  ╲
   ╶── low ─────╴ ╶── low-mid ───────────╴ ╶ high-mid ╴
    180 LSG  181 LSF  182 LMG  183 LMF  184 LMQ  185 HMG
     ( | )    ( | )    ( | )    ( | )    ( | )    ( | )
@@ -766,13 +774,19 @@ second row readable down against the first.
   None of the nine fills that box and no two of them leave it the same way: the
   reverb's wavefronts leave a third of the width empty on one side, the imaging
   mark uses less than half the height, the delay's bars use nearly all of it.
-  Drawn straight onto the room they are given, a row of engine strips is nine
-  drawings at nine sizes hanging at nine heights. So `mark.rs` measures what
-  each one reaches — walking the curves with the same function that draws them,
-  so the two cannot disagree — and centres that, scaled to fill the room in
-  whichever direction it is longer and keeping its proportions in the other.
-  Where a stroke sits inside the box is the library's business; where the
-  drawing sits on a strip is this window's.
+  Drawn straight onto the room they are given, a row of engine strips has the
+  reverb a third of the way off centre and the rest hanging at their own
+  heights. So `mark.rs` measures what each one reaches — walking the curves with
+  the same function that draws them, so the two cannot disagree — and centres
+  that in the room.
+
+  **Centred, and not stretched to fill it.** Scaling each mark up to the same
+  box was tried and is wrong: the nine share a box so that a shallow mark reads
+  as shallow beside a tall one, and blowing each one up throws that away — the
+  filter's mark is a gentle roll-off and arrived as a slash across the strip.
+  Where a stroke sits inside the box is the library's business, how big it is
+  drawn is the library's too, and where the drawing sits on a strip is this
+  window's.
 - **An effect that is out of circuit says so, and 32 of the 35 cannot.**
   `FX n Type` is 35 effects with no `Off` in the table, and what takes effects
   out is the `Bypass` mode, which is the whole block of four. Three algorithms

@@ -110,8 +110,11 @@ struct Drawing<Ink> {
 /// marks side by side are nine different sizes hanging at nine different
 /// heights — which is what a row of engine strips showed.
 ///
-/// So the window measures what each one reaches and places *that*, centred and
-/// scaled to fit, keeping its proportions. Where the strokes sit inside the box
+/// So the window measures what each one reaches and centres *that* in the room,
+/// at the scale the library drew it. Not scaled up to fill the room: the nine
+/// share a box so that a shallow mark reads as shallow beside a tall one, and
+/// stretching each to the same size would throw that away and turn the filter's
+/// roll-off into a slash across the strip. Where the strokes sit inside the box
 /// is the library's business and where the drawing sits on a strip is this
 /// window's, which is the same division the effect panels are laid out under.
 #[derive(Debug, Clone, Copy)]
@@ -236,7 +239,7 @@ impl<Ink> Drawing<Ink> {
     /// direction it is longer, keeping its proportions, and centred in the
     /// other. See [`Fits`].
     fn at(&self, bounds: Rectangle, point: Point) -> (f32, f32) {
-        let scale = self.scale(bounds);
+        let scale = Self::scale(bounds);
         let (across, down) = (self.fits.width * scale, self.fits.height * scale);
         (
             bounds.x + (bounds.width - across) / 2.0 + (point.x() - self.fits.left) * scale,
@@ -246,13 +249,18 @@ impl<Ink> Drawing<Ink> {
 
     /// How many points of the room one unit of the library's box covers.
     ///
-    /// The lesser of the two, so a mark fills the room in whichever direction
-    /// it is longer and keeps its proportions in the other. Everything measured
-    /// in the unit box goes through this, a disc's radius included, or a mark
-    /// would be placed at one size and drawn at another.
-    fn scale(&self, bounds: Rectangle) -> f32 {
-        (bounds.width / self.fits.width.max(f32::EPSILON))
-            .min(bounds.height / self.fits.height.max(f32::EPSILON))
+    /// The room itself, which is to say the nine are drawn at the scale the
+    /// library drew them at. It is deliberately *not* each mark blown up to
+    /// fill the room: a filter's mark is a shallow roll-off and a delay's is
+    /// three tall bars, and stretching each to the same box turns the first
+    /// into a slash across the strip and throws away the one thing the shared
+    /// box was for. What this window fixes is where the drawing sits, not how
+    /// big it is.
+    ///
+    /// Everything measured in the unit box goes through this, a disc's radius
+    /// included, or a mark would be placed at one size and drawn at another.
+    fn scale(bounds: Rectangle) -> f32 {
+        bounds.width.min(bounds.height)
     }
 }
 
@@ -318,7 +326,7 @@ where
                 }
                 Stroke::Dot { centre, radius } => {
                     let at = self.at(bounds, centre);
-                    let across = (radius * 2.0 * self.scale(bounds)).max(width);
+                    let across = (radius * 2.0 * Self::scale(bounds)).max(width);
                     quad(renderer, at, across, ink);
                 }
                 Stroke::Wave {
@@ -454,10 +462,13 @@ mod tests {
     }
 
     #[test]
-    fn every_mark_fills_the_room_in_whichever_way_it_is_longer() {
-        // The other half of fitting: centred and tiny would be centred. A mark
-        // reaches both edges in one direction, and keeps its proportions in the
-        // other rather than being stretched to reach them in both.
+    fn a_mark_is_drawn_at_the_scale_the_library_drew_it() {
+        // The other half of placing one: centring is all this window does. A
+        // mark that reaches half the box is drawn at half the room, because the
+        // nine share a box so that a shallow mark reads as shallow beside a
+        // tall one. Blowing each up to fill its room would be nine marks at one
+        // size and the comparison gone — and a filter's roll-off, which is a
+        // shallow curve, arriving as a slash across the strip.
         for algorithm in Algorithm::all() {
             let drawing = drawn(algorithm.mark());
             let fits = drawing.fits;
@@ -468,9 +479,15 @@ mod tests {
             );
             let family = algorithm.family();
 
-            let filled = (right - left - ROOM.width).abs() < 0.01
-                || (bottom - top - ROOM.height).abs() < 0.01;
-            assert!(filled, "{family:?} is drawn smaller than the room it has");
+            let side = ROOM.width.min(ROOM.height);
+            assert!(
+                (right - left - fits.width * side).abs() < 0.01,
+                "{family:?} is drawn wider than the library drew it"
+            );
+            assert!(
+                (bottom - top - fits.height * side).abs() < 0.01,
+                "{family:?} is drawn taller than the library drew it"
+            );
             assert!(
                 right - left <= ROOM.width + 0.01 && bottom - top <= ROOM.height + 0.01,
                 "{family:?} is drawn past the room it has"

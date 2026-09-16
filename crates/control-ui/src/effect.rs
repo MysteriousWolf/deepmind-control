@@ -289,8 +289,9 @@ const SLOT_NUMBER: f32 = 34.0;
 /// How large the mark on an engine's strip is drawn.
 ///
 /// The height of the line it stands on, so it reads as the first word of the
-/// strip rather than as a picture beside one.
-const BADGE: f32 = 20.0;
+/// strip rather than as a picture beside one. That line is one line now rather
+/// than two, so this came down with it.
+const BADGE: f32 = 16.0;
 
 /// How many dots across the picture of what an engine is doing is drawn.
 ///
@@ -1194,10 +1195,10 @@ fn colour(measured: Colour) -> Color {
 /// Draws the strip across the top of one engine's case.
 ///
 /// Everything an engine is, in the order somebody reads it. What it is, on the
-/// left: the mark of its family, the slot it is in, and what it is running
-/// written out, with the manual's own category under that. What to do about it,
-/// on the right: the list that changes the algorithm and the fader that sets
-/// how loud it comes out.
+/// left: the mark of its family, the slot it is in, what it is running written
+/// out, and the manual's own category after it. What to do about it, on the
+/// right: the list that changes the algorithm and the fader that sets how loud
+/// it comes out.
 ///
 /// That split is the whole of the arrangement. Six things strung along one line
 /// left a name squeezed between a drop-down and a fader, and the name is the
@@ -1206,6 +1207,15 @@ fn colour(measured: Colour) -> Color {
 /// display prints — a list, which is to say the thing you press to change it —
 /// with what those stand for written out beside it rather than substituted into
 /// it, because the control is the library's and the prose is the panel's.
+///
+/// # One line, because the strip is not the subject
+///
+/// The category sat on a line of its own under the name, which made every strip
+/// two lines of text tall — and the strip is a label on a case, not the thing
+/// on the page anybody is reading. Four of them down a page is four times what
+/// that costs. `Reverb` and `Processing` are one word each and they follow the
+/// name the way a subtitle does, so they go beside it at legend weight and the
+/// strip comes down to roughly two thirds of what it stood at.
 ///
 /// This is where the page it replaced had a whole header band of its own, under
 /// a row of tabs that had the name on it as well. Two places saying which
@@ -1272,7 +1282,7 @@ where
         )
         .width(Length::Fixed(SLOT_NUMBER)),
         container(
-            column![
+            row![
                 text(named)
                     .size(13)
                     .style(move |theme: &Theme| text::Style {
@@ -1280,7 +1290,8 @@ where
                     }),
                 printing(category, on).size(9),
             ]
-            .spacing(0)
+            .spacing(7)
+            .align_y(Vertical::Bottom)
         )
         .width(Length::Fill),
     ]
