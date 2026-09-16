@@ -695,10 +695,17 @@ read `FX 1`, which is two characters saying what the page it is on already says
 and a third competing with the name of an algorithm. What is left is the one
 thing on the strip that has to be read without reading — which of the four this
 is — so it is set the way the family's mark is set on the case: large, bold and
-faint, standing behind what the strip carries. It runs taller than the line and
-is clipped by it, so it never sets the height of something it is only the ground
-of; the gutter it stands in is a fixed width, so four cases stacked two by two
-start their names in the same place down the page.
+faint, standing behind what the strip carries. The gutter it stands in is a
+fixed width, so four cases stacked two by two start their names in the same
+place down the page.
+
+**It is as large as the strip is deep and no larger**, and its layer is given
+that depth rather than allowed to shrink to the numeral. A stack lays an
+under-layer out at its own size and puts it at its own origin, so a layer that
+shrinks to its contents is a layer aligned against nothing: the numeral came out
+four points below the name it stands beside, which is the sort of offset that
+reads as a mistake rather than as a mark on a case. Both are measured now — the
+digit's ink and the name's glyphs share a centre to the pixel.
 
 That is how a rack unit puts a channel number on a case, and it is the second
 thing on this page drawn as a ground rather than as an item in a row.

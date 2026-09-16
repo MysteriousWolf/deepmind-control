@@ -362,9 +362,11 @@ const SLOT_NUMBER: f32 = 24.0;
 
 /// How large that numeral is set.
 ///
-/// Taller than the line it stands behind, so it is read as the ground of the
-/// strip rather than as the first word of it.
-const SLOT_HERO: f32 = 30.0;
+/// As large as the strip is deep and no larger. It stands behind the line
+/// rather than in it, which is what makes it a ground; a numeral *taller* than
+/// the line is a numeral with its head and its feet cut off, and a digit shaved
+/// at both ends reads as a mistake rather than as a mark on a case.
+const SLOT_HERO: f32 = 24.0;
 
 /// How far it is carried from the case towards the case's own ink.
 ///
@@ -1487,6 +1489,12 @@ where
                     }),
             )
             .width(Length::Fixed(SLOT_NUMBER))
+            // The height as well as the width. A stack lays its under-layers
+            // out at its own size and puts them at its own origin, so a layer
+            // that shrinks to its contents is a layer aligned against nothing:
+            // the numeral sat against the top of the strip with the gap under
+            // it, which is what `align_y` was supposed to be deciding.
+            .height(Length::Fill)
             .align_x(Horizontal::Center)
             .align_y(Vertical::Center)
             .clip(true),
