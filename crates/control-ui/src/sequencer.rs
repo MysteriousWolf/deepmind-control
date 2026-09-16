@@ -19,32 +19,33 @@
 //! the same way, and it sends the same NRPN. Hand layout changes the
 //! arrangement and never what a control is.
 //!
-//! # What the strip does not say yet
+//! # What the strip says now that the library answers it
 //!
-//! Two things the manual records and the library does not yet publish, so
-//! nothing here acts on them:
+//! Two things the manual records were, until `deepmind-midi` 26.3, notes in
+//! `spec/parameters.toml` rather than anything `ParamId` answered — so this
+//! file said which musical facts it was getting wrong rather than transcribing
+//! them. Both are typed now, and the strip acts on both:
 //!
-//! - A step is **bipolar**: the specification's note on offset 123 reads
-//!   `-127 (1) to +127 (255)`, and `0` means *skip this step*. The strip draws
-//!   each byte from the bottom, which is what the library's `min` and `max`
-//!   describe, so a step at the centre of its range draws half height rather
-//!   than at a centre line, and a skipped step draws as the zero it is.
-//! - `Sequence Length` is `1 (0) to 32 (31)` steps, so the steps past it are
-//!   not played. The strip draws all thirty-two alike.
-//!
-//! Both are notes in `spec/parameters.toml` rather than anything `ParamId`
-//! answers, and transcribing them here is the second copy of a generated table
-//! this repository refuses to keep. The strip gains a centre line, a skip mark
-//! and a dimmed tail the day the library says so.
+//! - A step is **bipolar**. [`ParamId::shape`] gives the centre it is read
+//!   about, so a step reads `+40` or `-12` rather than `168` or `116`, and the
+//!   strip draws the line that centre sits on. Every step's own cap is read
+//!   against that line rather than against the floor of the range.
+//! - A step of nothing is a **skipped step**, not the smallest one.
+//!   [`ParamId::inactive`] says so, and a skipped step is marked rather than
+//!   drawn as the quietest note in the sequence.
+//! - **[`ParamId::bounded_by`]** names the parameter that says how many of the
+//!   run are played, which for all thirty-two steps is `Sequence Length`. The
+//!   steps past it are dimmed, because a strip that drew all thirty-two alike
+//!   implied a sequence twice the length of the one being played.
 
 use deepmind_midi::param::{Group, ParamId};
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::alignment::Horizontal;
-use iced_core::{Font, Length, Theme, text::Renderer as TextRenderer};
-use iced_widget::{column, container, row, text};
+use iced_core::{Background, Font, Length, Theme, text::Renderer as TextRenderer};
+use iced_widget::{Space, column, container, row, text};
 
-use crate::panel::{Room, control};
-use crate::style::reading;
+use crate::panel::{Room, control, sits_at};
+use crate::style::{materials, reading};
 use crate::{Confidence, Element, Patch, tint};
 
 /// What the library calls a step, before its number.
@@ -96,17 +97,23 @@ where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
     let steps = steps(group)?;
+    let played = played(patch, &steps);
     let lanes = steps.iter().enumerate().map(|(index, parameter)| {
         let parameter = *parameter;
         let claim = patch.claim(parameter);
+        let value = patch.value(parameter);
+        let beyond = played.is_some_and(|played| index >= played);
         column![
-            control(
-                parameter,
-                patch.value(parameter),
-                claim,
-                firmware,
-                Room::step(WIDTH),
-            ),
+            control(parameter, value, claim, firmware, Room::step(WIDTH)),
+            // What the step is doing, in one line under it: the signed
+            // distance from the centre it is read about, or the word for a
+            // step that is skipped rather than sounded.
+            text(value.map_or_else(|| "\u{2014}".to_owned(), |value| sits_at(parameter, value)))
+                .size(9)
+                .font(reading())
+                .style(move |theme: &Theme| text::Style {
+                    color: Some(tint(theme, claim)),
+                }),
             // The step's number, and not its name: `Seq Step Value 17` under
             // the seventeenth of thirty-two is the panel saying its own name
             // thirty-two times.
@@ -116,17 +123,51 @@ where
                 .style(move |theme: &Theme| text::Style {
                     color: Some(tint(theme, Confidence::Unknown)),
                 }),
+            // The rule under the steps that are played, which stops where the
+            // sequence does. A step past the length is still drawn and still
+            // editable — it is in the program and it is what the sequence plays
+            // the moment somebody lengthens it — but it is not part of what
+            // anybody is listening to, and a strip that drew all thirty-two
+            // alike said it was. The mark is under the lane rather than on the
+            // control, so that nothing about a claim is faked to say it.
+            container(Space::new())
+                .width(Length::Fill)
+                .height(Length::Fixed(2.0))
+                .style(move |theme: &Theme| container::Style {
+                    background: (!beyond).then(|| Background::Color(materials(theme).lit)),
+                    ..container::Style::default()
+                }),
         ]
-        .spacing(4)
+        .spacing(2)
         .align_x(Horizontal::Center)
         .width(Length::Fixed(WIDTH))
         .into()
     });
+    let lanes: Vec<Element<'a, Renderer>> = lanes.collect();
     Some(
         container(row(lanes).spacing(2))
             .width(Length::Shrink)
             .into(),
     )
+}
+
+/// How many of the run are played, when the library says what bounds it.
+///
+/// [`ParamId::bounded_by`] names the parameter — `Sequence Length` for every
+/// one of the thirty-two — and the length is read out of the patch like any
+/// other value. `None` when nothing bounds the run, or when the bound is a
+/// value nobody has read: a strip that dimmed two thirds of itself because it
+/// had not been told the length would be stating a fact it does not have.
+fn played(patch: &Patch, steps: &[ParamId]) -> Option<usize> {
+    let bound = steps.first()?.bounded_by()?;
+    let value = patch.value(bound)?;
+    // `1 (0) to 32 (31)`: the byte counts from zero and the sequence counts
+    // from one, which is the library's own `min` and the reason this is not
+    // simply the byte.
+    let counted = usize::from(value)
+        .saturating_sub(usize::from(u8::try_from(bound.min()).unwrap_or_default()))
+        + 1;
+    Some(counted.min(steps.len()))
 }
 
 /// The number printed under a step, which counts from one as the panel does.

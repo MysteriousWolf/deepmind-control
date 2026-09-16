@@ -25,16 +25,18 @@
 
 use core::fmt;
 
-use deepmind_midi::param::{Group, Kind, ParamId};
+use deepmind_midi::effect::Engine;
+use deepmind_midi::param::{Group, Kind, ParamId, Shape};
 use deepmind_midi::program::ProgramName;
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::alignment::{Horizontal, Vertical};
 use iced_core::{Background, Border, Font, Length, Theme, border, text::Renderer as TextRenderer};
-use iced_widget::{Space, button, column, container, pick_list, row, text};
+use iced_widget::{Space, button, column, container, mouse_area, pick_list, row, text};
 
 use crate::effect;
 use crate::envelope;
 use crate::fader::{self, Axis, fader};
+use crate::knob::{self, knob};
 use crate::matrix;
 use crate::name;
 use crate::sequencer;
@@ -50,6 +52,55 @@ pub(crate) const SLOT: f32 = 88.0;
 /// in the instrument once its group is taken off the front, and a box that
 /// clips it is a box that lies about which fader is which.
 pub(crate) const NAME: f32 = 44.0;
+
+/// How tall a control that is not a fader stands in a row of them.
+///
+/// A fader lying on its side, which is what makes a row of switches, lists and
+/// lamps one band whatever is standing in it. Named because the front panel has
+/// to know it: the band along the foot of a plate is as tall as this, and a
+/// plate is as tall as its parts.
+pub(crate) const BUTTON: f32 = fader::WIDTH;
+
+/// How wide the cap of a button that lights is.
+///
+/// A fader's width, so that a lamp in a rack's slot is the same width as the
+/// fader in the slot beside it and a row of controls is one row.
+pub(crate) const CAP: f32 = fader::WIDTH;
+
+/// How tall that cap stands.
+///
+/// Square-ish, and taller than a line of text needs. The buttons on a
+/// `DeepMind` are moulded rubber about half again as wide as they are tall, and
+/// a cap drawn as tall as its own label is a menu item with a light behind it:
+/// the height is what makes it read as something a finger presses rather than
+/// something a pointer clicks.
+pub(crate) const PRESS: f32 = 28.0;
+
+/// How tall one lit legend of a named set stands.
+///
+/// One line of the reading face at the size a legend is set in, and no padding
+/// above or below it: a column of seven has to fit beside two faders on the
+/// front panel, which is the tightest room a named set is ever lit in.
+///
+/// Given rather than taken, because a column is laid out into the room it was
+/// given and a legend past the end of that room is drawn no lines tall — which
+/// is a set that silently names fewer things than the library says it has,
+/// rather than one that overflows where somebody would see it.
+pub(crate) const LIT: f32 = 13.0;
+
+/// How far apart two lit legends stand.
+pub(crate) const BETWEEN: f32 = 1.0;
+
+/// How tall a column of `count` lit legends stands.
+///
+/// What a hand layout has to give a named set for all of it to be drawn. The
+/// front panel asks, because the instrument lights its LFO shapes beside the
+/// faders rather than under them and the room beside a fader is the room a
+/// fader runs in.
+pub(crate) fn lit_band(count: usize) -> f32 {
+    let count = f32::from(u16::try_from(count).unwrap_or(u16::MAX));
+    (count * LIT + (count - 1.0) * BETWEEN).max(0.0)
+}
 
 /// Longest named set that is drawn as lit legends rather than as a list.
 ///
@@ -84,6 +135,29 @@ pub(crate) struct Room {
     /// has seven. It is room and not identity — the same enumerated parameter,
     /// from the same table, with the same values under it.
     legends: bool,
+    /// Which shape a control that sweeps a range takes.
+    ///
+    /// The last thing hand layout is allowed to change about a control, and
+    /// the newest: the library publishes what shape each effect algorithm's
+    /// own figure draws, and 29 of the 35 are knobs. A knob and a fader are the
+    /// same control over the same byte with the same drag — see
+    /// [`knob`](crate::knob) — so this belongs here, beside the axis a fader
+    /// runs along, rather than anywhere near what a parameter is.
+    form: Form,
+}
+
+/// What a control that sweeps a range is drawn as.
+///
+/// Named for the thing a hand touches rather than for the value's own shape,
+/// which is what the library's [`Shape`] already means: one says a step is read
+/// about its centre and the other says the control is round.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum Form {
+    /// A fader, which is every control the instrument itself has.
+    #[default]
+    Fader,
+    /// A knob, which is what an effect algorithm's own panel draws.
+    Knob,
 }
 
 impl Room {
@@ -97,6 +171,7 @@ impl Room {
         height: Length::Fixed(fader::HEIGHT),
         travel: fader::HEIGHT,
         legends: false,
+        form: Form::Fader,
     };
 
     /// Room for one lane of the instrument's own front panel.
@@ -111,6 +186,7 @@ impl Room {
             height: Length::Fixed(travel),
             travel,
             legends: false,
+            form: Form::Fader,
         }
     }
 
@@ -122,6 +198,7 @@ impl Room {
             height: Length::Fixed(height),
             travel: height,
             legends: true,
+            form: Form::Fader,
         }
     }
 
@@ -133,9 +210,10 @@ impl Room {
         Self {
             axis: Axis::Down,
             width,
-            height: Length::Fixed(fader::WIDTH),
+            height: Length::Fixed(BUTTON),
             travel: fader::HEIGHT,
             legends: false,
+            form: Form::Fader,
         }
     }
 
@@ -150,6 +228,7 @@ impl Room {
             height: Length::Fixed(fader::HEIGHT),
             travel: fader::HEIGHT,
             legends: false,
+            form: Form::Fader,
         }
     }
 
@@ -161,6 +240,20 @@ impl Room {
             height: Length::Fixed(fader::WIDTH),
             travel: fader::HEIGHT,
             legends: false,
+            form: Form::Fader,
+        }
+    }
+
+    /// The same room, with a knob in it rather than a fader.
+    ///
+    /// What an effect slot is given where the algorithm's own panel draws a
+    /// knob. Everything else about the room is untouched, because everything
+    /// else about the control is: the library says which shape the figure
+    /// beside an algorithm uses, and a shape is an arrangement.
+    pub(crate) const fn turned(self) -> Self {
+        Self {
+            form: Form::Knob,
+            ..self
         }
     }
 
@@ -172,10 +265,11 @@ impl Room {
 
 /// What a view in this crate asks for.
 ///
-/// Three things, and the last one never reaches a wire: a parameter should
-/// move, the program should be called something, or a section should be the one
-/// on the screen. What an edit costs on a wire, when it goes out and what it
-/// goes out behind is the host crate's business.
+/// Four things, and the last two never reach a wire: a parameter should move,
+/// the program should be called something, a section should be the one on the
+/// screen, or the pointer has come to rest on a control. What an edit costs on
+/// a wire, when it goes out and what it goes out behind is the host crate's
+/// business.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Message {
     /// A parameter should move to this value.
@@ -199,6 +293,22 @@ pub enum Message {
     /// front of somebody is the application's state and not the synthesizer's,
     /// so this is the one message that goes nowhere near the port.
     Show(Group),
+    /// This effect engine should be the one on the screen.
+    ///
+    /// The effects are the one section with four of everything, and four
+    /// engine panels at once is a surface nobody reads across. Which of them is
+    /// open is the application's state and not the synthesizer's, so like
+    /// [`Show`](Message::Show) this never reaches a wire.
+    Open(Engine),
+    /// The pointer is over this control, or has left the one it was over.
+    ///
+    /// A panel of forty faders under four-letter legends is only readable
+    /// because a hand can ask what one of them is, and this is the asking. The
+    /// answer is drawn somewhere else — the application decides where a footer
+    /// goes — so all a view does is say what is under the pointer.
+    ///
+    /// It never reaches a wire. Looking at a control is not editing it.
+    Pointed(Option<ParamId>),
 }
 
 /// Draws one group of parameters.
@@ -208,7 +318,12 @@ pub enum Message {
 /// mean something else on 1.0. Until a synthesizer has answered, the caller
 /// passes the library's default and says so on the screen.
 #[must_use]
-pub fn group<'a, Renderer>(patch: &Patch, group: Group, firmware: Version) -> Element<'a, Renderer>
+pub fn group<'a, Renderer>(
+    patch: &Patch,
+    group: Group,
+    firmware: Version,
+    opened: Option<Engine>,
+) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
@@ -255,7 +370,7 @@ where
     if let Some(strip) = sequencer::strip(patch, group, firmware) {
         body = body.push(strip);
     }
-    if let Some(engines) = effect::panels(patch, group, firmware, &moved) {
+    if let Some(engines) = effect::panels(patch, group, firmware, &moved, opened) {
         body = body.push(engines);
     }
     if !slots.is_empty() {
@@ -280,27 +395,6 @@ where
             }
         })
         .into()
-}
-
-/// Draws what the three drawings of a value mean.
-#[must_use]
-pub fn legend<'a, Renderer>() -> Element<'a, Renderer>
-where
-    Renderer: TextRenderer<Font = Font> + 'a,
-{
-    row![
-        dot(Confidence::Confirmed),
-        muted("reported"),
-        Space::new().width(Length::Fixed(14.0)),
-        dot(Confidence::Assumed),
-        muted("claimed"),
-        Space::new().width(Length::Fixed(14.0)),
-        dot(Confidence::Unknown),
-        muted("unread"),
-    ]
-    .spacing(6)
-    .align_y(Vertical::Center)
-    .into()
 }
 
 /// Draws one parameter: its address, its control, its value and its name.
@@ -386,6 +480,27 @@ pub(crate) fn control<'a, Renderer>(
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
+    // Every control in this editor is drawn through here — a lane of the front
+    // panel, a slot of a rack, a step of the sequencer, a byte of an effect — so
+    // this is the one place that has to notice a pointer for all of them to say
+    // what they are.
+    mouse_area(drawn(parameter, value, claim, firmware, room))
+        .on_enter(Message::Pointed(Some(parameter)))
+        .on_exit(Message::Pointed(None))
+        .into()
+}
+
+/// Draws the control itself, as whatever the library says the parameter is.
+fn drawn<'a, Renderer>(
+    parameter: ParamId,
+    value: Option<u8>,
+    claim: Confidence,
+    firmware: Version,
+    room: Room,
+) -> Element<'a, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
     let low = u8::try_from(parameter.min()).unwrap_or(u8::MIN);
     let high = u8::try_from(parameter.max()).unwrap_or(u8::MAX);
     match parameter.kind() {
@@ -425,6 +540,15 @@ where
 {
     let low = *range.start();
     let high = *range.end();
+    if matches!(room.form, Form::Knob) {
+        // A knob is as wide as it is tall and takes the room across the panel
+        // it was given, which for a slot in the rack is the fader's own width.
+        return knob(range, value.clamp(low, high), claim, move |value| {
+            Message::Edit { parameter, value }
+        })
+        .size(room.width.min(knob::SIZE))
+        .into();
+    }
     let fader = fader(range, value.clamp(low, high), claim, move |value| {
         Message::Edit { parameter, value }
     });
@@ -441,15 +565,26 @@ where
     }
 }
 
-/// Draws a lamp: lit for on, and what it says under it.
+/// Draws a lamp: a moulded cap, lit for on, with what it says on its face.
 ///
 /// Not a checkbox and not something that slides. An instrument says *on* with a
 /// light, and this is the only place a saturated colour appears.
 ///
-/// A switch nobody has read is drawn as the switch it is, unlit and saying
-/// neither: what a control is does not depend on whether a sound has arrived,
-/// and a row of buttons that draws as a row of faders until something is read
-/// is a panel that changes shape under somebody.
+/// The cap is [the panel's own](CAP): square-ish, rounded the way a rubber
+/// button is moulded, and lit across its crown rather than filled flat, so that
+/// a row of them along the foot of a plate reads as the row of buttons a
+/// photograph of the instrument shows. What the panel prints about it goes
+/// beside the cap and never on it — the front panel prints its legends under
+/// the buttons, which is [`home`](crate::home)'s business rather than this
+/// one's — and what stays on the face is the reading, which is the one thing
+/// the hardware's own lamp says by being lit.
+///
+/// A switch nobody has read is drawn as the switch it is — the shape of a
+/// control does not depend on whether a sound has arrived — but as the hole
+/// without the cap in it, the way a fader nobody has read is a track with
+/// nothing to take hold of. That distinction used to be carried by the word
+/// printed inside the cap, which is the one job the words were really doing;
+/// taking them off means the cap has to do it, which is where it belonged.
 fn lamp<'a, Renderer>(
     parameter: ParamId,
     value: Option<u8>,
@@ -461,19 +596,17 @@ where
 {
     let on = value.is_some_and(|value| value != 0);
     let next = u8::from(!on);
-    let label = match value {
-        None => "\u{2014}",
-        Some(0) => "off",
-        Some(_) => "on",
-    };
     let live = !matches!(claim, Confidence::Unknown);
-    let face = button(
-        container(text(label).size(11).font(reading()).center())
-            .width(Length::Fixed(fader::WIDTH))
-            .align_x(Horizontal::Center),
-    )
-    .padding(6)
-    .style(move |theme: &Theme, _status| lit(theme, on, claim));
+    // Nothing is written on the cap. A button on the instrument is a blank
+    // piece of rubber that is lit or is not, and the word `off` printed inside
+    // an unlit one is this window explaining a control the control already
+    // states — while every legend the panel does print is silkscreened beside
+    // the cap, where a finger cannot cover it.
+    let face = button(Space::new())
+        .width(Length::Fixed(CAP.min(room.width)))
+        .height(Length::Fixed(PRESS))
+        .padding(0)
+        .style(move |theme: &Theme, status| capped(theme, on, claim, status));
     let face = if live {
         face.on_press(Message::Edit {
             parameter,
@@ -484,6 +617,8 @@ where
     };
     container(face)
         .height(room.height)
+        .width(Length::Fixed(room.width))
+        .align_x(Horizontal::Center)
         .align_y(Vertical::Center)
         .into()
 }
@@ -504,8 +639,9 @@ where
         let on = Some(choice.byte()) == value;
         let byte = choice.byte();
         let face = button(text(choice.name).size(10).font(reading()))
-            .padding([1, 5])
+            .padding([0, 5])
             .width(Length::Fill)
+            .height(Length::Fixed(LIT))
             .style(move |theme: &Theme, _status| lit(theme, on, claim));
         if live {
             face.on_press(Message::Edit {
@@ -517,10 +653,14 @@ where
             Element::from(face)
         }
     });
-    container(column(rows).spacing(2).width(Length::Fixed(room.width)))
-        .height(room.height)
-        .align_y(Vertical::Center)
-        .into()
+    container(
+        column(rows)
+            .spacing(BETWEEN)
+            .width(Length::Fixed(room.width)),
+    )
+    .height(room.height)
+    .align_y(Vertical::Center)
+    .into()
 }
 
 /// Draws a named set too long for legends as the list it is.
@@ -551,12 +691,14 @@ where
     .into()
 }
 
-/// The style a lamp is drawn in: lit, outlined, or dark.
+/// The style one legend of a lit set is drawn in.
 ///
-/// The same rule the fader's cap follows. Filled for what the synthesizer
-/// reported, an outline for what this window claims, and neither for a value
-/// nobody has read, so the fill carries the difference and the colour agrees
-/// with it.
+/// Flat, and not [a cap](capped): a strip of legends is the row of lamps beside
+/// the instrument's own LFO faders, where the light is behind the name rather
+/// than under a finger, and seven moulded caps in the room two faders leave
+/// would be seven buttons nobody can press. So this carries the claim the same
+/// way a cap does — filled for a fact, an outline for a claim, neither for a
+/// value nobody has read — and nothing else about it is a button.
 fn lit(theme: &Theme, on: bool, claim: Confidence) -> button::Style {
     let material = materials(theme);
     let colour = tint(theme, claim);
@@ -575,6 +717,67 @@ fn lit(theme: &Theme, on: bool, claim: Confidence) -> button::Style {
         border: border::rounded(2)
             .width(1.0)
             .color(if on { colour } else { material.recess_edge }),
+        ..button::Style::default()
+    }
+}
+
+/// The style a cap is drawn in: lit, outlined, or dark.
+///
+/// The same rule the fader's cap follows. Filled for what the synthesizer
+/// reported, an outline for what this window claims, and neither for a value
+/// nobody has read, so the fill carries the difference and the colour agrees
+/// with it.
+///
+/// Whatever it is carrying, it is [moulded](style::moulded): an unlit button on
+/// the instrument is still a rubber cap standing in the panel, and drawing that
+/// one as a hole and the lit one as a light would be two controls wearing one
+/// name. So the dark state is the panel's own colour moulded, and what lighting
+/// it changes is the colour and not the shape.
+fn capped(theme: &Theme, on: bool, claim: Confidence, status: button::Status) -> button::Style {
+    let material = materials(theme);
+    let colour = tint(theme, claim);
+    let confirmed = claim.is_confirmed();
+    let held = matches!(status, button::Status::Pressed);
+    // A cap a pointer is over is lit a little before it is pressed, which is
+    // the whole of what hovering means on a panel that has no cursor.
+    let hover = matches!(status, button::Status::Hovered);
+    // Nothing read is the hole with no cap in it: the recess the cap would be
+    // moulded into, flat and unlit, which is the same thing a fader says by
+    // drawing its track and no cap. Nothing is written on these any more, so
+    // this is what tells an unread switch from one that is switched off, and a
+    // flat recess against a moulded cap is a difference in relief rather than
+    // in colour — it survives the greyscale the rest of the panel survives.
+    if matches!(claim, Confidence::Unknown) {
+        return button::Style {
+            background: Some(Background::Color(material.recess)),
+            text_color: material.metal_low,
+            border: border::rounded(style::MOULD)
+                .width(1.0)
+                .color(material.recess_edge),
+            ..button::Style::default()
+        };
+    }
+    let face = match (on, confirmed) {
+        (true, true) => colour,
+        (true, false) => style::mix(material.panel, colour, 0.22),
+        (false, _) => style::mix(
+            material.panel,
+            material.metal_low,
+            if hover { 0.22 } else { 0.12 },
+        ),
+    };
+    button::Style {
+        background: Some(style::moulded(face, held)),
+        text_color: if on {
+            if confirmed { material.panel } else { colour }
+        } else {
+            material.metal_low
+        },
+        border: border::rounded(style::MOULD).width(1.0).color(if on {
+            colour
+        } else {
+            material.recess_edge
+        }),
         ..button::Style::default()
     }
 }
@@ -601,9 +804,9 @@ where
         .width(Length::Fixed(5.0))
         .height(Length::Fixed(5.0))
         .style(move |_theme: &Theme| container::Style {
-            background: (moved && heeded).then_some(Background::Color(style::LAMP)),
+            background: (moved && heeded).then_some(Background::Color(style::MODULATION)),
             border: if moved && !heeded {
-                border::rounded(3).width(1.0).color(style::LAMP)
+                border::rounded(3).width(1.0).color(style::MODULATION)
             } else {
                 border::rounded(3)
             },
@@ -644,21 +847,89 @@ fn shown(parameter: ParamId, value: Option<u8>, firmware: Version) -> String {
     };
     match parameter.kind() {
         // The control already carries the name, so this carries the byte.
-        Kind::Switch | Kind::Enumerated(_) => value.to_string(),
+        Kind::Switch | Kind::Enumerated(_) => sits_at(parameter, value),
         _ => parameter
             .label_for(u16::from(value), firmware)
-            .map_or_else(|| value.to_string(), str::to_owned),
+            .map_or_else(|| sits_at(parameter, value), str::to_owned),
     }
 }
 
-/// Grey text, for what is not a value.
-fn muted<Renderer>(what: &str) -> iced_widget::Text<'_, Theme, Renderer>
-where
-    Renderer: TextRenderer,
-{
-    text(what).size(14).style(move |theme: &Theme| text::Style {
-        color: Some(tint(theme, Confidence::Unknown)),
-    })
+/// What the raw byte reads as, which is not always the raw byte.
+///
+/// Two things the library publishes about a value beyond the range it sits in,
+/// and both of them change what a number means rather than how it is drawn:
+///
+/// - A **bipolar** parameter is read about a centre, so `128` on a modulation
+///   depth is not "half way up" but *no modulation at all*, and the reading is
+///   the signed distance from there. A matrix of eight depths set to nothing
+///   reading `128` eight times is a panel stating the wrong musical fact in the
+///   most confident way available to it.
+/// - An **inactive** value means "not set" rather than the smallest setting.
+///   Zero on a sequencer step skips the step; it is not the quietest one.
+///
+/// Both are [`ParamId::shape`] and [`ParamId::inactive`], published by
+/// `deepmind-midi` 26.3, and until then this printed the byte and the strip's
+/// own documentation said which fact it was getting wrong.
+pub(crate) fn sits_at(parameter: ParamId, value: u8) -> String {
+    if parameter.inactive() == Some(u16::from(value)) {
+        return "skip".to_owned();
+    }
+    match parameter.shape() {
+        Shape::Bipolar { centre } => {
+            let from = i32::from(value) - i32::from(centre);
+            // A sign on every reading of a bipolar control, the zero included:
+            // `0` and `+0` are the same number and only one of them says the
+            // control it is under has two directions.
+            format!("{from:+}")
+        }
+        _ => value.to_string(),
+    }
+}
+
+#[cfg(test)]
+#[expect(clippy::panic, reason = "a failed expectation is the test failure")]
+mod readings {
+    use super::sits_at;
+    use deepmind_midi::param::{ParamId, Shape};
+
+    #[test]
+    fn a_bipolar_value_is_read_about_its_centre_and_not_from_the_floor() {
+        // The fact the library published and this used to get wrong: a
+        // modulation depth at 128 is no modulation, and eight of them reading
+        // `128` was a matrix stating the wrong musical fact eight times.
+        let depth = ParamId::Mod1Depth;
+        let Shape::Bipolar { centre } = depth.shape() else {
+            panic!("{depth} is the bipolar one this guards");
+        };
+
+        assert_eq!(
+            sits_at(depth, u8::try_from(centre).unwrap_or_default()),
+            "+0"
+        );
+        assert_eq!(
+            sits_at(depth, u8::try_from(centre).unwrap_or_default() + 40),
+            "+40"
+        );
+        assert_eq!(
+            sits_at(depth, u8::try_from(centre).unwrap_or_default() - 12),
+            "-12"
+        );
+    }
+
+    #[test]
+    fn a_unipolar_value_is_still_the_byte() {
+        assert_eq!(sits_at(ParamId::VcfFrequency, 200), "200");
+        assert_eq!(sits_at(ParamId::VcfFrequency, 0), "0");
+    }
+
+    #[test]
+    fn a_step_of_nothing_is_a_skipped_step_and_not_the_quietest_one() {
+        let step = ParamId::SeqStepValue1;
+
+        assert_eq!(step.inactive(), Some(0), "the library says zero skips it");
+        assert_eq!(sits_at(step, 0), "skip");
+        assert_ne!(sits_at(step, 1), "skip", "and only zero does");
+    }
 }
 
 /// One value of a named set, as a list shows it.

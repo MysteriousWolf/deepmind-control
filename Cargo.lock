@@ -699,9 +699,9 @@ dependencies = [
 
 [[package]]
 name = "deepmind-midi"
-version = "26.2.0"
+version = "26.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f4628ed2c6f71abfc4a52ca0cba78210b3d8496591d777e4b53850c37bef928"
+checksum = "ebce5c8b58a440580769387d4cb0925629114a436d7dd365e125dd479bb821c1"
 
 [[package]]
 name = "dispatch"

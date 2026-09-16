@@ -57,8 +57,15 @@ fn connected() -> App {
 /// A window with the sound read into it.
 fn read() -> App {
     let mut app = connected();
-    app.update(Message::Read);
-    until(&mut app, "edit buffer", |app| app.patch().is_known());
+    // Connecting reads the sound: the window asks for the edit buffer the
+    // moment a synthesizer answers the inquiry, so a second read here would put
+    // a second dump on the wire. That matters beyond being wasteful — a test
+    // that edits and then reads is asserting that the dump it waited for went
+    // out *behind* its edit, and a stray earlier dump landing after the edit
+    // carries the value from before it.
+    until(&mut app, "the sound the connection read", |app| {
+        app.patch().is_known()
+    });
     app
 }
 

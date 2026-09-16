@@ -24,7 +24,12 @@ DeepMind <--MIDI--> port <--bytes--> deepmind-midi <--events--> the interface
 **Status: an editor and a librarian, complete and being polished.** There is a
 window with three surfaces, and it opens on the instrument's own front panel:
 two rows of section plates with a screen between them, the controls the hardware
-puts a fader under, and on every plate the press it calls `EDIT`. Behind those
+puts a fader under, and on every plate the press it calls `EDIT`. Every plate
+has a screen of its own as well, which is the one place this window is not the
+instrument — a dot matrix at the same pitch as the panel's own display, drawing
+the shapes the oscillators are making, where the filter's corner is, the gates
+the arpeggiator is opening, and the one picture no `DeepMind` can show: all
+three envelopes at once. Behind those
 presses is the editor, which lists the ports, opens one, finds out who is on it
 and which firmware's value tables are true, reads the edit buffer, and edits all
 242 parameters end to end — with the values the synthesizer reported drawn
@@ -42,7 +47,10 @@ the three envelopes, four faders and the shape they make; the modulation matrix,
 eight routings read across as rows rather than down as twenty-four slots; the
 control sequencer as one strip of thirty-two steps; and the effects as four
 engine plates, each of them twelve bytes under the names the algorithm it is
-running gives them. What is left is polish, and then the plugin. See
+running gives them, laid out in the rows the instrument's own FX page uses and
+turned by the knobs the manual's figures draw — over a display of the chain the
+four engines are wired into, drawn from the library's edge lists rather than out
+of the topology's name. What is left is polish, and then the plugin. See
 [the plan](docs/plan.md) for what is being built and in what order.
 
 It is dark, in the instrument's own colours: the palette is read off the mark in

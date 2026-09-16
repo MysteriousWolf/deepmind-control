@@ -355,16 +355,42 @@ mark as an outline rather than filled: the matrix really is pointed there and
 really is doing nothing, and drawing that the same way as an effective routing
 would hide the reason a sound is not moving.
 
-**What the library holds back is not drawn.** The grid, the control shapes and
-the measured panel colours are in the library's `spec/layout.toml` and are not
-published, so the slots are the editor's own faders on the editor's own
-materials rather than the knobs and the four colours per algorithm the manual's
-figures use. That is a stage of its own the day the library publishes them, and
-it changes an arrangement rather than a control. What the connection mode does
-to each engine's output is in `spec/routing.toml` and is not published either,
-so the routing is the list its value table names and there is no diagram drawn
-from it: a chain drawn out of a value's own name is a picture this repository
-worked out rather than one the library published.
+**The page is the instrument's own, and so is the shape.** 26.3 published what
+was held back ([deepmind-midi#22](https://github.com/MysteriousWolf/deepmind-midi/issues/22)):
+the grid the synthesizer's own FX page lays a slot out on, measured off the 35
+screenshots in the manual, and what the figure printed beside each algorithm is
+made of. So a plate is the rows that page puts its slots in, six across and two
+down, which is the arrangement anybody who has edited an effect on the hardware
+already knows; and a slot on one of the 29 algorithms whose figure draws rotary
+knobs is drawn as a knob. A knob is the fader turned — the same byte, the same
+relative grab, the same claim in the fill of the thing that moves — which is why
+the shape belongs beside the axis a fader runs along rather than anywhere near
+what a parameter is.
+
+**The measured colours are an identity, not a finish.** The library publishes
+four per algorithm, and they are the colours of 35 imaginary rack units: a cream
+fader panel, a black one, a blue-grey one. Painted as measured, four of them
+side by side would be a collage of other people's instruments in a window whose
+whole argument is that it is one instrument. So a plate carries enough of its
+algorithm's chassis to tell the reverb from the distortion at arm's length, and
+a hairline of its accent around the edge, and the controls stay the editor's
+own. A cap is what carries the claim everywhere in this window, and a cap
+repainted to match a figure would break that rule exactly where it is least
+affordable.
+
+**The chain is drawn, because the graph is published.** What the connection mode
+does to each engine's output was in the library's specification and not in what
+it published, so the routing was the list its value table names and nothing was
+drawn from it. 26.3 publishes the ten topologies as edge lists with the two
+loops declared ([deepmind-midi#23](https://github.com/MysteriousWolf/deepmind-midi/issues/23)),
+so the effects now open on a display of the chain itself: what the block's input
+reaches, what feeds what, what is summed at the end, the loop dashed under the
+engines it returns through, and the analog path along the foot where `FX Mode`
+puts one. Nothing in it knows a topology by name — a picture assembled by
+matching `Serial 1-2-3-4` against a string would be an eleventh copy of the
+table — and where an engine stands is worked out from the edges rather than
+written down, so a column is how far it is from the input and a backwards edge
+is the loop.
 
 ## One view layer, two runtimes
 
@@ -575,14 +601,91 @@ lamp, a named set gets its names — which is the same line hand layout has not
 crossed since stage 3. A parameter this table names that the library later makes
 enumerated arrives on the panel as a list, with nothing here to change.
 
+**Every plate has a display, and the instrument has one.** This is the one place
+the panel is deliberately not the instrument, and the reason is the one thing a
+window has that a front panel does not: room. A `DeepMind` has space on its face
+for a screen and twenty-odd faders, so its screen shows whichever section was
+pressed last. A window has space for a screen over every plate, and the thing a
+player wants to know about a filter is the shape of it rather than three numbers
+that imply one. So each plate carries the drawing of its own part — the shapes
+the oscillators are making, where the corner is, the gates the arpeggiator is
+opening — and the envelopes carry the drawing no `DeepMind` can show: all three
+at once, on one screen, which an instrument with one display and three envelope
+buttons cannot do.
+
+They are the instrument's own screen and not a dark rectangle with words in it.
+A `DeepMind`'s display is a dot matrix, so these are dots: one quad per printed
+dot at a pitch every display in the window shares, a 5×7 cell for anything
+written, and a curve drawn as the dots nearest one. A display given more room
+gets more dots and never bigger ones, which is what makes the strip over a plate
+and the panel's own screen two windows into one instrument rather than one of
+them magnified.
+
+And it is a *positive* display: a pale green-white backlit panel with its dots
+printed dark on it. That is the one bright rectangle in a photograph of the
+instrument, and it is worth getting right, because a window that drew pale dots
+on a dark pane would be drawing the negative of the thing it is a picture of —
+every other synthesizer of the decade, and not this one.
+
+The three envelopes are laid out rather than overlaid. Three curves sharing one
+band and told apart by a dash pattern is a drawing with all three envelopes in
+it that shows you none of them: on a grid of dots two lines crossing are the
+same dots. A pane each, named after the button the hardware selects it with, is
+what the room is for — and having the room is the whole reason this panel has
+ten screens where the instrument has one.
+
+What they draw is under the refusals everything else here is under, and the
+refusals are what decides the drawings. No axis is in anybody's units: a filter's
+corner is at the fraction of its own range the byte sits at and never at a
+frequency, and a rate is how many cycles fit across a screen and never a speed,
+because the manual prints the ends of a range and not the curve between them.
+Nothing is drawn from a value nobody has read. And three things are left out
+rather than guessed — the bass boost is printed as a word instead of drawn as a
+shelf nobody has measured, the LFO's `Delay / Fade` is not drawn because one
+byte doing two things has no published crossover, and pulse width modulation is
+the depth's own travel marked either side of the edge rather than a duty cycle.
+[interface.md](interface.md#display) has the list and the anatomy.
+
+The claim is how hard the dots are printed, which is the second control to carry
+it without a fill and for the first one's reason: a display has no moving part,
+exactly as the name field has none. The pale ground answers it better than a
+dark one could — a fact is printed hard, a claim in the copper mixed most of the
+way to the same black, and what nobody has read barely at all. Three depths of
+one ink is an ordering before it is a set of hues, so it survives a photograph
+and the readers who would not see the copper.
+
 Three things the hardware has that the panel does not. The row of twelve lamps
 over `POLY` says how many voices are sounding, and nothing on a MIDI port says
 that, so it is not drawn: a lamp that cannot be lit honestly is worse than no
 lamp. The `DATA ENTRY` fader edits whatever the display is showing, and a window
-has the value under the pointer instead. And the hardware's white, yellow and
-cyan buttons are drawn in this window's own materials, because here a colour
-already means something — copper is a claim, green is the instrument's own
-account — and a fourth meaning is a thing to learn rather than a thing to read.
+has the value under the pointer instead. And the row of twelve `VOICES` lamps is the
+only thing on the hardware's front this panel leaves out.
+
+The buttons are the instrument's, and that is a decision reversed. The plan
+argued that the hardware's white, yellow and cyan should be drawn in this
+window's own materials, because a colour here already meant something — copper a
+claim, green the instrument's own account — and a fourth meaning would be a
+thing to learn rather than a thing to read. Moving the claim onto the glass as a
+depth of ink took it off the panel's lamps entirely, and with it the objection:
+the panel now lights amber where the hardware lights `EDIT` and cyan where it
+lights `MOD`, which is two meanings taken from the instrument rather than three
+invented here. A way in is a legend silkscreened on the panel over a lit square,
+because that is what it is on the hardware and not a word in a box.
+
+The panel also fills the window it is in, through one scale measured from its
+widest row: the lanes, the faders, the buttons, the type and the gaps between
+and inside the plates. Scaling the gaps is the half that decides whether it
+reads as an instrument or as a panel with its parts pushed apart.
+
+Filling it is every row and not only the widest one. The signal path measures a
+plate less than the top row and the envelopes measure two plates less, and rows
+drawn at what they measure leave that difference as bare panel at the right hand
+end — plates bunched into a corner, which is not a front panel. So a row shares
+its spare width out among its own plates in proportion to what each already
+holds: no proportion changes, and what the extra room buys is display, because a
+plate given more glass gains dots. Every plate stands the same height as well,
+so a row has one edge along the bottom of it and the `EDIT` presses are on one
+line, which is what they are on the instrument.
 
 ## A panel is generated before it is drawn
 
@@ -672,7 +775,7 @@ needed.
 | 2 | First light | **Done.** Desktop window, port picker, identity, read the edit buffer, VCF editable end to end with assumed and confirmed drawn differently. |
 | 3 | Every parameter | **Done.** All fourteen groups from `Group::parameters`, one at a time behind a section bar, because a complete ugly editor beats a beautiful partial one. Every panel that is not a rack is laid out: the program's name, the three envelopes, the modulation matrix and the control sequencer. |
 | 4 | The librarian | **Done.** Read and write `.syx`, read a bank with progress and cancel, browse a pack on a surface of its own beside the editor, and load a program into the edit buffer as a difference. |
-| 5 | The effects | **Done.** Four engines and 35 algorithms, from the tables the library published in 26.2 ([deepmind-midi#18](https://github.com/MysteriousWolf/deepmind-midi/issues/18)). The connection mode is the list its value table names: the graph behind it is in the library's specification and not in what it publishes. |
+| 5 | The effects | **Done.** Four engines and 35 algorithms, from the tables the library published in 26.2 ([deepmind-midi#18](https://github.com/MysteriousWolf/deepmind-midi/issues/18)), laid out on the FX page's own grid with the shape each algorithm's figure draws, and opening on a picture of the chain the four are wired into — both of which 26.3 published ([#22](https://github.com/MysteriousWolf/deepmind-midi/issues/22), [#23](https://github.com/MysteriousWolf/deepmind-midi/issues/23)). |
 | 6 | The plugin | Simple mode, then state, then advanced mode in the same window. The CLAP comes out first, having nothing to settle; then the AU, once the bundle signs and `auval` passes; then the VST3, once Steinberg's terms are. |
 | 7 | Hardware | The questions below, answered with a cable. Findings go to the library. |
 
@@ -689,16 +792,20 @@ when it is complete.
 
 Polish has started, and it is where the front panel above came from: the window
 opens on the instrument rather than on its first section, the name is set as the
-mark sets it, and the parts of the window that are not parameters are drawn on
-the instrument too.
+mark sets it, the parts of the window that are not parameters are drawn on the
+instrument too, and every plate of that panel has the instrument's own screen
+over its faders with the drawing of its own section on it.
 
-What is left of it, in no order yet: the effect slots want the knobs and the
-measured colours the manual's own figures use, which is a library release away;
-the sequencer strip wants a centre line, a skip mark and a dimmed tail past the
-sequence length, which is another; the front panel wants the library's own
-account of itself rather than the table in `home.rs`; and keyboard focus is not
-wired anywhere, which is the one gap in this editor that is not waiting on
-anybody else.
+What is left of it, in no order yet: the fourteen racks have no displays over
+them the way the panel's plates and the effects now do, which is an arrangement
+rather than a decision; and keyboard focus is not wired anywhere, which is the
+one gap in this editor that is not waiting on anybody else. The buttons are
+moulded and their legends are printed under them, the way the hardware's are;
+the effect slots have the knobs, the rows and the measured colours the manual's
+figures use; the sequencer strip has its centre line, its skip mark and its
+dimmed tail; and the front panel is read off the library rather than out of a
+table in `home.rs`. Every one of those was a library release away, and the
+release came.
 
 Which of those are somebody else's to answer is written down rather than
 remembered: [waiting.md](waiting.md) is the list of what this repository has
