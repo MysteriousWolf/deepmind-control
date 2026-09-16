@@ -36,12 +36,12 @@ use core::ops::RangeInclusive;
 use iced_core::layout::{self, Layout};
 use iced_core::widget::{Tree, tree};
 use iced_core::{
-    Background, Border, Clipboard, Color, Element, Event, Length, Point, Rectangle, Shell, Size,
-    Theme, Widget, keyboard, mouse, renderer, touch,
+    Background, Border, Clipboard, Element, Event, Length, Point, Rectangle, Shell, Size, Theme,
+    Widget, keyboard, mouse, renderer, touch,
 };
 
 use crate::Confidence;
-use crate::style::{ink_on, materials, tint};
+use crate::style::{materials, tint};
 
 /// How wide across a knob is drawn, and how tall it stands.
 ///
@@ -82,7 +82,6 @@ pub struct Knob<'a, Message> {
     range: RangeInclusive<u8>,
     claim: Confidence,
     size: f32,
-    cap: Option<Color>,
     on_change: Box<dyn Fn(u8) -> Message + 'a>,
 }
 
@@ -101,7 +100,6 @@ pub fn knob<'a, Message>(
         range,
         claim,
         size: SIZE,
-        cap: None,
         on_change: Box::new(on_change),
     }
 }
@@ -114,24 +112,6 @@ impl<Message> Knob<'_, Message> {
     #[must_use]
     pub fn size(mut self, size: f32) -> Self {
         self.size = size.max(12.0);
-        self
-    }
-
-    /// Draws the body in `colour` rather than in the window's own metal.
-    ///
-    /// For a panel that is wearing a measured livery: `deepmind-midi` publishes
-    /// the colour of the knob body printed on each algorithm's figure, and an
-    /// effect plate drawn as that unit is drawn as that unit down to what a
-    /// hand takes hold of.
-    ///
-    /// Only the body. The recess it is seated in, the scale printed round it
-    /// and the claim in the fill are the window's own, and a value nobody has
-    /// confirmed is still the stroke rather than the fill — a livery that
-    /// painted an assumed value the same as a reported one would be buying a
-    /// colour with the one distinction this editor exists to draw.
-    #[must_use]
-    pub fn cap(mut self, colour: Color) -> Self {
-        self.cap = Some(colour);
         self
     }
 }
@@ -403,10 +383,6 @@ where
         }
 
         let confirmed = self.claim.is_confirmed();
-        // Whatever the body is made of: the window's own metal, or the colour
-        // the library measured off this algorithm's printed knob. A livery
-        // changes what the material is and never what the fill means.
-        let face = self.cap.unwrap_or(material.metal);
         renderer.fill_quad(
             renderer::Quad {
                 bounds: body,
@@ -415,9 +391,7 @@ where
                     // as a stroke for what this window claims. The fader's rule,
                     // and the fill is what carries it.
                     color: if confirmed {
-                        self.cap.map_or(material.metal_low, |cap| {
-                            crate::style::mix(cap, material.recess, 0.35)
-                        })
+                        material.metal_low
                     } else {
                         tint(theme, self.claim)
                     },
@@ -426,17 +400,18 @@ where
                 },
                 ..renderer::Quad::default()
             },
-            Background::Color(if confirmed { face } else { material.panel }),
+            Background::Color(if confirmed {
+                material.metal
+            } else {
+                material.panel
+            }),
         );
 
         // The pointer, from the middle of the body out to its rim. Laid down as
         // a run of marks rather than as one turned rectangle: a quad has no
         // angle, and a run of them is a line at this size.
         let ink = if confirmed {
-            // Whichever of the instrument's two inks the body can be read
-            // against, because a measured cap is as likely to be cream as it is
-            // to be black and the pointer has to be visible on both.
-            self.cap.map_or(material.panel, |cap| ink_on(cap, theme))
+            material.panel
         } else {
             tint(theme, self.claim)
         };

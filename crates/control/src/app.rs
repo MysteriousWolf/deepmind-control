@@ -5,7 +5,6 @@ use std::path::{Path, PathBuf};
 use control_ui::{Patch, first_section};
 use deepmind_host::{Command, Event, Link, Outcome, PortRef, open, ports};
 use deepmind_midi::device::Event as DeviceEvent;
-use deepmind_midi::effect::Engine;
 use deepmind_midi::ids::{Bank, PROGRAMS_PER_BANK, ProgramNumber};
 use deepmind_midi::param::DEFAULT_FIRMWARE;
 use deepmind_midi::param::{Group, ParamId};
@@ -102,12 +101,6 @@ pub struct App {
     patch: Patch,
     /// The section the bar has pressed in.
     section: Group,
-    /// The effect engine whose panel is open, where the effects are showing.
-    ///
-    /// Not part of the sound: which of the four is in front of somebody is this
-    /// window's business, the way which section is. `None` until somebody
-    /// chooses one, and the effects open on the first.
-    opened: Option<Engine>,
     /// The control the pointer is over, which the footer describes.
     ///
     /// Not part of the sound and never sent anywhere: it is where somebody is
@@ -143,7 +136,6 @@ impl App {
             channel: None,
             patch: Patch::new(),
             section: first_section(),
-            opened: None,
             pointed: None,
             shelf: Shelf::new(),
             bank: Bank::A,
@@ -201,12 +193,6 @@ impl App {
     #[must_use]
     pub const fn identity(&self) -> Option<&Identity> {
         self.identity.as_ref()
-    }
-
-    /// Returns the effect engine whose panel is open, once one is chosen.
-    #[must_use]
-    pub const fn opened(&self) -> Option<Engine> {
-        self.opened
     }
 
     /// Returns the control the pointer is over, for the footer to describe.
@@ -312,7 +298,6 @@ impl App {
             }
             Message::Ui(control_ui::Message::Rename(name)) => self.rename(name),
             Message::Ui(control_ui::Message::Pointed(parameter)) => self.pointed = parameter,
-            Message::Ui(control_ui::Message::Open(engine)) => self.opened = Some(engine),
         }
         self.drain();
     }

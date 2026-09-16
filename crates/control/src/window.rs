@@ -322,8 +322,7 @@ fn editor(app: &App) -> Element<'_, Message> {
         scrollable(
             column![
                 text(section.name()).size(18),
-                control_ui::group(app.patch(), section, app.firmware(), app.opened())
-                    .map(Message::Ui),
+                control_ui::group(app.patch(), section, app.firmware()).map(Message::Ui),
             ]
             .extend(caveat(section, app.firmware()))
             .push(remaining())

@@ -42,12 +42,12 @@ use core::ops::RangeInclusive;
 use iced_core::layout::{self, Layout};
 use iced_core::widget::{Tree, tree};
 use iced_core::{
-    Background, Border, Clipboard, Color, Element, Event, Length, Point, Rectangle, Shell, Size,
-    Theme, Widget, keyboard, mouse, renderer, touch,
+    Background, Border, Clipboard, Element, Event, Length, Point, Rectangle, Shell, Size, Theme,
+    Widget, keyboard, mouse, renderer, touch,
 };
 
 use crate::Confidence;
-use crate::style::{ink_on, materials, tint};
+use crate::style::{materials, tint};
 
 /// Width of a fader, including the room its scale needs.
 ///
@@ -107,7 +107,6 @@ pub struct Fader<'a, Message> {
     axis: Axis,
     length: f32,
     thickness: f32,
-    cap: Option<Color>,
     on_change: Box<dyn Fn(u8) -> Message + 'a>,
 }
 
@@ -129,7 +128,6 @@ pub fn fader<'a, Message>(
         axis: Axis::Down,
         length: HEIGHT,
         thickness: WIDTH,
-        cap: None,
         on_change: Box::new(on_change),
     }
 }
@@ -169,19 +167,6 @@ impl<Message> Fader<'_, Message> {
     pub fn across(mut self, length: f32) -> Self {
         self.axis = Axis::Across;
         self.length = length;
-        self
-    }
-
-    /// Draws the cap in `colour` rather than in the window's own metal.
-    ///
-    /// The knob's builder, for the same reason and under the same rule: the
-    /// library measured the colour of the cap printed on an algorithm's own
-    /// figure, and the five algorithms whose figure is a fader have one. The
-    /// track it rides, the scale beside it and the claim in the fill stay the
-    /// window's, so an assumed value is still the stroke rather than the fill.
-    #[must_use]
-    pub fn cap(mut self, colour: Color) -> Self {
-        self.cap = Some(colour);
         self
     }
 }
@@ -563,9 +548,6 @@ where
 
         let cap = self.cap_of(bounds);
         let confirmed = self.claim.is_confirmed();
-        // Whatever the cap is made of: the window's own metal, or the colour
-        // the library measured off this algorithm's printed fader.
-        let face = self.cap.unwrap_or(material.metal);
         renderer.fill_quad(
             renderer::Quad {
                 bounds: cap,
@@ -574,9 +556,7 @@ where
                     // as a stroke for what this window claims. The fill is what
                     // carries it; the colour only agrees with the fill.
                     color: if confirmed {
-                        self.cap.map_or(material.metal_low, |worn| {
-                            crate::style::mix(worn, material.recess, 0.35)
-                        })
+                        material.metal_low
                     } else {
                         tint(theme, self.claim)
                     },
@@ -585,7 +565,11 @@ where
                 },
                 ..renderer::Quad::default()
             },
-            Background::Color(if confirmed { face } else { material.panel }),
+            Background::Color(if confirmed {
+                material.metal
+            } else {
+                material.panel
+            }),
         );
         // The line a cap's value is read against.
         renderer.fill_quad(
@@ -595,10 +579,7 @@ where
                 ..renderer::Quad::default()
             },
             Background::Color(if confirmed {
-                // Whichever of the instrument's two inks the cap can be read
-                // against, because a measured cap is as likely to be cream as
-                // it is to be black.
-                self.cap.map_or(material.panel, |worn| ink_on(worn, theme))
+                material.panel
             } else {
                 tint(theme, self.claim)
             }),

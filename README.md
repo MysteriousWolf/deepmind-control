@@ -45,13 +45,14 @@ panel that is not a rack now has its layout — the program's name, 17 parameter
 holding a character each drawn as the one display the instrument shows them on;
 the three envelopes, four faders and the shape they make; the modulation matrix,
 eight routings read across as rows rather than down as twenty-four slots; the
-control sequencer as one strip of thirty-two steps; and the effects as one
-engine at a time, chosen from four tabs and drawn as the rack unit the manual
-prints beside its algorithm — its case, its face, its knobs and their measured
-colour — with its twelve bytes under the names that algorithm gives them, each
-in the column and row the instrument's own FX page draws it in, over a display
-of the chain the four engines are wired into, drawn from the library's edge
-lists rather than out of the topology's name. What is left is polish, and then the plugin. See
+control sequencer as one strip of thirty-two steps; and the effects as all four
+engines at once, in the two-by-two the four of them make, each in the case the
+manual prints beside its algorithm and carrying its own strip — what it is
+running, the list that changes it, and how loud it comes out — with its twelve
+bytes under the names that algorithm gives them, each in the column and row the
+instrument's own FX page draws it in, under a display of the chain the four are
+wired into, drawn from the library's edge lists rather than out of the
+topology's name. What is left is polish, and then the plugin. See
 [the plan](docs/plan.md) for what is being built and in what order.
 
 It is dark, in the instrument's own colours: the palette is read off the mark in

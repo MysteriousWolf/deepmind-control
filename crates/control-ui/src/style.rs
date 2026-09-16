@@ -297,38 +297,102 @@ pub fn mix(colour: Color, into: Color, amount: f32) -> Color {
     }
 }
 
+/// How much lighter one colour is than another, on the scale contrast is
+/// measured in.
+///
+/// The ratio the web has used to decide whether text can be read since anybody
+/// measured it: both colours' relative luminance, lightened by a twentieth so
+/// that black against black is 1 rather than a division by zero, larger over
+/// smaller. 1 is two colours nobody can tell apart and 21 is black on white.
+///
+/// Relative luminance and not a mean of the channels: a saturated green is
+/// bright and a saturated blue of the same numbers is not, and an average puts
+/// dark ink on the second one.
+#[must_use]
+pub fn contrast(one: Color, other: Color) -> f32 {
+    let light = |colour: Color| {
+        let channel = |value: f32| {
+            if value <= 0.040_45 {
+                value / 12.92
+            } else {
+                ((value + 0.055) / 1.055).powf(2.4)
+            }
+        };
+        channel(colour.r).mul_add(0.2126, channel(colour.g) * 0.7152) + channel(colour.b) * 0.0722
+    };
+    let (high, low) = {
+        let (one, other) = (light(one), light(other));
+        (one.max(other), one.min(other))
+    };
+    (high + 0.05) / (low + 0.05)
+}
+
+/// How much contrast a word has to have with what it is printed on.
+///
+/// The threshold the accessibility guidelines set for text at the sizes this
+/// window sets it in. Written down once rather than judged per panel, because
+/// the whole point of measuring is that nobody has to squint at a screenshot
+/// and decide.
+pub const READABLE: f32 = 4.5;
+
 /// Returns the ink to print on `surface` so that it can be read.
 ///
-/// The instrument's own two, chosen by how much light the surface throws back:
+/// The instrument's own two, chosen by which one the surface is further from:
 /// a recess is what a legend is knocked out of on a pale part, and a metal
 /// highlight is what one is printed in on a dark one. Neither is a new colour —
-/// the whole point of this file is that there are no new colours — and the
-/// choice between them is the one thing a caller cannot make for itself,
-/// because a caller holding a measured colour does not know which way round the
-/// palette runs.
+/// the whole point of this file is that there are no new colours.
 ///
-/// Whichever of the two the surface is further from, rather than a threshold
-/// somebody chose: a measured chassis half way between the instrument's ink and
-/// its metal is exactly where a threshold flips on a rounding error, and the
-/// larger of two differences never does. Light is weighted the way an eye
-/// weighs the three channels — a saturated green is bright and a saturated blue
-/// of the same numbers is not, and a mean of the three puts dark ink on the
-/// second one.
+/// By distance rather than by a threshold, because a measured chassis half way
+/// between the instrument's ink and its metal is exactly where a threshold
+/// flips on a rounding error, and the larger of two differences never does.
 #[must_use]
 pub fn ink_on(surface: Color, theme: &Theme) -> Color {
     let material = materials(theme);
-    let light = |colour: Color| colour.r.mul_add(0.299, colour.g * 0.587) + colour.b * 0.114;
-    let under = light(surface);
-    let dark = (under - light(material.recess)).abs();
-    let pale = (under - light(material.metal_high)).abs();
-    if dark > pale {
+    if contrast(surface, material.recess) > contrast(surface, material.metal_high) {
         material.recess
     } else {
         material.metal_high
     }
 }
 
-/// How round the corner of a button's cap is.
+/// Returns `ink`, moved as far as it has to go to be read on `surface`.
+///
+/// A colour in this window is chosen for what it means — a claim is amber or
+/// green, a legend is the panel's own grey — and what it is printed on is not
+/// always chosen at all: an effect plate wears a chassis somebody measured off
+/// a photograph of a rack unit, and half of the 35 are pale. So the meaning
+/// picks the colour and this makes sure it arrives: nothing, where the ink
+/// already clears [`READABLE`], and otherwise the same ink carried towards
+/// whichever of the instrument's two the surface is further from, by the least
+/// that gets it there.
+///
+/// Towards an ink rather than replaced by one, so an amber claim stays amber
+/// and a green one stays green: what moves is how light it is, which is what
+/// contrast is made of, and not which colour it is, which is what it means.
+///
+/// This is the one function that has to be called on every word the window
+/// prints on a surface it did not choose. A colour that is right in a palette
+/// and unreadable on a panel is not right.
+#[must_use]
+pub fn legible(ink: Color, surface: Color, theme: &Theme) -> Color {
+    if contrast(ink, surface) >= READABLE {
+        return ink;
+    }
+    let toward = ink_on(surface, theme);
+    // Sixteen steps of the whole distance, which resolves finer than an eye
+    // does and costs sixteen multiplications. The last step is `toward` itself,
+    // so a surface that nothing can be read on still gets the best there is
+    // rather than the ink it started with.
+    (1..=STEPS)
+        .map(|step| mix(ink, toward, f32::from(step) / f32::from(STEPS)))
+        .find(|lifted| contrast(*lifted, surface) >= READABLE)
+        .unwrap_or(toward)
+}
+
+/// How finely [`legible`] looks for the least it can move an ink.
+const STEPS: u8 = 16;
+
+/// How round the corner of a button's cap is./// How round the corner of a button's cap is.
 ///
 /// A `DeepMind`'s buttons are moulded rubber and not keycaps: the corners are
 /// turned far enough that the cap reads as something soft pushed through a hole

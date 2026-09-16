@@ -308,14 +308,14 @@ which is the thing the library exists to prevent.
 for: `effect::Engine` is the four engines and which parameter each of their
 slots is, `effect::Algorithm` is the 35 and what value selects one on a given
 firmware, and `effect::FxSlot` is what a slot of the loaded algorithm is called.
-So the panel is one plate at a time, with the four engines along a row of tabs
-above it. The plate is the engine's own settings — which algorithm it is
-running, chosen from the parameter's own value table under the display's own
-abbreviations, and how loud its output — on one strip across the top of the
-unit, and then its twelve bytes under the names that algorithm gives them, with
-what the algorithm is called in full written out beside the list rather than
-substituted into it. The settings that are no engine's, the connection mode and
-whether the effects are inserted, sent or bypassed, sit with the chain they
+So the panel is all four engines at once, in the two-by-two the four of them
+make. Each carries its own strip: which algorithm it is running, chosen from the
+parameter's own value table under the display's own abbreviations, what that is
+called in full written out beside the list rather than substituted into it, and
+how loud its output. Nothing above them and nothing below — a row of tabs and a
+header both said which algorithm an engine was running, and neither of them was
+where the engine was. The settings that are no engine's, the connection mode and
+whether the effects are inserted, sent or bypassed, sit beside the chain they
 shape, found by subtraction rather than by name, which is also where a parameter
 a later library adds to this group will appear.
 
@@ -341,10 +341,11 @@ byte, with the two ends the manual prints written under the title, because
 **Twelve bytes, however many the algorithm uses.** An engine holds twelve
 whatever it is running and `Algorithm::slots` is as short as five. The ones the
 algorithm names stand on the grid; the rest go in a strip cut into the plate
-below it, smaller, under the library's own `Fx 1 Param 6` and one heading that
-says how many the algorithm does not use. Below rather than among, because seven
-controls the size of the five that do something is a plate whose loudest half is
-the half that does nothing. They are still in the program, still reachable from
+below it, at half the size, under the library's own `Fx 1 Param 6`. Below rather
+than among, because seven controls the size of the five that do something is a
+plate whose loudest half is the half that does nothing; and with nothing written
+over them, because below the grid, cut into the case, half size and named by the
+library rather than by the algorithm are four ways of saying the same thing. They are still in the program, still reachable from
 the modulation matrix, and still sent, because a panel that quietly stopped
 sending them would lose part of a sound the moment somebody changed an effect.
 An engine whose algorithm this firmware's table does not name, or whose type
@@ -385,28 +386,43 @@ same claim in the fill of the thing that moves — which is why the shape belong
 beside the axis a fader runs along rather than anywhere near what a parameter
 is.
 
-**The measured colours are an identity, and one unit may wear all of it.** The
-library publishes four per algorithm, and they are the colours of 35 imaginary
-rack units: a cream fader panel, a black one, a blue-grey one. Painted as
-measured, four of them side by side would be a collage of other people's
-instruments in a window whose whole argument is that it is one instrument — and
-that, rather than the colours, is what was wrong. So one engine is open at a
-time and the open one is that unit: its chassis, the face its controls sit on, a
-hairline of its accent, and the cap a finger moves.
+**The measured colours are an identity, and how much of it fits depends on how
+many units are on the page.** The library publishes four per algorithm, and they
+are the colours of 35 imaginary rack units: a cream fader panel, a black one, a
+blue-grey one. Painted as measured, four of them side by side would be a collage
+of other people's instruments in a window whose whole argument is that it is one
+instrument.
 
-The cap took two goes. It was refused first on the grounds that what carries a
-claim is the fill of the thing that moves, so a cap repainted to match a figure
-would break the one rule that holds everywhere. The rule survives the repaint:
-the claim is *which* fill, not which colour — a value the synthesizer reported
-is the cap filled, and one this window put there is the cap as a stroke round
-the panel, whatever the cap is made of. What a livery may not touch is the
-recess a control is cut into, the scale printed round it, how far a drag runs,
-and that distinction. What follows from a plate that can be cream as easily as
-black is that everything printed on it — a title, a legend, an address, a knob's
-pointer — is printed in whichever of the instrument's two inks that face can be
-read against, and that which tab is open is a fixed step of the window's own
-light rather than of the chassis, so a cream unit sitting closed cannot outshine
-a black one standing open.
+That objection is about how many, not about the colours, which is why the page
+has spent a different number of them at each of its three shapes. With one
+engine open at a time it wore the lot — case, the face its controls stand on, a
+hairline of the accent, and the cap a finger moves. Four stand on it now, so the
+face is back to the window's own plate and the cap back to the window's own
+metal, and an engine wears its case and its accent: enough to tell the reverb
+from the distortion at arm's length.
+
+The cap is the one measurement this repository has spent and handed back, and
+the ledger is worth keeping. It was refused first on the grounds that what
+carries a claim is the fill of the thing that moves, so a control repainted to
+match a figure would break the rule everywhere. The argument was wrong and the
+refusal was right: the claim is *which* fill and not which colour — a reported
+value is the cap filled and an assumed one is the cap as a stroke, whatever the
+cap is made of — but there is only room for a repaint on a page with one unit on
+it, and this is not one.
+
+**Nothing is printed in a colour that cannot be read on what is under it.** Half
+the 35 chassis are pale, so no word on this page names an ink. It names the
+surface, and `style.rs` answers with whichever of the instrument's two that
+surface is further from, lifted until it clears a written-down threshold. Two
+things fell out of measuring rather than eyeballing, and neither was visible in
+a screenshot: a case is carried as far into the panel as it can go and still be
+printed on, because the cream ones half way in land in the exact middle of the
+two inks where the best either can manage is 4.45; and a value is never printed
+on a case at all, because on the palest of them an amber claim and a green one
+both have to be lifted so far that they arrive as the same ink, which would
+spend the one distinction this editor exists to draw on a livery. The output
+gain an engine's strip carries sits in a recess cut into the case instead, which
+is where a control belongs anyway.
 
 **The chain is drawn, because the graph is published.** What the connection mode
 does to each engine's output was in the library's specification and not in what

@@ -26,9 +26,20 @@ becoming permanent.
 
 ## Open
 
-Nothing. `deepmind-midi` 26.3 answered all six, which is the first time this
-file has been empty since it was written, and every one of the six is now
-spent: 26.3.1 came and went without a host-facing line in it.
+Four, all of them the effects page asking for more than the library publishes.
+The first is a gap; the other three are the same move made three times — the
+library owns what a thing *is*, and a window that decides it instead is a second
+copy of a generated table, going stale silently on the next release.
+
+| | | |
+| --- | --- | --- |
+| [#30](https://github.com/MysteriousWolf/deepmind-midi/issues/30) | How an FX slot is turned off, or that it cannot be | `fx_type` is 35 algorithms with no `Off`, the Effects group has no per-slot enable, and `FX Mode` is the whole block. Three algorithms carry their own enable in their twelve bytes (`EdisonEX1` `ON`, `NoiseGate` `PWR`, `RackAmp` `CAB`), which is what makes the absence look like a gap. **When it lands:** an engine running nothing collapses to a marker and gives its room back, instead of drawing twelve controls that reach nothing. Meanwhile every engine draws its full panel, because this window has no way to know which one is doing nothing |
+| [#31](https://github.com/MysteriousWolf/deepmind-midi/issues/31) | A mark per algorithm, as unit geometry or as a `Family` | **When it lands:** the mark goes in each engine's header, where four long names currently have to be read one at a time. The `Family` half alone would do most of it. Meanwhile the header carries the full name and the category, which is the most the library can currently answer |
+| [#32](https://github.com/MysteriousWolf/deepmind-midi/issues/32) | The generators the panels draw: envelopes, LFO shapes, filter responses, arpeggiator gates | The big one, and the one that would take real decisions out of this tree. Ten screens in `control-ui/src/scene.rs` and `envelope.rs` are arithmetic about the instrument written in a window — where a filter's corner sits for a byte, what a `Sample & Hold` looks like. **When it lands:** every one of them becomes a sample loop over a published function, and the refusal to label an axis the manual does not print moves into the library's own `Scale`, where it can be tested. This is the nearest thing left to the `home.rs` transcription, and it should go the same way |
+| [#33](https://github.com/MysteriousWolf/deepmind-midi/issues/33) | What an effect does to a signal: a `Quantity` per slot, and a response where it is known | #32 pointed at the effects. **When it lands:** the effects get the screen every other panel has — four small pictures, one per engine, and a parameter that shows what it is doing as it moves. The `Quantity` half is worth having first and on its own, because grouping an algorithm's slots into a picture currently means matching on titles across 35 algorithms. Meanwhile the effects are the one panel with no screen on it, which is honest: there is nothing published to draw there |
+
+Nothing is banked against any of them. The window does the most the library can
+currently answer for, and each row says what that is.
 
 ## Answered
 
