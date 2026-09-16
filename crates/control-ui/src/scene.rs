@@ -125,15 +125,28 @@ fn named(patch: &Patch, parameter: ParamId, firmware: Version) -> Option<&'stati
 
 /// Returns how many turns of something fit across a screen at `travel`.
 ///
-/// Between one and `most`. A rate drawn as a count of turns says that a faster
-/// setting is more of them in the same window, which is true of every rate this
-/// instrument has and is as much as the manual establishes; a screen is not a
-/// length of time, so nothing here is a speed. The shape being repeated is the
-/// library's, and so is the count of turns its own horizontal covers — this is
-/// only how many of them the glass is given.
-fn turns(travel: f32, most: f32) -> f32 {
-    1.0 + travel * (most - 1.0)
+/// Between `least` and `most`. A rate drawn as a count of turns says that a
+/// faster setting is more of them in the same window, which is true of every
+/// rate this instrument has and is as much as the manual establishes; a screen
+/// is not a length of time, so nothing here is a speed. The shape being
+/// repeated is the library's, and so is the count of turns its own horizontal
+/// covers — this is only how many of them the glass is given.
+fn turns(travel: f32, least: f32, most: f32) -> f32 {
+    least + travel * (most - least)
 }
+
+/// Fewest turns of an LFO the glass is ever given.
+///
+/// Two, and never one. Every shape in the library's table starts at the bottom
+/// of its range so that the seven can be drawn side by side without one looking
+/// shifted, which means one turn of the sine is a hill: it leaves the floor,
+/// reaches the top and comes back, and a picture of that is a bump rather than
+/// something going round. The second turn is what says it repeats, and what it
+/// swings about is [`centre`].
+const LEAST_TURNS: f32 = 2.0;
+
+/// Most turns of one it is given, at the top of the rate's travel.
+const MOST_TURNS: f32 = 8.0;
 
 /// One plate's drawing.
 ///
@@ -368,6 +381,41 @@ fn decibels(gain: f32) -> f32 {
     ((gain - floor) / (ceiling - floor)).clamp(0.0, 1.0)
 }
 
+/// How many dots tall a tick on a published axis stands.
+///
+/// Two: enough to read as a mark along the foot of the glass and not enough to
+/// be mistaken for anything the sound is doing. A drawing carries one curve,
+/// and an axis that competed with it would be a second.
+const TICK: i32 = 2;
+
+/// Rules the axis the library publishes for a shape, where it publishes one.
+///
+/// [`generator::Scale`] is the honest half of a generator: two of its three
+/// answers are measured — an octave either side of a filter's corner, a turn of
+/// an LFO — and the third says outright that the horizontal is an ordering and
+/// nothing else. So this marks the first two and draws nothing at all for the
+/// third, which is the whole point of the library publishing it: a screen with
+/// a scale on it that nobody measured is a screen that looks like information.
+///
+/// `every` is how much of the drawn width one unit of the scale covers, which
+/// the caller knows and the generator does not: a window showing four turns of
+/// a one-turn shape is drawing the same scale four times over.
+fn ruled(screen: &mut Screen, band: Band, every: f32) {
+    if every <= 0.0 || every >= 1.0 {
+        return;
+    }
+    let mut at = every;
+    while at < 1.0 {
+        screen.down(
+            band.column(at),
+            band.y + band.height - TICK,
+            TICK,
+            Ink::Dotted,
+        );
+        at += every;
+    }
+}
+
 /// Draws where the low-pass corner is and what is happening at it.
 ///
 /// The curve is [`generator::filter_response`], which is the roll-off the pole
@@ -392,6 +440,12 @@ fn filter(screen: &mut Screen, patch: &Patch) {
     let response = generator::filter_response(program);
     // The level the filter passes, on the library's own axis.
     screen.across(band.x, band.row(FILTER_UNITY), band.width, Ink::Dotted);
+    // And the axis itself, an octave a tick. The library publishes the span the
+    // response is drawn across, so this is the one horizontal on any of these
+    // plates that is measured rather than an ordering.
+    if let generator::Scale::Octaves(span) = response.scale() {
+        ruled(screen, band, 1.0 / span.max(1.0));
+    }
     // The corner sits at `0.5` along the generator, so a column of the screen
     // is half a span either side of wherever the byte put it.
     screen.curve(band, Ink::Solid, |x| response.at(0.5 + x - corner));
@@ -453,6 +507,9 @@ fn high_pass(screen: &mut Screen, patch: &Patch) {
     };
     let span = octaves(HIGH_PASS_SLOPE);
     screen.across(band.x, band.row(FILTER_UNITY), band.width, Ink::Dotted);
+    // The same octave a tick as the low-pass beside it, which is what makes the
+    // two plates two readings of one picture rather than two pictures.
+    ruled(screen, band, 1.0 / span.max(1.0));
     screen.curve(band, Ink::Solid, |x| {
         let below = ((corner - x) * span).max(0.0);
         decibels(-HIGH_PASS_SLOPE * below)
@@ -722,7 +779,18 @@ fn lfo(
         return;
     }
     let drawn = generator::lfo(program, which);
-    let over = turns(rate, 5.0);
+    let over = turns(rate, LEAST_TURNS, MOST_TURNS);
+    // The level it swings about, drawn before the shape so that the shape
+    // crosses it rather than the other way round. An LFO is a modulation source
+    // and half its range is where it sits when it is doing nothing — which is
+    // the one thing a picture of a wave needs in order to read as a wave, and
+    // the one thing the library does not publish
+    // ([deepmind-midi#35](https://github.com/MysteriousWolf/deepmind-midi/issues/35)).
+    screen.across(band.x, band.row(0.5), band.width, Ink::Dotted);
+    // A tick a turn along the foot, which is the axis the library calls exact:
+    // a cycle is a cycle whatever the rate byte does, so a picture can count
+    // them even though nothing about this instrument can say how long one is.
+    ruled(screen, band, 1.0 / over.max(1.0));
     screen.curve(band, Ink::Solid, |x| {
         let through = x * over;
         // The far edge is the end of the last cycle rather than the start of
