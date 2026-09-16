@@ -492,8 +492,12 @@ where
     }
     let wiring = container(
         row![
-            container(chain::display(patch, firmware)).width(Length::Fill),
-            container(block).width(Length::Shrink),
+            // The glass at its own size rather than at the window's. It is the
+            // instrument's own display, 128 dots by 64, and a picture of four
+            // boxes and the wires between them has a shape that a rubber band
+            // across the page is not.
+            container(chain::display(patch, firmware)).width(Length::Shrink),
+            container(block).width(Length::Fill),
         ]
         .spacing(14)
         .align_y(Vertical::Center),
