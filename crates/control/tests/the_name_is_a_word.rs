@@ -58,8 +58,13 @@ fn read() -> App {
     until(&mut app, PATIENCE, "answer to the inquiry", |app| {
         app.identity().is_some()
     });
-    app.update(Message::Read);
-    until(&mut app, PATIENCE, "edit buffer", |app| {
+    // Connecting reads the sound: the window asks for the edit buffer the
+    // moment a synthesizer answers the inquiry, so a second read here would put
+    // a second dump on the wire. That matters beyond being wasteful — a test
+    // that edits and then reads is asserting that the dump it waited for went
+    // out *behind* its edit, and a stray earlier dump landing after the edit
+    // carries the value from before it.
+    until(&mut app, PATIENCE, "the sound the connection read", |app| {
         app.patch().is_known()
     });
     app
