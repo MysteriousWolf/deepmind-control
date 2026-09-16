@@ -52,7 +52,7 @@
 //! drawn: a picture of a filter assembled from four values the synthesizer
 //! described and one this window invented is a picture of no filter at all.
 
-use deepmind_midi::generator::{self, FILTER_UNITY, GATES_DRAWN, Gate, LfoId, Scale};
+use deepmind_midi::generator::{self, FILTER_UNITY, GATES_DRAWN, Gate, LfoId};
 use deepmind_midi::param::{Group, ParamId};
 use deepmind_midi::program::LfoShape;
 use deepmind_midi::sysex::inquiry::Version;
@@ -71,6 +71,18 @@ use crate::{Confidence, Patch};
 /// is the 6 dB per octave [`generator::filter_response`] records beside the
 /// low-pass it does draw, on that same decibel vertical.
 const HIGH_PASS_SLOPE: f32 = 6.0;
+
+/// How far past its own fall a filter's horizontal reaches, as a multiple.
+///
+/// Read back out of the span the library publishes rather than chosen here: a
+/// 24 dB per octave slope takes two octaves to fall from unity to the floor and
+/// [`generator::filter_response`] draws three either side of the corner, so the
+/// axis is half as wide again as the fall it has to show. That is what puts a
+/// filter's knee in the middle of its picture instead of at one edge of it, and
+/// a 6 dB per octave slope drawn on the same proportion fills the same glass.
+/// `the_two_filters_are_drawn_to_one_proportion` holds it to what the library
+/// publishes, so a library that widened its own span moves this with it.
+const SPREAD: f32 = 1.5;
 
 /// A scatter that is the same every time it is asked.
 ///
@@ -320,18 +332,26 @@ fn envelopes() -> Vec<Group> {
         .collect()
 }
 
-/// Returns how many octaves of glass a filter is drawn across.
+/// Returns how many octaves of glass a filter of `slope` is drawn across.
 ///
-/// The library's own span, read off the generator rather than chosen here: the
-/// low-pass publishes its horizontal as [`Scale::Octaves`], and the high-pass
-/// on the plate beside it is drawn across the same width so the two filters of
-/// one section are two pictures at one scale.
-fn octaves(response: &generator::Generator) -> f32 {
+/// Enough for the slope to fall from unity to the library's own floor, and half
+/// as much again — see [`SPREAD`]. Asking it of the slope rather than writing a
+/// number down is what lets the high-pass, which is a quarter as steep as a
+/// four-pole low-pass, be drawn on the same vertical without spending three
+/// quarters of its glass on a line that has not fallen yet.
+fn octaves(slope: f32) -> f32 {
+    -generator::FILTER_FLOOR_DB / slope.max(1.0) * 2.0 * SPREAD
+}
+
+/// Returns how many octaves the library draws its own filter across.
+///
+/// `None` where the library stops publishing an octave axis for it, which is
+/// the one thing that would make [`octaves`] a number this window had invented.
+#[cfg(test)]
+fn published(response: &generator::Generator) -> Option<f32> {
     match response.scale() {
-        Scale::Octaves(span) => span,
-        // Unreachable while the library publishes a filter about its own
-        // corner, and a span of one octave rather than a panic if it stops.
-        _ => 1.0,
+        generator::Scale::Octaves(span) => Some(span),
+        _ => None,
     }
 }
 
@@ -424,25 +444,22 @@ fn reach(screen: &mut Screen, patch: &Patch, corner: f32, firmware: Version) {
 /// setting, which is what the instrument's own display does with it.
 fn high_pass(screen: &mut Screen, patch: &Patch) {
     let band = screen.all();
-    let (Some(program), Some(corner)) = (
-        patch.program(),
-        travel(patch, ParamId::VcfHighPassFrequency),
-    ) else {
+    let Some(corner) = travel(patch, ParamId::VcfHighPassFrequency) else {
         return;
     };
-    let span = octaves(&generator::filter_response(program));
+    let span = octaves(HIGH_PASS_SLOPE);
     screen.across(band.x, band.row(FILTER_UNITY), band.width, Ink::Dotted);
     screen.curve(band, Ink::Solid, |x| {
         let below = ((corner - x) * span).max(0.0);
         decibels(-HIGH_PASS_SLOPE * below)
     });
     if is_on(patch, ParamId::VcfBassBoost) == Some(true) {
-        // Along the top, which is the one part of this drawing that is always
-        // flat and always empty: the curve never rises above the level the
-        // filter passes at, and the headroom over it is the low-pass's alone.
+        // Under the passband and past the corner, which is the one part of this
+        // drawing that is always empty: a high-pass has nothing below it on the
+        // side the curve has already risen on.
         screen.write(
             band.width - Screen::width_of("BOOST", Size::Small) - 1,
-            band.y,
+            band.height - Screen::height_of(Size::Small),
             "BOOST",
             Size::Small,
         );
@@ -594,7 +611,10 @@ fn voicing(screen: &mut Screen, patch: &Patch, firmware: Version) {
     if let Some(mode) = named(patch, ParamId::PolyphonyMode, firmware)
         && band.height > Screen::height_of(Size::Small) + 4
     {
-        screen.write(0, 0, mode, Size::Small);
+        // Centred, because the marks under it are centred on the same middle:
+        // a word against the left edge over a spread about the centre reads as
+        // two drawings that happened to land on one screen.
+        screen.centre(0, mode, Size::Small);
         let written = Screen::height_of(Size::Small) + 2;
         band = Band::new(band.x, band.y + written, band.width, band.height - written);
     }
@@ -900,6 +920,31 @@ mod tests {
         assert!((decibels(0.0) - FILTER_UNITY).abs() < 0.001);
         assert!(decibels(deepmind_midi::generator::FILTER_CEILING_DB) > 0.99);
         assert!(decibels(deepmind_midi::generator::FILTER_FLOOR_DB) < 0.01);
+    }
+
+    #[test]
+    fn the_two_filters_are_drawn_to_one_proportion() {
+        // The one number about a filter this window still holds is how far past
+        // its own fall the axis reaches, and it is not a number this window
+        // chose: asked of a four-pole low-pass it gives back the span the
+        // library publishes for exactly that filter. A library that widened its
+        // own span fails here rather than leaving the high-pass beside it drawn
+        // to the old one.
+        // A program at its floor is already four-pole, which is what `0` is on
+        // this instrument and why nothing here reads the byte as a count.
+        let patch = read();
+        let program = patch.program().expect("a sound that has been read");
+        let response = super::generator::filter_response(program);
+
+        let span = super::published(&response).expect("an octave axis");
+        assert!(
+            (super::octaves(24.0) - span).abs() < 0.001,
+            "the library draws {span} octaves and this window would draw {}",
+            super::octaves(24.0)
+        );
+        // And a slope a quarter as steep is drawn across four times as much, so
+        // its knee lands in the same place on the glass.
+        assert!((super::octaves(6.0) - span * 4.0).abs() < 0.001);
     }
 
     #[test]
