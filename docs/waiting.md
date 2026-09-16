@@ -27,7 +27,8 @@ becoming permanent.
 ## Open
 
 Nothing. `deepmind-midi` 26.3 answered all six, which is the first time this
-file has been empty since it was written.
+file has been empty since it was written, and every one of the six is now
+spent: 26.3.1 came and went without a host-facing line in it.
 
 ## Answered
 
@@ -36,8 +37,8 @@ file has been empty since it was written.
 | [#18](https://github.com/MysteriousWolf/deepmind-midi/issues/18) | The FX panel tables | 26.2. Stage 5: the effects are four engine plates, and every slot is named by the algorithm its engine is running |
 | [#19](https://github.com/MysteriousWolf/deepmind-midi/issues/19) | Which parameter a modulation destination moves | 26.2. The mark on a slot the matrix is pointed at, drawn from the destinations the patch holds rather than by matching names here |
 | [#20](https://github.com/MysteriousWolf/deepmind-midi/issues/20) | The Control App Notify reply, which says what is selected | 26.2 decodes it. Nothing here reads it yet: what a unit actually does with the request is [question 4](plan.md#questions-a-cable-answers), and the librarian's "which slot is this" is worth building once a cable has answered |
-| [#22](https://github.com/MysteriousWolf/deepmind-midi/issues/22) | The FX panel layout: the grid, the control shape, the measured colours | 26.3, as data rather than as the drawings. **Not spent yet** — the effects are still four plates in this editor's own rack and materials, and laying them out as the instrument's figures do is the next piece of work this unblocks |
-| [#23](https://github.com/MysteriousWolf/deepmind-midi/issues/23) | The FX routing graph, and what Insert, Send and Bypass do | 26.3, as edge lists with the two loops declared. **Not spent yet** — the chain above the four plates is drawable now |
+| [#22](https://github.com/MysteriousWolf/deepmind-midi/issues/22) | The FX panel layout: the grid, the control shape, the measured colours | 26.3, as data rather than as the drawings. Spent: a plate is the rows the instrument's own FX page uses, a slot on a knob panel is drawn as a knob, and the measured colours are spent as the plate's own chassis and rim rather than as a repaint — see [the plan](plan.md#the-effect-panels-are-the-librarys-data) for why that last one is a share and not the whole |
+| [#23](https://github.com/MysteriousWolf/deepmind-midi/issues/23) | The FX routing graph, and what Insert, Send and Bypass do | 26.3, as edge lists with the two loops declared. Spent: the chain is drawn on a display over the two settings it is a picture of, with the loop dashed under the engines and the analog path along the foot |
 | [#24](https://github.com/MysteriousWolf/deepmind-midi/issues/24) | A sequencer step is bipolar, `0` skips it, and the length bounds the run | 26.3, as `ParamId::shape`, `ParamId::inactive` and `ParamId::bounded_by`. Spent: the strip reads each step about its centre, says `skip` where a step is skipped, and rules the steps that are played |
 | [#25](https://github.com/MysteriousWolf/deepmind-midi/issues/25) | A parameter's displayed range, as the manual prints it | 26.3, as `ParamId::display`. Spent: the footer prints `50.0 Hz to 20000.0 Hz` where the manual has it, and the raw ends where it does not |
 | [#26](https://github.com/MysteriousWolf/deepmind-midi/issues/26) | Which parameters the front panel puts a control under | 26.3, as `front::sections`. **The transcription is deleted.** `control-ui/src/home.rs` reads the panel off the library and spends what it saved on layout: two of the nine sections are drawn as more than one plate |

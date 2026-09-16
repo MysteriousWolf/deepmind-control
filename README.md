@@ -47,7 +47,10 @@ the three envelopes, four faders and the shape they make; the modulation matrix,
 eight routings read across as rows rather than down as twenty-four slots; the
 control sequencer as one strip of thirty-two steps; and the effects as four
 engine plates, each of them twelve bytes under the names the algorithm it is
-running gives them. What is left is polish, and then the plugin. See
+running gives them, laid out in the rows the instrument's own FX page uses and
+turned by the knobs the manual's figures draw — over a display of the chain the
+four engines are wired into, drawn from the library's edge lists rather than out
+of the topology's name. What is left is polish, and then the plugin. See
 [the plan](docs/plan.md) for what is being built and in what order.
 
 It is dark, in the instrument's own colours: the palette is read off the mark in

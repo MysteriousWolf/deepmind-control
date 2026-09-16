@@ -24,6 +24,29 @@
 //! Speaker on 1.0. A fifth engine, a thirty-sixth algorithm or a renamed slot
 //! arrives with nothing in this file to edit.
 //!
+//! # The page is the instrument's own, and so is the shape
+//!
+//! 26.3 published the rest of it
+//! ([deepmind-midi#22](https://github.com/MysteriousWolf/deepmind-midi/issues/22)):
+//! the grid the synthesizer's own FX page lays a slot out on, measured off the
+//! 35 screenshots in the manual, and what the figure printed beside each
+//! algorithm is made of. So a plate is no longer twelve slots wrapped into
+//! whatever width the window happened to have — it is the rows that page puts
+//! them in, six across and two down, which is the arrangement anybody who has
+//! edited an effect on the hardware already knows. [`Panel::control`] is the
+//! shape: 29 of the 35 figures are rotary knobs, five are faders and one is a
+//! numeric display, and a slot on a knob panel is drawn as [a knob](crate::knob).
+//!
+//! The four measured colours are spent as an identity rather than as a finish.
+//! They are the colours of 35 imaginary rack units, and four of them painted as
+//! measured, side by side, would be a collage of other people's instruments in
+//! a window whose whole argument is that it is one instrument. So the plate
+//! carries enough of the algorithm's chassis to tell the reverb from the
+//! distortion at arm's length and a hairline of its accent around the edge, and
+//! the controls stay the editor's own: a cap is what carries the claim, and a
+//! cap repainted to match a figure would be the one rule this window keeps
+//! everywhere, broken where it is least affordable.
+//!
 //! # A named slot is the same control it was
 //!
 //! The library says two things about a slot and they are not the same thing.
@@ -56,16 +79,16 @@
 //! — draws all twelve that way, which is stage 3's rack for exactly as long as
 //! there is nothing better to say.
 
-use deepmind_midi::effect::{Algorithm, Engine, FxSlot};
+use deepmind_midi::effect::{Algorithm, Align, Colour, Control, Engine, FxSlot, Panel};
 use deepmind_midi::param::{Group, ParamId};
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::alignment::{Horizontal, Vertical};
-use iced_core::{Background, Border, Font, Length, Theme, text::Renderer as TextRenderer};
+use iced_core::{Background, Border, Color, Font, Length, Theme, text::Renderer as TextRenderer};
 use iced_widget::{Space, column, container, row, text};
 
 use crate::chain;
 use crate::panel::{NAME, Room, SLOT, address, control, modulated, readout};
-use crate::style::{materials, reading};
+use crate::style::{self, materials, reading};
 use crate::{Confidence, Element, Patch, tint};
 
 /// How much room one of the group's own settings is chosen in.
@@ -286,7 +309,167 @@ where
     Some(body.into())
 }
 
+/// Gathers the lanes into the rows the instrument's own FX page draws them in.
+///
+/// The library's grid, row by row, with the alignment it measured for each;
+/// then whatever the algorithm does not use, on a row of its own. A slot the
+/// page has no place for cannot happen — the rows are generated from the same
+/// specification as the slots — and if one ever did it would follow the unused
+/// tail rather than disappear, because a byte this panel does not draw is a
+/// byte the modulation matrix can still be pointed at.
+///
+/// One row of everything where nothing is known about the algorithm, which is
+/// stage 3's rack: twelve bytes under the library's own names, and no page to
+/// lay them out by.
+fn rows(lanes: &[Lane], panel: Option<&'static Panel>) -> Vec<(Vec<Lane>, Align)> {
+    let mut drawn = Vec::new();
+    let mut placed: Vec<ParamId> = Vec::new();
+    if let Some(panel) = panel {
+        for row in panel.rows() {
+            let line: Vec<Lane> = row
+                .slots()
+                .iter()
+                .filter_map(|number| {
+                    lanes
+                        .iter()
+                        .find(|lane| lane.slot.is_some_and(|slot| slot.slot == *number))
+                        .copied()
+                })
+                .collect();
+            placed.extend(line.iter().map(|lane| lane.parameter));
+            if !line.is_empty() {
+                drawn.push((line, row.align()));
+            }
+        }
+    }
+    let left: Vec<Lane> = lanes
+        .iter()
+        .filter(|lane| !placed.contains(&lane.parameter))
+        .copied()
+        .collect();
+    if !left.is_empty() {
+        drawn.push((left, Align::Left));
+    }
+    drawn
+}
+
+/// Draws one row of a plate: its clusters, each under the band it belongs to.
+fn line_of<'a, Renderer>(
+    patch: &Patch,
+    engine: Engine,
+    line: &[Lane],
+    firmware: Version,
+    moved: &[ParamId],
+    panel: Option<&'static Panel>,
+) -> Vec<Element<'a, Renderer>>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    bands(line)
+        .into_iter()
+        .map(|(band, run)| {
+            let slots = run
+                .into_iter()
+                .map(|lane| slot(patch, engine, lane, firmware, moved, panel));
+            column![
+                container(muted(band.heading().to_owned()).size(10)).height(Length::Fixed(BAND)),
+                row(slots).spacing(0),
+            ]
+            .into()
+        })
+        .collect()
+}
+
+/// Draws one of an engine's twelve bytes, under the name the algorithm gives it.
+///
+/// The control is the same one the rest of the editor draws from the same
+/// table, in the shape the algorithm's own figure uses: 29 of the 35 are knobs,
+/// five are faders and one is a numeric display, and the library says which
+/// without saying anything about what the byte is. A knob and a fader are the
+/// same control over the same range with the same drag — see [`knob`](crate::knob)
+/// — so the shape is an arrangement, which is the one thing hand layout here is
+/// allowed to choose.
+///
+/// The display is drawn as a fader. It is the one shape this window does not
+/// have and the one algorithm that wants it, and a control invented for a
+/// single figure would be a worse lie than the fader that is already honest
+/// about the byte underneath.
+fn slot<'a, Renderer>(
+    patch: &Patch,
+    engine: Engine,
+    lane: Lane,
+    firmware: Version,
+    moved: &[ParamId],
+    panel: Option<&'static Panel>,
+) -> Element<'a, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    let title = lane
+        .slot
+        .map_or_else(|| within(engine, lane.parameter), |slot| slot.title);
+    let room = if panel.is_some_and(|panel| matches!(panel.control(), Control::Knob)) {
+        Room::SLOT.turned()
+    } else {
+        Room::SLOT
+    };
+    column![
+        row![
+            address(lane.parameter),
+            reference(lane.slot),
+            Space::new().width(Length::Fixed(2.0)),
+            modulated(
+                moved.contains(&lane.parameter),
+                lane.slot.is_none_or(|slot| slot.modulatable),
+            ),
+        ]
+        .spacing(4)
+        .align_y(Vertical::Center),
+        control(
+            lane.parameter,
+            patch.value(lane.parameter),
+            patch.claim(lane.parameter),
+            firmware,
+            room,
+        ),
+        readout(
+            lane.parameter,
+            patch.value(lane.parameter),
+            patch.claim(lane.parameter),
+            firmware,
+        ),
+        // The title and what the display reads there are one label and not two
+        // rows: a slot whose title runs to three lines pushes its own ends down
+        // rather than the whole plate's. The box is the rack's name box and one
+        // line more, so that the slots of a band still begin at the same height.
+        container(
+            column![
+                text(title).size(11).center(),
+                muted(hint(lane.slot)).size(10).center(),
+            ]
+            .spacing(2)
+            .align_x(Horizontal::Center)
+        )
+        .height(Length::Fixed(NAME + HINT))
+        .width(Length::Fill)
+        .align_x(Horizontal::Center),
+    ]
+    .spacing(5)
+    .width(Length::Fixed(SLOT))
+    .align_x(Horizontal::Center)
+    .into()
+}
+
 /// Draws one engine: what it is running, and what that makes its twelve bytes.
+///
+/// In the rows the instrument's own FX page puts them in. 26.3 published that
+/// grid — six columns and two rows, measured off the 35 screenshots in the
+/// manual, and every slot's place on it
+/// ([deepmind-midi#22](https://github.com/MysteriousWolf/deepmind-midi/issues/22))
+/// — so a plate is no longer twelve slots wrapped into whatever width the
+/// window happened to have. It is the arrangement the instrument's own display
+/// uses, which is the arrangement anybody who has edited an effect on the
+/// hardware already knows.
 fn plate<'a, Renderer>(
     patch: &Patch,
     engine: Engine,
@@ -297,81 +480,40 @@ where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
     let lanes = lanes(patch, engine, firmware);
-    let clusters = bands(&lanes).into_iter().map(|(band, run)| {
-        let slots = run.into_iter().map(|lane| {
-            let title = lane
-                .slot
-                .map_or_else(|| within(engine, lane.parameter), |slot| slot.title);
-            let mark = modulated(
-                moved.contains(&lane.parameter),
-                lane.slot.is_none_or(|slot| slot.modulatable),
-            );
-            column![
-                row![
-                    address(lane.parameter),
-                    reference(lane.slot),
-                    Space::new().width(Length::Fixed(2.0)),
-                    mark,
-                ]
-                .spacing(4)
-                .align_y(Vertical::Center),
-                control(
-                    lane.parameter,
-                    patch.value(lane.parameter),
-                    patch.claim(lane.parameter),
-                    firmware,
-                    Room::SLOT,
-                ),
-                readout(
-                    lane.parameter,
-                    patch.value(lane.parameter),
-                    patch.claim(lane.parameter),
-                    firmware,
-                ),
-                // The title and what the display reads there are one label and
-                // not two rows: a slot whose title runs to three lines pushes
-                // its own ends down rather than the whole plate's. The box is
-                // the rack's name box and one line more, so that the slots of a
-                // band still begin at the same height.
-                container(
-                    column![
-                        text(title).size(11).center(),
-                        muted(hint(lane.slot)).size(10).center(),
-                    ]
-                    .spacing(2)
-                    .align_x(Horizontal::Center)
-                )
-                .height(Length::Fixed(NAME + HINT))
+    let panel = algorithm(patch, engine, firmware).map(Algorithm::panel);
+    let mut drawn = column![].spacing(2);
+    for (line, align) in rows(&lanes, panel) {
+        let clusters = line_of(patch, engine, &line, firmware, moved, panel);
+        drawn = drawn.push(
+            container(row(clusters).spacing(8).wrap())
                 .width(Length::Fill)
-                .align_x(Horizontal::Center),
-            ]
-            .spacing(5)
-            .width(Length::Fixed(SLOT))
-            .align_x(Horizontal::Center)
-            .into()
-        });
-        column![
-            container(muted(band.heading().to_owned()).size(10)).height(Length::Fixed(BAND)),
-            row(slots).spacing(0),
-        ]
-        .into()
-    });
+                .align_x(match align {
+                    Align::Right => Horizontal::Right,
+                    Align::Centre => Horizontal::Center,
+                    // Left, and anything a later library adds: every row of
+                    // every algorithm as measured is packed against the start,
+                    // and a row this build has no arrangement for is drawn the
+                    // way the other 35 are rather than guessed at.
+                    _ => Horizontal::Left,
+                }),
+        );
+    }
     let body = column![header(patch, engine, firmware, moved)]
-        .push(row(clusters).spacing(8).wrap())
+        .push(drawn)
         .extend(displays(&lanes).map(Element::from))
         .spacing(8);
+    let figure = panel.map(|panel| (panel.chassis(), panel.accent()));
     container(body)
         .padding(8)
         .width(Length::Fill)
-        .style(|theme: &Theme| {
+        .style(move |theme: &Theme| {
             // Cut into the group's face plate rather than raised off it: the
             // plate is what the four engines are recessed into, which is the
             // same trick the section bar plays with the panel it is cut from.
-            let material = materials(theme);
             container::Style {
-                background: Some(Background::Color(material.panel)),
+                background: Some(Background::Color(chassis(theme, figure))),
                 border: Border {
-                    color: material.recess_edge,
+                    color: rim(theme, figure),
                     width: 1.0,
                     radius: 3.into(),
                 },
@@ -379,6 +521,49 @@ where
             }
         })
         .into()
+}
+
+/// Returns the colour the plate an engine is drawn on is painted.
+///
+/// The measured chassis of the algorithm's own figure, most of the way back to
+/// the panel this window is. The library publishes four colours per algorithm —
+/// [deepmind-midi#22](https://github.com/MysteriousWolf/deepmind-midi/issues/22)
+/// — and they are the colours of 35 imaginary rack units: a cream fader panel,
+/// a black one, a blue-grey one. Painted as measured, four of them side by side
+/// in this window would be a collage of other people's instruments, and the one
+/// thing this editor is is one instrument.
+///
+/// So the measurement is spent as an identity rather than as a finish: enough
+/// of the chassis to tell the reverb from the delay at arm's length, and not so
+/// much that the plate stops being the panel the rest of the window is.
+fn chassis(theme: &Theme, figure: Option<(Colour, Colour)>) -> Color {
+    let material = materials(theme);
+    figure.map_or(material.panel, |(chassis, _)| {
+        style::mix(material.panel, colour(chassis), 0.16)
+    })
+}
+
+/// Returns the colour the plate's edge is drawn in.
+///
+/// The figure's accent, which the library defines as the most saturated colour
+/// covering a visible share of the printed panel: the lit label strip on a
+/// cream unit, the LED on a black one. A hairline of it is what says which
+/// engine is which without a second word on the plate.
+fn rim(theme: &Theme, figure: Option<(Colour, Colour)>) -> Color {
+    let material = materials(theme);
+    figure.map_or(material.recess_edge, |(_, accent)| {
+        style::mix(material.recess_edge, colour(accent), 0.55)
+    })
+}
+
+/// Returns a colour the library measured, as a colour this window can draw.
+///
+/// Three components rather than a parse, because three components are what the
+/// library publishes and what a window wants; the one thing this does is put
+/// them on the scale `iced` uses.
+fn colour(measured: Colour) -> Color {
+    let [red, green, blue] = measured.to_rgb();
+    Color::from_rgb8(red, green, blue)
 }
 
 /// Draws an engine's own settings: which algorithm, and how loud its output.
@@ -591,7 +776,7 @@ mod tests {
     use deepmind_midi::program::Program;
     use deepmind_midi::sysex::inquiry::Version;
 
-    use super::{Band, bands, claimed, engines, hint, lanes, settings, within};
+    use super::{Band, Lane, bands, claimed, engines, hint, lanes, rows, settings, within};
     use crate::Patch;
 
     /// Firmware 1.0, which numbers the algorithms differently.
@@ -611,6 +796,48 @@ mod tests {
         patch.edit(Engine::One.algorithm_parameter(), value);
         assert_eq!(patch.value(Engine::One.algorithm_parameter()), Some(value));
         patch
+    }
+
+    #[test]
+    fn every_byte_of_an_engine_is_drawn_once_whatever_is_loaded() {
+        // The plate is laid out from the library's own grid now, and the one
+        // thing a layout read out of a table can do wrong is lose a row of it:
+        // a byte with no control on it is a byte nobody can edit, and a byte
+        // with two is a plate that disagrees with itself. Neither is visible in
+        // a screenshot of the one algorithm somebody happened to load.
+        for algorithm in Algorithm::all() {
+            for engine in Engine::ALL {
+                let lanes: Vec<Lane> = engine
+                    .slot_parameters()
+                    .iter()
+                    .copied()
+                    .map(|parameter| Lane {
+                        parameter,
+                        slot: algorithm.slot_of(engine, parameter),
+                    })
+                    .collect();
+                let mut drawn: Vec<ParamId> = rows(&lanes, Some(algorithm.panel()))
+                    .into_iter()
+                    .flat_map(|(line, _)| line)
+                    .map(|lane| lane.parameter)
+                    .collect();
+                let count = drawn.len();
+                drawn.sort_unstable_by_key(|parameter| parameter.offset());
+                drawn.dedup();
+
+                assert_eq!(
+                    count, SLOTS_PER_ENGINE,
+                    "{engine} running {} draws {count} of its twelve bytes",
+                    algorithm.full_name
+                );
+                assert_eq!(
+                    drawn.len(),
+                    count,
+                    "{engine} running {} draws a byte twice",
+                    algorithm.full_name
+                );
+            }
+        }
     }
 
     #[test]

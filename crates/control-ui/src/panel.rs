@@ -35,6 +35,7 @@ use iced_widget::{Space, button, column, container, mouse_area, pick_list, row, 
 use crate::effect;
 use crate::envelope;
 use crate::fader::{self, Axis, fader};
+use crate::knob::{self, knob};
 use crate::matrix;
 use crate::name;
 use crate::sequencer;
@@ -133,6 +134,29 @@ pub(crate) struct Room {
     /// has seven. It is room and not identity — the same enumerated parameter,
     /// from the same table, with the same values under it.
     legends: bool,
+    /// Which shape a control that sweeps a range takes.
+    ///
+    /// The last thing hand layout is allowed to change about a control, and
+    /// the newest: the library publishes what shape each effect algorithm's
+    /// own figure draws, and 29 of the 35 are knobs. A knob and a fader are the
+    /// same control over the same byte with the same drag — see
+    /// [`knob`](crate::knob) — so this belongs here, beside the axis a fader
+    /// runs along, rather than anywhere near what a parameter is.
+    form: Form,
+}
+
+/// What a control that sweeps a range is drawn as.
+///
+/// Named for the thing a hand touches rather than for the value's own shape,
+/// which is what the library's [`Shape`] already means: one says a step is read
+/// about its centre and the other says the control is round.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum Form {
+    /// A fader, which is every control the instrument itself has.
+    #[default]
+    Fader,
+    /// A knob, which is what an effect algorithm's own panel draws.
+    Knob,
 }
 
 impl Room {
@@ -146,6 +170,7 @@ impl Room {
         height: Length::Fixed(fader::HEIGHT),
         travel: fader::HEIGHT,
         legends: false,
+        form: Form::Fader,
     };
 
     /// Room for one lane of the instrument's own front panel.
@@ -160,6 +185,7 @@ impl Room {
             height: Length::Fixed(travel),
             travel,
             legends: false,
+            form: Form::Fader,
         }
     }
 
@@ -171,6 +197,7 @@ impl Room {
             height: Length::Fixed(height),
             travel: height,
             legends: true,
+            form: Form::Fader,
         }
     }
 
@@ -185,6 +212,7 @@ impl Room {
             height: Length::Fixed(BUTTON),
             travel: fader::HEIGHT,
             legends: false,
+            form: Form::Fader,
         }
     }
 
@@ -199,6 +227,7 @@ impl Room {
             height: Length::Fixed(fader::HEIGHT),
             travel: fader::HEIGHT,
             legends: false,
+            form: Form::Fader,
         }
     }
 
@@ -210,6 +239,20 @@ impl Room {
             height: Length::Fixed(fader::WIDTH),
             travel: fader::HEIGHT,
             legends: false,
+            form: Form::Fader,
+        }
+    }
+
+    /// The same room, with a knob in it rather than a fader.
+    ///
+    /// What an effect slot is given where the algorithm's own panel draws a
+    /// knob. Everything else about the room is untouched, because everything
+    /// else about the control is: the library says which shape the figure
+    /// beside an algorithm uses, and a shape is an arrangement.
+    pub(crate) const fn turned(self) -> Self {
+        Self {
+            form: Form::Knob,
+            ..self
         }
     }
 
@@ -484,6 +527,15 @@ where
 {
     let low = *range.start();
     let high = *range.end();
+    if matches!(room.form, Form::Knob) {
+        // A knob is as wide as it is tall and takes the room across the panel
+        // it was given, which for a slot in the rack is the fader's own width.
+        return knob(range, value.clamp(low, high), claim, move |value| {
+            Message::Edit { parameter, value }
+        })
+        .size(room.width.min(knob::SIZE))
+        .into();
+    }
     let fader = fader(range, value.clamp(low, high), claim, move |value| {
         Message::Edit { parameter, value }
     });

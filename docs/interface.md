@@ -85,19 +85,30 @@ on the hardware.
   for a screen and twenty faders; here each plate carries the drawing of its own
   part, and the envelopes carry the drawing no `DeepMind` can show — all three of
   them at once. See [Display](#display).
-- **A legend is printed over its control**, not under it, because that is where
-  the instrument prints it: the hardware has a screen for readings and no room
-  under a fader.
+- **A legend is printed over a fader and under a button**, because that is where
+  the instrument prints each: the hardware has a screen for readings and no room
+  under a fader, and it silkscreens `POLY` and `EDIT` *below* the caps they name,
+  where a finger on the button cannot cover them.
 - **Every plate carries the press the hardware calls `EDIT`**, and the
   envelopes' `VCA`, `VCF` and `MOD` are the three ways into the three envelope
   panels, where the hardware uses them to choose which envelope its four faders
   address.
 - **A way in is a legend and a lamp, not a word in a box.** `EDIT` is not
-  written on the button on the instrument: it is silkscreened on the panel above
-  a blank square that is lit amber the whole time the synthesizer is powered,
-  and a row of those along the foot of every plate is the thing you see first in
-  a photograph of one. So the legend is printed where every other legend is and
-  what is pressed is the lamp, lit at rest and brighter under the pointer.
+  written on the button on the instrument: it is silkscreened on the panel under
+  a blank rubber cap that is lit amber the whole time the synthesizer is
+  powered, and a row of those along the foot of every plate is the thing you see
+  first in a photograph of one. So the legend is printed where the panel prints
+  it and what is pressed is the lamp, lit at rest and brighter under the
+  pointer.
+- **A button is moulded, and the same cap wherever it is.** Square-ish, as wide
+  as a fader and a little over half that tall, cut to a round corner, its face a
+  gradient lit across the crown and shadowed at the foot — which is what a soft
+  thing standing proud of a dark panel looks like. Pressing turns that gradient
+  over rather than reaching for a second colour. An unlit button is moulded too:
+  it is still a rubber cap when nothing is behind it. The band along the foot of
+  a plate is one band, so the `EDIT` press and the switch beside it are the same
+  cap at the same size, and that band is the one part of the panel the window
+  does not stretch.
 - **The plate's name is knocked out of a light bar**, which is how the
   instrument prints `ARP / SEQ`, `VCF` and `ENVELOPES`: a pale strip across the
   top of each group with the name dark on it. It is what the eye follows across
@@ -329,24 +340,38 @@ covered in.
 ### Knob
 
 Where the source uses one, which means the effect panels, so that half of the
-editor keeps looking like the figures it was drawn from. A 270 degree arc open
-at the bottom, a body, a pointer, and a tick ring when the parameter selects
-rather than sweeps.
+editor keeps looking like the figures it was drawn from. A body seated in a
+recess, a pointer from the middle out to the rim, and a five-mark scale around
+the outside. The turn is three quarters of a circle, open at the bottom: nothing
+is at the bottom left, the top of the range is at the bottom right, and the
+middle points straight up, which is where a hardware knob's own ends are.
 
-**Not drawn yet**, and the effect slots are the rack's own faders until it is.
-What the library publishes about a slot is its name, its band and the two ends
-of its reading; the grid, the control shapes and the measured panel colours are
-in its `spec/layout.toml` and are not published, so an editor drawing knobs
-there today would be choosing the shapes itself. It is an arrangement and never
-a control, which is the one kind of change this design lets a later pass make.
+- **It is the fader, turned.** The same byte, the same range, the same relative
+  grab so a press never jumps, the same shift for a fine drag and the same
+  wheel, and the same claim in the fill of the thing that moves. A whole drag is
+  a rack fader's travel, so a hand moving between the two controls of one panel
+  does not have to learn a second rate.
+- **A drag is up and down whatever the shape is.** Turning a knob by dragging
+  round it is a gesture nobody performs twice.
+- **The sweep is a shape and never a reading.** The instrument publishes no
+  angle for a parameter. What the byte is worth is the reading under it, the
+  same as under every fader in this window.
+- **Which slots get one is the library's.** 26.3 publishes what the figure
+  printed beside each algorithm is made of: 29 of the 35 are rotary knobs, five
+  are vertical faders and one is a numeric display. The display is drawn as a
+  fader — one shape for one algorithm, invented here, would be a worse lie than
+  the fader that is already honest about the byte underneath.
 
 Knobs are not an alternative to faders for the main editor. Two ways to draw the
-same kind of parameter is how a panel stops being readable.
+same kind of parameter is how a panel stops being readable; the effects are the
+one place the source draws something else, and they follow it.
 
 ### Switch
 
 Two states. A lamp and a legend, not a checkbox and not a toggle that slides.
-Off is the panel colour behind a hairline; on is the lamp colour. The lamp is
+Off is a dark cap; on is the lamp colour. Both are moulded, because an unlit
+button on the instrument is still a rubber cap and drawing that one as a hole
+and the lit one as a light would be two controls wearing one name. The lamp is
 the one saturated thing this design allows, and it only ever means *on*.
 
 ### Selector
@@ -613,9 +638,26 @@ FX 1   179 Type              Midas Equaliser          219 Output Gain
   `Church`, `Gate` and never the bytes they sit at. The names are printed under
   the plate as what the display will show, the fader stays, and nothing offers
   to send one of them.
+- **The rows are the instrument's own FX page.** Six columns and two rows,
+  measured off the 35 screenshots in the manual, with every slot's place on it
+  published — so a plate is the arrangement anybody who has edited an effect on
+  the hardware already knows, rather than twelve slots wrapped into whatever
+  width the window happened to have.
+- **The shape is the algorithm's own figure.** 29 of the 35 draw rotary knobs,
+  five draw faders, one draws numeric displays. A knob is [the fader turned](#knob)
+  and nothing about the control changes with it.
 - **Bands are the library's runs.** One side of a stereo engine, one band of an
-  equaliser: a heading over the cluster, and a slot the library labelled nothing
-  stands on its own.
+  equaliser: a heading over the cluster within its row, and a slot the library
+  labelled nothing stands on its own.
+- **The chain is drawn, on a display over the settings it is a picture of.**
+  Ten topologies as edge lists: what the block's input reaches, what feeds what,
+  what is summed at the end, the loop dashed under the engines it returns
+  through on the two that have one, and the analog path along the foot where
+  `FX Mode` puts one. Nothing in it knows a topology by name, and where an
+  engine stands is worked out from the edges — a column is how far it is from
+  the input, and a backwards edge is the loop. `Bypass` draws the engines as
+  something the signal is not going through, because the library says the DSP is
+  out of circuit rather than muted.
 - **Twelve bytes, however many the algorithm uses.** The rest are at the end of
   the plate under `Param 9`, in a cluster that says the algorithm does not use
   them. They are still in the program, still reachable from the modulation
@@ -648,13 +690,17 @@ two for the same two jobs — amber opens a section, cyan says something other
 than a hand can move this control — rather than inventing a third.
 
 The effect panels are the exception, and a deliberate one: their colours are
-measured from the manual's own figures, four per algorithm, and a host that
-draws a chorus in the chorus panel's colours is telling the truth about what it
-is editing. Those come from the library when it publishes them, which it has not
-— they are in its `spec/layout.toml` and stay there — so the four engine plates
-are the editor's own materials today. Nothing else in the editor gets a colour
-for being itself: fourteen groups in fourteen hues is decoration pretending to
-be information.
+measured from the manual's own figures, four per algorithm, and a plate that
+carries the chorus panel's own colours is telling the truth about what it is
+editing. 26.3 publishes them, and they are spent as an identity rather than as a
+finish — enough of the algorithm's chassis in the plate to tell the reverb from
+the distortion at arm's length, and a hairline of its accent around the edge.
+Painted as measured, four imaginary rack units side by side would be a collage
+in a window whose whole argument is that it is one instrument, and a cap
+repainted to match a figure would break the one rule that holds everywhere: what
+carries a claim is the fill of the thing that moves. Nothing else in the editor
+gets a colour for being itself: fourteen groups in fourteen hues is decoration
+pretending to be information.
 
 ## Type
 

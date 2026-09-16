@@ -355,16 +355,42 @@ mark as an outline rather than filled: the matrix really is pointed there and
 really is doing nothing, and drawing that the same way as an effective routing
 would hide the reason a sound is not moving.
 
-**What the library holds back is not drawn.** The grid, the control shapes and
-the measured panel colours are in the library's `spec/layout.toml` and are not
-published, so the slots are the editor's own faders on the editor's own
-materials rather than the knobs and the four colours per algorithm the manual's
-figures use. That is a stage of its own the day the library publishes them, and
-it changes an arrangement rather than a control. What the connection mode does
-to each engine's output is in `spec/routing.toml` and is not published either,
-so the routing is the list its value table names and there is no diagram drawn
-from it: a chain drawn out of a value's own name is a picture this repository
-worked out rather than one the library published.
+**The page is the instrument's own, and so is the shape.** 26.3 published what
+was held back ([deepmind-midi#22](https://github.com/MysteriousWolf/deepmind-midi/issues/22)):
+the grid the synthesizer's own FX page lays a slot out on, measured off the 35
+screenshots in the manual, and what the figure printed beside each algorithm is
+made of. So a plate is the rows that page puts its slots in, six across and two
+down, which is the arrangement anybody who has edited an effect on the hardware
+already knows; and a slot on one of the 29 algorithms whose figure draws rotary
+knobs is drawn as a knob. A knob is the fader turned — the same byte, the same
+relative grab, the same claim in the fill of the thing that moves — which is why
+the shape belongs beside the axis a fader runs along rather than anywhere near
+what a parameter is.
+
+**The measured colours are an identity, not a finish.** The library publishes
+four per algorithm, and they are the colours of 35 imaginary rack units: a cream
+fader panel, a black one, a blue-grey one. Painted as measured, four of them
+side by side would be a collage of other people's instruments in a window whose
+whole argument is that it is one instrument. So a plate carries enough of its
+algorithm's chassis to tell the reverb from the distortion at arm's length, and
+a hairline of its accent around the edge, and the controls stay the editor's
+own. A cap is what carries the claim everywhere in this window, and a cap
+repainted to match a figure would break that rule exactly where it is least
+affordable.
+
+**The chain is drawn, because the graph is published.** What the connection mode
+does to each engine's output was in the library's specification and not in what
+it published, so the routing was the list its value table names and nothing was
+drawn from it. 26.3 publishes the ten topologies as edge lists with the two
+loops declared ([deepmind-midi#23](https://github.com/MysteriousWolf/deepmind-midi/issues/23)),
+so the effects now open on a display of the chain itself: what the block's input
+reaches, what feeds what, what is summed at the end, the loop dashed under the
+engines it returns through, and the analog path along the foot where `FX Mode`
+puts one. Nothing in it knows a topology by name — a picture assembled by
+matching `Serial 1-2-3-4` against a string would be an eleventh copy of the
+table — and where an engine stands is worked out from the edges rather than
+written down, so a column is how far it is from the input and a backwards edge
+is the loop.
 
 ## One view layer, two runtimes
 
@@ -749,7 +775,7 @@ needed.
 | 2 | First light | **Done.** Desktop window, port picker, identity, read the edit buffer, VCF editable end to end with assumed and confirmed drawn differently. |
 | 3 | Every parameter | **Done.** All fourteen groups from `Group::parameters`, one at a time behind a section bar, because a complete ugly editor beats a beautiful partial one. Every panel that is not a rack is laid out: the program's name, the three envelopes, the modulation matrix and the control sequencer. |
 | 4 | The librarian | **Done.** Read and write `.syx`, read a bank with progress and cancel, browse a pack on a surface of its own beside the editor, and load a program into the edit buffer as a difference. |
-| 5 | The effects | **Done.** Four engines and 35 algorithms, from the tables the library published in 26.2 ([deepmind-midi#18](https://github.com/MysteriousWolf/deepmind-midi/issues/18)). The connection mode is the list its value table names: the graph behind it is in the library's specification and not in what it publishes. |
+| 5 | The effects | **Done.** Four engines and 35 algorithms, from the tables the library published in 26.2 ([deepmind-midi#18](https://github.com/MysteriousWolf/deepmind-midi/issues/18)), laid out on the FX page's own grid with the shape each algorithm's figure draws, and opening on a picture of the chain the four are wired into — both of which 26.3 published ([#22](https://github.com/MysteriousWolf/deepmind-midi/issues/22), [#23](https://github.com/MysteriousWolf/deepmind-midi/issues/23)). |
 | 6 | The plugin | Simple mode, then state, then advanced mode in the same window. The CLAP comes out first, having nothing to settle; then the AU, once the bundle signs and `auval` passes; then the VST3, once Steinberg's terms are. |
 | 7 | Hardware | The questions below, answered with a cable. Findings go to the library. |
 
@@ -770,14 +796,16 @@ mark sets it, the parts of the window that are not parameters are drawn on the
 instrument too, and every plate of that panel has the instrument's own screen
 over its faders with the drawing of its own section on it.
 
-What is left of it, in no order yet: the effect slots want the knobs and the
-measured colours the manual's own figures use, which is a library release away;
-the sequencer strip wants a centre line, a skip mark and a dimmed tail past the
-sequence length, which is another; the fourteen racks have no displays over them
-the way the panel's plates now do, which is an arrangement rather than a
-decision; the front panel wants the library's own account of itself rather than
-the table in `home.rs`; and keyboard focus is not wired anywhere, which is the
-one gap in this editor that is not waiting on anybody else.
+What is left of it, in no order yet: the fourteen racks have no displays over
+them the way the panel's plates and the effects now do, which is an arrangement
+rather than a decision; and keyboard focus is not wired anywhere, which is the
+one gap in this editor that is not waiting on anybody else. The buttons are
+moulded and their legends are printed under them, the way the hardware's are;
+the effect slots have the knobs, the rows and the measured colours the manual's
+figures use; the sequencer strip has its centre line, its skip mark and its
+dimmed tail; and the front panel is read off the library rather than out of a
+table in `home.rs`. Every one of those was a library release away, and the
+release came.
 
 Which of those are somebody else's to answer is written down rather than
 remembered: [waiting.md](waiting.md) is the list of what this repository has
