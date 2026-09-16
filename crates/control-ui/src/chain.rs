@@ -151,6 +151,14 @@ struct Chain {
     /// both what the display calls it and the mark of the family it is in, and
     /// both of those are the library's to answer.
     running: [Option<&'static Algorithm>; ENGINE_COUNT],
+    /// Whether each engine's own switch has it in circuit.
+    ///
+    /// True for the 32 algorithms that have no such switch as well as for the
+    /// three that do and are on, because an engine the instrument gives no way
+    /// to switch out is an engine that is in: `FX n Type` is 35 effects with no
+    /// `Off` in the table, and what takes effects out of circuit is `FX Mode`,
+    /// which is the whole block of four at once.
+    wired: [bool; ENGINE_COUNT],
 }
 
 impl Chain {
@@ -162,18 +170,26 @@ impl Chain {
     fn read(patch: &Patch, firmware: Version) -> Option<Self> {
         let routing = Routing::for_value(patch.value(Routing::parameter())?)?;
         let mut running = [None; ENGINE_COUNT];
+        let mut wired = [true; ENGINE_COUNT];
         for engine in Engine::ALL {
             let loaded = patch
                 .value(engine.algorithm_parameter())
                 .and_then(|value| Algorithm::for_value(value, firmware));
-            if let Some(slot) = running.get_mut(usize::from(engine.index())) {
+            let index = usize::from(engine.index());
+            if let Some(slot) = running.get_mut(index) {
                 *slot = loaded;
+            }
+            if let Some(slot) = wired.get_mut(index) {
+                *slot = loaded
+                    .and_then(|algorithm| crate::effect::switched_on(patch, engine, algorithm))
+                    .unwrap_or(true);
             }
         }
         Some(Self {
             routing,
             mode: patch.value(Mode::parameter()).and_then(Mode::for_value),
             running,
+            wired,
         })
     }
 
@@ -542,6 +558,19 @@ fn plate(screen: &mut Screen, engine: Engine, chain: Chain, band: Band, ink: Ink
     if band.width < 6 || band.height < LEGIBLE {
         return;
     }
+    // An engine whose own switch is off is drawn the way a bypassed block is:
+    // something the signal goes past rather than through. Three of the 35 can
+    // say that about themselves and the other 32 cannot.
+    let ink = if chain
+        .wired
+        .get(usize::from(engine.index()))
+        .copied()
+        .unwrap_or(true)
+    {
+        ink
+    } else {
+        Ink::Dotted
+    };
     screen.frame(band, ink);
     let number = engine.number().to_string();
     let running = chain
@@ -858,6 +887,7 @@ mod tests {
             routing: Routing::for_value(value).expect("ten topologies"),
             mode: Mode::for_value(0),
             running: [None; 4],
+            wired: [true; 4],
         }
     }
 

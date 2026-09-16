@@ -133,6 +133,7 @@ mod glyphs;
 mod home;
 mod knob;
 mod lcd;
+mod mark;
 mod matrix;
 mod name;
 mod panel;
