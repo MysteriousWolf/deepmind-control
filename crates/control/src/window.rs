@@ -4,8 +4,7 @@ use std::thread;
 use std::time::Duration;
 
 use control_ui::{Band, Confidence, Ink, Screen, Size};
-use deepmind_midi::param::{Group, Kind, ParamId};
-use deepmind_midi::sysex::inquiry::Version;
+use deepmind_midi::param::ParamId;
 use iced::futures::Stream;
 use iced::futures::channel::mpsc;
 use iced::widget::{button, column, container, pick_list, row, scrollable, space, text};
@@ -353,8 +352,6 @@ fn editor(app: &App) -> Element<'_, Message> {
                 text(section.name()).size(18),
                 control_ui::group(app.patch(), section, app.firmware()).map(Message::Ui),
             ]
-            .extend(caveat(section, app.firmware()))
-            .push(remaining())
             .spacing(12)
             .padding([0, 12]),
         )
@@ -485,63 +482,24 @@ fn controls(app: &App) -> Element<'_, Message> {
     .into()
 }
 
-/// What a section cannot say for itself, where it has something to say.
+/// What a panel admits about itself, and where it says it.
 ///
-/// Printed under the rack rather than left for somebody to work out from a
-/// panel of protocol names. Two sections need it, for opposite reasons: the
-/// effects draw more than the parameter table knows, and the name draws less
-/// than the seventeen parameters under it.
-fn caveat(section: Group, firmware: Version) -> Option<Element<'static, Message>> {
-    let admission = match section {
-        Group::Effects => format!(
-            "A slot is named by whichever of the {} algorithms its engine is running, read for \
-             the firmware that answered, from the library's own table. What the byte under it \
-             does between the two ends printed on the slot is not published, so the reading \
-             stays the byte; neither are the bytes a slot's named settings sit at, so those \
-             names are printed as what the display will show rather than offered as a choice. \
-             What the connection mode does to each engine's output is in the library's \
-             specification and not in what it publishes.",
-            algorithms(firmware)
-        ),
-        Group::Program => format!(
-            "The name is one parameter per character, because that is how the instrument stores \
-             it. The {} slots the library gives it are drawn as the display it shows them on, \
-             and a keystroke still costs the one parameter it moved.",
-            control_ui::name_characters().len()
-        ),
-        _ => return None,
-    };
-    Some(text(admission).size(12).into())
-}
-
-/// How many effect algorithms this firmware has.
+/// Nowhere on the panel. Two paragraphs used to stand under every rack — what
+/// the effects page cannot know about a byte, and what this window does not
+/// write into the synthesizer — and they were an essay printed under a panel
+/// somebody was trying to read, on every section, whether or not it was the one
+/// they were about.
 ///
-/// Counted off the table the library gives `FX 1 Type`, because firmware is
-/// what decides which table that is, and a number written down here is a number
-/// that goes wrong quietly the day the library learns another algorithm.
-fn algorithms(firmware: Version) -> usize {
-    match ParamId::Fx1Type.kind() {
-        Kind::Enumerated(table) => table.table_for(firmware).entries.len(),
-        // Unreachable: the type of an engine is what it selects from a named
-        // set. A parameter the library has made continuous has no set to count.
-        _ => 0,
-    }
-}
-
-/// What this window does not draw, said out loud.
-fn remaining() -> Element<'static, Message> {
-    text(format!(
-        "Every parameter the instrument has is on these {} panels, drawn from the library's own \
-         table, and every one of them is laid out: the program's name, the three envelopes, the \
-         modulation matrix, the control sequencer and the four effect engines. Nothing here \
-         writes a program into the synthesizer: the manual describes no message that would, so \
-         storing a sound into a slot is done at the panel with the instrument's own WRITE, and \
-         what the Library does instead is write a file.",
-        Group::ALL.len()
-    ))
-    .size(12)
-    .into()
-}
+/// What they were defending is still defended, by the parts of the window that
+/// are already about one control at a time: the line under a slot says the two
+/// ends the manual prints and says what kind of quantity the byte is where it
+/// prints none, the footer describes whatever is under the pointer in the
+/// library's own words, and a value nobody has read is drawn as a value nobody
+/// has read. Those answer the same questions where somebody is actually asking
+/// them. The rest of it — that this window writes no program into the
+/// instrument, and why — belongs in `README.md` and `docs/interface.md`, which
+/// is where it now is alone.
+const fn _admissions() {}
 
 #[cfg(test)]
 mod tests {

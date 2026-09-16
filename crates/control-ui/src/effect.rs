@@ -148,6 +148,8 @@
 //! — draws all twelve that way, which is stage 3's rack for exactly as long as
 //! there is nothing better to say.
 
+use std::sync::LazyLock;
+
 use deepmind_midi::effect::{
     self, Algorithm, Colour, Control, Engine, FxSlot, Panel, Quantity, grid,
 };
@@ -248,8 +250,72 @@ const BAND: f32 = 13.0;
 
 /// How far a band's strip stands above the row it labels.
 ///
-/// Close, because it belongs to that row.
+/// Close, because it belongs to that row and stands in the same block.
 const UNDER_STRIP: f32 = 3.0;
+
+/// How tall a line saying what a slot's display shows is.
+const SHOWN_LINE: f32 = 11.0;
+
+/// How far apart two of them stand.
+const SHOWN_APART: f32 = 1.0;
+
+/// How much room those lines are given on every plate.
+///
+/// The most any of the 35 algorithms needs, asked of the library rather than
+/// counted by hand: a plate that reserved what its own algorithm happens to use
+/// is a plate a byte deeper or shallower than the one beside it, and this is the
+/// last thing on a case whose height came from what was in it.
+fn shown_room() -> f32 {
+    static LINES: LazyLock<usize> = LazyLock::new(|| {
+        Algorithm::all()
+            .iter()
+            .map(|algorithm| {
+                Engine::One
+                    .slot_parameters()
+                    .iter()
+                    .filter_map(|parameter| algorithm.slot_of(Engine::One, *parameter))
+                    .filter(|slot| slot.is_selector())
+                    .count()
+            })
+            .max()
+            .unwrap_or(0)
+    });
+    let lines = u16::try_from(*LINES).unwrap_or(0);
+    if lines == 0 {
+        return 0.0;
+    }
+    f32::from(lines) * SHOWN_LINE + f32::from(lines - 1) * SHOWN_APART
+}
+
+/// How tall one column of the grid stands.
+///
+/// Every part of a slot at its own height, added up: where it lives, the band
+/// its control stands in, the reading, the title's two lines and the line under
+/// them. Written as the sum rather than as a number so that a title given a
+/// third line moves this with it.
+const SLOT_COLUMN: f32 = ADDRESS + CONTROL_ROW + READOUT + TITLE + HINT + WITHIN_SLOT * 4.0;
+
+/// How tall the line a slot's address and marks stand on is.
+const ADDRESS: f32 = 12.0;
+
+/// How tall the line its value is read on is.
+const READOUT: f32 = 16.0;
+
+/// How far apart the parts of one slot stand.
+const WITHIN_SLOT: f32 = 2.0;
+
+/// How much case a band keeps above and below what it holds.
+///
+/// Enough that the tinted block reads as a block. A band was a pale bar over
+/// some controls and nothing said where it stopped; it is a surface its own
+/// columns stand on now, and a surface needs an edge somebody can see.
+const BAND_PAD: f32 = 4.0;
+
+/// How far apart two bands of one row stand.
+///
+/// The gap is what separates them. Two runs touching is one strip of two words
+/// rather than two bands, which is what `low` and `mid` looked like.
+const BESIDE_BAND: f32 = 5.0;
 
 /// How far one row of the grid stands from the next.
 ///
@@ -271,6 +337,15 @@ const BETWEEN_ROWS: f32 = 12.0;
 /// not survive a title set in a real face. What this window takes from the grid
 /// is the arrangement, which is published and exact.
 const BODY: f32 = 40.0;
+
+/// How deep the band a slot's control stands in is.
+///
+/// The taller of the two the library asks for, so a plate of knobs and a plate
+/// of faders come out the same height. An algorithm's figure decides which
+/// shape a hand takes hold of, and that is a fact about the algorithm; how deep
+/// the row it stands in is, is a fact about the page, and four cases on one page
+/// whose rows are at different heights are four cases that do not line up.
+const CONTROL_ROW: f32 = TRAVEL;
 
 /// How far a fader on one of them runs.
 ///
@@ -519,7 +594,13 @@ fn placed(lanes: &[Lane], panel: Option<&'static Panel>) -> (Vec<Line>, Vec<Lane
     let Some(panel) = panel else {
         return (Vec::new(), lanes.to_vec());
     };
-    let mut rows: Vec<Line> = vec![vec![None; columns]; panel.rows().len()];
+    // The grid's own depth rather than this algorithm's. An algorithm using six
+    // bytes fills one row of the instrument's page and the second row is still
+    // there, empty — which is what a plate draws, so that four cases on one page
+    // are four cases of a depth rather than four different answers to how much
+    // room an algorithm happened to need.
+    let deep = usize::from(grid().rows()).max(panel.rows().len());
+    let mut rows: Vec<Line> = vec![vec![None; columns]; deep];
     let mut spare = Vec::new();
     for lane in lanes.iter().copied() {
         let cell = lane.slot.map(FxSlot::position).and_then(|at| {
@@ -735,11 +816,22 @@ where
     // Two across, in the order the instrument numbers them. `chunks` rather
     // than a pair of indexes so that a library that ever published a fifth
     // engine gets a third row rather than a panel nobody can reach.
+    // Whether a line is kept for the picture at all is the page's question and
+    // not an engine's: two of the 35 publish a response, so a page holding one
+    // of them keeps that line on all four of its cases and a page holding none
+    // keeps it on none. An engine that reserved it for itself would be four
+    // cases of two depths again, and one that did not would be the page moving
+    // under the hand when a type byte changed.
+    let responding = patch.program().is_some_and(|program| {
+        engines
+            .iter()
+            .any(|engine| effect::response(program, *engine).is_some())
+    });
     for pair in engines.chunks(2) {
         body = body.push(
             row(pair
                 .iter()
-                .map(|engine| plate(patch, *engine, firmware, moved)))
+                .map(|engine| plate(patch, *engine, firmware, moved, responding)))
             .spacing(8),
         );
     }
@@ -764,64 +856,84 @@ fn line_of<'a, Renderer>(
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
-    let cells = line.iter().map(|cell| match cell {
+    let mut cells = line.iter().map(|cell| match cell {
         Some(byte) => slot(patch, engine, *byte, firmware, moved, figure),
-        None => Element::from(Space::new().width(Length::Fill)),
+        // A column the grid has nothing in still stands the height of one, so
+        // that a row of two slots is as deep as a row of six and a plate is as
+        // deep as the grid rather than as deep as what happens to be on it.
+        None => Element::from(Space::new().width(Length::Fill).height(SLOT_COLUMN)),
     });
-    row(cells).spacing(0).into()
+    // One run at a time, each of them a block: the strip and the columns it
+    // covers stand in the same container, so a band is a thing on the plate
+    // rather than a bar with some controls somewhere under it. The container
+    // takes no width of its own — a run of three is three of the grid's own
+    // portions — so the columns still line up down the rows, which is what the
+    // grid is for.
+    let runs = spans(line).into_iter().map(|(label, across)| {
+        let portion = u16::try_from(across).unwrap_or(1);
+        let held: Vec<Element<'a, Renderer>> = cells.by_ref().take(across).collect();
+        let banded = label.is_some();
+        Element::from(
+            container(
+                column![label.map_or_else(
+                    || Element::from(Space::new().height(Length::Fixed(BAND))),
+                    strip,
+                )]
+                .push(row(held).spacing(0))
+                .spacing(UNDER_STRIP),
+            )
+            .width(Length::FillPortion(portion))
+            .padding([BAND_PAD, 0.0])
+            .style(move |theme: &Theme| {
+                if banded {
+                    container::Style {
+                        background: Some(Background::Color(bedding(theme))),
+                        border: Border {
+                            color: materials(theme).recess_edge,
+                            width: 1.0,
+                            radius: 3.into(),
+                        },
+                        ..container::Style::default()
+                    }
+                } else {
+                    container::Style::default()
+                }
+            }),
+        )
+    });
+    row(runs).spacing(BESIDE_BAND).into()
 }
 
-/// Draws the bands printed over one row of the grid.
+/// The pale strip a band's name is knocked out of.
 ///
-/// The library groups the slots that are one side of a stereo engine or one
-/// band of an equaliser, and says so as a label it derived from the parameter
-/// names rather than as a fact the manual prints. It is a convention for laying
-/// a panel out, which is what this uses it for: a pale strip over the columns
-/// the band covers with its name knocked out of it, which is how a `DeepMind`
-/// prints `ARP / SEQ` and `VCF` across the top of a group and is the first
-/// thing the eye follows across the instrument's own panel.
-///
-/// The strip divides the row exactly the way the row below divides itself,
-/// because both are laid out from [`spans`] in the grid's own columns, so a
-/// band of three stands over its three and not over two and a half.
-fn over<'a, Renderer>(line: &Line) -> Option<Element<'a, Renderer>>
+/// How a `DeepMind` prints `ARP / SEQ` and `VCF` across the top of a group, and
+/// the first thing the eye follows across the instrument's own panel.
+fn strip<'a, Renderer>(label: &'static str) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
-    let spans = spans(line);
-    // Nothing at all where the library grouped nothing on this row, which is
-    // most algorithms: a strip of six blanks is a line of empty space over a
-    // row that did not ask for one.
-    if spans.iter().all(|(label, _)| label.is_none()) {
-        return None;
-    }
-    let runs = spans.into_iter().map(|(label, across)| {
-        let across = u16::try_from(across).unwrap_or(1);
-        match label {
-            None => Element::from(Space::new().width(Length::FillPortion(across))),
-            Some(label) => container(text(label).size(8).font(reading_face()).style(
-                move |theme: &Theme| text::Style {
-                    color: Some(ink(theme, On::Strip)),
-                },
-            ))
-            .width(Length::FillPortion(across))
-            .height(Length::Fixed(BAND))
-            .padding([0, 4])
-            .align_x(Horizontal::Center)
-            .align_y(Vertical::Center)
-            .style(move |theme: &Theme| container::Style {
-                background: Some(Background::Color(banding(theme))),
-                border: Border {
-                    color: materials(theme).metal,
-                    width: 1.0,
-                    radius: 2.into(),
-                },
-                ..container::Style::default()
-            })
-            .into(),
-        }
-    });
-    Some(row(runs).spacing(0).into())
+    container(
+        text(label)
+            .size(8)
+            .font(reading_face())
+            .style(move |theme: &Theme| text::Style {
+                color: Some(ink(theme, On::Strip)),
+            }),
+    )
+    .width(Length::Fill)
+    .height(Length::Fixed(BAND))
+    .align_x(Horizontal::Center)
+    .align_y(Vertical::Center)
+    .style(move |theme: &Theme| container::Style {
+        background: Some(Background::Color(banding(theme))),
+        border: Border {
+            color: materials(theme).metal,
+            width: 1.0,
+            radius: 2.into(),
+        },
+        ..container::Style::default()
+    })
+    .into()
 }
 
 /// What an algorithm's own printed figure says about how to draw its slots.
@@ -910,13 +1022,15 @@ where
         ]
         .spacing(3)
         .align_y(Vertical::Center),
-        control(
+        container(control(
             lane.parameter,
             patch.value(lane.parameter),
             patch.claim(lane.parameter),
             firmware,
             figure.room(false),
-        ),
+        ))
+        .height(Length::Fixed(CONTROL_ROW))
+        .align_y(Vertical::Center),
         reading(
             lane.parameter,
             patch.value(lane.parameter),
@@ -947,21 +1061,21 @@ where
     .into()
 }
 
-/// Draws the bytes the loaded algorithm has no name for.
+/// Draws the twelve bytes of an engine whose algorithm has no name here.
 ///
-/// Under the grid and not on it. An algorithm can leave seven of its twelve
-/// unused, and seven controls the size of the five that do something is a plate
-/// whose loudest half is the half that does nothing. So they are a strip cut
-/// into the plate below the two rows: smaller, and still every one of them
-/// draggable — a byte in the program that no panel reaches is a byte the
-/// modulation matrix can still be pointed at.
+/// The one case left. An algorithm that *is* named leaves as many as seven of
+/// its twelve unused, and those are no longer drawn: moving one does nothing a
+/// player can hear, a byte the loaded algorithm does not read is not a control,
+/// and a strip of seven of them under the five that do something was the
+/// loudest half of a plate spent on the half that does nothing. They are still
+/// in the program, still sent, and still reachable from the modulation matrix,
+/// which is where a byte with no panel belongs.
 ///
-/// Nothing said over them. They are under the grid, cut into the plate, at half
-/// the size, and named `Param 9` by the library rather than by the algorithm,
-/// which is four ways of saying the same thing; a sentence saying it a fifth
-/// time is a sentence taking room from the controls it is about.
-///
-/// Nothing at all for an algorithm that uses all twelve, which is most of them.
+/// What this is for is the other thing: an engine running a type byte this
+/// firmware's table does not name, which is what a dump from a unit on the
+/// other firmware hands over. There is no panel to lay out and no name to print
+/// for any of the twelve, so all twelve go under the library's own `Param 9` —
+/// stage 3's rack, for exactly as long as there is nothing better to say.
 fn spare<'a, Renderer>(
     patch: &Patch,
     engine: Engine,
@@ -994,7 +1108,7 @@ where
             ),
             printing(within(engine, lane.parameter).to_owned(), On::Recess).size(9),
         ]
-        .spacing(2)
+        .spacing(WITHIN_SLOT)
         .width(Length::Fixed(SPARE + 20.0))
         .align_x(Horizontal::Center)
         .into()
@@ -1041,6 +1155,7 @@ fn plate<'a, Renderer>(
     engine: Engine,
     firmware: Version,
     moved: &[ParamId],
+    responding: bool,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1051,23 +1166,21 @@ where
     let (grid, left) = placed(&lanes, panel);
     let mut drawn = column![].spacing(BETWEEN_ROWS);
     for line in &grid {
-        // A band's strip and the row it labels are one block. Spaced evenly
-        // down the plate, a strip stood as far from the row it belongs to as
-        // from the row above, which put a pale bar hard under the previous
-        // row's units — reading as a rule drawn between two rows rather than as
-        // a heading over one.
-        let mut block = column![].spacing(UNDER_STRIP);
-        block = block.extend(over(line));
-        block = block.push(line_of(patch, engine, line, firmware, moved, figure));
-        drawn = drawn.push(block);
+        drawn = drawn.push(line_of(patch, engine, line, firmware, moved, figure));
     }
     // What the display will show where a slot shows names rather than a number,
     // printed once under the grid: the manual gives the names and never the
     // bytes they sit at, so this is a reading and not something to send.
     let shown: Vec<Element<'a, Renderer>> = displays(&lanes).map(Element::from).collect();
-    if !shown.is_empty() {
-        drawn = drawn.push(column(shown).spacing(1));
-    }
+    // The same room on every plate, whether this algorithm has two of these
+    // lines or none. It is the last thing that made one case deeper than the
+    // one beside it, and it is the cheapest to make even: the number of lines
+    // reserved is the most any of the 35 needs rather than a number chosen.
+    drawn = drawn.push(
+        container(column(shown).spacing(SHOWN_APART))
+            .height(Length::Fixed(shown_room()))
+            .width(Length::Fill),
+    );
     let drawn = container(drawn)
         .width(Length::Fill)
         .padding(7)
@@ -1083,19 +1196,31 @@ where
                 ..container::Style::default()
             }
         });
-    let body = column![header(patch, engine, firmware, moved, panel)]
+    let body = column![header(patch, engine, firmware, moved, panel, responding)]
         .push(drawn)
-        .extend(spare(patch, engine, &left, firmware, moved, figure))
+        // The twelve under the library's own names, for an engine running an
+        // algorithm this firmware's table cannot name. That is the only case
+        // left: where the algorithm *is* named, the bytes it does not use are
+        // not drawn at all — see [`spare`].
+        .extend(
+            panel
+                .is_none()
+                .then(|| spare(patch, engine, &left, firmware, moved, figure))
+                .flatten(),
+        )
         .spacing(6);
     let figure_colours = panel.map(|panel| (panel.chassis(), panel.accent()));
     container(body)
         .padding(6)
         .width(Length::Fill)
-        // Its own height, and not its neighbour's. A case is as deep as the
-        // algorithm in it needs — one row of slots or two, a strip of unnamed
-        // bytes or none — and stretching the shallower of a pair to match would
-        // be a panel with empty case at the bottom of it, which is a worse lie
-        // than two cases of different depths.
+        // The same depth as the case beside it, and it gets there by being the
+        // same shape rather than by being stretched: every plate draws the
+        // grid's own two rows whether or not its algorithm fills them, every
+        // column stands a column's height whether or not a slot is in it, every
+        // run keeps the room a band's strip takes, and every control stands in a
+        // band of one depth whether the figure calls for a knob or a fader. What
+        // fills the difference is the case, which is what the bottom of a rack
+        // unit is.
         .style(move |theme: &Theme| {
             // Cut into the group's face plate rather than raised off it: the
             // plate is what the four engines are recessed into, which is the
@@ -1179,6 +1304,19 @@ fn banding(theme: &Theme) -> Color {
     style::mix(material.plate, material.metal_low, 0.62)
 }
 
+/// The surface the columns of one band stand on.
+///
+/// The strip's own colour taken most of the way back to the plate. The strip is
+/// a silkscreened label and is as pale as one; what is under it is a part of
+/// the plate that has been grouped, and a group of controls drawn on a surface
+/// as pale as its own label is a group whose readings and addresses have to be
+/// re-inked to be seen at all. A tint is enough to say *these six belong
+/// together*, which is the whole job.
+fn bedding(theme: &Theme) -> Color {
+    let material = materials(theme);
+    style::mix(material.plate, banding(theme), 0.16)
+}
+
 /// Returns the colour the plate's edge is drawn in.
 ///
 /// The figure's accent, which the library defines as the most saturated colour
@@ -1236,6 +1374,7 @@ fn header<'a, Renderer>(
     firmware: Version,
     moved: &[ParamId],
     panel: Option<&'static Panel>,
+    responding: bool,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1322,7 +1461,14 @@ where
     // that line is already claiming the width: a display squeezed in beside
     // them took the room the engine's own name was standing in, and the name is
     // what the picture is a picture of.
-    column![strip].extend(drawing).spacing(5).into()
+    column![strip]
+        .extend(responding.then(|| {
+            drawing.unwrap_or_else(|| {
+                Element::from(Space::new().height(Length::Fixed(lcd::room(PICTURE_ROWS))))
+            })
+        }))
+        .spacing(5)
+        .into()
 }
 
 /// Draws how loud an engine comes out, cut into its case.
@@ -1664,8 +1810,13 @@ mod tests {
 
             assert_eq!(
                 rows.len(),
-                algorithm.panel().rows().len(),
-                "{} draws a row the library does not",
+                usize::from(grid().rows()),
+                "{} does not draw the grid's own depth",
+                algorithm.full_name
+            );
+            assert!(
+                algorithm.panel().rows().len() <= rows.len(),
+                "{} has more rows than the grid holds",
                 algorithm.full_name
             );
             for line in &rows {

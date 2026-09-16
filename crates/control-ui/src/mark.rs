@@ -110,13 +110,15 @@ struct Drawing<Ink> {
 /// marks side by side are nine different sizes hanging at nine different
 /// heights — which is what a row of engine strips showed.
 ///
-/// So the window measures what each one reaches and centres *that* in the room,
-/// at the scale the library drew it. Not scaled up to fill the room: the nine
-/// share a box so that a shallow mark reads as shallow beside a tall one, and
-/// stretching each to the same size would throw that away and turn the filter's
-/// roll-off into a slash across the strip. Where the strokes sit inside the box
-/// is the library's business and where the drawing sits on a strip is this
-/// window's, which is the same division the effect panels are laid out under.
+/// So the window measures what each one reaches and lays *that* into the room:
+/// centred, and as large as fits in the direction it is longer, keeping its
+/// aspect. The library's box is a coordinate system and not a claim about
+/// relative sizes — it never says a rotary mark is larger than an imaging one —
+/// and drawn at that box's own scale the nine come out between seven and
+/// thirteen points tall in a sixteen point space. Where the strokes sit inside
+/// the box is the library's business and how big the drawing is on a strip is
+/// this window's, which is the same division the effect panels are laid out
+/// under.
 #[derive(Debug, Clone, Copy)]
 struct Fits {
     left: f32,
@@ -239,7 +241,7 @@ impl<Ink> Drawing<Ink> {
     /// direction it is longer, keeping its proportions, and centred in the
     /// other. See [`Fits`].
     fn at(&self, bounds: Rectangle, point: Point) -> (f32, f32) {
-        let scale = Self::scale(bounds);
+        let scale = self.scale(bounds);
         let (across, down) = (self.fits.width * scale, self.fits.height * scale);
         (
             bounds.x + (bounds.width - across) / 2.0 + (point.x() - self.fits.left) * scale,
@@ -249,18 +251,26 @@ impl<Ink> Drawing<Ink> {
 
     /// How many points of the room one unit of the library's box covers.
     ///
-    /// The room itself, which is to say the nine are drawn at the scale the
-    /// library drew them at. It is deliberately *not* each mark blown up to
-    /// fill the room: a filter's mark is a shallow roll-off and a delay's is
-    /// three tall bars, and stretching each to the same box turns the first
-    /// into a slash across the strip and throws away the one thing the shared
-    /// box was for. What this window fixes is where the drawing sits, not how
-    /// big it is.
+    /// Whatever makes this mark's own extent fill the room in the direction it
+    /// is longer, so the nine arrive at one optical size.
+    ///
+    /// This has been both ways and the reason it is this way is worth keeping.
+    /// The library's box is a coordinate system rather than a claim about
+    /// relative sizes: it never says a rotary mark is larger than an imaging
+    /// one. Drawn at that box's own scale the nine come out between seven and
+    /// thirteen points tall in a sixteen point space, so a row of engine strips
+    /// is some marks the size of the words beside them and some half that,
+    /// which reads as a drawing that has slipped rather than as a set.
+    ///
+    /// The aspect is kept, so nothing is distorted: the imaging mark stays wide
+    /// and flat, it is simply as wide as the rotary mark is round. That is what
+    /// every set of icons does and it is what makes them read as one.
     ///
     /// Everything measured in the unit box goes through this, a disc's radius
     /// included, or a mark would be placed at one size and drawn at another.
-    fn scale(bounds: Rectangle) -> f32 {
-        bounds.width.min(bounds.height)
+    fn scale(&self, bounds: Rectangle) -> f32 {
+        (bounds.width / self.fits.width.max(f32::EPSILON))
+            .min(bounds.height / self.fits.height.max(f32::EPSILON))
     }
 }
 
@@ -326,7 +336,7 @@ where
                 }
                 Stroke::Dot { centre, radius } => {
                     let at = self.at(bounds, centre);
-                    let across = (radius * 2.0 * Self::scale(bounds)).max(width);
+                    let across = (radius * 2.0 * self.scale(bounds)).max(width);
                     quad(renderer, at, across, ink);
                 }
                 Stroke::Wave {
@@ -462,13 +472,12 @@ mod tests {
     }
 
     #[test]
-    fn a_mark_is_drawn_at_the_scale_the_library_drew_it() {
-        // The other half of placing one: centring is all this window does. A
-        // mark that reaches half the box is drawn at half the room, because the
-        // nine share a box so that a shallow mark reads as shallow beside a
-        // tall one. Blowing each up to fill its room would be nine marks at one
-        // size and the comparison gone — and a filter's roll-off, which is a
-        // shallow curve, arriving as a slash across the strip.
+    fn every_mark_comes_out_at_one_optical_size() {
+        // The other half of placing one: centred and tiny would be centred. A
+        // mark reaches both edges of the room in the direction it is longer, so
+        // the nine are one size beside each other rather than between seven and
+        // thirteen points tall in a sixteen point space, which is what drawing
+        // them at the library's own box scale gave.
         for algorithm in Algorithm::all() {
             let drawing = drawn(algorithm.mark());
             let fits = drawing.fits;
@@ -479,18 +488,19 @@ mod tests {
             );
             let family = algorithm.family();
 
-            let side = ROOM.width.min(ROOM.height);
-            assert!(
-                (right - left - fits.width * side).abs() < 0.01,
-                "{family:?} is drawn wider than the library drew it"
-            );
-            assert!(
-                (bottom - top - fits.height * side).abs() < 0.01,
-                "{family:?} is drawn taller than the library drew it"
-            );
+            let filled = (right - left - ROOM.width).abs() < 0.01
+                || (bottom - top - ROOM.height).abs() < 0.01;
+            assert!(filled, "{family:?} is drawn smaller than the room it has");
             assert!(
                 right - left <= ROOM.width + 0.01 && bottom - top <= ROOM.height + 0.01,
                 "{family:?} is drawn past the room it has"
+            );
+            // Its own shape, not the room's: a wide mark stays wide.
+            let drawn_aspect = (right - left) / (bottom - top);
+            let own_aspect = fits.width / fits.height;
+            assert!(
+                (drawn_aspect - own_aspect).abs() < 0.01,
+                "{family:?} is drawn at {drawn_aspect} where the library drew {own_aspect}"
             );
         }
     }

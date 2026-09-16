@@ -746,20 +746,22 @@ second row readable down against the first.
 - **The shape is the algorithm's own figure.** 29 of the 35 draw rotary knobs,
   five draw faders, one draws numeric displays. A knob is [the fader turned](#knob)
   and nothing about the control changes with it.
-- **Bands are the library's runs, printed the way the instrument prints a
-  group.** One side of a stereo engine, one band of an equaliser: a pale strip
-  over the columns the band covers with its name knocked out of it, which is how
-  a `DeepMind` prints `ARP / SEQ` and `VCF` across the top of a group. The strip
-  divides a row exactly the way the row divides itself, so a band of three
-  stands over its three. Two columns the library labelled nothing are two
-  columns and not a pair, and a row it grouped nothing on has no strip at all.
+- **A band is a surface its own columns stand on.** One side of a stereo
+  engine, one band of an equaliser: the library's runs, and each run is a block
+  on the plate — a tint over the columns it covers, with its name knocked out of
+  a pale strip along the top, which is how a `DeepMind` prints `ARP / SEQ` and
+  `VCF` across the top of a group. The strip and the columns stand in the same
+  container, so the strip cannot divide the row differently from the row.
 
-  **A strip belongs to the row under it**, and the spacing is what says so: it
-  stands three points above its own row and twelve below the row before. Spaced
-  evenly down the plate it sat as far from the row it labels as from the row
-  above, and a pale bar equidistant between two rows reads as a rule drawn
-  between them rather than as a heading over one — with its top edge against the
-  units of the row above, which is what it looked like.
+  It was a bar with controls somewhere under it, and nothing said where a band
+  stopped; two runs side by side read as one strip with two words on it. The
+  tint is what says where it stops, and it is only a tint — the strip is
+  silkscreen and is as pale as silkscreen, and a group of controls drawn on a
+  surface that pale is a group whose readings have to be re-inked to be seen.
+
+  Two columns the library labelled nothing are two columns and not a pair, and a
+  row it grouped nothing on has no strip on it — but it keeps the room one
+  takes, so every row of the grid is one depth.
 - **The mark is the library's strokes and this window's layout.** Nine of them
   across the 35, one per family, published as a polyline, an arc, a sine and a
   filled disc in a unit box — not as a picture, for the same reason the panels
@@ -780,13 +782,15 @@ second row readable down against the first.
   the same function that draws them, so the two cannot disagree — and centres
   that in the room.
 
-  **Centred, and not stretched to fill it.** Scaling each mark up to the same
-  box was tried and is wrong: the nine share a box so that a shallow mark reads
-  as shallow beside a tall one, and blowing each one up throws that away — the
-  filter's mark is a gentle roll-off and arrived as a slash across the strip.
-  Where a stroke sits inside the box is the library's business, how big it is
-  drawn is the library's too, and where the drawing sits on a strip is this
-  window's.
+  **Centred, and as large as fits in the direction it is longer.** The box the
+  library publishes is a coordinate system rather than a claim about relative
+  sizes — it never says a rotary mark is larger than an imaging one — and drawn
+  at that box's own scale the nine come out between seven and thirteen points
+  tall in a sixteen point space, which reads as a drawing that has slipped
+  rather than as a set. The aspect is kept, so nothing is distorted: the imaging
+  mark stays wide and flat, it is simply as wide as the rotary mark is round.
+  Where a stroke sits inside the box is the library's business; how big the
+  drawing comes out on a strip is this window's.
 - **An effect that is out of circuit says so, and 32 of the 35 cannot.**
   `FX n Type` is 35 effects with no `Off` in the table, and what takes effects
   out is the `Bypass` mode, which is the whole block of four. Three algorithms
@@ -861,23 +865,39 @@ second row readable down against the first.
   the specification records about the two topologies that have a loop sits under
   the settings rather than beside them, for the same reason — a sentence sharing
   that row is a sentence taking the room the ten are laid out in.
-- **Twelve bytes, however many the algorithm uses.** An algorithm can leave
-  seven of its twelve unnamed, and seven controls the size of the five that do
-  something is a plate whose loudest half is the half that does nothing. So what
-  the grid has no place for goes in a strip cut into the plate below it, at half
-  the size, under the library's own `Param 9`. Nothing is written over them:
-  they are below the grid, cut into the case, half size, and named by the
-  library rather than by the algorithm, which is four ways of saying the same
-  thing, and a sentence saying it a fifth time is a sentence taking room from
-  the controls it is about. They are still in the program, still reachable from
-  the modulation matrix, and still sent. An engine whose algorithm nobody has
-  read is all twelve in that strip and no grid at all, which is stage 3's rack
-  for exactly as long as there is nothing better to say.
-- **A case is as deep as what is in it.** Two engines side by side are two
-  cards of different heights whenever their algorithms fill different numbers of
-  rows or leave different numbers of bytes unnamed. Stretching the shallower to
-  match would be a panel with empty case at the bottom of it, which is a worse
-  lie than two cases of different depths.
+- **The bytes an algorithm does not use are not drawn.** An algorithm can leave
+  seven of its twelve unnamed. Moving one of those does nothing anybody can
+  hear — the loaded algorithm does not read it — so it is not a control, and a
+  strip of seven of them under the five that do something was the loudest half
+  of a plate spent on the half that does nothing. They are still in the program,
+  still sent, and still reachable from the modulation matrix, which is where a
+  byte with no panel belongs.
+
+  An engine whose algorithm nobody has read is the one case left: all twelve
+  under the library's own `Param 9`, which is stage 3's rack for exactly as long
+  as there is nothing better to say.
+- **Every case is the same depth, and gets there by being the same shape.** Not
+  by being stretched. A plate draws the grid's own two rows whether or not its
+  algorithm fills them; a column stands a column's height whether or not a slot
+  is in it; a run keeps the room a strip takes whether or not it has a name; a
+  control stands in a band of one depth whether the figure calls for a knob or a
+  fader; and the lines saying what a display shows are given the most any of the
+  35 needs. What fills the difference is the case, which is what the bottom of a
+  rack unit is.
+
+  The argument this replaces was that a case should be as deep as the algorithm
+  in it needs, and that stretching the shallower of a pair would be a panel with
+  empty case at the bottom. Four rack units bolted onto one page are four rack
+  units of a height, and two depths side by side read as a layout that had not
+  finished rather than as an honest answer about how much room an algorithm
+  wanted.
+
+  Whether a line is kept for the response picture is the *page's* question
+  rather than an engine's: two of the 35 publish one, so a page holding one of
+  them keeps that line on all four of its cases and a page holding none keeps it
+  on none. An engine reserving it for itself would be four cases of two depths
+  again; an engine not reserving it would be the page moving under the hand when
+  a type byte changed.
 - **Units land on one line.** A title is set in a box two lines tall whatever it
   needs, so a name that wraps pushes nothing down but itself and the readings
   across a row are read along one line rather than up and down a ragged one.
@@ -885,6 +905,19 @@ second row readable down against the first.
   the matrix as `Fx n Param m`, and the library says which ones the engine acts
   on. A routing pointed somewhere the engine ignores draws the mark as an
   outline: it really is pointed there, and really is doing nothing.
+
+- **Nothing on the page is an essay.** Two paragraphs used to stand under every
+  rack — what the effects page cannot know about a byte, and what this window
+  does not write into the synthesizer — printed under whichever panel somebody
+  was trying to read, whether or not it was the one they were about. What they
+  were defending is defended by the parts of the window that are already about
+  one control at a time: the line under a slot gives the two ends the manual
+  prints and says what kind of quantity the byte is where it prints none, the
+  footer describes whatever is under the pointer in the library's own words, and
+  a value nobody has read is drawn as a value nobody has read. The rest of it —
+  that this window writes no program into the instrument, and why — is in
+  `README.md` and in this file, which is where somebody reading about the
+  editor is.
 
 ## Four at once, and what that costs the livery
 
