@@ -472,7 +472,8 @@ fn rails(screen: &mut Screen, chain: Chain, boxes: &[Band; ENGINE_COUNT], graph:
 /// from is a picture nobody can follow.
 fn edges(screen: &mut Screen, chain: Chain, boxes: &[Band; ENGINE_COUNT], graph: Band, ink: Ink) {
     let columns = chain.columns();
-    let below = graph.y + graph.height + UNDER / 2;
+    let mut forward: Vec<Wire> = Vec::new();
+    let mut back: Vec<Wire> = Vec::new();
     for engine in Engine::ALL {
         let Some(into) = boxes.get(usize::from(engine.index())) else {
             continue;
@@ -481,43 +482,134 @@ fn edges(screen: &mut Screen, chain: Chain, boxes: &[Band; ENGINE_COUNT], graph:
             let Source::Engine(from) = source else {
                 continue;
             };
-            let Some(out) = boxes.get(usize::from(from.index())) else {
+            let (Some(out), Some(at), Some(to)) = (
+                boxes.get(usize::from(from.index())),
+                columns.get(usize::from(from.index())),
+                columns.get(usize::from(engine.index())),
+            ) else {
                 continue;
             };
-            let forward =
-                columns.get(usize::from(from.index())) < columns.get(usize::from(engine.index()));
-            if forward {
-                let start = (out.x + out.width, out.y + out.height / 2);
-                let end = (into.x - 1, into.y + into.height / 2);
-                let mid = i32::midpoint(start.0, end.0);
-                screen.across(start.0, start.1, mid - start.0 + 1, ink);
-                screen.down(mid, start.1.min(end.1), (start.1 - end.1).abs() + 1, ink);
-                screen.across(mid, end.1, end.0 - mid, ink);
-                arrow(screen, end.0, end.1);
+            let wire = Wire {
+                from: *out,
+                into: *into,
+            };
+            if at < to {
+                forward.push(wire);
             } else {
-                let leave = out.x + out.width / 2;
-                let enter = into.x + into.width / 2;
-                screen.down(
-                    leave,
-                    out.y + out.height,
-                    below - out.y - out.height + 1,
-                    Ink::Dashed,
-                );
-                screen.across(
-                    enter.min(leave),
-                    below,
-                    (leave - enter).abs() + 1,
-                    Ink::Dashed,
-                );
-                screen.down(
-                    enter,
-                    into.y + into.height,
-                    below - into.y - into.height,
-                    Ink::Dashed,
-                );
-                up(screen, enter, into.y + into.height);
+                back.push(wire);
             }
         }
+    }
+    lanes(screen, &forward, ink);
+    returns(screen, &back, graph);
+}
+
+/// One edge of the graph, as the two boxes it joins.
+#[derive(Debug, Clone, Copy)]
+struct Wire {
+    from: Band,
+    into: Band,
+}
+
+impl Wire {
+    /// Where it leaves, which is the right hand side of the box it comes from.
+    const fn leaves(self) -> (i32, i32) {
+        (
+            self.from.x + self.from.width,
+            self.from.y + self.from.height / 2,
+        )
+    }
+
+    /// Where it arrives, which is the left hand side of the box it feeds.
+    const fn enters(self) -> (i32, i32) {
+        (self.into.x - 1, self.into.y + self.into.height / 2)
+    }
+}
+
+/// Draws the edges that run forwards, each in a lane of its own.
+///
+/// Every forward edge on this instrument joins one column to the next, so each
+/// one turns in the gutter between them. The turn used to be at the midpoint of
+/// the two boxes, which put every edge crossing a gutter on the same column:
+/// three engines feeding a fourth drew three lines down one column and two
+/// engines fed by one drew two, and what a reader saw was a single bar with
+/// stubs rather than three wires and a junction.
+///
+/// So the edges crossing a gutter are counted first and shared out across it,
+/// in the order they leave. Two wires never stand on the same column, which
+/// means no two of them can overlap: a merge is several lines arriving at one
+/// box and a fan-out is several leaving one, and both are countable.
+fn lanes(screen: &mut Screen, wires: &[Wire], ink: Ink) {
+    let mut gutters: Vec<(i32, i32, Vec<Wire>)> = Vec::new();
+    for wire in wires {
+        let (from, _) = wire.leaves();
+        let (to, _) = wire.enters();
+        match gutters
+            .iter_mut()
+            .find(|(start, end, _)| *start == from && *end == to)
+        {
+            Some((_, _, sharing)) => sharing.push(*wire),
+            None => gutters.push((from, to, vec![*wire])),
+        }
+    }
+    for (from, to, mut sharing) in gutters {
+        // In the order they leave, so wires crossing one gutter keep the order
+        // of the boxes they come from and cross each other as little as the
+        // graph allows.
+        sharing.sort_by_key(|wire| wire.leaves().1);
+        let count = sharing.len();
+        for (index, wire) in sharing.into_iter().enumerate() {
+            let (start_x, start_y) = wire.leaves();
+            let (end_x, end_y) = wire.enters();
+            let turn = turn(from, to, index, count);
+            screen.across(start_x, start_y, turn - start_x + 1, ink);
+            screen.down(turn, start_y.min(end_y), (start_y - end_y).abs() + 1, ink);
+            screen.across(turn, end_y, end_x - turn, ink);
+            arrow(screen, end_x, end_y);
+        }
+    }
+}
+
+/// Which column the `index`th of `count` wires crossing a gutter turns in.
+///
+/// Spread across the gutter rather than bunched at one end of it, so a single
+/// wire still turns in the middle of the gap the way it always did, and so that
+/// no two wires crossing the same gutter ever stand on the same column.
+fn turn(from: i32, to: i32, index: usize, count: usize) -> i32 {
+    let room = to - from;
+    from + room * (i32(index) + 1) / (i32(count) + 1)
+}
+
+/// Draws the edges that run backwards, which are the loops.
+///
+/// Under the whole graph and dashed, because a loop is the one edge that does
+/// not read left to right and drawing it among the others would be drawing the
+/// picture's one exception as though it were the rule. A row each, for the
+/// reason the forward edges get a lane each.
+fn returns(screen: &mut Screen, wires: &[Wire], graph: Band) {
+    for (index, wire) in wires.iter().enumerate() {
+        let below = graph.y + graph.height + UNDER / 2 + i32(index) * APART;
+        let leave = wire.from.x + wire.from.width / 2;
+        let enter = wire.into.x + wire.into.width / 2;
+        screen.down(
+            leave,
+            wire.from.y + wire.from.height,
+            below - wire.from.y - wire.from.height + 1,
+            Ink::Dashed,
+        );
+        screen.across(
+            enter.min(leave),
+            below,
+            (leave - enter).abs() + 1,
+            Ink::Dashed,
+        );
+        screen.down(
+            enter,
+            wire.into.y + wire.into.height,
+            below - wire.into.y - wire.into.height,
+            Ink::Dashed,
+        );
+        up(screen, enter, wire.into.y + wire.into.height);
     }
 }
 
@@ -578,6 +670,37 @@ mod tests {
             mode: Mode::for_value(0),
             running: [None; 4],
         }
+    }
+
+    #[test]
+    fn no_two_wires_crossing_a_gutter_stand_on_the_same_column() {
+        // What the picture was getting wrong. Every forward edge on this
+        // instrument joins one column to the next, so they all turn in the same
+        // gap; turning at the midpoint put three engines feeding a fourth on one
+        // column, and three wires drawn down one column are one wire as far as
+        // anybody reading it is concerned.
+        for count in 1..=super::ENGINE_COUNT {
+            let turns: Vec<i32> = (0..count)
+                .map(|at| super::turn(30, 40, at, count))
+                .collect();
+            let mut apart = turns.clone();
+            apart.sort_unstable();
+            apart.dedup();
+
+            assert_eq!(
+                apart.len(),
+                count,
+                "{count} wires share a column: {turns:?}"
+            );
+            for turn in turns {
+                assert!(turn > 30 && turn < 40, "{turn} turns outside the gutter");
+            }
+        }
+    }
+
+    #[test]
+    fn one_wire_still_turns_in_the_middle_of_the_gap() {
+        assert_eq!(super::turn(30, 40, 0, 1), 35);
     }
 
     #[test]

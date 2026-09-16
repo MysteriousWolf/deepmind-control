@@ -25,6 +25,7 @@
 
 use core::fmt;
 
+use deepmind_midi::effect::Engine;
 use deepmind_midi::param::{Group, Kind, ParamId, Shape};
 use deepmind_midi::program::ProgramName;
 use deepmind_midi::sysex::inquiry::Version;
@@ -292,6 +293,13 @@ pub enum Message {
     /// front of somebody is the application's state and not the synthesizer's,
     /// so this is the one message that goes nowhere near the port.
     Show(Group),
+    /// This effect engine should be the one on the screen.
+    ///
+    /// The effects are the one section with four of everything, and four
+    /// engine panels at once is a surface nobody reads across. Which of them is
+    /// open is the application's state and not the synthesizer's, so like
+    /// [`Show`](Message::Show) this never reaches a wire.
+    Open(Engine),
     /// The pointer is over this control, or has left the one it was over.
     ///
     /// A panel of forty faders under four-letter legends is only readable
@@ -310,7 +318,12 @@ pub enum Message {
 /// mean something else on 1.0. Until a synthesizer has answered, the caller
 /// passes the library's default and says so on the screen.
 #[must_use]
-pub fn group<'a, Renderer>(patch: &Patch, group: Group, firmware: Version) -> Element<'a, Renderer>
+pub fn group<'a, Renderer>(
+    patch: &Patch,
+    group: Group,
+    firmware: Version,
+    opened: Option<Engine>,
+) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
@@ -357,7 +370,7 @@ where
     if let Some(strip) = sequencer::strip(patch, group, firmware) {
         body = body.push(strip);
     }
-    if let Some(engines) = effect::panels(patch, group, firmware, &moved) {
+    if let Some(engines) = effect::panels(patch, group, firmware, &moved, opened) {
         body = body.push(engines);
     }
     if !slots.is_empty() {
@@ -566,10 +579,12 @@ where
 /// one's — and what stays on the face is the reading, which is the one thing
 /// the hardware's own lamp says by being lit.
 ///
-/// A switch nobody has read is drawn as the switch it is, unlit and saying
-/// neither: what a control is does not depend on whether a sound has arrived,
-/// and a row of buttons that draws as a row of faders until something is read
-/// is a panel that changes shape under somebody.
+/// A switch nobody has read is drawn as the switch it is — the shape of a
+/// control does not depend on whether a sound has arrived — but as the hole
+/// without the cap in it, the way a fader nobody has read is a track with
+/// nothing to take hold of. That distinction used to be carried by the word
+/// printed inside the cap, which is the one job the words were really doing;
+/// taking them off means the cap has to do it, which is where it belonged.
 fn lamp<'a, Renderer>(
     parameter: ParamId,
     value: Option<u8>,
@@ -581,13 +596,13 @@ where
 {
     let on = value.is_some_and(|value| value != 0);
     let next = u8::from(!on);
-    let label = match value {
-        None => "\u{2014}",
-        Some(0) => "off",
-        Some(_) => "on",
-    };
     let live = !matches!(claim, Confidence::Unknown);
-    let face = button(text(label).size(11).font(reading()).center())
+    // Nothing is written on the cap. A button on the instrument is a blank
+    // piece of rubber that is lit or is not, and the word `off` printed inside
+    // an unlit one is this window explaining a control the control already
+    // states — while every legend the panel does print is silkscreened beside
+    // the cap, where a finger cannot cover it.
+    let face = button(Space::new())
         .width(Length::Fixed(CAP.min(room.width)))
         .height(Length::Fixed(PRESS))
         .padding(0)
@@ -726,6 +741,22 @@ fn capped(theme: &Theme, on: bool, claim: Confidence, status: button::Status) ->
     // A cap a pointer is over is lit a little before it is pressed, which is
     // the whole of what hovering means on a panel that has no cursor.
     let hover = matches!(status, button::Status::Hovered);
+    // Nothing read is the hole with no cap in it: the recess the cap would be
+    // moulded into, flat and unlit, which is the same thing a fader says by
+    // drawing its track and no cap. Nothing is written on these any more, so
+    // this is what tells an unread switch from one that is switched off, and a
+    // flat recess against a moulded cap is a difference in relief rather than
+    // in colour — it survives the greyscale the rest of the panel survives.
+    if matches!(claim, Confidence::Unknown) {
+        return button::Style {
+            background: Some(Background::Color(material.recess)),
+            text_color: material.metal_low,
+            border: border::rounded(style::MOULD)
+                .width(1.0)
+                .color(material.recess_edge),
+            ..button::Style::default()
+        };
+    }
     let face = match (on, confirmed) {
         (true, true) => colour,
         (true, false) => style::mix(material.panel, colour, 0.22),

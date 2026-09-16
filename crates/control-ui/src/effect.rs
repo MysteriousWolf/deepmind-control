@@ -84,10 +84,10 @@ use deepmind_midi::param::{Group, ParamId};
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::alignment::{Horizontal, Vertical};
 use iced_core::{Background, Border, Color, Font, Length, Theme, text::Renderer as TextRenderer};
-use iced_widget::{Space, column, container, row, text};
+use iced_widget::{Space, button, column, container, row, text};
 
 use crate::chain;
-use crate::panel::{NAME, Room, SLOT, address, control, modulated, readout};
+use crate::panel::{Message, NAME, Room, SLOT, address, control, modulated, readout};
 use crate::style::{self, materials, reading};
 use crate::{Confidence, Element, Patch, tint};
 
@@ -275,6 +275,7 @@ pub(crate) fn panels<'a, Renderer>(
     group: Group,
     firmware: Version,
     moved: &[ParamId],
+    opened: Option<Engine>,
 ) -> Option<Element<'a, Renderer>>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -303,10 +304,109 @@ where
     if !block.is_empty() {
         body = body.push(row(block).spacing(10).wrap());
     }
-    for engine in engines {
-        body = body.push(plate(patch, engine, firmware, moved));
-    }
+    // One engine at a time, chosen along the top. Four plates stacked was four
+    // algorithms' worth of controls on one surface and a scroll to reach the
+    // fourth, and on an instrument that gives its own FX page to one engine at
+    // a time it was also the wrong shape.
+    let opened = opened.filter(|engine| engines.contains(engine));
+    let opened = opened.or_else(|| engines.first().copied())?;
+    body = body.push(chooser(patch, &engines, firmware, opened));
+    body = body.push(plate(patch, opened, firmware, moved));
     Some(body.into())
+}
+
+/// Draws the row that chooses which engine is open.
+///
+/// A tab each, carrying the engine's number and the algorithm it is running,
+/// because `FX 2` on its own says which of four and nothing about what it does.
+/// Each is painted in its own algorithm's measured chassis and edged in its
+/// accent, so the row is four recognisable units rather than four words: which
+/// one is the reverb is a thing to see rather than to read.
+fn chooser<'a, Renderer>(
+    patch: &Patch,
+    engines: &[Engine],
+    firmware: Version,
+    opened: Engine,
+) -> Element<'a, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    let tabs = engines.iter().copied().map(|engine| {
+        let panel = algorithm(patch, engine, firmware).map(Algorithm::panel);
+        let figure = panel.map(|panel| (panel.chassis(), panel.accent()));
+        let here = engine == opened;
+        let running = algorithm(patch, engine, firmware).map_or_else(
+            || "\u{2014}".to_owned(),
+            |algorithm| algorithm.full_name.to_owned(),
+        );
+        button(
+            column![
+                text(format!("FX {}", engine.number()))
+                    .size(10)
+                    .font(reading()),
+                text(running).size(12),
+            ]
+            .spacing(1),
+        )
+        .padding([6, 10])
+        .width(Length::Fill)
+        .style(move |theme: &Theme, status| tab(theme, figure, here, status))
+        .on_press(Message::Open(engine))
+        .into()
+    });
+    row(tabs).spacing(6).into()
+}
+
+/// What one of the engine tabs is drawn as.
+///
+/// The open one is its algorithm's own unit, face up: the measured chassis
+/// carried most of the way rather than a sixth of the way, because one panel on
+/// the surface can wear its own livery without the window becoming a shelf of
+/// other people's boxes. The rest are the same unit seen edge on — the panel
+/// this window is, with a hairline of each one's accent, which is enough to
+/// pick the reverb out of four and not enough to compete with the one open.
+fn tab(
+    theme: &Theme,
+    figure: Option<(Colour, Colour)>,
+    here: bool,
+    status: button::Status,
+) -> button::Style {
+    let material = materials(theme);
+    let hover = matches!(status, button::Status::Hovered);
+    let face = figure.map_or(material.plate, |(chassis, _)| {
+        style::mix(
+            material.panel,
+            colour(chassis),
+            if here {
+                0.62
+            } else if hover {
+                0.28
+            } else {
+                0.16
+            },
+        )
+    });
+    let edge = figure.map_or(material.recess_edge, |(_, accent)| {
+        style::mix(
+            material.recess_edge,
+            colour(accent),
+            if here { 0.9 } else { 0.4 },
+        )
+    });
+    button::Style {
+        background: Some(Background::Color(face)),
+        text_color: if here {
+            material.metal_high
+        } else {
+            material.metal_low
+        },
+        border: Border {
+            color: edge,
+            width: if here { 2.0 } else { 1.0 },
+            radius: 3.into(),
+        },
+        ..button::Style::default()
+    }
 }
 
 /// Gathers the lanes into the rows the instrument's own FX page draws them in.
@@ -498,6 +598,21 @@ where
                 }),
         );
     }
+    // The controls sit on the figure's own face, inside its chassis, which is
+    // the two colours the library measures for exactly those two things.
+    let surface = panel.map(Panel::face);
+    let drawn = container(drawn)
+        .width(Length::Fill)
+        .padding(8)
+        .style(move |theme: &Theme| container::Style {
+            background: Some(Background::Color(face(theme, surface))),
+            border: Border {
+                color: materials(theme).recess_edge,
+                width: 1.0,
+                radius: 2.into(),
+            },
+            ..container::Style::default()
+        });
     let body = column![header(patch, engine, firmware, moved)]
         .push(drawn)
         .extend(displays(&lanes).map(Element::from))
@@ -533,13 +648,29 @@ where
 /// in this window would be a collage of other people's instruments, and the one
 /// thing this editor is is one instrument.
 ///
-/// So the measurement is spent as an identity rather than as a finish: enough
-/// of the chassis to tell the reverb from the delay at arm's length, and not so
-/// much that the plate stops being the panel the rest of the window is.
+/// So the measurement was spent as an identity rather than as a finish, back
+/// when four plates stood on the surface at once. One does now, and that is
+/// what changed: a single unit can wear its own case without the window turning
+/// into a shelf of other people's boxes, so the chassis is carried far enough
+/// to be the colour of the thing rather than a tint on the panel. The window's
+/// own materials are still what every control on it is made of.
 fn chassis(theme: &Theme, figure: Option<(Colour, Colour)>) -> Color {
     let material = materials(theme);
     figure.map_or(material.panel, |(chassis, _)| {
-        style::mix(material.panel, colour(chassis), 0.16)
+        style::mix(material.panel, colour(chassis), 0.55)
+    })
+}
+
+/// Returns the colour the controls of an open engine stand on.
+///
+/// The library measures the case and the surface inside it separately, because
+/// a rack unit has both: a cream panel screwed into a black chassis, a dark
+/// face inset in a grey one. Drawing only the case threw half of that away and
+/// left the controls floating on it.
+fn face(theme: &Theme, surface: Option<Colour>) -> Color {
+    let material = materials(theme);
+    surface.map_or(material.plate, |face| {
+        style::mix(material.plate, colour(face), 0.5)
     })
 }
 

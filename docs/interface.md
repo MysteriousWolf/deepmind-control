@@ -440,6 +440,19 @@ dots, two lines crossing are the same dots), then three named panes of one
 strip, and now three plates. Each was the best available given how much room
 the layout had, and unfolding the section is what finally gave them room.
 
+### Cap
+
+A moulded rubber button, and **nothing is written on it**. A `DeepMind`'s panel
+is blank caps pushed through holes in the metal and lit from behind, with what
+each one is called silkscreened beside it — so the legend is drawn where the
+panel draws it and the cap carries only what a lamp can say by being lit.
+
+That leaves the cap to carry the claim, which is where it belonged: an unread
+switch is the hole with no cap in it, flat and recessed, exactly as a fader
+nobody has read is a track with nothing to take hold of. The word `off` printed
+inside an unlit cap used to do that job, which is the one thing those words were
+really for.
+
 ### Footer
 
 A strip along the foot of the window saying what the pointer is over. A panel is
@@ -667,6 +680,28 @@ FX 1   179 Type              Midas Equaliser          219 Output Gain
   the matrix as `Fx n Param m`, and the library says which ones the engine acts
   on. A routing pointed somewhere the engine ignores draws the mark as an
   outline: it really is pointed there, and really is doing nothing.
+
+## One effect at a time, in its own livery
+
+The effects are the one section with four of everything. Four engine plates
+stacked was four algorithms' worth of controls on one surface, a scroll to reach
+the fourth, and the wrong shape for an instrument that gives its own FX page to
+one engine at a time.
+
+So the engines are a row of tabs across the top and the chosen one is drawn
+below, with the chain and the block's own settings above both — the things that
+are about the block rather than about an engine.
+
+**That is what let the measured colours be spent properly.** The library
+publishes four per algorithm ([#22](https://github.com/MysteriousWolf/deepmind-midi/issues/22)):
+the chassis around the controls, the face they sit on, the cap a finger moves
+and the accent. This file used to argue that they had to stay a tint, because
+four measured liveries side by side would be a collage of other people's
+instruments in a window whose whole argument is that it is one instrument. With
+one panel on the surface that objection goes: the open plate wears its own
+chassis and its own face, the tabs carry a sixth of each so the row is four
+recognisable units rather than four words, and the controls on it stay the
+editor's own — which is the part that keeps it one instrument.
 
 ## Colour is meaning, not decoration
 
