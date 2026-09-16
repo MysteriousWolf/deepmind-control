@@ -167,12 +167,15 @@ use crate::{Confidence, Element, Patch, tint};
 
 /// How much room the ten topologies are laid out in.
 ///
-/// `Parallel 1/2, parallel 3/4` is what their names read like, so a column is
-/// as wide as the longest of them and there are [`SETTING_COLUMNS`] of those.
-/// They were a drop-down until the glass over them grew wide enough to name
-/// four engines in a line, which is what freed the band under it: a list of ten
-/// shows whichever one is already chosen and hides the nine a person is
-/// choosing between.
+/// The band, rather than a number: they take whatever the display over them
+/// leaves after the mode beside them, which is nearly all of it. A width
+/// written down here was a band half full with the rest of the page blank
+/// beside it — the routing is the widest thing in the group and there is
+/// nothing else to give the room to.
+///
+/// It is still passed, because a column has to be as wide as
+/// `Parallel 1/2, parallel 3/4` before the band is divided into
+/// [`SETTING_COLUMNS`] of them, and this is the least that is.
 const SETTING: f32 = 500.0;
 
 /// How many columns they stand in.
@@ -298,7 +301,7 @@ const BADGE: f32 = 16.0;
 /// Fixed, like every other display on this page: the glass is the instrument's
 /// own and a screen stretched to whatever width a plate came out at is a
 /// picture whose proportions are an accident of the window.
-const PICTURE: i32 = 120;
+const PICTURE: i32 = 72;
 
 /// How many dots down it is.
 ///
@@ -308,11 +311,12 @@ const PICTURE: i32 = 120;
 /// beside it and the controls it is a picture of underneath — a display given a
 /// row of the plate and none of the room in it.
 ///
-/// On the strip it has the width instead: its own line under the name of the
-/// thing it is a picture of, where nothing is competing for the room and the
-/// grid can start at the top of the plate. Wide and short suits what it draws,
-/// which is a train of taps along a time.
-const PICTURE_ROWS: i32 = 14;
+/// On the strip it has a line of its own under the name of the thing it is a
+/// picture of, where nothing is competing for the room and the grid can start
+/// at the top of the plate. Small, because what it draws is a train of three or
+/// four taps along a time: a screen big enough to be a panel of its own would
+/// be claiming to say more about the engine than four gains and four times can.
+const PICTURE_ROWS: i32 = 10;
 
 /// One of an engine's twelve bytes, and what the loaded algorithm calls it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -676,7 +680,7 @@ where
     // display takes the width of the block now, and a topology chosen from a
     // drop-down beside it was the one control on this page that hid nine of its
     // ten choices behind the one already taken.
-    let mut block = row(settings(group).into_iter().map(|parameter| {
+    let block = row(settings(group).into_iter().map(|parameter| {
         cell(
             patch,
             parameter,
@@ -689,10 +693,6 @@ where
     }))
     .spacing(14)
     .align_y(Vertical::Top);
-    if let Some(note) = chain::note(patch) {
-        block = block
-            .push(container(printing(note.to_owned(), On::Recess).size(9)).width(Length::Fill));
-    }
     let wiring = container(
         column![
             // The glass at its own size rather than at the window's, and its
@@ -705,7 +705,17 @@ where
                 .align_x(Horizontal::Center),
             block,
         ]
-        .spacing(10),
+        .spacing(10)
+        // What the specification records about a topology beyond its graph,
+        // which is where the loop taps on the two that have one. Under the
+        // settings rather than beside them: it is a sentence, and a sentence
+        // sharing a row with the ten topologies is a sentence taking the room
+        // they are laid out in.
+        .extend(chain::note(patch).map(|note| {
+            container(printing(note.to_owned(), On::Recess).size(9))
+                .width(Length::Fill)
+                .into()
+        })),
     )
     .padding(8)
     .width(Length::Fill)
@@ -1409,7 +1419,7 @@ where
         control(parameter, value, claim, firmware, room),
     ]
     .spacing(3)
-    .width(Length::Fixed(room.width()))
+    .width(room.across_as())
     .into()
 }
 

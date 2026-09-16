@@ -171,6 +171,14 @@ pub(crate) struct Room {
     /// several, which is a shape a page has room for where a column of ten is
     /// a page of nothing else.
     across: usize,
+    /// Whether the control takes the room left over rather than its own.
+    ///
+    /// A rack's slot is cut to its fader and a table's cell to its longest
+    /// name, so both of those are a number. A set of lamps laid out in columns
+    /// across a band of its own is not: what it wants is the band, and a width
+    /// written down for it is a band half full with the rest of the page blank
+    /// beside it.
+    fills: bool,
 }
 
 /// What a control that sweeps a range is drawn as.
@@ -201,6 +209,7 @@ impl Room {
         form: Form::Fader,
         body: None,
         across: 1,
+        fills: false,
     };
 
     /// Room for one lane of the instrument's own front panel.
@@ -218,6 +227,7 @@ impl Room {
             form: Form::Fader,
             body: None,
             across: 1,
+            fills: false,
         }
     }
 
@@ -232,6 +242,7 @@ impl Room {
             form: Form::Fader,
             body: None,
             across: 1,
+            fills: false,
         }
     }
 
@@ -252,6 +263,19 @@ impl Room {
             form: Form::Fader,
             body: None,
             across,
+            fills: true,
+        }
+    }
+
+    /// Returns how much room across, as a length a widget can be given.
+    ///
+    /// A number for everything cut to its own contents, and the room left over
+    /// for a set of lamps laid out across a band of its own.
+    pub(crate) const fn across_as(self) -> Length {
+        if self.fills {
+            Length::Fill
+        } else {
+            Length::Fixed(self.width)
         }
     }
 
@@ -269,6 +293,7 @@ impl Room {
             form: Form::Fader,
             body: None,
             across: 1,
+            fills: false,
         }
     }
 
@@ -286,6 +311,7 @@ impl Room {
             form: Form::Fader,
             body: None,
             across: 1,
+            fills: false,
         }
     }
 
@@ -300,6 +326,7 @@ impl Room {
             form: Form::Fader,
             body: None,
             across: 1,
+            fills: false,
         }
     }
 
@@ -743,7 +770,7 @@ where
     container(
         row(columns)
             .spacing(if across > 1 { BESIDE } else { 0.0 })
-            .width(Length::Fixed(room.width)),
+            .width(room.across_as()),
     )
     .height(room.height)
     .align_y(Vertical::Center)
