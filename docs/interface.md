@@ -675,8 +675,16 @@ engine is running, and the two settings that shape it — the connection mode, a
 whether the effects are inserted, sent or bypassed — stand in the band under it.
 
 Every engine carries its own strip, and it is read left to right in two halves.
-Four things on one line: which slot it is, **the list that is also the title**,
-the picture of what it is doing where there is one, and how loud it comes out.
+Four things on one line: **the slot's own number**, the list that is also the
+title, the picture of what it is doing where there is one, and how loud it comes
+out.
+
+**The number is the number.** It read `FX 1`, which is two characters saying
+what the page it is on already says, on a strip where every character is
+competing with the name of an algorithm. What is left is the one thing on the
+strip that has to be read without reading — which of the four this is — so it is
+set like one: large, bold, and held at one width so four cases stacked two by
+two start their names in the same place down the page.
 
 **The list is the title.** It was a list of the display's own abbreviations with
 what they stand for written out beside it, which is two controls' worth of room
@@ -856,23 +864,31 @@ second row readable down against the first.
   the input, and a backwards edge is the loop. `Bypass` draws the engines as
   something the signal is not going through, because the library says the DSP is
   out of circuit rather than muted.
-- **The chain's glass is one size, and the size is what naming them costs.**
-  64 dots down, which is the instrument's own display and is what four engines
-  stacked need. Across, it is derived: the longest abbreviation in the library's
-  own table of 35, written at the size this glass writes, inside a frame, four of
-  those across with the gutters and the rails at either end. That comes out at
-  nearly three times the instrument's own width, and every dot of it is a name
-  in a box rather than a name in a list under one. Nothing about it is chosen —
-  a firmware that adds a longer abbreviation makes this glass wider in the same
-  breath, which is the rule the front panel already opens its window by.
+- **The chain's glass takes the band, and never less than naming them costs.**
+  64 dots down, which is the instrument's own display. Across, it is whatever
+  the band divides into at the pitch every display in this window shares — a
+  display given more room does not get bigger dots, it gets more of them, which
+  is what lets this fill its band without becoming a picture stretched across
+  one.
 
-  It is still one size for all ten topologies, because a page that resized
-  itself when a routing byte moved was a page that jumped under the hand that
-  moved it. A box says the engine's number and what it is running on one line
-  where it has the width, and stacks the number over the name where it has the
-  height instead — which is what four engines in a line get, narrow boxes on a
-  graph one box deep. The list under the graph is still there and is now never
-  used; it is what would happen on the day a name outgrew the derivation.
+  What is derived is the *floor*: the longest abbreviation in the library's own
+  table of 35, written at the size this glass writes, inside a frame, four of
+  those across with the gutters and the rails at either end. Below that a box
+  cannot name what is running in it. It stood exactly at that floor and was
+  centred, with the band's own dark either side — which reads as a picture that
+  did not know how much room it had.
+
+  Nothing about the floor is written down. A firmware that adds a longer
+  abbreviation raises it on the same day and without anybody editing a number,
+  which is the rule the front panel already opens its window by. A box says the
+  engine's number and what it is running on one line where it has the width, and
+  stacks the number over the name where it has the height instead. The list
+  under the graph is still there and is now never used; it is what would happen
+  on the day a name outgrew the derivation.
+
+  The graph is centred in what is left: the glass is cut for the deepest of the
+  ten topologies and four in a line is the shallowest, so the difference used to
+  be a third of the screen blank under a row of boxes.
 - **The settings are under the display, not beside it.** That is what the wider
   glass cost, and it bought the better half of the trade: the ten topologies are
   laid out as three columns of lit legends rather than hidden in a drop-down. A

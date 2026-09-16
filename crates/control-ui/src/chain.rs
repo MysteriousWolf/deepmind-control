@@ -67,7 +67,7 @@ use deepmind_midi::effect::{
 };
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::Length;
-use iced_widget::container;
+use iced_widget::{container, responsive};
 
 use crate::lcd::{self, Band, Ink, Screen, Size};
 use crate::{Confidence, Element, Patch};
@@ -386,14 +386,29 @@ where
     let chain = (!matches!(claim, Confidence::Unknown))
         .then(|| Chain::read(patch, firmware))
         .flatten();
-    let mut screen = Screen::new(columns(), ROWS);
-    if let Some(chain) = chain {
-        draw(&mut screen, chain);
-    }
-    container(lcd::lcd(screen, claim))
-        .width(Length::Fixed(lcd::room(columns())))
-        .height(Length::Fixed(lcd::room(ROWS)))
-        .into()
+    responsive(move |room| {
+        // The glass takes the band. A display given more room does not get
+        // bigger dots — it gets more of them, which is the rule every screen in
+        // this window is drawn under, and it is why this can fill the band
+        // without becoming a picture stretched across one. What [`columns`]
+        // derives is the *fewest* dots that name four engines in a line, so it
+        // is a floor rather than a width: below it a name would not fit, above
+        // it the boxes are simply wider.
+        //
+        // It stood at that floor and was centred, with the band's own dark
+        // either side of it — which reads as a picture that did not know how
+        // much room it had.
+        let across = lcd::fits(room.width).max(columns());
+        let mut screen = Screen::new(across, ROWS);
+        if let Some(chain) = chain {
+            draw(&mut screen, chain);
+        }
+        container(lcd::lcd(screen, claim))
+            .width(Length::Fixed(lcd::room(across)))
+            .height(Length::Fixed(lcd::room(ROWS)))
+            .into()
+    })
+    .into()
 }
 
 /// Returns what the specification records about a topology beyond its graph.

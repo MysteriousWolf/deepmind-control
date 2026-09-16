@@ -168,7 +168,7 @@ use crate::fader;
 use crate::lcd::{self, Ink, Screen};
 use crate::mark;
 use crate::panel::{self, Message, Room, control, lit_rather_than_listed, modulated, shown};
-use crate::style::{self, materials, reading as reading_face};
+use crate::style::{self, materials, reading as reading_face, wordmark};
 use crate::{Confidence, Element, Patch, tint};
 
 /// How much room the ten topologies are laid out in.
@@ -356,9 +356,9 @@ const SPARE: f32 = 22.0;
 
 /// How much of the strip the slot's own number is given.
 ///
-/// `FX 1` set in the reading face, and the same room whichever of the four it
-/// is, so that the names start in one place down a column of cases.
-const SLOT_NUMBER: f32 = 34.0;
+/// One digit set large, and the same room whichever of the four it is, so that
+/// the names start in one place down a column of cases.
+const SLOT_NUMBER: f32 = 20.0;
 
 /// Draws the family's mark large and faint across an engine's face.
 ///
@@ -824,14 +824,11 @@ where
     .align_y(Vertical::Top);
     let wiring = container(
         column![
-            // The glass at its own size rather than at the window's, and its
-            // own size is what four boxes in a line need in order to each name
-            // what is running in them — see [`chain::columns`]. A picture of
-            // four boxes and the wires between them has a shape that a rubber
-            // band across the page is not.
-            container(chain::display(patch, firmware))
-                .width(Length::Fill)
-                .align_x(Horizontal::Center),
+            // The glass takes the band. How many dots that is, is the band's
+            // question; that no fewer than [`chain::columns`] of them will do
+            // is the drawing's, because below that a box cannot name what is
+            // running in it.
+            container(chain::display(patch, firmware)).width(Length::Fill),
             block,
         ]
         .spacing(10)
@@ -1427,18 +1424,25 @@ where
 {
     let on = On::Case(panel.map(|panel| (panel.chassis(), panel.accent())));
     row![
-        // Which slot this is. Set in the face the instrument's own readings are
-        // set in and held at one width, so that four cases stacked two by two
-        // have their names starting in the same place down the page.
+        // Which slot this is, and nothing else: the number alone, set large and
+        // bold. `FX` in front of it was two characters saying what the page it
+        // is on already says, on a strip where every character is competing
+        // with the name of the algorithm. What is left is the one thing on the
+        // strip that has to be read at a glance — which of the four this is —
+        // so it is set like one.
+        //
+        // Held at one width, so four cases stacked two by two start their names
+        // in the same place down the page.
         container(
-            text(format!("FX {}", engine.number()))
-                .size(13)
-                .font(reading_face())
+            text(engine.number().to_string())
+                .size(19)
+                .font(wordmark())
                 .style(move |theme: &Theme| text::Style {
                     color: Some(ink(theme, on)),
                 })
         )
-        .width(Length::Fixed(SLOT_NUMBER)),
+        .width(Length::Fixed(SLOT_NUMBER))
+        .align_x(Horizontal::Center),
         // The list *is* the title. It was a list of the display's own
         // abbreviations with what they stand for written out beside it, which
         // is two controls' worth of room saying one thing: the name is what a
