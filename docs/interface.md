@@ -745,15 +745,34 @@ second row readable down against the first.
   divides a row exactly the way the row divides itself, so a band of three
   stands over its three. Two columns the library labelled nothing are two
   columns and not a pair, and a row it grouped nothing on has no strip at all.
+
+  **A strip belongs to the row under it**, and the spacing is what says so: it
+  stands three points above its own row and twelve below the row before. Spaced
+  evenly down the plate it sat as far from the row it labels as from the row
+  above, and a pale bar equidistant between two rows reads as a rule drawn
+  between them rather than as a heading over one — with its top edge against the
+  units of the row above, which is what it looked like.
 - **The mark is the library's strokes and this window's layout.** Nine of them
   across the 35, one per family, published as a polyline, an arc, a sine and a
   filled disc in a unit box — not as a picture, for the same reason the panels
   are data: this window and the plugin want the same mark at two sizes and in
   two inks, and neither can theme an image it did not draw. `mark.rs` lays a
   stroke down as a run of round quads, because what every renderer behind this
-  crate can do is fill one. On the chain's own glass, where a box is fifteen
-  dots wide, the library's seven by seven grid is blitted instead: at
-  forty-nine pixels which of them are lit is the whole of the design.
+  crate can do is fill one. On the chain's own glass, where a box is narrow,
+  the library's seven by seven grid is blitted instead: at forty-nine pixels
+  which of them are lit is the whole of the design.
+
+  **The window places what the strokes reach, not the box they arrived in.**
+  None of the nine fills that box and no two of them leave it the same way: the
+  reverb's wavefronts leave a third of the width empty on one side, the imaging
+  mark uses less than half the height, the delay's bars use nearly all of it.
+  Drawn straight onto the room they are given, a row of engine strips is nine
+  drawings at nine sizes hanging at nine heights. So `mark.rs` measures what
+  each one reaches — walking the curves with the same function that draws them,
+  so the two cannot disagree — and centres that, scaled to fill the room in
+  whichever direction it is longer and keeping its proportions in the other.
+  Where a stroke sits inside the box is the library's business; where the
+  drawing sits on a strip is this window's.
 - **An effect that is out of circuit says so, and 32 of the 35 cannot.**
   `FX n Type` is 35 effects with no `Off` in the table, and what takes effects
   out is the `Bypass` mode, which is the whole block of four. Three algorithms
@@ -767,8 +786,14 @@ second row readable down against the first.
 - **Two engines get a screen and 33 do not.** The tap delays' panels are
   literally a time and a gain per tap and their times are ratios of the master
   delay that the manual prints as fractions, so the impulse train follows from
-  the parameters; `effect::response` draws it and the screen sits above the
-  grid. Every other engine gets nothing, which is the answer rather than a gap —
+  the parameters; `effect::response` draws it. It has its own line under the
+  engine's strip, which is the first place it has had any room: at the head of
+  the grid it was a pale rectangle two of six columns wide with nothing beside
+  it, and squeezed into the strip itself it took the width the engine's name was
+  standing in — the name being the thing it is a picture of. On its own line it
+  is wide and short, which suits a train of taps along a time, and the grid
+  starts at the top of the plate where it belongs.
+  Every other engine gets nothing, which is the answer rather than a gap —
   a reverb's impulse response is its designer's, and a plausible one drawn here
   would look like information and not be any.
 - **A slot with no printed range says what kind of quantity it is.** A `Mix`, a
@@ -806,10 +831,12 @@ second row readable down against the first.
   used; it is what would happen on the day a name outgrew the derivation.
 - **The settings are under the display, not beside it.** That is what the wider
   glass cost, and it bought the better half of the trade: the ten topologies are
-  laid out as two columns of lit legends rather than hidden in a drop-down. A
+  laid out as three columns of lit legends rather than hidden in a drop-down. A
   list of ten shows whichever one is already chosen and hides the nine somebody
   is choosing between, on the one control on this page where the choice *is* the
-  picture above it.
+  picture above it. Three columns rather than two because the band is wide and
+  the page is better spent across than down: ten of them four deep is a block
+  the eye takes in, and five deep was a column as tall as the plates beside it.
 - **Twelve bytes, however many the algorithm uses.** An algorithm can leave
   seven of its twelve unnamed, and seven controls the size of the five that do
   something is a plate whose loudest half is the half that does nothing. So what

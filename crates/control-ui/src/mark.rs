@@ -78,7 +78,12 @@ where
     Renderer: iced_core::Renderer + 'a,
     Ink: Fn(&Theme) -> Color + 'a,
 {
-    Element::new(Drawing { mark, side, ink })
+    Element::new(Drawing {
+        mark,
+        side,
+        ink,
+        fits: Fits::of(mark),
+    })
 }
 
 /// The mark itself: its strokes, the room they are drawn in, and the ink.
@@ -87,15 +92,167 @@ struct Drawing<Ink> {
     mark: &'static Mark,
     side: f32,
     ink: Ink,
+    /// What of the library's unit box this mark's own strokes reach.
+    ///
+    /// Measured once, when the mark is built, because it is a property of the
+    /// nine drawings rather than of the frame: it cannot change between frames
+    /// and sampling nine curves on every one of them would be arithmetic done
+    /// sixty times a second for an answer that is already known.
+    fits: Fits,
+}
+
+/// How much of the unit box a mark's strokes actually use.
+///
+/// The library publishes the strokes in a box and does not claim they fill it,
+/// and they do not: the reverb's wavefronts leave a third of the width empty on
+/// one side, the imaging mark uses less than half the height, and the delay's
+/// bars use nearly all of it. Drawn straight onto the room they are given, nine
+/// marks side by side are nine different sizes hanging at nine different
+/// heights — which is what a row of engine strips showed.
+///
+/// So the window measures what each one reaches and places *that*, centred and
+/// scaled to fit, keeping its proportions. Where the strokes sit inside the box
+/// is the library's business and where the drawing sits on a strip is this
+/// window's, which is the same division the effect panels are laid out under.
+#[derive(Debug, Clone, Copy)]
+struct Fits {
+    left: f32,
+    top: f32,
+    width: f32,
+    height: f32,
+}
+
+impl Fits {
+    /// How finely a curve is walked to find where it reaches.
+    ///
+    /// Generous, because this is measured once and a curve whose extreme falls
+    /// between two samples is a mark that hangs a little low for ever.
+    const SAMPLES: usize = 64;
+
+    /// Measures what `mark`'s strokes reach.
+    fn of(mark: &Mark) -> Self {
+        let (mut left, mut top) = (f32::MAX, f32::MAX);
+        let (mut right, mut bottom) = (f32::MIN, f32::MIN);
+        let mut reached = |x: f32, y: f32| {
+            left = left.min(x);
+            top = top.min(y);
+            right = right.max(x);
+            bottom = bottom.max(y);
+        };
+        for stroke in mark.strokes() {
+            match *stroke {
+                Stroke::Line { points } => {
+                    for point in points {
+                        reached(point.x(), point.y());
+                    }
+                }
+                Stroke::Dot { centre, radius } => {
+                    reached(centre.x() - radius, centre.y() - radius);
+                    reached(centre.x() + radius, centre.y() + radius);
+                }
+                Stroke::Arc { .. } | Stroke::Wave { .. } => {
+                    for step in 0..=Self::SAMPLES {
+                        let point = along(*stroke, fraction(step, Self::SAMPLES));
+                        reached(point.x(), point.y());
+                    }
+                }
+                // A stroke this window cannot draw reaches nowhere, which keeps
+                // the measurement and the drawing agreeing about what is there.
+                _ => {}
+            }
+        }
+        if left > right || top > bottom {
+            // A mark made of nothing this window can draw. The unit box is as
+            // good an answer as any, and nothing is drawn into it.
+            return Self {
+                left: 0.0,
+                top: 0.0,
+                width: 1.0,
+                height: 1.0,
+            };
+        }
+        Self {
+            left,
+            top,
+            width: right - left,
+            height: bottom - top,
+        }
+    }
+}
+
+/// Returns `step` of `count` as a fraction of the way along.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "a step of a curve, counted in tens"
+)]
+fn fraction(step: usize, count: usize) -> f32 {
+    step as f32 / count as f32
+}
+
+/// Returns where a curved stroke has reached, a fraction of the way along it.
+///
+/// The same two walks the drawing makes, written once so that what is measured
+/// and what is drawn cannot disagree about where a curve goes.
+fn along(stroke: Stroke, through: f32) -> Point {
+    match stroke {
+        Stroke::Arc {
+            centre,
+            radius,
+            start,
+            sweep,
+        } => {
+            let turn = (start + sweep * through) * core::f32::consts::TAU;
+            Point::new(
+                centre.x() + radius * turn.cos(),
+                centre.y() + radius * turn.sin(),
+            )
+        }
+        Stroke::Wave {
+            start,
+            end,
+            amplitude,
+            cycles,
+        } => {
+            let (run, rise) = (end.x() - start.x(), end.y() - start.y());
+            // The perpendicular is the start-to-end direction turned a quarter
+            // turn anticlockwise, which the library documents and which points
+            // up the screen in a box whose y increases downward.
+            let swing = amplitude * (core::f32::consts::TAU * cycles * through).sin()
+                / run.hypot(rise).max(f32::EPSILON);
+            Point::new(
+                start.x() + run * through + rise * swing,
+                start.y() + rise * through - run * swing,
+            )
+        }
+        _ => Point::new(0.5, 0.5),
+    }
 }
 
 impl<Ink> Drawing<Ink> {
     /// Returns where a point of the library's unit box lands in `bounds`.
-    fn at(bounds: Rectangle, point: Point) -> (f32, f32) {
+    ///
+    /// Through what the strokes actually reach rather than through the box they
+    /// were published in: the mark is scaled to fill the room in whichever
+    /// direction it is longer, keeping its proportions, and centred in the
+    /// other. See [`Fits`].
+    fn at(&self, bounds: Rectangle, point: Point) -> (f32, f32) {
+        let scale = self.scale(bounds);
+        let (across, down) = (self.fits.width * scale, self.fits.height * scale);
         (
-            bounds.x + point.x() * bounds.width,
-            bounds.y + point.y() * bounds.height,
+            bounds.x + (bounds.width - across) / 2.0 + (point.x() - self.fits.left) * scale,
+            bounds.y + (bounds.height - down) / 2.0 + (point.y() - self.fits.top) * scale,
         )
+    }
+
+    /// How many points of the room one unit of the library's box covers.
+    ///
+    /// The lesser of the two, so a mark fills the room in whichever direction
+    /// it is longer and keeps its proportions in the other. Everything measured
+    /// in the unit box goes through this, a disc's radius included, or a mark
+    /// would be placed at one size and drawn at another.
+    fn scale(&self, bounds: Rectangle) -> f32 {
+        (bounds.width / self.fits.width.max(f32::EPSILON))
+            .min(bounds.height / self.fits.height.max(f32::EPSILON))
     }
 }
 
@@ -139,35 +296,20 @@ where
                         };
                         segment(
                             renderer,
-                            Self::at(bounds, *from),
-                            Self::at(bounds, *to),
+                            self.at(bounds, *from),
+                            self.at(bounds, *to),
                             width,
                             ink,
                         );
                     }
                 }
-                Stroke::Arc {
-                    centre,
-                    radius,
-                    start,
-                    sweep,
-                } => {
-                    let along = (sweep.abs() * core::f32::consts::TAU * radius * bounds.width)
+                Stroke::Arc { radius, sweep, .. } => {
+                    let run = (sweep.abs() * core::f32::consts::TAU * radius * bounds.width)
                         .max(bounds.width * 0.1);
-                    let count = steps(along, width);
+                    let count = steps(run, width);
                     let mut last = None;
                     for step in 0..=count {
-                        #[expect(
-                            clippy::cast_precision_loss,
-                            reason = "a step of a curve this window has room for"
-                        )]
-                        let through = step as f32 / count as f32;
-                        let turn = (start + sweep * through) * core::f32::consts::TAU;
-                        let point = Point::new(
-                            centre.x() + radius * turn.cos(),
-                            centre.y() + radius * turn.sin(),
-                        );
-                        let at = Self::at(bounds, point);
+                        let at = self.at(bounds, along(*stroke, fraction(step, count)));
                         if let Some(before) = last {
                             segment(renderer, before, at, width, ink);
                         }
@@ -175,40 +317,22 @@ where
                     }
                 }
                 Stroke::Dot { centre, radius } => {
-                    let at = Self::at(bounds, centre);
-                    let across = (radius * 2.0 * bounds.width).max(width);
+                    let at = self.at(bounds, centre);
+                    let across = (radius * 2.0 * self.scale(bounds)).max(width);
                     quad(renderer, at, across, ink);
                 }
                 Stroke::Wave {
-                    start,
-                    end,
-                    amplitude,
-                    cycles,
+                    start, end, cycles, ..
                 } => {
                     let (run, rise) = (end.x() - start.x(), end.y() - start.y());
-                    let along = (run.hypot(rise) * bounds.width).max(bounds.width * 0.1);
+                    let length = (run.hypot(rise) * bounds.width).max(bounds.width * 0.1);
                     // A quarter of a cycle is the shortest run a sine has that
                     // is not a straight line, so it decides the sampling as much
                     // as the length does.
-                    let count = steps(along, width).max(steps(cycles.abs() * 8.0, 1.0));
+                    let count = steps(length, width).max(steps(cycles.abs() * 8.0, 1.0));
                     let mut last = None;
                     for step in 0..=count {
-                        #[expect(
-                            clippy::cast_precision_loss,
-                            reason = "a step of a curve this window has room for"
-                        )]
-                        let through = step as f32 / count as f32;
-                        // The perpendicular is the start-to-end direction turned
-                        // a quarter turn anticlockwise, which the library
-                        // documents and which points up the screen in a box
-                        // whose y increases downward.
-                        let swing = amplitude * (core::f32::consts::TAU * cycles * through).sin()
-                            / run.hypot(rise).max(f32::EPSILON);
-                        let point = Point::new(
-                            start.x() + run * through + rise * swing,
-                            start.y() + rise * through - run * swing,
-                        );
-                        let at = Self::at(bounds, point);
+                        let at = self.at(bounds, along(*stroke, fraction(step, count)));
                         if let Some(before) = last {
                             segment(renderer, before, at, width, ink);
                         }
@@ -273,4 +397,84 @@ where
         },
         Background::Color(ink),
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Drawing, Fits};
+    use deepmind_midi::effect::{Algorithm, Point};
+    use iced_core::{Color, Rectangle, Theme};
+
+    /// The room a mark is measured in, away from the origin so that a mapping
+    /// that forgot to add the offset fails rather than passing at zero.
+    const ROOM: Rectangle = Rectangle {
+        x: 40.0,
+        y: 70.0,
+        width: 20.0,
+        height: 20.0,
+    };
+
+    /// One mark, ready to be asked where its points land.
+    fn drawn(mark: &'static deepmind_midi::effect::Mark) -> Drawing<fn(&Theme) -> Color> {
+        Drawing {
+            mark,
+            side: ROOM.width,
+            ink: (|_: &Theme| Color::BLACK) as fn(&Theme) -> Color,
+            fits: Fits::of(mark),
+        }
+    }
+
+    #[test]
+    fn every_mark_is_centred_in_the_room_it_is_given() {
+        // Nine drawings published in one unit box, and not one of them fills
+        // it: the reverb's wavefronts leave a third of the width empty on one
+        // side. Drawn straight onto the room, they hang at nine different
+        // heights, which is what a row of engine strips showed.
+        for algorithm in Algorithm::all() {
+            let drawing = drawn(algorithm.mark());
+            let fits = drawing.fits;
+            let (left, top) = drawing.at(ROOM, Point::new(fits.left, fits.top));
+            let (right, bottom) = drawing.at(
+                ROOM,
+                Point::new(fits.left + fits.width, fits.top + fits.height),
+            );
+            let family = algorithm.family();
+
+            let across = (left - ROOM.x) - (ROOM.x + ROOM.width - right);
+            let down = (top - ROOM.y) - (ROOM.y + ROOM.height - bottom);
+            assert!(
+                across.abs() < 0.01,
+                "{family:?} sits {across} off centre across the room"
+            );
+            assert!(
+                down.abs() < 0.01,
+                "{family:?} sits {down} off centre down the room"
+            );
+        }
+    }
+
+    #[test]
+    fn every_mark_fills_the_room_in_whichever_way_it_is_longer() {
+        // The other half of fitting: centred and tiny would be centred. A mark
+        // reaches both edges in one direction, and keeps its proportions in the
+        // other rather than being stretched to reach them in both.
+        for algorithm in Algorithm::all() {
+            let drawing = drawn(algorithm.mark());
+            let fits = drawing.fits;
+            let (left, top) = drawing.at(ROOM, Point::new(fits.left, fits.top));
+            let (right, bottom) = drawing.at(
+                ROOM,
+                Point::new(fits.left + fits.width, fits.top + fits.height),
+            );
+            let family = algorithm.family();
+
+            let filled = (right - left - ROOM.width).abs() < 0.01
+                || (bottom - top - ROOM.height).abs() < 0.01;
+            assert!(filled, "{family:?} is drawn smaller than the room it has");
+            assert!(
+                right - left <= ROOM.width + 0.01 && bottom - top <= ROOM.height + 0.01,
+                "{family:?} is drawn past the room it has"
+            );
+        }
+    }
 }

@@ -177,10 +177,13 @@ const SETTING: f32 = 500.0;
 
 /// How many columns they stand in.
 ///
-/// Two of five rather than five of two, because they are read down: the manual
-/// numbers them `M-1` to `M-10` and the byte follows that order, so a column is
-/// a run of consecutive topologies.
-const SETTING_COLUMNS: usize = 2;
+/// Three, which is four, four and two: read down, because the manual numbers
+/// them `M-1` to `M-10` and the byte follows that order, so a column is a run
+/// of consecutive topologies. Three rather than two because the band under the
+/// display is wide and the page is better spent across than down — ten of them
+/// four deep is a block the eye takes in, and five deep was a column as tall as
+/// the plates beside it.
+const SETTING_COLUMNS: usize = 3;
 
 /// How much room one whose choices are lit rather than listed is given.
 ///
@@ -240,6 +243,19 @@ const HINT: f32 = 12.0;
 /// Height of the strip a band's name is knocked out of.
 const BAND: f32 = 13.0;
 
+/// How far a band's strip stands above the row it labels.
+///
+/// Close, because it belongs to that row.
+const UNDER_STRIP: f32 = 3.0;
+
+/// How far one row of the grid stands from the next.
+///
+/// Far enough that a band's strip reads as the head of the row beneath it
+/// rather than as something between two rows. It is the gap either side of the
+/// strip that says which row the strip is for, so this is the wider of the two
+/// by some margin.
+const BETWEEN_ROWS: f32 = 12.0;
+
 /// How big the thing a hand takes hold of is drawn on an effect plate.
 ///
 /// Smaller than a rack's slot rather than larger, which is what changed when
@@ -281,10 +297,21 @@ const BADGE: f32 = 20.0;
 /// Fixed, like every other display on this page: the glass is the instrument's
 /// own and a screen stretched to whatever width a plate came out at is a
 /// picture whose proportions are an accident of the window.
-const PICTURE: i32 = 88;
+const PICTURE: i32 = 120;
 
 /// How many dots down it is.
-const PICTURE_ROWS: i32 = 22;
+///
+/// Two thirds of what it was, which is what moving it onto the engine's own
+/// strip costs and is worth paying. It used to stand at the head of the grid,
+/// where it was a pale rectangle as wide as two of six columns with nothing
+/// beside it and the controls it is a picture of underneath — a display given a
+/// row of the plate and none of the room in it.
+///
+/// On the strip it has the width instead: its own line under the name of the
+/// thing it is a picture of, where nothing is competing for the room and the
+/// grid can start at the top of the plate. Wide and short suits what it draws,
+/// which is a train of taps along a time.
+const PICTURE_ROWS: i32 = 14;
 
 /// One of an engine's twelve bytes, and what the loaded algorithm calls it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1011,14 +1038,17 @@ where
     let panel = algorithm(patch, engine, firmware).map(Algorithm::panel);
     let figure = Figure::of(panel);
     let (grid, left) = placed(&lanes, panel);
-    let mut drawn = column![].spacing(6);
-    // What the engine is doing to a signal, for the two of the 35 whose panels
-    // say it outright. Above the grid, because it is a reading of the whole of
-    // what those twelve bytes make and not of any one of them.
-    drawn = drawn.extend(picture(patch, engine, firmware));
+    let mut drawn = column![].spacing(BETWEEN_ROWS);
     for line in &grid {
-        drawn = drawn.extend(over(line));
-        drawn = drawn.push(line_of(patch, engine, line, firmware, moved, figure));
+        // A band's strip and the row it labels are one block. Spaced evenly
+        // down the plate, a strip stood as far from the row it belongs to as
+        // from the row above, which put a pale bar hard under the previous
+        // row's units — reading as a rule drawn between two rows rather than as
+        // a heading over one.
+        let mut block = column![].spacing(UNDER_STRIP);
+        block = block.extend(over(line));
+        block = block.push(line_of(patch, engine, line, firmware, moved, figure));
+        drawn = drawn.push(block);
     }
     // What the display will show where a slot shows names rather than a number,
     // printed once under the grid: the manual gives the names and never the
@@ -1211,8 +1241,8 @@ where
         }
     });
     let on = On::Case(panel.map(|panel| (panel.chassis(), panel.accent())));
-    let gain = engine.gain_parameter();
-    row![
+    let drawing = picture(patch, engine, firmware);
+    let strip = row![
         // The mark of the family the algorithm is in, which is nine drawings
         // across the 35 and the one thing on this strip that can be read
         // without reading. The library publishes the strokes and this window
@@ -1253,58 +1283,80 @@ where
             .spacing(0)
         )
         .width(Length::Fill),
-        control(
+    ]
+    .spacing(8)
+    .align_y(Vertical::Center);
+    // What the engine is doing to a signal, for the two of the 35 whose panels
+    let strip = strip
+        .push(control(
             engine.algorithm_parameter(),
             patch.value(engine.algorithm_parameter()),
             patch.claim(engine.algorithm_parameter()),
             firmware,
             Room::listed(ALGORITHM),
-        ),
-        // Cut into the case rather than printed on it. A reading carries its
-        // claim in its colour, and the claims were chosen against this
-        // window's own dark panel: on the palest of the 35 cases both of them
-        // have to be lifted so far to be read that they arrive as the same
-        // ink, which would spend the one distinction this editor exists to
-        // draw on a livery. So the one value on the strip sits in a recess,
-        // which is also where a control belongs.
-        container(
-            row![
-                printing("gain".to_owned(), On::Recess).size(9),
-                control(
-                    gain,
-                    patch.value(gain),
-                    patch.claim(gain),
-                    firmware,
-                    Room::across(GAIN).sized(GAIN_THICK),
-                ),
-                modulated(moved.contains(&gain), true),
-                reading(
-                    gain,
-                    patch.value(gain),
-                    patch.claim(gain),
-                    firmware,
-                    On::Recess,
-                ),
-            ]
-            .spacing(5)
-            .align_y(Vertical::Center)
-        )
-        .padding([2, 6])
-        .style(|theme: &Theme| {
-            let material = materials(theme);
-            container::Style {
-                background: Some(Background::Color(material.panel)),
-                border: Border {
-                    color: material.recess_edge,
-                    width: 1.0,
-                    radius: 3.into(),
-                },
-                ..container::Style::default()
-            }
-        }),
-    ]
-    .spacing(8)
-    .align_y(Vertical::Center)
+        ))
+        .push(output(patch, engine, firmware, moved));
+    // What the engine is doing to a signal, for the two of the 35 whose panels
+    // say it outright. On its own line under the strip, because everything on
+    // that line is already claiming the width: a display squeezed in beside
+    // them took the room the engine's own name was standing in, and the name is
+    // what the picture is a picture of.
+    column![strip].extend(drawing).spacing(5).into()
+}
+
+/// Draws how loud an engine comes out, cut into its case.
+///
+/// A reading carries its claim in its colour, and the claims were chosen
+/// against this window's own dark panel: on the palest of the 35 cases both of
+/// them have to be lifted so far to be read that they arrive as the same ink,
+/// which would spend the one distinction this editor exists to draw on a
+/// livery. So the one value on the strip sits in a recess, which is also where
+/// a control belongs.
+fn output<'a, Renderer>(
+    patch: &Patch,
+    engine: Engine,
+    firmware: Version,
+    moved: &[ParamId],
+) -> Element<'a, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    let gain = engine.gain_parameter();
+    container(
+        row![
+            printing("gain".to_owned(), On::Recess).size(9),
+            control(
+                gain,
+                patch.value(gain),
+                patch.claim(gain),
+                firmware,
+                Room::across(GAIN).sized(GAIN_THICK),
+            ),
+            modulated(moved.contains(&gain), true),
+            reading(
+                gain,
+                patch.value(gain),
+                patch.claim(gain),
+                firmware,
+                On::Recess,
+            ),
+        ]
+        .spacing(5)
+        .align_y(Vertical::Center),
+    )
+    .padding([2, 6])
+    .style(|theme: &Theme| {
+        let material = materials(theme);
+        container::Style {
+            background: Some(Background::Color(material.panel)),
+            border: Border {
+                color: material.recess_edge,
+                width: 1.0,
+                radius: 3.into(),
+            },
+            ..container::Style::default()
+        }
+    })
     .into()
 }
 
