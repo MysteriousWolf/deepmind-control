@@ -63,6 +63,7 @@ use iced_core::alignment::{Horizontal, Vertical};
 use iced_core::{Background, Border, Font, Length, Theme, text::Renderer as TextRenderer};
 use iced_widget::{Space, column, container, row, text};
 
+use crate::chain;
 use crate::panel::{NAME, Room, SLOT, address, control, modulated, readout};
 use crate::style::{materials, reading};
 use crate::{Confidence, Element, Patch, tint};
@@ -256,7 +257,7 @@ where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
     let engines = engines(group)?;
-    let chain = settings(group)
+    let block = settings(group)
         .into_iter()
         .map(|parameter| {
             cell(
@@ -269,9 +270,15 @@ where
             )
         })
         .collect::<Vec<_>>();
-    let mut body = column![].spacing(10);
-    if !chain.is_empty() {
-        body = body.push(row(chain).spacing(10).wrap());
+    // The picture first and the settings under it, which is the arrangement
+    // every plate of the front panel has: a display over the controls it is a
+    // drawing of.
+    let mut body = column![chain::display(patch, firmware)].spacing(10);
+    if let Some(note) = chain::note(patch) {
+        body = body.push(muted(note.to_owned()).size(11));
+    }
+    if !block.is_empty() {
+        body = body.push(row(block).spacing(10).wrap());
     }
     for engine in engines {
         body = body.push(plate(patch, engine, firmware, moved));

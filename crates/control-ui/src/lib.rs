@@ -123,6 +123,7 @@
 //! do not have to agree on one, and concrete in the theme, because
 //! [`iced_core::Theme`] is what both of them have.
 
+mod chain;
 mod confidence;
 mod effect;
 mod envelope;
