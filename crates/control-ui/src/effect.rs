@@ -80,6 +80,42 @@
 //! same threshold: amber stays amber and green stays green, and what moves is
 //! how light it is.
 //!
+//! # What an effect is, and what it is doing
+//!
+//! 26.4 published the rest of the effects page
+//! ([#30](https://github.com/MysteriousWolf/deepmind-midi/issues/30),
+//! [#31](https://github.com/MysteriousWolf/deepmind-midi/issues/31),
+//! [#33](https://github.com/MysteriousWolf/deepmind-midi/issues/33)), and all
+//! four answers are spent here.
+//!
+//! [`Algorithm::mark`] is nine drawings across the 35 — a decaying tail, a train
+//! of repeats, a horn going round — and one of them stands at the head of every
+//! engine's strip, where four long names previously had to be read one at a
+//! time. The library publishes the strokes rather than a picture, which is what
+//! lets [`mark`](crate::mark) draw the same mark in this window's own ink on a
+//! cream chassis and on a black one.
+//!
+//! [`FxSlot::is_enable`] is how an effect is switched off, and the answer is
+//! that on 32 of the 35 it is not: `FX n Type` is 35 effects with no `Off` in
+//! the table, and what takes effects out of circuit is the `Bypass` mode, which
+//! is the whole block of four. Three algorithms spend one of their twelve bytes
+//! on a switch of their own, and where one of those reads off the strip says so
+//! and the chain draws that engine as something the signal goes past. The
+//! window used to have no way to know, so every engine drew its full panel and
+//! said nothing.
+//!
+//! [`effect::response`] is what an engine is doing to a signal, and it answers
+//! for two of the 35: the tap delays, whose panels are literally a time and a
+//! gain per tap. Those two get the screen every other panel in this window has;
+//! the other 33 get nothing, which is the honest answer rather than a gap. A
+//! reverb's impulse response is its designer's, and a plausible one drawn here
+//! would look like information and not be any.
+//!
+//! [`FxSlot::quantity`] is what a slot does to a signal as against what it is
+//! called, and it fills the line under every slot that has no printed range: a
+//! `Mix`, a `Feedback` and a `Pre-Delay` are all a byte `0..=255` and they do
+//! three unrelated things.
+//!
 //! # A named slot is the same control it was
 //!
 //! The library says two things about a slot and they are not the same thing.
@@ -112,7 +148,9 @@
 //! — draws all twelve that way, which is stage 3's rack for exactly as long as
 //! there is nothing better to say.
 
-use deepmind_midi::effect::{Algorithm, Colour, Control, Engine, FxSlot, Panel, grid};
+use deepmind_midi::effect::{
+    self, Algorithm, Colour, Control, Engine, FxSlot, Panel, Quantity, grid,
+};
 use deepmind_midi::param::{Group, ParamId};
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::alignment::{Horizontal, Vertical};
@@ -121,6 +159,8 @@ use iced_widget::{Space, column, container, row, text};
 
 use crate::chain;
 use crate::fader;
+use crate::lcd::{self, Ink, Screen};
+use crate::mark::mark;
 use crate::panel::{Room, control, lit_rather_than_listed, modulated, shown};
 use crate::style::{self, materials, reading as reading_face};
 use crate::{Confidence, Element, Patch, tint};
@@ -198,6 +238,22 @@ const TRAVEL: f32 = 50.0;
 /// How big one is drawn where the algorithm does not use the byte.
 const SPARE: f32 = 22.0;
 
+/// How large the mark on an engine's strip is drawn.
+///
+/// The height of the line it stands on, so it reads as the first word of the
+/// strip rather than as a picture beside one.
+const BADGE: f32 = 20.0;
+
+/// How many dots across the picture of what an engine is doing is drawn.
+///
+/// Fixed, like every other display on this page: the glass is the instrument's
+/// own and a screen stretched to whatever width a plate came out at is a
+/// picture whose proportions are an accident of the window.
+const PICTURE: i32 = 88;
+
+/// How many dots down it is.
+const PICTURE_ROWS: i32 = 22;
+
 /// One of an engine's twelve bytes, and what the loaded algorithm calls it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Lane {
@@ -264,6 +320,69 @@ fn addresses(engine: Engine, parameter: ParamId) -> bool {
     engine.algorithm_parameter() == parameter
         || engine.gain_parameter() == parameter
         || engine.slot_parameters().contains(&parameter)
+}
+
+/// Returns whether an engine's own switch has it in circuit.
+///
+/// `None` for the 32 algorithms that have no such switch, which is the answer
+/// rather than a gap: `FX n Type` is 35 effects with no `Off` in the table, the
+/// Effects group has no per-engine enable, and `FX Mode` is the whole block of
+/// four at once
+/// ([deepmind-midi#30](https://github.com/MysteriousWolf/deepmind-midi/issues/30)).
+/// Three algorithms spend one of their twelve bytes on it instead — Stereo
+/// Imaging and Chorus D on an `ON`, the Noise Gate on a `PWR` — and
+/// [`FxSlot::is_enable`] is what says which, so this window does not match on
+/// those two words across 35 panels.
+///
+/// Which way round the switch reads is the slot's own two ends, because the
+/// Noise Gate is the one that reads `ON` at the bottom of its range. The byte
+/// is a byte and the panel is two states, so the half of the range it is in is
+/// what decides.
+pub(crate) fn switched_on(
+    patch: &Patch,
+    engine: Engine,
+    algorithm: &'static Algorithm,
+) -> Option<bool> {
+    let slot = algorithm.slots.iter().find(|slot| slot.is_enable())?;
+    let value = patch.value(engine.slot_parameter(slot.slot)?)?;
+    let high = value > u8::MAX / 2;
+    Some(if slot.min == Some("ON") { !high } else { high })
+}
+
+/// Draws the picture of what an engine is doing to a signal, where there is one.
+///
+/// [`effect::response`] answers for two of the 35 — the 3-Tap and the 4-Tap
+/// delays, whose panels are literally a time and a gain per tap and whose times
+/// are ratios of the master delay that the manual prints as fractions. Every
+/// other engine gets nothing, and nothing is the honest answer: a reverb's
+/// impulse response is its designer's, a compressor's knee is not published,
+/// and a picture of either would look like information and not be any
+/// ([deepmind-midi#33](https://github.com/MysteriousWolf/deepmind-midi/issues/33)).
+///
+/// The horizontal is `Scale::Normalised` — the ratios between the taps are
+/// published and the master time they are ratios *of* is a byte with no
+/// published curve — so the glass carries the train and no axis.
+fn picture<'a, Renderer>(patch: &Patch, engine: Engine) -> Option<Element<'a, Renderer>>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    let response = effect::response(patch.program()?, engine)?;
+    let claim = patch.claim_across(engine.slot_parameters().iter().copied());
+    let mut screen = Screen::new(PICTURE, PICTURE_ROWS);
+    if !matches!(claim, Confidence::Unknown) {
+        let band = screen.all();
+        // The floor the taps stand on, so an engine whose taps are all silent
+        // is a picture of a delay rather than an empty screen.
+        screen.across(band.x, band.row(0.0), band.width, Ink::Dotted);
+        screen.under(band, |x| response.at(x));
+        screen.curve(band, Ink::Solid, |x| response.at(x));
+    }
+    Some(
+        container(lcd::lcd(screen, claim))
+            .width(Length::Fixed(lcd::room(PICTURE)))
+            .height(Length::Fixed(lcd::room(PICTURE_ROWS)))
+            .into(),
+    )
 }
 
 /// Returns what `engine` is running, as far as this window knows.
@@ -835,6 +954,10 @@ where
     let figure = Figure::of(panel);
     let (grid, left) = placed(&lanes, panel);
     let mut drawn = column![].spacing(6);
+    // What the engine is doing to a signal, for the two of the 35 whose panels
+    // say it outright. Above the grid, because it is a reading of the whole of
+    // what those twelve bytes make and not of any one of them.
+    drawn = drawn.extend(picture(patch, engine));
     for line in &grid {
         drawn = drawn.extend(over(line));
         drawn = drawn.push(line_of(patch, engine, line, firmware, moved, figure));
@@ -1012,10 +1135,34 @@ where
         },
         |algorithm| algorithm.full_name.to_owned(),
     );
-    let category = loaded.map_or("", |algorithm| algorithm.category);
+    // What the manual files it under, and — where the engine carries its own
+    // switch and that switch is off — that it is out of circuit. Three of the
+    // 35 can say that and the other 32 cannot, which is the instrument's answer
+    // rather than this window's.
+    let category = loaded.map_or_else(String::new, |algorithm| {
+        match loaded.and_then(|algorithm| switched_on(patch, engine, algorithm)) {
+            Some(false) => format!("{} \u{2014} out of circuit", algorithm.category),
+            _ => algorithm.category.to_owned(),
+        }
+    });
     let on = On::Case(panel.map(|panel| (panel.chassis(), panel.accent())));
     let gain = engine.gain_parameter();
     row![
+        // The mark of the family the algorithm is in, which is nine drawings
+        // across the 35 and the one thing on this strip that can be read
+        // without reading. The library publishes the strokes and this window
+        // lays them out, for the reason it publishes the panels as data.
+        container(
+            loaded
+                .map(|algorithm| mark(algorithm.mark(), BADGE, move |theme: &Theme| ink(theme, on)))
+                .map_or_else(
+                    || Element::from(Space::new().width(Length::Fixed(BADGE))),
+                    Element::from,
+                )
+        )
+        .width(Length::Fixed(BADGE))
+        .height(Length::Fixed(BADGE))
+        .align_y(Vertical::Center),
         text(format!("FX {}", engine.number()))
             .size(13)
             .font(reading_face())
@@ -1036,7 +1183,7 @@ where
                     .style(move |theme: &Theme| text::Style {
                         color: Some(ink(theme, on)),
                     }),
-                printing(category.to_owned(), on).size(9),
+                printing(category, on).size(9),
             ]
             .spacing(0)
         )
@@ -1191,8 +1338,36 @@ fn hint(slot: Option<&'static FxSlot>) -> String {
             Some(unit) => format!("{low}\u{2013}{high} {unit}"),
             None => format!("{low}\u{2013}{high}"),
         },
-        _ => String::new(),
+        // No printed ends, so what the library can still say is what kind of
+        // quantity the byte is. It is the answer to "what does moving this do",
+        // which is the question a slot with no printed range leaves open, and
+        // it is the library's rather than this window reading the title.
+        _ => quantity(slot.quantity())
+            .map(str::to_owned)
+            .unwrap_or_default(),
     }
+}
+
+/// Returns the word for what a slot does to a signal.
+///
+/// [`Quantity`] is a closed set of nine that the library derives from the
+/// parameter rather than from the slot's title, which is the point of it: a
+/// `Mix`, a `Feedback` and a `Pre-Delay` are all a byte `0..=255` and they do
+/// three unrelated things. The set is marked as one that can grow, and a
+/// quantity this window has no word for prints nothing rather than a guess.
+fn quantity(what: Quantity) -> Option<&'static str> {
+    Some(match what {
+        Quantity::Time => "a time",
+        Quantity::Frequency => "a frequency",
+        Quantity::Gain => "a level",
+        Quantity::Feedback => "how much goes back in",
+        Quantity::Depth => "how much effect",
+        Quantity::Position => "a place in the stereo field",
+        Quantity::Shape => "the shape of the response",
+        Quantity::Switch => "in or out",
+        Quantity::Selection => "one of a list",
+        _ => return None,
+    })
 }
 
 /// The names a plate's slots show on the instrument's display.
@@ -1256,7 +1431,8 @@ mod tests {
     use deepmind_midi::sysex::inquiry::Version;
 
     use super::{
-        Lane, On, claimed, engines, hint, ink, lanes, legend, placed, settings, spans, within,
+        FxSlot, Lane, On, claimed, engines, hint, ink, lanes, legend, placed, quantity, settings,
+        spans, switched_on, within,
     };
     use crate::style::{READABLE, contrast, deepmind, legible, tint};
     use crate::{Confidence, Patch};
@@ -1675,6 +1851,107 @@ mod tests {
         // byte shows is the part nobody has published.
         assert_eq!(hint(deep.slot(1)), "11 settings");
         assert!(hint(None).is_empty());
+    }
+
+    #[test]
+    fn every_algorithm_reaches_a_mark_and_a_family() {
+        // Nine drawings across the 35, and the strip carries whichever one the
+        // algorithm's family is in. A mark with no strokes would be a badge
+        // drawn as nothing at all, which on a strip that has room for it reads
+        // as an engine that failed to load.
+        for algorithm in Algorithm::all() {
+            assert!(
+                !algorithm.mark().strokes().is_empty(),
+                "{} has a mark with nothing in it",
+                algorithm.full_name
+            );
+        }
+    }
+
+    #[test]
+    fn three_algorithms_can_say_they_are_out_of_circuit_and_the_rest_cannot() {
+        // The answer to how an effect is switched off, which is that on 32 of
+        // the 35 it is not: `FX n Type` has no `Off`, and what takes effects
+        // out is `FX Mode`, which is the whole block. This window asks the
+        // library rather than matching on `ON` and `PWR` across 35 panels.
+        let switchable: Vec<&'static str> = Algorithm::all()
+            .iter()
+            .filter(|algorithm| algorithm.slots.iter().any(FxSlot::is_enable))
+            .map(|algorithm| algorithm.name)
+            .collect();
+
+        assert_eq!(switchable.len(), 3, "found {switchable:?}");
+
+        let mut patch = running("NoiseGate");
+        let gate = Algorithm::by_name("NoiseGate").expect("a Noise Gate");
+        let power = gate.slot(8).expect("a Power slot");
+        let parameter = Engine::One
+            .slot_parameter(power.slot)
+            .expect("a parameter for the slot");
+
+        // The Noise Gate is the one that reads `ON` at the bottom of its range,
+        // so the byte alone would get it exactly the wrong way round. A program
+        // at its floor is already at the bottom, which is why the far end is
+        // asked for first.
+        assert!(patch.edit(parameter, 255));
+        assert_eq!(switched_on(&patch, Engine::One, gate), Some(false));
+        assert!(patch.edit(parameter, 0));
+        assert_eq!(switched_on(&patch, Engine::One, gate), Some(true));
+
+        // And an algorithm with no switch of its own says so.
+        let reverb = Algorithm::by_name("RoomRev").expect("a Room Reverb");
+        assert_eq!(switched_on(&running("RoomRev"), Engine::One, reverb), None);
+    }
+
+    #[test]
+    fn the_two_tap_delays_are_the_two_engines_with_a_picture() {
+        // The whole of what the library will draw for an effect, and the point
+        // of it is what it refuses: a reverb's impulse response is its
+        // designer's, so an engine running one gets no screen rather than a
+        // plausible one.
+        let drawn: Vec<&'static str> = Algorithm::all()
+            .iter()
+            .filter(|algorithm| {
+                let patch = running(algorithm.name);
+                patch
+                    .program()
+                    .and_then(|program| deepmind_midi::effect::response(program, Engine::One))
+                    .is_some()
+            })
+            .map(|algorithm| algorithm.name)
+            .collect();
+
+        assert_eq!(drawn, ["3TapDelay", "4TapDelay"], "found {drawn:?}");
+    }
+
+    #[test]
+    fn a_slot_with_no_printed_ends_says_what_kind_of_quantity_it_is() {
+        // What the library added in 26.4, and it is the answer to the one
+        // question a slot with a title and no range leaves open. Every slot of
+        // the 35 says something now, which is what the line under a slot is
+        // for.
+        for algorithm in Algorithm::all() {
+            for slot in algorithm.slots {
+                assert!(
+                    !hint(Some(slot)).is_empty(),
+                    "{} {} says nothing under its title",
+                    algorithm.name,
+                    slot.title
+                );
+            }
+        }
+        // And a byte the algorithm does not use still says nothing, because the
+        // strip it stands on has said it already.
+        assert!(hint(None).is_empty());
+    }
+
+    #[test]
+    fn every_quantity_the_library_publishes_has_a_word() {
+        use deepmind_midi::effect::Quantity;
+
+        for what in Quantity::ALL {
+            assert!(quantity(what).is_some(), "{what:?} has no word");
+        }
     }
 
     #[test]
