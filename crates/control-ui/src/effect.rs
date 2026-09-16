@@ -358,7 +358,20 @@ const SPARE: f32 = 22.0;
 ///
 /// One digit set large, and the same room whichever of the four it is, so that
 /// the names start in one place down a column of cases.
-const SLOT_NUMBER: f32 = 20.0;
+const SLOT_NUMBER: f32 = 24.0;
+
+/// How large that numeral is set.
+///
+/// Taller than the line it stands behind, so it is read as the ground of the
+/// strip rather than as the first word of it.
+const SLOT_HERO: f32 = 30.0;
+
+/// How far it is carried from the case towards the case's own ink.
+///
+/// Further than the family's mark, because it is one character where the mark
+/// is a drawing across a whole face, and a numeral at a watermark's strength is
+/// a numeral nobody can read.
+const SLOT_INK: f32 = 0.55;
 
 /// Draws the family's mark large and faint across an engine's face.
 ///
@@ -1423,26 +1436,10 @@ where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
     let on = On::Case(panel.map(|panel| (panel.chassis(), panel.accent())));
-    row![
-        // Which slot this is, and nothing else: the number alone, set large and
-        // bold. `FX` in front of it was two characters saying what the page it
-        // is on already says, on a strip where every character is competing
-        // with the name of the algorithm. What is left is the one thing on the
-        // strip that has to be read at a glance — which of the four this is —
-        // so it is set like one.
-        //
-        // Held at one width, so four cases stacked two by two start their names
-        // in the same place down the page.
-        container(
-            text(engine.number().to_string())
-                .size(19)
-                .font(wordmark())
-                .style(move |theme: &Theme| text::Style {
-                    color: Some(ink(theme, on)),
-                })
-        )
-        .width(Length::Fixed(SLOT_NUMBER))
-        .align_x(Horizontal::Center),
+    let strip = row![
+        // The gutter the slot's own number stands in, which is drawn behind the
+        // strip rather than in it — see below.
+        Space::new().width(Length::Fixed(SLOT_NUMBER)),
         // The list *is* the title. It was a list of the display's own
         // abbreviations with what they stand for written out beside it, which
         // is two controls' worth of room saying one thing: the name is what a
@@ -1464,8 +1461,37 @@ where
     .extend(picture(patch, engine, firmware))
     .push(output(patch, engine, firmware, moved))
     .spacing(10)
-    .align_y(Vertical::Center)
-    .into()
+    .align_y(Vertical::Center);
+    // Which slot this is, set the way the family's mark is set on the case:
+    // large, faint, and behind what the strip carries rather than beside it.
+    // `FX 1` in a box of its own was two characters saying what the page
+    // already says and a third competing with the name of the algorithm; the
+    // number alone is the one thing here that has to be read without reading,
+    // and a numeral standing behind the line is how a rack unit puts a channel
+    // number on a case.
+    //
+    // It runs taller than the strip and is clipped by it, which is what stops
+    // it from setting the height of a line it is only the ground of.
+    stack![strip]
+        .push_under(
+            container(
+                text(engine.number().to_string())
+                    .size(SLOT_HERO)
+                    .font(wordmark())
+                    .style(move |theme: &Theme| text::Style {
+                        color: Some(style::mix(
+                            chassis(theme, panel.map(|panel| (panel.chassis(), panel.accent()))),
+                            ink(theme, on),
+                            SLOT_INK,
+                        )),
+                    }),
+            )
+            .width(Length::Fixed(SLOT_NUMBER))
+            .align_x(Horizontal::Center)
+            .align_y(Vertical::Center)
+            .clip(true),
+        )
+        .into()
 }
 
 /// Draws the list of what an engine could be running, under the names.

@@ -52,8 +52,8 @@ use iced_core::gradient::Linear;
 use iced_core::layout::{self, Layout};
 use iced_core::widget::Tree;
 use iced_core::{
-    Background, Border, Element, Gradient, Length, Radians, Rectangle, Size as Area, Theme, Widget,
-    mouse, renderer,
+    Background, Border, Color, Element, Gradient, Length, Radians, Rectangle, Size as Area, Theme,
+    Widget, mouse, renderer,
 };
 
 use crate::Confidence;
@@ -72,8 +72,25 @@ const LIT: f32 = 1.9;
 /// How much glass there is around the dots.
 ///
 /// A display has a dead border inside its bezel, and a drawing that ran to the
-/// edge of the glass would be a drawing that looked cut off.
-const MARGIN: f32 = 4.0;
+/// edge of the glass would be a drawing that looked cut off. Two points, which
+/// is a dot's width: enough that the edge is there and not so much that the
+/// glass reads as a frame with a picture in it.
+const MARGIN: f32 = 2.0;
+
+/// How much surround the glass is set into.
+///
+/// The moulding a screen is let into rather than the dead glass inside it, and
+/// the two are different things that used to be one number. This is the part
+/// that catches light along its lower edge and casts a line across the top of
+/// the glass, which is the whole of what makes a screen read as set *into*
+/// something rather than printed on it.
+const BEZEL: f32 = 2.0;
+
+/// How hard the surround's own shadow falls across the top of the glass.
+const CAST: f32 = 0.30;
+
+/// How hard the light along its lower edge comes back off the glass.
+const CATCH: f32 = 0.16;
 
 /// Returns how many points `dots` of the grid cover.
 #[expect(
@@ -104,7 +121,7 @@ fn nearest(fraction: f32) -> i32 {
     reason = "a count of dots across a width a window has room for"
 )]
 pub fn fits(points: f32) -> i32 {
-    ((points - MARGIN * 2.0) / PITCH).floor().max(0.0) as i32
+    ((points - SURROUND * 2.0) / PITCH).floor().max(0.0) as i32
 }
 
 /// Returns how much room `dots` of a display need, glass and all.
@@ -113,8 +130,14 @@ pub fn fits(points: f32) -> i32 {
 /// have a display worth drawing on.
 #[must_use]
 pub const fn room(dots: i32) -> f32 {
-    points(dots) * PITCH + MARGIN * 2.0
+    points(dots) * PITCH + SURROUND * 2.0
 }
+
+/// How much of a display is not its dots, on one side.
+///
+/// The moulding and the dead glass inside it, which is what a width has to
+/// allow for and what a count of dots has to be measured back out of.
+const SURROUND: f32 = BEZEL + MARGIN;
 
 /// How a line is laid down.
 ///
@@ -585,8 +608,8 @@ impl Display {
     /// How much room the glass takes, dots and dead border together.
     fn area(&self) -> Area<Length> {
         Area::new(
-            Length::Fixed(points(self.screen.columns) * PITCH + MARGIN * 2.0),
-            Length::Fixed(points(self.screen.rows) * PITCH + MARGIN * 2.0),
+            Length::Fixed(points(self.screen.columns) * PITCH + SURROUND * 2.0),
+            Length::Fixed(points(self.screen.rows) * PITCH + SURROUND * 2.0),
         )
     }
 }
@@ -626,14 +649,32 @@ where
         // falling away across it, inside the dark bezel it is set into. It is
         // the one surface in this window that is brighter than the panel around
         // it, which is what a backlit display looks like on a dark instrument.
+        // The moulding the glass is let into. Dark, with a hairline of the
+        // panel's own metal along it: a screen on a piece of equipment sits in
+        // a surround, and the surround is the part that catches the light in
+        // the room rather than the light behind the panel.
         renderer.fill_quad(
             renderer::Quad {
                 bounds,
                 border: Border {
-                    color: material.recess,
+                    color: material.lit,
                     width: 1.0,
                     radius: 3.into(),
                 },
+                ..renderer::Quad::default()
+            },
+            Background::Color(material.recess),
+        );
+        let glass = Rectangle {
+            x: bounds.x + BEZEL,
+            y: bounds.y + BEZEL,
+            width: (bounds.width - BEZEL * 2.0).max(0.0),
+            height: (bounds.height - BEZEL * 2.0).max(0.0),
+        };
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds: glass,
+                border: Border::default().rounded(1.0),
                 ..renderer::Quad::default()
             },
             Background::Gradient(Gradient::Linear(
@@ -641,6 +682,37 @@ where
                     .add_stop(0.0, material.glass)
                     .add_stop(1.0, material.glass_low),
             )),
+        );
+        // What the surround does to the glass under it: a line of its own shadow
+        // across the top, and its own lit lower edge coming back off the foot.
+        // Both land in the dead border rather than over any dot, which is what
+        // the dead border is for.
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds: Rectangle {
+                    height: MARGIN,
+                    ..glass
+                },
+                ..renderer::Quad::default()
+            },
+            Background::Color(Color {
+                a: CAST,
+                ..material.recess
+            }),
+        );
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds: Rectangle {
+                    y: glass.y + glass.height - MARGIN,
+                    height: MARGIN,
+                    ..glass
+                },
+                ..renderer::Quad::default()
+            },
+            Background::Color(Color {
+                a: CATCH,
+                ..material.metal_high
+            }),
         );
 
         let colour = written(theme, self.claim);
@@ -653,8 +725,8 @@ where
                 renderer.fill_quad(
                     renderer::Quad {
                         bounds: Rectangle {
-                            x: bounds.x + MARGIN + points(column) * PITCH + inset,
-                            y: bounds.y + MARGIN + points(row) * PITCH + inset,
+                            x: bounds.x + SURROUND + points(column) * PITCH + inset,
+                            y: bounds.y + SURROUND + points(row) * PITCH + inset,
                             width: LIT,
                             height: LIT,
                         },

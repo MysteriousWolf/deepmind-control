@@ -512,9 +512,20 @@ the whole of what that ordering has to mean.
 ┌────────────────────────┐   glass: #d6e7cd falling to #bfd3b6, the one
 │ ▔▔▔▔▔▔▔▔▔╲╱▔▔▔▔        │   lit surface on the panel, in a dark bezel
 │         ╲    ╱         │   dots 1.9 of a 2.5 pitch, radius 0.5, dark
-│ ▔▔▔▔▔▔▔╲      ╱▔▔▔     │   4 points of dead border inside the bezel
+│ ▔▔▔▔▔▔▔╲      ╱▔▔▔     │   2 points of moulding, 2 of dead border
 └────────────────────────┘
 ```
+
+**It is set into a surround rather than printed on the panel.** Two points of
+moulding, dark with a hairline of the panel's own metal along it, and two points
+of dead glass inside that. The two used to be one number and are different
+things: the moulding is what catches the light in the room, and the dead border
+is what a drawing stops short of.
+
+What makes it read as *set into* something is what the moulding does to the
+glass under it — a line of its own shadow across the top and its own lit lower
+edge coming back off the foot, both landing in the dead border rather than over
+any dot, which is what the dead border is for.
 
 - **Only the printed dots are drawn.** A dot the display has not printed is the
   backlight coming through, and at arm's length there is no grid to see until
@@ -679,12 +690,18 @@ Four things on one line: **the slot's own number**, the list that is also the
 title, the picture of what it is doing where there is one, and how loud it comes
 out.
 
-**The number is the number.** It read `FX 1`, which is two characters saying
-what the page it is on already says, on a strip where every character is
-competing with the name of an algorithm. What is left is the one thing on the
-strip that has to be read without reading — which of the four this is — so it is
-set like one: large, bold, and held at one width so four cases stacked two by
-two start their names in the same place down the page.
+**The number is the number, and it is behind the line rather than on it.** It
+read `FX 1`, which is two characters saying what the page it is on already says
+and a third competing with the name of an algorithm. What is left is the one
+thing on the strip that has to be read without reading — which of the four this
+is — so it is set the way the family's mark is set on the case: large, bold and
+faint, standing behind what the strip carries. It runs taller than the line and
+is clipped by it, so it never sets the height of something it is only the ground
+of; the gutter it stands in is a fixed width, so four cases stacked two by two
+start their names in the same place down the page.
+
+That is how a rack unit puts a channel number on a case, and it is the second
+thing on this page drawn as a ground rather than as an item in a row.
 
 **The list is the title.** It was a list of the display's own abbreviations with
 what they stand for written out beside it, which is two controls' worth of room
