@@ -540,22 +540,34 @@ are two plates of one group.
 
 | | |
 | --- | --- |
-| VCF | The passband, the corner where the byte sits in its own travel, the resonant peak out of it, and the fall past it — twice as steep on four poles as on two. A dotted rule along the top says how far the envelope's depth would move the corner, and which way the polarity points it |
-| HPF | The high-pass corner, and `BOOST` printed where the passband is empty |
+| VCF | `generator::filter_response`, with the corner put where the byte sits in its own travel. The vertical is decibels from the library's floor to its ceiling with unity ruled across it, so the resonant peak has headroom to rise into rather than a passband chosen to leave room for it. A dotted rule along the top says how far the envelope's depth would move the corner, and which way the polarity points it |
+| HPF | The high-pass, on the same decibel vertical and across as many octaves as its own slope needs to reach the floor, and `BOOST` printed under the curve where a high-pass has nothing |
 | DCO 1 & 2 | Two lanes. Whichever of `DCO 1`'s shapes are switched on, side by side; `DCO 2`'s square as tall as its own level, with the noise scattered over it at its |
-| ENVELOPES | All three at once. The amplifier's solid and shaded under, the filter's dashed, the modulation envelope's dotted |
+| ENVELOPES | One envelope a plate, from `generator::envelope`: the four times and levels, bent by the four curve bytes |
 | VCA | The amplifier's envelope under the level it is played at, with the level as a dotted ceiling |
-| LFO 1, LFO 2 | The shape the value table names, over as many cycles as the rate's own travel |
-| ARP / SEQ | A gate train: as many gates as the rate's travel, each as open as the gate time's. An arpeggiator that is switched off is a flat line |
+| LFO 1, LFO 2 | `generator::lfo` — the seven the value table names, the sampled two included — over as many of the library's own horizontals as the rate's travel |
+| ARP / SEQ | `generator::arpeggiator_gates`: four steps, each as open as the gate time says. An arpeggiator that is switched off is a flat line |
 | POLY | The polyphony mode in words, and the unison detune as five marks spreading from a centre |
+
+**The shapes are the library's.** `deepmind-midi` 26.4 publishes them as
+functions a host samples ([#32](https://github.com/MysteriousWolf/deepmind-midi/issues/32)),
+and what is left in `scene.rs` is a sample loop: walk the columns of a band, ask
+`Generator::at` what the shape is doing there, print the dot nearest the answer.
+Where a filter's corner sits for a byte, what a `Sample & Hold` looks like, how
+an attack bends at a curve of 200 — all of it was arithmetic about the
+instrument written in a window, and all of it is deleted.
 
 **What none of them claim.** The two refusals the envelope drawing is already
 under, because they are the library's:
 
-- **No axis is in anybody's units.** A corner is at the fraction of its own
-  range the byte sits at, not at a frequency; a rate is how many cycles fit
-  across a screen, not a speed. What each of these says is *where in its travel*
-  a value is, which is exactly what the fader beside it says.
+- **No axis is in anybody's units unless the library publishes one.** Two are
+  and are drawn as published: a filter's vertical is decibels, because the slope
+  of a pole is, and an LFO's horizontal is turns, because a cycle is a cycle
+  whatever the rate byte does. Everything else is `Scale::Normalised`, which is
+  the library saying outright that the axis is an ordering — so a corner is at
+  the fraction of its own range the byte sits at, not at a frequency. What each
+  of those says is *where in its travel* a value is, which is exactly what the
+  fader beside it says.
 - **Nothing is drawn from a value nobody has read.** A scene's claim is the
   weakest of everything it read, and a scene with anything unread is not drawn
   at all: a filter assembled from four values the synthesizer described and one
@@ -571,10 +583,18 @@ dotted marks either side of the pulse's edge — the depth's own travel, drawn
 where the edge is — because what a byte of it does to a duty cycle is nowhere in
 the manual.
 
-The pole count is the one number read out of a name rather than a byte. `0` is
-`4 Pole` and `1` is `2 Pole` on this instrument, so a drawing that counted the
-value would draw every filter the wrong way round; it reads the digit off what
-the value table calls the value, for the firmware that answered.
+The arpeggiator's rate is out of the picture for the same reason. The gate time
+is published against a step — 0 is no note, 255 a full one and 128 half of one,
+which the manual states outright — and what a step is worth in seconds is
+exactly what it does not print, so a rate byte stretched across the glass was
+this window drawing an axis nobody published. The fader says what the rate is.
+
+One number about a filter is still here, marked where it is used: the high-pass
+slope. The library draws the low-pass alone, because putting both corners on one
+axis needs the spacing between two bytes whose curves are both unpublished, and
+a plate with one filter on it is not asking for that. How far past its own fall
+the axis reaches is read back out of the span the library publishes rather than
+chosen, and a test holds the two together.
 
 ### Matrix
 
@@ -623,15 +643,15 @@ chain runs across the top with the two settings that shape it — the connection
 mode, and whether the effects are inserted, sent or bypassed — beside the
 display that draws it, so the block's own strip is one control deep.
 
-Every engine carries its own strip: its number, the list that says what it is
-running, what that is called in full, and how loud it comes out. There is no
-header below that and no row of tabs above it, because both of those were a
-second place saying which algorithm an engine was running and neither of them
-was the engine.
+Every engine carries its own strip: the mark of the family its algorithm is in,
+its number, the list that says what it is running, what that is called in full,
+and how loud it comes out. There is no header below that and no row of tabs
+above it, because both of those were a second place saying which algorithm an
+engine was running and neither of them was the engine.
 
 ```
- FX 2  [ MidasEQ  v]  Midas Equaliser          ┌ gain [====|==] 150 ┐
-                      Processing
+ ╱╲   FX 2  [ MidasEQ  v]  Midas Equaliser     ┌ gain [====|==] 150 ┐
+╱  ╲                       Processing
   ╶── low ─────╴ ╶── low-mid ───────────╴ ╶ high-mid ╴
    180 LSG  181 LSF  182 LMG  183 LMF  184 LMQ  185 HMG
     ( | )    ( | )    ( | )    ( | )    ( | )    ( | )
@@ -686,6 +706,39 @@ second row readable down against the first.
   divides a row exactly the way the row divides itself, so a band of three
   stands over its three. Two columns the library labelled nothing are two
   columns and not a pair, and a row it grouped nothing on has no strip at all.
+- **The mark is the library's strokes and this window's layout.** Nine of them
+  across the 35, one per family, published as a polyline, an arc, a sine and a
+  filled disc in a unit box — not as a picture, for the same reason the panels
+  are data: this window and the plugin want the same mark at two sizes and in
+  two inks, and neither can theme an image it did not draw. `mark.rs` lays a
+  stroke down as a run of round quads, because what every renderer behind this
+  crate can do is fill one. On the chain's own glass, where a box is fifteen
+  dots wide, the library's seven by seven grid is blitted instead: at
+  forty-nine pixels which of them are lit is the whole of the design.
+- **An effect that is out of circuit says so, and 32 of the 35 cannot.**
+  `FX n Type` is 35 effects with no `Off` in the table, and what takes effects
+  out is the `Bypass` mode, which is the whole block of four. Three algorithms
+  spend one of their twelve bytes on a switch of their own — Stereo Imaging and
+  Chorus D on an `ON`, the Noise Gate on a `PWR` — and the library names which,
+  so this window does not match on those two words across 35 panels. Where one
+  of those three is off the strip says `out of circuit` and the chain draws that
+  engine as something the signal goes past. Which way round the switch reads is
+  the slot's own two ends, because the Noise Gate is the one that reads `ON` at
+  the bottom of its range.
+- **Two engines get a screen and 33 do not.** The tap delays' panels are
+  literally a time and a gain per tap and their times are ratios of the master
+  delay that the manual prints as fractions, so the impulse train follows from
+  the parameters; `effect::response` draws it and the screen sits above the
+  grid. Every other engine gets nothing, which is the answer rather than a gap —
+  a reverb's impulse response is its designer's, and a plausible one drawn here
+  would look like information and not be any.
+- **A slot with no printed range says what kind of quantity it is.** A `Mix`, a
+  `Feedback` and a `Pre-Delay` are all a byte `0..=255` and they do three
+  unrelated things, and `FxSlot::quantity` is the library's answer to which —
+  derived from the parameter rather than read off the title, which is what makes
+  it worth having. So the line under a slot says the two ends where the manual
+  prints them and what the byte does where it does not, and every slot of the 35
+  says something.
 - **The chain is drawn, on a display over the settings it is a picture of.**
   Ten topologies as edge lists: what the block's input reaches, what feeds what,
   what is summed at the end, the loop dashed under the engines it returns
@@ -695,6 +748,16 @@ second row readable down against the first.
   the input, and a backwards edge is the loop. `Bypass` draws the engines as
   something the signal is not going through, because the library says the DSP is
   out of circuit rather than muted.
+- **The chain's glass is one size, and it is the instrument's own.** 128 dots by
+  64, for all ten topologies. It took whatever width the window had while
+  keeping the height its own topology wanted, so its proportions were an
+  accident of the window — four engines on a strip nine times as wide as it is
+  tall — and the page moved under the hand when the routing byte did. One size
+  leaves the shallow topologies holding glass the deep ones need, so they spend
+  it: the graph takes what its boxes need, each box carries its family's mark,
+  and the room left over lists what the four engines are running for the ones
+  whose box was too narrow to say. A topology that stacks its four has boxes
+  wide enough to say it themselves and no list at all.
 - **Twelve bytes, however many the algorithm uses.** An algorithm can leave
   seven of its twelve unnamed, and seven controls the size of the five that do
   something is a plate whose loudest half is the half that does nothing. So what

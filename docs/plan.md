@@ -821,7 +821,7 @@ needed.
 | 2 | First light | **Done.** Desktop window, port picker, identity, read the edit buffer, VCF editable end to end with assumed and confirmed drawn differently. |
 | 3 | Every parameter | **Done.** All fourteen groups from `Group::parameters`, one at a time behind a section bar, because a complete ugly editor beats a beautiful partial one. Every panel that is not a rack is laid out: the program's name, the three envelopes, the modulation matrix and the control sequencer. |
 | 4 | The librarian | **Done.** Read and write `.syx`, read a bank with progress and cancel, browse a pack on a surface of its own beside the editor, and load a program into the edit buffer as a difference. |
-| 5 | The effects | **Done.** Four engines and 35 algorithms, from the tables the library published in 26.2 ([deepmind-midi#18](https://github.com/MysteriousWolf/deepmind-midi/issues/18)), laid out on the FX page's own grid with the shape each algorithm's figure draws, and opening on a picture of the chain the four are wired into — both of which 26.3 published ([#22](https://github.com/MysteriousWolf/deepmind-midi/issues/22), [#23](https://github.com/MysteriousWolf/deepmind-midi/issues/23)). |
+| 5 | The effects | **Done.** Four engines and 35 algorithms, from the tables the library published in 26.2 ([deepmind-midi#18](https://github.com/MysteriousWolf/deepmind-midi/issues/18)), laid out on the FX page's own grid with the shape each algorithm's figure draws, and opening on a picture of the chain the four are wired into — both of which 26.3 published ([#22](https://github.com/MysteriousWolf/deepmind-midi/issues/22), [#23](https://github.com/MysteriousWolf/deepmind-midi/issues/23)). 26.4 finished it: the mark of each algorithm's family at the head of its strip, the three engines that can be switched out of circuit saying so, and a screen on the two whose response is published ([#30](https://github.com/MysteriousWolf/deepmind-midi/issues/30), [#31](https://github.com/MysteriousWolf/deepmind-midi/issues/31), [#33](https://github.com/MysteriousWolf/deepmind-midi/issues/33)). |
 | 6 | The plugin | Simple mode, then state, then advanced mode in the same window. The CLAP comes out first, having nothing to settle; then the AU, once the bundle signs and `auval` passes; then the VST3, once Steinberg's terms are. |
 | 7 | Hardware | The questions below, answered with a cable. Findings go to the library. |
 
@@ -853,11 +853,22 @@ dimmed tail; and the front panel is read off the library rather than out of a
 table in `home.rs`. Every one of those was a library release away, and the
 release came.
 
+26.4 is the release that finished the drawings. The shapes the plate displays
+draw are the library's own functions now — an envelope's bends, an LFO's wave,
+a filter's roll-off, the arpeggiator's gates — so the four curve faders under an
+envelope move the envelope, a filter stands on the decibel vertical the slope of
+a pole is published in, and the arithmetic about the instrument that was written
+in `scene.rs` and `envelope.rs` is deleted. The effects page got the rest of it:
+a mark at the head of every engine, a picture on the two engines whose panels
+say what they do to a signal, and the answer to how an effect is switched off,
+which is that on 32 of the 35 it is not.
+
 Which of those are somebody else's to answer is written down rather than
 remembered: [waiting.md](waiting.md) is the list of what this repository has
 asked the library for, what each answer would change here, and what the window
 does meanwhile. It is the file to read at the start of a batch of work, because
-a closed issue on it is a panel that can stop apologising.
+a closed issue on it is a panel that can stop apologising. There is nothing open
+on it today, which is the first time that has been true.
 
 Stage 7 waits with it. A cable answers questions about a protocol, and what it
 finds goes to the library rather than here, so nothing in stages 4 and 5 is
