@@ -166,12 +166,25 @@ const HEADING: i32 = Screen::height_of(Size::Small) + 4;
 
 /// How many dots the lane under the graph takes, where there is something in it.
 ///
-/// The loop and the analog path are both drawn there, which is the one thing
-/// they have in common: they are the two ways a signal goes somewhere other
-/// than along the chain. A topology with neither does not pay for the lane —
-/// see [`Chain::under`] — because a picture with a band of empty glass under it
-/// is a display saying there is something to look at.
-const UNDER: i32 = 11;
+/// The loops are drawn there, and so is an output taken from an engine with
+/// others after it: the two ways a signal goes somewhere other than along the
+/// chain, which are the two that cannot be drawn between the boxes. A topology
+/// with neither does not pay for the lane — see [`Chain::under`] — because a
+/// picture with a band of empty glass under it is a display saying there is
+/// something to look at.
+const UNDER: i32 = 14;
+
+/// How much glass the analog path takes off the foot of the display.
+///
+/// Its own number rather than [`UNDER`] again. The two were one constant and
+/// they are not one measurement: the lane under the graph holds wires that have
+/// to clear the boxes they leave and the heads they end in, and the foot holds
+/// a word with a rule beside it. Sharing the number meant every dot the loops
+/// were given was taken off the graph a second time at the bottom — which, on
+/// the topology that stacks four engines with the voices routed round the
+/// block, left each box eight dots deep where nine is the least `plate` will
+/// draw, and the picture came out empty.
+const FOOT: i32 = Screen::height_of(Size::Small) + 2;
 
 /// How much glass is left under a graph with nothing in that lane.
 const SPARE: i32 = 2;
@@ -491,7 +504,7 @@ fn shape(chain: Chain, glass: Band, listed: usize) -> (Band, Band) {
     // What the analog path takes off the foot of the glass, where the voices
     // take one: it is drawn along the bottom, and a list written over it would
     // be two pictures in one place.
-    let foot = if chain.analog() { UNDER } else { 0 };
+    let foot = if chain.analog() { FOOT } else { 0 };
     let room = glass.height - chain.under() - foot;
     let wanted = i32(listed) * (LINE + 1);
     let tall = (room - wanted)
@@ -806,12 +819,18 @@ fn rails(screen: &mut Screen, chain: Chain, boxes: &[Band; ENGINE_COUNT], graph:
         let out = band.y + band.height / 2;
         if band.x < last {
             // Something stands between this box and the rail, so the wire goes
-            // under everything rather than through it. It turns down in the
-            // first column of its own gutter, which is a column no forward edge
-            // turns in: they are all shared out *inside* the gap.
+            // under everything rather than through it — and it leaves through
+            // the bottom rather than the side. Beside the box it ran the depth
+            // of the frame a dot away from it, which is not a wire leaving a
+            // box: it is a box with one edge drawn twice.
+            //
+            // Three quarters of the way across, which is the side it is headed
+            // for, and not the middle, where a loop returning into this same box
+            // puts its own head.
             let below = graph.y + graph.height + UNDER - 1;
-            let aside = band.x + band.width;
-            screen.down(aside, out, below - out + 1, ink);
+            let under = band.y + band.height + CLEAR;
+            let aside = band.x + band.width * 3 / 4;
+            screen.down(aside, under, below - under + 1, ink);
             screen.across(aside, below, leaving - aside + 1, ink);
             screen.down(leaving, middle, below - middle + 1, ink);
             continue;
@@ -969,7 +988,7 @@ fn turn(from: i32, to: i32, index: usize, count: usize) -> i32 {
 /// reason the forward edges get a lane each.
 fn returns(screen: &mut Screen, wires: &[Wire], graph: Band) {
     for (index, wire) in wires.iter().enumerate() {
-        let below = graph.y + graph.height + UNDER / 2 + i32(index) * APART;
+        let below = graph.y + graph.height + LOOP + i32(index) * APART;
         let leave = wire.from.x + wire.from.width / 2;
         let enter = wire.into.x + wire.into.width / 2;
         // A dot clear of the frames at both ends. A line that starts on the
@@ -1000,6 +1019,14 @@ const CLEAR: i32 = 1;
 
 /// How many dots deep the head of an arrow is, back from its tip.
 const HEAD: i32 = 3;
+
+/// How far under the graph the first loop's lane runs.
+///
+/// The head that points back up into the box, and enough dashes under it to be
+/// a line rather than a gap. It was half the lane, which left one dash between
+/// the two — and a head sitting on a rule with one dot of daylight is not an
+/// arrow arriving along a wire, it is a cross.
+const LOOP: i32 = HEAD + 4;
 
 /// How much glass stands between the rail the input runs down and the boxes it
 /// feeds.
@@ -1293,6 +1320,43 @@ mod tests {
         assert_eq!(super::placing(tall, 7, 40), super::Placing::Above);
         assert_eq!(super::placing(wide, 7, 40), super::Placing::Beside);
         assert_eq!(super::placing(small, 7, 40), super::Placing::Nowhere);
+    }
+
+    #[test]
+    fn every_box_is_big_enough_to_read_on_every_topology_and_mode() {
+        // What the glass is cut for. A box shorter than a line of type is a box
+        // `plate` declines to draw at all, so a topology that squeezed one out
+        // would be a picture of a three-engine synthesizer — and the squeeze
+        // comes from the two bands under the graph, which are paid for by the
+        // graph itself.
+        for routing in Routing::all() {
+            for value in 0..3u8 {
+                let chain = Chain {
+                    routing,
+                    mode: Mode::for_value(value),
+                    running: [None; 4],
+                    wired: [true; 4],
+                };
+                let glass = Band::new(
+                    1,
+                    super::HEADING,
+                    super::columns() - 2,
+                    super::ROWS - super::HEADING,
+                );
+                let listed = super::listing(chain, glass);
+                let (graph, _) = super::shape(chain, glass, listed.len());
+
+                for band in super::plates(chain, graph) {
+                    assert!(
+                        band.height >= super::LEGIBLE,
+                        "{} in mode {value} draws a box {} deep, and {} is the least that can be read",
+                        routing.label(),
+                        band.height,
+                        super::LEGIBLE
+                    );
+                }
+            }
+        }
     }
 
     #[test]

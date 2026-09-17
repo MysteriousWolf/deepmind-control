@@ -1444,12 +1444,28 @@ second row readable down against the first.
   **Nothing is drawn through a box.** Two of the ten take the block's output
   from an engine that has others after it, and a rule from that box to the rail
   ran through every box in between — in and out the other side, which is a wire
-  nobody can follow. It goes under them now, turning down in the first column of
-  its own gutter, which is a column no forward edge can turn in because those are
-  shared out inside the gap. The loops already went under for the same reason,
-  and they now keep a dot clear of the frames at both ends: a line that starts on
-  the bottom rule of a box has no visible beginning, and a head whose tip lands on
-  one is a thickening of the rule rather than an arrow.
+  nobody can follow. It goes under them now, and it leaves through the *bottom*
+  rather than the side: beside the box it ran the depth of the frame a dot away
+  from it, which is not a wire leaving a box, it is a box with one edge drawn
+  twice. Three quarters of the way across, which is the side it is headed for,
+  and not the middle, where a loop returning into that same box puts its own
+  head.
+
+  The loops already went under for the same reason, and they now keep a dot clear
+  of the frames at both ends: a line that starts on the bottom rule of a box has
+  no visible beginning, and a head whose tip lands on one is a thickening of the
+  rule rather than an arrow. Their lane is deeper than it was, too. It sat at
+  half the band, which left one dash between the head and the rule it runs along
+  — and a head sitting on a rule with one dot of daylight is not an arrow
+  arriving along a wire, it is a cross.
+
+  **The lane under the graph and the foot the analog path stands on are two
+  measurements**, and they were one constant. Every dot the loops were given was
+  therefore taken off the graph a second time at the bottom, and on the topology
+  that stacks four engines with the voices routed round the block that left each
+  box eight dots deep where nine is the least a box can be read at — which is
+  also the least `plate` will draw, so the picture came out empty. A test now
+  measures every box on every topology in every mode against that floor.
 
   The rule is a test rather than a promise. Every box's interior is compared,
   on all ten topologies, against the same box drawn on a screen of its own: what
