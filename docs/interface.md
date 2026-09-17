@@ -733,6 +733,29 @@ routing's row is a fixed height whatever is in it, and the glass is that height
 eight times over with the heading on top. A patch bay that stopped two rows
 short of the table it is a picture of would be a picture of something else.
 
+**It has a heading, and the heading is where the addresses went.** Every row
+printed the three offsets its parameters occupy — twenty-four numbers down the
+left-hand edge of a page, in a window where nobody edits a program by offset.
+The one thing worth saying about where these bytes are is where they start and
+where they stop, which is said once, on the glass, beside how many of the eight
+are wired: `4 OF 8` and `93-116`. Two facts that are true of the whole table and
+were a column of repetitions in it.
+
+**Which routing is which is a numeral, printed in dots.** The rows said `Mod 1`
+over `93–95`. `Mod` is what the heading over the table already says, and what is
+left is the one thing in a row that has to be read without reading — so it is
+the same numeral an effect engine's case carries, in the display's own cell, on
+the panel. The column went from fifty points to twenty-two.
+
+**Every cell says which routings use it.** A destination three of them are
+fighting over prints `1 4 7` against its far edge rather than making somebody
+trace three wires back, and the numbers are the ones the rows beside the glass
+are printing — which is what makes the table and the picture one page rather
+than two. Three is what a cell keeps room for: a destination four routings reach
+is a patch somebody built on purpose and will recognise from the three it does
+print, where a cell sized for all eight is a cell that is mostly empty on every
+patch anybody writes.
+
 **A source or a destination is a cell, and every cell is the same cell.** A thin
 frame, a seven-by-seven box for its picture, and its name — so that the two
 columns read as two columns of the same thing rather than as words at different
@@ -748,10 +771,11 @@ have started anywhere. A track each, because two wires down the same part of the
 glass have to be two wires and not one heavier one. The corners are taken off by
 three dots, which at this pitch is the most a dot matrix can say about a radius.
 
-The cells are spread down the glass as far as it allows, **up to a limit**, and
-the group is centred. Three sources spread over the whole of a glass that deep
-are three cells in the corners of an empty screen; capped, they are a column,
-and a column of three is not eight rows with five missing.
+The cells are spread down the glass as far as it allows, **up to a limit** of
+three times a cell's own depth, and the group is centred. Eight of them at that
+pitch fill a glass as deep as the eight rows beside it, which is the case the
+drawing is laid out for; three of them are a group in the middle of one rather
+than three cells in its corners.
 
 Only the routings the patch has actually wired are drawn. The instrument ships
 with all eight sitting on `Off`, and eight wires from `Off` to `Off` is a
@@ -1350,37 +1374,25 @@ meanwhile — because the firmware is never *not* an answer, it is either the
 instrument's or this window's, and which of those it is is the whole distinction
 this editor turns on.
 
-### The header is the case
+### The header is the name and the port
 
-`docs/logo.svg` and `docs/banner.svg` are the same drawing at two widths: a
-`DeepMind`'s front, which is a dark panel bolted between two wooden end cheeks,
-with three faders cut into it and the wordmark's own horizontal slices laid
-across their caps. The window's heading was the project's name set in the mark's
-face on the window's background — the one place somebody sees this project
-before they see the instrument, and it looked like a heading rather than like
-the mark on the file they downloaded.
+One line: the project's name, and what a port can be done with. The name is the
+only thing on it that is not a control.
 
-It is the case now. Wood at both ends, the panel between them lit at the top and
-edged in the seam the wood meets it along, and the mark itself standing on it at
-the height of the name and its line together — which is the arrangement the
-banner has, where the name is fitted to the box the faders leave. The port
-picker and the presses stand on the same panel, because they always did.
+It was the whole of `docs/banner.svg` reproduced — the mark, a subtitle, and a
+dark panel between two wooden end cheeks. But the banner is the picture that
+introduces this project to somebody who has never seen it, and that is not the
+job of the top of a window somebody has open all afternoon: it is a heading, and
+it was three ornaments deep. The mark is the application's icon, where an icon
+belongs. `editor and librarian` is what a banner says and what a window does not
+have to, because a window says it by being one.
 
-The mark is **drawn and not loaded**. An `SVG` would want a renderer feature, a
-file beside the binary or a blob inside it, and a second copy of the geometry
-either way; what it would buy is the one thing this window does not want, which
-is a mark that ignores the theme. Every surface here asks the theme what it is
-made of — that is what makes the displays turn over on one press — and the mark
-is now the only part that could not have. So `logo.rs` is the file's own numbers
-against a 128-unit box, in `materials()`, and the wood is two more materials
-beside the metal and the glass rather than two colours picked to look like it.
-
-**The slices are on the mark and on the name.** The banner cuts five of them
-through the word and eight through the mark's fader caps, and the lines *are*
-the mark: the name without them is a word in a bold sans. They are drawn over
-the word rather than through it — a slice is the panel showing between two
-pieces of metal, the word is standing on the panel, and drawing the panel over
-the word is the same picture by a shorter route than a mask would be.
+**What is left is sliced.** The banner cuts five horizontal lines through the
+name and the lines *are* the mark — the name without them is a word in a bold
+sans. They are drawn over the word rather than through it: a slice is the panel
+showing between two pieces of metal, the word is standing on the panel, and
+drawing the panel over the word is the same picture by a shorter route than a
+mask would be.
 
 They are placed in **ems of the face** rather than in points, off the file's own
 box: the banner's name has an ascender height of 56.65 units and its five cuts
@@ -1391,10 +1403,13 @@ mark's own proportions.
 
 At the twenty-two points the name used to be set at, every one of those five was
 under a point, and a line under a point across a word is a smudge rather than a
-slice. So the name is set at thirty-four, where they run from about six tenths
-of a point to a point and two thirds — the banner's own range. The mark is not
-improved by being approximated; it is improved by being given the room it
-needs.
+slice. It is set at thirty-four now, where they run from about six tenths of a
+point to a point and two thirds — the banner's own range. The mark is not
+improved by being approximated; it is improved by being given the room it needs.
+
+The press and the picker beside it sit on the name's **baseline** rather than in
+the middle of the line it stands in. A thirty-four point word beside a
+twenty-four point press, centred, is a press floating in the middle of a word.
 
 ## Movement
 

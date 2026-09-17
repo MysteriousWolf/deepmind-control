@@ -6,12 +6,16 @@
 //! the same case made wide, with the project's name beside the faders in the
 //! metal of one of those caps.
 //!
-//! The window had none of that. It had the name set in the mark's face and
-//! nothing else, so the one place somebody sees this project before they see
-//! the instrument looked like a heading rather than like the mark on the file
-//! they downloaded. This is that mark, at the size a window header has room
-//! for, drawn out of the same materials every other surface in this window is
-//! drawn out of.
+//! Two things live here, and they are the two halves of that drawing: the case
+//! with its faders, which is the mark, and the slices, which are what the name
+//! is cut with.
+//!
+//! **The mark is the application's icon**, and it is not in the window. It was,
+//! for a while, on a case with wooden end cheeks across the top — but a banner
+//! is the picture that introduces this project to somebody who has never seen
+//! it, and the top of a window somebody has open all afternoon is a heading. An
+//! icon belongs where an icon goes. It is drawn here rather than loaded so that
+//! whatever asks for it gets it in the theme it is being shown in.
 //!
 //! # Why it is drawn and not loaded
 //!
@@ -97,11 +101,11 @@ const SLICES: [(f32, f32); 8] = [
     (97.5, 3.6),
 ];
 
-/// How much of the case's own width the mark is drawn at.
+/// The mark, `side` points square.
 ///
-/// The one number here that is not the file's. A mark beside a word is set to
-/// the word's own height and the file's box is square, so a header asks for a
-/// height and this turns it into the box.
+/// The one number here that is not the file's, because the file's box is square
+/// and whatever is showing the mark is the only thing that knows how big it
+/// wants it.
 #[must_use]
 pub fn logo<'a, Renderer>(side: f32) -> crate::Element<'a, Renderer>
 where

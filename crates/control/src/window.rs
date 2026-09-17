@@ -393,11 +393,15 @@ fn editor(app: &App) -> Element<'_, Message> {
 /// The name of the thing, what is known about the instrument, the port picker,
 /// and what to do with a port.
 ///
-/// It stands on the case the project's own mark is drawn on, because it is the
-/// same case: `docs/logo.svg` and `docs/banner.svg` are both a `DeepMind`'s
-/// front — a dark panel between two wooden end cheeks — and a window whose
-/// heading was a word on the background was the one place this project did not
-/// look like the thing it is a picture of.
+/// One line, and the name is the only thing on it that is not a control. It
+/// carried the project's mark and a subtitle on a case with wooden end cheeks,
+/// which is `docs/banner.svg` reproduced — and the banner is the picture that
+/// introduces this project to somebody who has never seen it, which is not the
+/// job of the top of a window somebody has open all afternoon. The mark is the
+/// application's icon, where an icon belongs.
+///
+/// What is left is the wordmark, sliced the way the banner slices it, standing
+/// on the panel with the port beside it.
 fn header(app: &App) -> Element<'_, Message> {
     let ports = app.ports().to_vec();
     let connection = if app.is_connected() {
@@ -405,35 +409,28 @@ fn header(app: &App) -> Element<'_, Message> {
     } else {
         chrome("Open").on_press_maybe(app.chosen().map(|_| Message::Connect))
     };
-    container(
-        container(
-            row![
-                Element::from(control_ui::logo(MARK)).map(Message::Ui),
-                wordmark(),
-                space().width(Fill),
-                // Beside the picker, because everything it says is about
-                // whatever that picker has open.
-                about(app),
-                pick_list(ports, app.chosen().cloned(), Message::Choose)
-                    .placeholder("MIDI port")
-                    .font(control_ui::printed())
-                    .text_size(13)
-                    .padding([5, 10])
-                    .style(control_ui::selector)
-                    .menu_style(control_ui::shortlist)
-                    .width(Length::Fixed(220.0)),
-                chrome("Rescan").on_press(Message::Rescan),
-                connection,
-            ]
-            .spacing(10)
-            .align_y(Center),
-        )
-        .width(Fill)
-        .padding([CASE, INSIDE])
-        .style(face),
-    )
-    .padding([0.0, CHEEK])
-    .style(cheeks)
+    row![
+        wordmark(),
+        space().width(Fill),
+        // Beside the picker, because everything it says is about whatever that
+        // picker has open.
+        about(app),
+        pick_list(ports, app.chosen().cloned(), Message::Choose)
+            .placeholder("MIDI port")
+            .font(control_ui::printed())
+            .text_size(13)
+            .padding([5, 10])
+            .style(control_ui::selector)
+            .menu_style(control_ui::shortlist)
+            .width(Length::Fixed(220.0)),
+        chrome("Rescan").on_press(Message::Rescan),
+        connection,
+    ]
+    .spacing(10)
+    // Against the baseline the name sits on rather than against the middle of
+    // the line it stands in: a thirty-four point word beside a twenty-four
+    // point press, centred, is a press floating in the middle of a word.
+    .align_y(iced::alignment::Vertical::Bottom)
     .into()
 }
 
@@ -501,62 +498,6 @@ fn about(app: &App) -> Element<'_, Message> {
     .into()
 }
 
-/// How tall the mark is drawn in the header.
-const MARK: f32 = 46.0;
-
-/// How much case there is above and below what stands on it.
-const CASE: f32 = 8.0;
-
-/// How much panel there is at each end of it, inside the wood.
-const INSIDE: f32 = 12.0;
-
-/// How much cheek there is at each end of the case.
-///
-/// Wider than the panel's own ground, because a cheek is a piece of wood the
-/// panel is bolted between and not a margin: `docs/logo.svg` gives it a tenth
-/// of the case, and this is that tenth of the height a header runs to.
-const CHEEK: f32 = 10.0;
-
-/// The wood the case is bolted between.
-///
-/// Two cheeks and a rounded corner is one rectangle with the panel laid over
-/// it, not two rectangles that have to meet in the middle — which is how the
-/// mark beside it is drawn and how `docs/logo.svg` draws it.
-fn cheeks(theme: &Theme) -> container::Style {
-    let material = control_ui::materials(theme);
-    container::Style {
-        background: Some(Background::Gradient(iced::Gradient::Linear(
-            iced::gradient::Linear::new(iced::Radians(std::f32::consts::FRAC_PI_2))
-                .add_stop(0.0, material.wood)
-                .add_stop(1.0, material.wood_low),
-        ))),
-        border: border::rounded(6),
-        ..container::Style::default()
-    }
-}
-
-/// The panel bolted between them.
-///
-/// Lit at the top where the light is, and edged in the seam the wood meets it
-/// along — which is the same pair of edges every plate in this window presents
-/// and the same pair `docs/logo.svg` draws either side of its own panel.
-fn face(theme: &Theme) -> container::Style {
-    let material = control_ui::materials(theme);
-    container::Style {
-        background: Some(Background::Gradient(iced::Gradient::Linear(
-            iced::gradient::Linear::new(iced::Radians(std::f32::consts::PI))
-                .add_stop(0.0, material.recess_edge)
-                .add_stop(1.0, material.panel),
-        ))),
-        border: iced::Border {
-            color: material.recess,
-            width: 1.0,
-            radius: 2.into(),
-        },
-        ..container::Style::default()
-    }
-}
-
 /// The project's own name, set the way the mark sets it.
 ///
 /// `docs/banner.svg` puts it across the panel in the metal of a fader cap, in
@@ -569,24 +510,19 @@ fn face(theme: &Theme) -> container::Style {
 /// route than a mask would be. They are placed in ems of the face rather than
 /// in points — see [`control_ui::sliced`] — so the name is the banner's
 /// proportions at whatever size a header has room for.
+///
+/// `editor and librarian` stood under it, which is what a banner says and what
+/// a window does not have to: a window says it by being one.
 fn wordmark() -> Element<'static, Message> {
-    column![
-        stack![
-            text("deepmind control")
-                .font(control_ui::wordmark())
-                .size(NAME)
-                .style(|theme: &Theme| text::Style {
-                    color: Some(control_ui::materials(theme).metal),
-                }),
-        ]
-        .push(Element::from(control_ui::sliced(NAME)).map(Message::Ui)),
-        text("editor and librarian")
-            .size(11)
+    stack![
+        text("deepmind control")
+            .font(control_ui::wordmark())
+            .size(NAME)
             .style(|theme: &Theme| text::Style {
-                color: Some(control_ui::materials(theme).metal_low),
+                color: Some(control_ui::materials(theme).metal),
             }),
     ]
-    .spacing(1)
+    .push(Element::from(control_ui::sliced(NAME)).map(Message::Ui))
     .into()
 }
 
