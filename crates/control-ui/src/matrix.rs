@@ -66,27 +66,33 @@
 
 use deepmind_midi::param::{Group, Kind, ParamId};
 use deepmind_midi::sysex::inquiry::Version;
-use iced_core::alignment::Vertical;
+use iced_core::alignment::{Horizontal, Vertical};
 use iced_core::{Background, Font, Length, Theme, border, text::Renderer as TextRenderer};
 use iced_widget::{Space, button, column, combo_box, container, row, text};
 
 use crate::glyphs;
 use crate::lcd::{self, Band, Ink, Screen, Size};
 use crate::mapping::{Mapper, Mapping, Reach, Sent};
-use crate::panel::{Choice, Message, Room, choices, control, readout};
+use crate::panel::{Choice, Message, Room, choices, control, dot, readout};
 use crate::style::{self, chrome, field, materials, shortlist};
 use crate::{Confidence, Element, Patch, tint};
 
-/// How much room the two presses that move a routing are given.
+/// How far the numeral beside a row is carried from the plate towards the metal.
 ///
-/// This was the routing's own number, and before that its number over the three
-/// addresses it occupies. Neither needed to be there: the footer already names
-/// whatever is under the pointer, which for any control in this table is
-/// `Mod 4 Depth`, and a number printed eight times down the edge of a page is a
-/// number somebody reads once.
+/// Most of the way. It is a mark on a panel rather than a reading — the row
+/// says what the routing does and this says which of the eight is saying it —
+/// but it is also what the two presses either side of it move, and a label on a
+/// control has to be as legible as the control.
+const NUMERAL: f32 = 0.78;
+
+/// How much room the routing's number and the two presses that move it take.
 ///
-/// What the room is spent on instead is the one thing a matrix of eight
-/// identical slots gives nobody a way to do.
+/// It was that number over the three addresses the routing occupies, which is
+/// fifty points of every row spent on a prefix the heading already says and
+/// three offsets nobody edits a program by. The number stays — it is what the
+/// glass beside the rows prints against every source and destination it
+/// touches — and the addresses are in that glass's heading, once, which is how
+/// many times a run of twenty-four needs saying.
 const LABEL: f32 = 20.0;
 
 /// How much room a source is chosen in.
@@ -859,15 +865,33 @@ where
                     }),
             )
     };
-    column![
-        press("\u{25b2}", index.checked_sub(1)),
-        press(
+    // The number between them, because it is the thing that moves: sending a
+    // routing up the table is `3` becoming `2`, and the press above the numeral
+    // is the one that does it.
+    //
+    // Printed in the display's own dots, which is the numeral an effect
+    // engine's case already carries — and the numeral the glass beside these
+    // rows prints against every source and destination the routing touches, so
+    // the table and the picture are saying the same thing in the same hand.
+    column![press("\u{25b2}", index.checked_sub(1))]
+        .push(
+            container(lcd::stencil(
+                Screen::of(routing.map_or("", Routing::number), Size::Small),
+                |theme: &Theme| {
+                    let material = materials(theme);
+                    style::mix(material.plate, material.metal, NUMERAL)
+                },
+            ))
+            .width(Length::Fixed(LABEL))
+            .align_x(Horizontal::Center),
+        )
+        .push(press(
             "\u{25bc}",
-            Some(index + 1).filter(|at| *at < routings.len())
-        ),
-    ]
-    .spacing(2)
-    .into()
+            Some(index + 1).filter(|at| *at < routings.len()),
+        ))
+        .spacing(3)
+        .align_x(Horizontal::Center)
+        .into()
 }
 
 /// How tall one of those presses stands.
@@ -953,18 +977,16 @@ where
             sent,
         ),
     };
-    column![
-        row![chosen, press].spacing(6).align_y(Vertical::Center),
-        readout(
+    column![row![chosen, press].spacing(6).align_y(Vertical::Center)]
+        .push(backing(
             destination,
             patch.value(destination),
             patch.claim(destination),
-            firmware
-        ),
-    ]
-    .spacing(3)
-    .width(Length::Fixed(DESTINATION + POINT + 6.0))
-    .into()
+            firmware,
+        ))
+        .spacing(3)
+        .width(Length::Fixed(DESTINATION + POINT + 6.0))
+        .into()
 }
 
 /// Says what mapping a routing at the window means while one is mapped.
@@ -1036,13 +1058,37 @@ where
 {
     let claim = patch.claim(parameter);
     let value = patch.value(parameter);
-    column![
-        control(parameter, value, claim, firmware, room, sent),
-        readout(parameter, value, claim, firmware),
-    ]
-    .spacing(3)
-    .width(Length::Fixed(room.width()))
-    .into()
+    column![control(parameter, value, claim, firmware, room, sent)]
+        .push(backing(parameter, value, claim, firmware))
+        .spacing(3)
+        .width(Length::Fixed(room.width()))
+        .into()
+}
+
+/// Draws what backs a cell's value, in as many words as it needs.
+///
+/// A fader gets the reading every control in this window gets: the number, in
+/// the colour of the claim behind it.
+///
+/// A **list does not**. `Pitch Bend` with `1` under it is the name of a value
+/// and the byte that name stands for, printed one above the other — the one
+/// reading in this window that says nothing the control above it does not, and
+/// eight rows of them is sixteen numbers nobody reads. What is left of it is
+/// the part that was never redundant: a dot for what backs the value, which is
+/// the same mark the section bar prints for the same reason.
+fn backing<'a, Renderer>(
+    parameter: ParamId,
+    value: Option<u8>,
+    claim: Confidence,
+    firmware: Version,
+) -> Element<'a, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    if choices(parameter, firmware, value).is_some() {
+        return container(dot(claim)).padding([3, 0]).into();
+    }
+    readout(parameter, value, claim, firmware)
 }
 
 /// The arrow that makes a row a sentence.

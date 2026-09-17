@@ -741,19 +741,23 @@ where they stop, which is said once, on the glass, beside how many of the eight
 are wired: `4 OF 8` and `93-116`. Two facts that are true of the whole table and
 were a column of repetitions in it.
 
-**Which routing is which is nobody's business until somebody asks.** The rows
-said `Mod 1` over `93–95`, then just the numeral, and neither needed to be
-there: the footer already names whatever is under the pointer, which for any
-control in this table is `Mod 4 Depth`, and a number printed eight times down
-the edge of a page is a number somebody reads once. Fifty points of every row
-were being spent on it.
+**Which routing is which is a numeral, and the presses that move it are either
+side of it.** The row said `Mod 1` over `93–95`: `Mod` is what the heading over
+the table already says, and three offsets is where bytes live in a program
+nobody edits by offset. What is left is the number, printed in the display's own
+dots — the numeral an effect engine's case already carries, and the numeral the
+glass beside these rows prints against every source and destination the routing
+touches, so the table and the picture say the same thing in the same hand.
 
-**What the room is spent on instead** is what a matrix of eight identical slots
-gives nobody a way to do: two presses that move a routing up or down the table.
+Above and below it are the two presses that **move a routing up or down the
+table**, which is the one thing a matrix of eight identical slots gives nobody a
+way to do. The number is between them because the number is what moves: sending
+a routing up is `3` becoming `2`.
+
 The eight are read as a set and the instrument does not care which of them says
 what, so where a routing sits is entirely for whoever has to read the table
-next — a matrix filled in over a week is eight rows in the order they were
-thought of, and the same eight grouped by what they move is the same sound and a
+next. A matrix filled in over a week is eight rows in the order they were
+thought of; the same eight grouped by what they move is the same sound and a
 page somebody can read.
 
 Nothing about the sound changes. What moves is six bytes trading places, three
@@ -763,7 +767,16 @@ trade — the top row cannot go up, the bottom cannot go down, and a routing who
 bytes nobody has read cannot be moved anywhere, because writing a value this
 window has not seen into a slot is the one thing it does not do.
 
-The rest of what that column was is in the two lists, which are wider now.
+**A list gets a dot rather than a reading.** Every control in this window prints
+its value underneath in the colour of the claim behind it, and for a fader that
+is the only place the number appears. For a list it is the name of a value and
+the byte that name stands for, one above the other: `Pitch Bend` over `1`. That
+is the one reading here that says nothing the control above it does not, and
+eight rows of them is sixteen numbers nobody reads. What is left is the part
+that was never redundant — a dot for what backs the value, which is the same
+mark the section bar prints for the same reason.
+
+The room that came out of all of this went into the two lists, which are wider.
 
 **Every cell says which routings use it.** A destination three of them are
 fighting over prints `1 4 7` against its far edge rather than making somebody
@@ -1376,6 +1389,15 @@ showing itself the way it is about to be says the same thing without being read,
 and says it in the one material the press is about. It is the only display in
 the window that does not take its glass from the theme, because the whole point
 of it is that it is the other way round.
+
+**Every press in the chrome is one press.** The same height, the same padding
+either side of whatever is in it, and the same metal rim — in the header and
+along the foot alike. What varies is what is inside: a word, a letter, or a
+display the size of a character. The height is the *display's* and not the
+type's, because a row where one press is a screen's height and the rest are a
+word's height is a row of presses that do not line up; a press with a screen in
+it gets less panel either side, because a display is already set into a moulding
+with its own dead border.
 
 ### What is known about the instrument is behind one press
 

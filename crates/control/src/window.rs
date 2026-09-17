@@ -243,11 +243,13 @@ fn status(app: &App) -> Element<'_, Message> {
 /// character showing itself the way it is about to be says the same thing
 /// without being read, and says it in the one material this press is about.
 fn livery(app: &App) -> Element<'_, Message> {
-    button(Element::from(control_ui::swatch(!app.is_negative())).map(Message::Ui))
-        .padding([3, 5])
-        .style(control_ui::chrome)
-        .on_press(Message::Invert)
-        .into()
+    pressed(
+        container(Element::from(control_ui::swatch(!app.is_negative())).map(Message::Ui))
+            .center_y(Length::Fill),
+    )
+    .padding([0.0, BESIDE_SCREEN])
+    .on_press(Message::Invert)
+    .into()
 }
 
 /// What the instrument's own display would be showing./// What the instrument's own display would be showing.
@@ -490,7 +492,7 @@ fn about(app: &App) -> Element<'_, Message> {
         }))
         .spacing(4);
     tooltip(
-        chrome("i").padding([5, 11]),
+        chrome("i"),
         container(said).padding(10).style(control_ui::bay),
         tooltip::Position::Bottom,
     )
@@ -537,10 +539,45 @@ const NAME: f32 = 34.0;
 
 /// A button that is not a parameter, in the instrument's own materials./// A button that is not a parameter, in the instrument's own materials.
 fn chrome(label: &str) -> button::Button<'_, Message, Theme, iced::Renderer> {
-    button(text(label).size(13))
-        .padding([5, 12])
+    pressed(text(label).size(13).center())
+}
+
+/// A press with something else inside it, at the same size as all the others.
+///
+/// Every press in this window's chrome is one press: the same height, the same
+/// padding either side of whatever is in it, and the same metal rim. What is
+/// inside varies — a word, a letter, a display the size of a character — and
+/// that is the only thing that should.
+///
+/// The height is [`PRESS`] and it is the display's, not the type's: the press
+/// that turns the glass over has a seven-by-seven screen in it, and a row where
+/// one press is a screen's height and the rest are a word's height is a row of
+/// presses that do not line up.
+fn pressed<'a>(
+    inside: impl Into<Element<'a, Message>>,
+) -> button::Button<'a, Message, Theme, iced::Renderer> {
+    button(inside)
+        .height(Length::Fixed(PRESS))
+        .padding([0.0, BESIDE_WORD])
         .style(control_ui::chrome)
 }
+
+/// How tall every press in this window's chrome stands.
+///
+/// What the display in the one that turns the glass over needs: seven dots at
+/// the pitch every display here shares, the moulding it is set into, and a
+/// point of panel either side of that.
+const PRESS: f32 = 29.0;
+
+/// How much press there is either side of what is in it.
+const BESIDE_WORD: f32 = 10.0;
+
+/// The same, where what is in it is a display rather than a word.
+///
+/// Tighter, because a display is already set into a moulding with its own dead
+/// border: the glass and the panel it stands on need less between them than two
+/// words on the same panel do.
+const BESIDE_SCREEN: f32 = 4.0;
 
 /// What a panel admits about itself, and where it says it.
 ///
