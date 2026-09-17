@@ -118,6 +118,31 @@ The rest of the panel's rules:
 - **Every plate carries the press the hardware calls `EDIT`**, and the
   envelopes' `VCA`, `VCF` and `MOD` are the three ways into the three envelope
   panels, which is what the hardware uses them for.
+- **And the panel opens with a band of caps for the sections no plate carries.**
+  The plates are the library's table of what the instrument puts a *fader*
+  under, so four sections have no plate and had no way in at all: the modulation
+  matrix, the effects, the control sequencer and the program's own settings. A
+  `DeepMind` reaches all four from buttons rather than from faders, so the band
+  is that arrangement continued rather than an invention.
+
+  The list is *subtracted* rather than written down. `control_ui::unplated` is
+  every section the library has, less every section a plate opens, so a fifteenth
+  arriving in a later firmware gets a cap without anybody noticing it had to, and
+  the band is empty on the day every section has a plate.
+
+  Each cap carries the section's mark and its name, both in the display's own
+  dots, stencilled on the cap the way a legend is stencilled on the panel. The
+  name is on the cap rather than in the footer because a cap here is a quarter of
+  the panel wide: a mark alone in that much brass is a mark somebody has to hover
+  to read. The ink is dark, which is the one place in this window something is
+  printed on a surface brighter than itself, and the caps are as wide as their
+  own printing needs with the slack shared out evenly, because four equal
+  quarters cut `CONTROL SEQUENCER` down to `CONTROL SEQUENCE`.
+
+  **It stands over the rack and not under it.** The panel is three racks deep and
+  a window opens on about one of them, so a band at the foot is a band below the
+  fold, and a press that has to be scrolled to is the thing the band was added to
+  fix.
 - **A way in is a legend and a lamp, not a word in a box.** `EDIT` is not
   written on the button on the instrument: it is silkscreened on the panel under
   a blank rubber cap lit amber the whole time the synthesizer is powered, and a

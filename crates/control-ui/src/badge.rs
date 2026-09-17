@@ -311,6 +311,90 @@ pub const UP: Badge = Badge::new(&[0b000_1000, 0b001_1100, 0b011_1110, 0b111_111
 /// that differs by a row is a mistake nobody can see and everybody can feel.
 pub const DOWN: Badge = Badge::new(&[0b111_1111, 0b011_1110, 0b001_1100, 0b000_1000], ARROW);
 
+/// The modulation matrix: a grid of cells.
+///
+/// What the surface behind this press *is*: eight routings, each with a source,
+/// a destination and a depth, which is a table. A fan of one source into three
+/// destinations says what the matrix is for and, at nine dots, says it as a
+/// trunk with a crossbar: the branches and the wire that feeds them land on the
+/// same rows and what is left is a plus sign.
+pub const MATRIX: Badge = Badge::new(
+    &[
+        0b0_0000_0000,
+        0b0_1101_1011,
+        0b0_1101_1011,
+        0b0_0000_0000,
+        0b0_1101_1011,
+        0b0_1101_1011,
+        0b0_0000_0000,
+        0b0_1101_1011,
+        0b0_1101_1011,
+    ],
+    SIDE,
+);
+
+/// The effects: a unit with the signal running through it.
+///
+/// One box and not the four the block holds. At nine dots a box is three across
+/// and its inside is a single dot, so four of them are four blobs in a line and
+/// two are two; one box with room inside it is a *unit*, and the wire going in
+/// one side and out the other is what says the signal passes through it.
+pub const CHAIN: Badge = Badge::new(
+    &[
+        0b0_0000_0000,
+        0b0_0111_1100,
+        0b0_0100_0100,
+        0b0_0100_0100,
+        0b1_1100_0111,
+        0b0_0100_0100,
+        0b0_0100_0100,
+        0b0_0111_1100,
+        0b0_0000_0000,
+    ],
+    SIDE,
+);
+
+/// The control sequencer: three steps, each one taller than the last.
+///
+/// A step sequencer's own picture. Bars of a height are a level meter and bars
+/// that climb are a sequence, so the climb is the whole of the drawing; three
+/// of them, because two is a comparison and four at this width is a comb.
+pub const STEPS: Badge = Badge::new(
+    &[
+        0b0_0000_0000,
+        0b0_0000_0011,
+        0b0_0000_0011,
+        0b0_0001_1011,
+        0b0_0001_1011,
+        0b0_1101_1011,
+        0b0_1101_1011,
+        0b0_1101_1011,
+        0b0_0000_0000,
+    ],
+    SIDE,
+);
+
+/// The program: a card with writing on it.
+///
+/// What is behind this press is the sound's name, its category and the settings
+/// that are about the program rather than about the sound, which is a label on
+/// a thing rather than a part of it. Two lines inside a border, because one
+/// line is a box with a bar in it.
+pub const PROGRAM: Badge = Badge::new(
+    &[
+        0b0_0000_0000,
+        0b0_1111_1110,
+        0b0_1000_0010,
+        0b0_1011_1010,
+        0b0_1000_0010,
+        0b0_1011_1010,
+        0b0_1000_0010,
+        0b0_1111_1110,
+        0b0_0000_0000,
+    ],
+    SIDE,
+);
+
 #[cfg(test)]
 mod tests {
     use super::{ABOUT, ARROW, Badge, DOWN, MAP, PLUGGED, PORT, READ, RESCAN, SHUT, SIDE, UP, WHO};

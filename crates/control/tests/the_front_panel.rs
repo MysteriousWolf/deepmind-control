@@ -22,7 +22,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use control::{App, Message, View};
-use control_ui::{Confidence, panelled, sections, ways_in};
+use control_ui::{Confidence, panelled, sections, unplated, ways_in};
 use deepmind_host::PortRef;
 use deepmind_midi::param::{Group, ParamId};
 
@@ -181,27 +181,52 @@ fn closing_nothing_is_nothing() {
 }
 
 #[test]
-fn the_sections_with_no_way_in_are_the_four_that_are_written_down() {
+fn every_section_the_instrument_has_has_a_way_in() {
     let unreachable: Vec<&'static str> = sections()
         .iter()
         .filter(|section| !ways_in().contains(section))
         .map(|section| section.name())
         .collect();
 
-    // The panel is the library's table of what the instrument puts a fader
-    // under, so a section with no fader anywhere has no plate and no `EDIT`.
-    // Four of the fourteen are in that position, and since the section bar was
-    // taken away there is nothing else that reaches them.
-    //
-    // This is not an assertion that the state of affairs is right. It is an
-    // assertion that it has not moved: `docs/todo.md` is where the four are
-    // listed and where what to do about them is still open, and a fifth
-    // arriving, or one of these quietly gaining a way in, has to break
-    // something rather than be noticed a release later.
+    // What `docs/todo.md` carried as its one open hole until the panel grew a
+    // last band for it. Ten sections are opened by the `EDIT` on a plate, which
+    // is the library's table of what the instrument puts a fader under; the
+    // other four have no fader anywhere and are opened by the row of caps under
+    // the rack. Between them that is all fourteen, and a fifteenth arriving in
+    // a later firmware lands in the row by subtraction rather than by anybody
+    // writing it down.
     assert_eq!(
         unreachable,
+        Vec::<&'static str>::new(),
+        "a section has no way in; the panel's last band is supposed to be the one that catches them"
+    );
+}
+
+#[test]
+fn the_last_band_carries_exactly_what_no_plate_does() {
+    let plated: Vec<Group> = ways_in()
+        .into_iter()
+        .filter(|section| !unplated().contains(section))
+        .collect();
+
+    for section in unplated() {
+        assert!(
+            !plated.contains(&section),
+            "{section} is opened twice: by a plate and by the row under the rack"
+        );
+    }
+    assert_eq!(
+        plated.len() + unplated().len(),
+        ways_in().len(),
+        "a way in is neither a plate's nor the row's"
+    );
+    // And the row is the four the instrument has no fader for, which is the
+    // list `docs/todo.md` used to say had no way in at all.
+    let named: Vec<&'static str> = unplated().iter().map(|section| section.name()).collect();
+    assert_eq!(
+        named,
         ["Mod Matrix", "Control Sequencer", "Effects", "Program"],
-        "the sections with no way in have changed; docs/todo.md says which four they were"
+        "the sections with no plate have changed"
     );
 }
 

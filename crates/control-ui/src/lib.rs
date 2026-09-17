@@ -187,7 +187,7 @@ pub use confidence::Confidence;
 pub use effect::width as effects_width;
 pub use fader::{Axis, Fader, fader};
 pub use footer::footer;
-pub use home::{panel, panel_width, panelled, screen, ways_in};
+pub use home::{panel, panel_width, panelled, screen, unplated, ways_in};
 pub use knob::{Knob, knob};
 pub use lcd::{Band, Ink, PITCH, Screen, Size, lcd, stencil, swatch};
 pub use logo::logo;

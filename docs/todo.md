@@ -11,54 +11,6 @@ fall into today.
 
 ## Open
 
-### Four sections have no way in
-
-**The front panel's `EDIT` presses reach ten of the fourteen sections. These
-four are not among them:**
-
-| | What is behind it |
-| --- | --- |
-| **Mod Matrix** | The eight routings, their sources, destinations and depths, and the patch bay drawn from them. The one surface this editor has that the instrument's own display cannot show at all |
-| **Effects** | All four engines, the algorithm each is running, its twelve parameters, and the chain they are wired into |
-| **Control Sequencer** | The 32 steps. The panel's `ARP/SEQ` plate carries the arpeggiator's own `EDIT` and nothing opens the sequencer beside it |
-| **Program** | The name, the category, and the settings that are about the program rather than the sound |
-
-**Why.** A section opens as a modal now, and the press that opens it is the
-`EDIT` on a plate of the front panel. The panel is drawn from `front::sections`,
-which is the library's table of what the instrument puts a *fader* under, so a
-section with no physical control has no plate to carry an `EDIT`. It did not
-matter while there was also a bar of fourteen tabs above the rack; the bar is
-gone with the surface it sat on, and these four went with it.
-
-Nothing is lost from the *sound*: every one of those parameters is still in the
-patch, still sent, still read back, and still drawn the moment its section is
-opened. What is missing is the opening. `control_ui::ways_in` is the list the
-panel can reach and
-`the_front_panel::the_sections_with_no_way_in_are_the_four_that_are_written_down`
-is where these four are pinned, so the gap cannot widen or quietly close without
-a test saying so.
-
-**What to decide.** Some ways this could go, none of them chosen:
-
-- **A row of plates for the sections the hardware has no fader for.** The panel
-  already draws plates the instrument does not — three envelopes where it has
-  one set of faders, two oscillators where it prints one — so a plate with a
-  display, no faders and an `EDIT` is the same hand layout again. It is the only
-  option that keeps the front panel as the one way in.
-- **Put them on the instrument's own presses.** A `DeepMind` reaches its
-  effects, its matrix and its sequencer from buttons on the panel, not from
-  faders. Which buttons, and whether the library publishes them, is the
-  question; `front::Section` currently carries controls and not presses, so this
-  may be an ask of `deepmind-midi` rather than a layout here.
-- **A way in that is not a plate.** The window's own chrome, along the header or
-  the foot, the way the port and the inquiry are reached.
-- **Leave three of them and fix one.** The matrix and the effects are what this
-  editor is *for*; the program's own settings and the sequencer are less often
-  reached for.
-
-Until one of those is decided, the four are reachable only by the code that asks
-for them directly, which is `docs/previews/` and the tests.
-
 ### The bar said something no one sheet can
 
 Each of the fourteen tabs carried its own section's claim dot, so a bar of green
@@ -73,4 +25,31 @@ own display, the footer — is open.
 
 ## Answered
 
-Nothing yet.
+### Four sections have no way in
+
+**Answered by a band of ways in over the rack.** The panel is drawn from the
+library's table of what the instrument puts a *fader* under, so the four
+sections with no fader anywhere had no plate to carry an `EDIT`: the modulation
+matrix, the effects, the control sequencer and the program's own settings. They
+were reachable only by the code that asked for them directly.
+
+The panel now opens with a band of four caps, one per section, each carrying the
+section's mark and its name in the display's own dots. `control_ui::unplated` is
+that list and it is *subtracted* rather than written down: it is every section
+the library has, less every section a plate opens, so a fifteenth arriving in a
+later firmware gets a way in without anybody noticing it had to. Which is also
+what `the_last_band_carries_exactly_what_no_plate_does` holds, beside
+`every_section_the_instrument_has_has_a_way_in`.
+
+**Over the rack and not under it**, which is the one thing about the layout that
+was not a free choice. The panel is three racks deep and a window opens on
+roughly one of them, so a band under the panel is a band below the fold — and a
+press that has to be scrolled to is the problem the band was added to solve.
+
+The other options in this row's first draft, kept because they are what somebody
+would reach for next if this one ever stops working: putting them on the
+instrument's own buttons, which would be an ask of `deepmind-midi` because
+`front::Section` carries controls and not presses; putting them in the window's
+chrome beside the port; and fixing only the matrix and the effects, which are
+what this editor is for, and leaving the other two.
+
