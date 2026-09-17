@@ -3,10 +3,11 @@
   <!--
     The project's name, exactly as `banner.svg` sets it: outlined from Liberation
     Sans Bold so that it renders the same everywhere, tracked -20 units of the
-    2048 em, fitted to the box the library's name occupies — ink from x 244.5 to
-    x 884.5 on a baseline of 130 — and cut by the five slices that *are* the
-    mark. The coordinates are the banner's own, so the two cannot drift apart:
-    the viewBox is the ink's measured bounds and nothing has been moved.
+    2048 em, fitted to the box the library's name occupies, with the ink running
+    from x 244.5 to x 884.5 on a baseline of 130, and cut by the five slices
+    that *are* the mark. The coordinates are the banner's own, so the two cannot
+    drift apart: the viewBox is the ink's measured bounds and nothing has been
+    moved.
 
     It is a file rather than a drawing in the application because the slices are
     the thing that has to be right. Five lines from a sixtieth of an em to a
