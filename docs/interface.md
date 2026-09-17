@@ -1417,6 +1417,43 @@ second row readable down against the first.
   The graph is centred in what is left: the glass is cut for the deepest of the
   ten topologies and four in a line is the shallowest, so the difference used to
   be a third of the screen blank under a row of boxes.
+
+  **Every box carries the mark of what is in it, and the ones that stack carry
+  it beside the name.** The mark goes over the name where there is a line to
+  spare over it, which is what four engines in a line have. The topologies that
+  stack three engines in a column have the opposite shape — each box is as wide
+  as the graph and a third of it deep — so those boxes showed no mark at all,
+  with half the glass standing empty beside the one line they were carrying. The
+  mark and the name are centred together there, as one thing.
+
+  **A merge is one junction and not one wire per engine.** Three engines feeding
+  a fourth drew three lanes two dots apart across the gutter, each ending in its
+  own arrowhead on the same dot of the same frame — three heads over each other,
+  which on a dot matrix is a blot. The gutter is shared out by where the wires
+  *arrive* rather than by how many there are: wires into different boxes never
+  share a lane, because that is what tells two paths apart, and wires into one
+  box always do, because they are one junction.
+
+  **An arrowhead is a solid triangle.** It was an open chevron, and the matrix's
+  two presses had already found out what that is worth at this pitch: an outline
+  is not a shape, it is a handful of specks arranged near one. In a nine-dot
+  gutter between two frames that a bypassed chain draws dotted, it read as an
+  asterisk. The run stops where the head starts, so the line is not drawn
+  underneath it.
+
+  **Nothing is drawn through a box.** Two of the ten take the block's output
+  from an engine that has others after it, and a rule from that box to the rail
+  ran through every box in between — in and out the other side, which is a wire
+  nobody can follow. It goes under them now, turning down in the first column of
+  its own gutter, which is a column no forward edge can turn in because those are
+  shared out inside the gap. The loops already went under for the same reason,
+  and they now keep a dot clear of the frames at both ends: a line that starts on
+  the bottom rule of a box has no visible beginning, and a head whose tip lands on
+  one is a thickening of the rule rather than an arrow.
+
+  The rule is a test rather than a promise. Every box's interior is compared,
+  on all ten topologies, against the same box drawn on a screen of its own: what
+  is inside a frame has to be something the box itself put there.
 - **The settings are under the display, not beside it.** That is what the wider
   glass cost, and it bought the better half of the trade: the ten topologies are
   laid out as three columns of lit legends rather than hidden in a drop-down. A
