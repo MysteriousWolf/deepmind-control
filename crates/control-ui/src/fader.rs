@@ -22,8 +22,8 @@
 //! pairs, the same metal cap, the same relative grab, and the drag follows the
 //! axis the cap does.
 //!
-//! That exists for one reason. A panel laid out by hand as rows — eight
-//! modulation routings read across, source to destination to depth — cannot
+//! That exists for one reason. A panel laid out by hand as rows, such as eight
+//! modulation routings read across from source to destination to depth, cannot
 //! give each row a column 128 points tall, and a value drawn as a number
 //! because it would not fit is a value nobody can compare with the seven
 //! above it. Turning the fader is the arrangement changing. What the control is
@@ -177,8 +177,8 @@ impl<Message> Fader<'_, Message> {
     /// The claim already answers that for a value nobody has read, and this is
     /// the other reason: the modulation matrix mapped onto the window makes a
     /// control the matrix cannot reach something to look past rather than
-    /// something to move. The drawing is untouched — the cap is where the value
-    /// is, in the colour the claim is worth — and what goes is the grab.
+    /// something to move. The drawing is untouched, with the cap where the value
+    /// is and in the colour the claim is worth, and what goes is the grab.
     #[must_use]
     pub fn live(mut self, live: bool) -> Self {
         self.live = live;

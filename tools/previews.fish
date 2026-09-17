@@ -14,7 +14,7 @@
 # It watches the code rather than the whole tree, and for the reason the obvious
 # version does not work: the pictures are committed, so a stamp naming HEAD is
 # stale the moment they are. What the stamp names is the last commit that touched
-# crates/ — which is what a picture can be out of date *with* — so committing the
+# crates/, which is what a picture can be out of date *with*, so committing the
 # pictures, or editing this file, or writing a paragraph of documentation, leaves
 # a current set current.
 #
@@ -96,8 +96,8 @@ if test $checking -eq 1
 end
 
 # A display, because the window is drawn by a graphics backend and a backend
-# needs a surface to draw on. Whatever is already there is used — a desktop, or
-# somebody's own Xvfb — and one is started only when there is none, which is
+# needs a surface to draw on. Whatever is already there is used, a desktop or
+# somebody's own Xvfb, and one is started only when there is none, which is
 # what makes this runnable on a machine with no screen.
 set --local started ''
 if not set --query DISPLAY

@@ -38,8 +38,9 @@ rfd = { version = "0.17", default-features = false, features = [
     "xdg-portal",
     "wayland",
 ] }
-# What a preview is written out as. Already in the tree — `iced`'s `svg` feature
-# brings it in to draw the wordmark — so the release tool costs no new crate.
+# What a preview is written out as. Already in the tree, because `iced`'s `svg`
+# feature brings it in to draw the wordmark, so the release tool costs no new
+# crate.
 png = { version = "0.17", optional = true }
 
 [[bin]]

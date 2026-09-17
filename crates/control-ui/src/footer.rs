@@ -4,8 +4,8 @@
 //! forty slots under abbreviated ones, and both of them are readable only
 //! because a hand can ask what one of them is. `KYBD` over a fader on the
 //! filter plate is `VCF Keyboard Tracking`, it accepts `0` to `255`, and
-//! controller 74 drives it — none of which fits over a lane forty-six points
-//! wide, and all of which fits along the bottom of a window.
+//! controller 74 drives it. None of that fits over a lane forty-six points
+//! wide, and all of it fits along the bottom of a window.
 //!
 //! # Everything here is the library's answer
 //!
@@ -38,8 +38,8 @@
 //! # And the picture of it
 //!
 //! The seventh question, and the first one answered: 26.5 publishes a glyph per
-//! parameter and per standard controller — a decay as a tail, a mix as wet
-//! against dry, a pedal as a treadle — on the same seven by seven grid the
+//! parameter and per standard controller, a decay as a tail, a mix as wet
+//! against dry, a pedal as a treadle, on the same seven by seven grid the
 //! effects' marks and the modulation sources' cells are on. It stands at the
 //! head of the line, before the name, because a picture is read before a word
 //! is and because somebody who points at the same control twice should stop
@@ -102,7 +102,7 @@ where
     // A routing mapped onto the window is a mode, and a mode with nothing on the
     // screen saying it is up is a window that has stopped answering for reasons
     // nobody can see. The footer is where it is said, because the footer is the
-    // one thing under all three surfaces — and somebody in this mode is by
+    // one thing under all three surfaces, and somebody in this mode is by
     // definition somewhere other than the page they turned it on from.
     if let Some(mapped) = mapped {
         across = across.push(mode(mapped));
@@ -157,8 +157,9 @@ impl Part {
     {
         match self {
             // Stencilled on the card rather than lit on glass, because it is a
-            // mark beside a word and not a display — the same call every other
-            // mark in this window goes through. In the ink the name is in, so
+            // mark beside a word and not a display, which is the call every
+            // other mark in this window goes through. In the ink the name is in,
+            // so
             // that the picture and the word it stands before read as one thing.
             Self::Pictured(cell) => {
                 let mut screen = Screen::new(lcd::CELL, lcd::CELL);
@@ -253,9 +254,9 @@ fn reading_of(parameter: ParamId, patch: &Patch, firmware: Version) -> String {
 
 /// What the parameter accepts.
 ///
-/// The two ends the manual prints, where the library has them —
-/// [`ParamId::display`] is `50.0 Hz to 20000.0 Hz` for the filter's corner —
-/// and the raw range where it does not, which is 216 of the 242. Never a number
+/// The two ends the manual prints, where the library has them, so
+/// [`ParamId::display`] is `50.0 Hz to 20000.0 Hz` for the filter's corner, and
+/// the raw range where it does not, which is 216 of the 242. Never a number
 /// between the two ends: the manual publishes what a range runs from and to and
 /// almost never the curve across it, so a footer that turned this byte into a
 /// frequency would be the one place in this window that guessed.

@@ -2,7 +2,7 @@
 //!
 //! Four engines stand on this page and the library says what kind of thing each
 //! one is: `Algorithm::characters` is *vintage*, *modelled*, *lo-fi*, *stereo*,
-//! *dual*, *multiband*, *combined*, *modulated*, *dynamic* — read off the
+//! *dual*, *multiband*, *combined*, *modulated* and *dynamic*, read off the
 //! specification rather than matched on a name
 //! ([deepmind-midi#31](https://github.com/MysteriousWolf/deepmind-midi/issues/31)
 //! published the marks, 26.5 the characters). Two of those are facts about the
@@ -13,7 +13,7 @@
 //! So a case is finished the way the thing it is a picture of would be. Nothing
 //! here is a claim about the sound, and nothing is invented about the
 //! instrument: the colours are the library's measurements, and this is the
-//! *material* they are laid on — which is the window's own business, the same
+//! *material* they are laid on, which is the window's own business, the same
 //! way the weight of a stroke and the pitch of a display's dots are.
 //!
 //! # Made of quads, because that is what a renderer here has
@@ -21,8 +21,8 @@
 //! The same constraint the [marks](crate::mark) are drawn under: this crate is
 //! generic over the renderer, and what every renderer behind
 //! [`iced_core::Renderer`] can do is fill a rounded rectangle. A texture is
-//! therefore a few hundred of them — hairlines for a brushed face, blotches
-//! and scratches for a worn one, a broken diagonal for a degraded one — laid
+//! therefore a few hundred of them, hairlines for a brushed face, blotches and
+//! scratches for a worn one, a broken diagonal for a degraded one, laid
 //! down from a
 //! sequence that is the same on every frame, because a surface that reshuffled
 //! itself sixty times a second would be a surface nobody could look at.
@@ -44,8 +44,9 @@ use crate::style;
 /// How a case's face is finished.
 ///
 /// One per engine, chosen from what the library says the algorithm *is*. A
-/// character that says nothing about the box — stereo, dual, dynamic — leaves
-/// the face alone, because a stereo chorus is a rack unit like any other and a
+/// character that says nothing about the box, such as stereo, dual or dynamic,
+/// leaves the face alone, because a stereo chorus is a rack unit like any other
+/// and a
 /// surface that changed for every tag would be a page of four different
 /// materials that mean nothing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -108,8 +109,8 @@ impl Finish {
 /// Returns the number a case's scuffs are laid out from, for the algorithm of
 /// this name.
 ///
-/// The name rather than a value byte, because a `FX n Type` byte is a fact
-/// about a firmware — 1.0 and 1.1 number the 35 differently — and a unit that
+/// The name rather than a value byte, because a `FX n Type` byte is a fact about
+/// a firmware, since 1.0 and 1.1 number the 35 differently, and a unit that
 /// changed its scuffs when the synthesizer reported a different firmware would
 /// be a unit that changed because the cable did.
 pub(crate) fn seed_of(name: &str) -> u32 {
@@ -187,7 +188,7 @@ const SCUFFS: f32 = 6.0;
 /// much longer the longest is.
 ///
 /// Short. What wears a panel is a hand going past it, and what that leaves is a
-/// streak an inch long — not a line across the unit, which is what the
+/// streak an inch long rather than a line across the unit, which is what the
 /// [rubs](rubbed) are and there are five of those.
 const SCUFF: (f32, f32) = (0.03, 0.13);
 
@@ -218,9 +219,9 @@ const RINGS: f32 = 3.0;
 
 /// How far apart the diagonals of a degraded face run, in points.
 ///
-/// A hatch rather than a field of dots. What a lattice of dots draws is a
-/// screen door — the eye finds the grid, and then the grid is the loudest thing
-/// on a plate whose controls are supposed to be. A broken diagonal has no grid
+/// A hatch rather than a field of dots. What a lattice of dots draws is a screen
+/// door: the eye finds the grid, and then the grid is the loudest thing on a
+/// plate whose controls are supposed to be. A broken diagonal has no grid
 /// in it to find: it reads as the surface being *made of* something, which is
 /// what lo-fi is a picture of.
 const HATCH: f32 = 6.0;
@@ -343,8 +344,8 @@ where
 
 /// Draws a worn face's grain: blotches under scuffs, neither on a lattice.
 ///
-/// Nothing here has a pitch. What a lattice draws — however hard its cells are
-/// jittered — is a *weave*, because the eye finds the row and the column and
+/// Nothing here has a pitch. What a lattice draws, however hard its cells are
+/// jittered, is a *weave*, because the eye finds the row and the column and
 /// then cannot stop finding them; and a weave is a claim about the unit that
 /// the library never made. What wears a box is a room and a pair of hands, and
 /// neither works to a grid: the blotches are where the light has not fallen
@@ -418,9 +419,9 @@ where
 
 /// Draws a brushed face: lines the long way, at one pitch, at many weights.
 ///
-/// What a brush leaves is a direction. The pitch is even — a face whose lines
-/// were scattered is a face that has been sanded rather than brushed — and what
-/// varies is how hard each one is laid down and how far along the face it runs,
+/// What a brush leaves is a direction. The pitch is even, because a face whose
+/// lines were scattered has been sanded rather than brushed, and what varies is
+/// how hard each one is laid down and how far along the face it runs,
 /// which is what keeps a few dozen parallel lines from reading as a hatch.
 fn brushed<Renderer>(renderer: &mut Renderer, bounds: Rectangle, seed: u32, lit: Color, dark: Color)
 where

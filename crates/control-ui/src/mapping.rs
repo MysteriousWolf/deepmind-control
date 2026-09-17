@@ -13,9 +13,9 @@
 //!
 //! # What is mapped, and what that is not
 //!
-//! [`Mapping`] is one routing — the three parameters the matrix reads as a
-//! sentence — carried to every control in the window while somebody is
-//! choosing. It is small and it is [`Copy`], because it reaches every control
+//! [`Mapping`] is one routing, the three parameters the matrix reads as a
+//! sentence, carried to every control in the window while somebody is choosing.
+//! It is small and it is [`Copy`], because it reaches every control
 //! the panel draws and a control is drawn a great many times.
 //!
 //! It is not an edit. Nothing about a routing being mapped changes what any
@@ -28,8 +28,8 @@
 //!
 //! Not a walk here either. `ValueEntry::parameters` says what a destination
 //! moves, and 26.5 publishes the join read backwards as
-//! `ValueTable::values_naming` — the destinations that reach a control,
-//! narrowest first — so [`Mapping::names`] is one call and a `next`.
+//! `ValueTable::values_naming`, the destinations that reach a control narrowest
+//! first, so [`Mapping::names`] is one call and a `next`.
 //!
 //! Narrowest first used to be this window's ordering, and an ordering is a
 //! judgement about the instrument however honest the slices under it are:
@@ -39,12 +39,12 @@
 //! side of the split and it is there now
 //! ([deepmind-midi#39](https://github.com/MysteriousWolf/deepmind-midi/issues/39)),
 //! down to what happens when two destinations move the same number of
-//! parameters — which the library answers by putting them in value order and
+//! parameters, which the library answers by putting them in value order and
 //! saying outright that nothing makes one of them the narrower.
 //!
-//! A destination that moves nothing a program parameter addresses — the pitch a
-//! key is playing, the amplitude of a voice — names no control, so no control
-//! lights for it, which is the honest answer rather than a gap.
+//! A destination that moves nothing a program parameter addresses, such as the
+//! pitch a key is playing or the amplitude of a voice, names no control, so no
+//! control lights for it. That is the honest answer rather than a gap.
 //!
 //! # What a drag is worth, and the one thing it still assumes
 //!
@@ -55,8 +55,8 @@
 //! What changed in 26.5 is where it is asked.
 //! [`ParamId::modulation_reach`] is the accessor
 //! ([deepmind-midi#38](https://github.com/MysteriousWolf/deepmind-midi/issues/38)),
-//! and it answers `None` for every pair today — the manual prints the depth's
-//! own range and nothing relating a depth to what it does at the other end of
+//! and it answers `None` for every pair today, because the manual prints the
+//! depth's own range and nothing relating a depth to what it does at the end of
 //! the routing, and nobody has measured it. So the number is still the whole
 //! range; it is now a fallback behind a question this window asks, in one
 //! place ([`reach_of`]), rather than a fraction written into two of them. The
@@ -203,11 +203,10 @@ impl Mapping {
 /// other end of a routing, and the library will not guess
 /// ([deepmind-midi#38](https://github.com/MysteriousWolf/deepmind-midi/issues/38)).
 ///
-/// The fallback is written once, here, and both things that need it — the drag
-/// that puts a number in a depth and the band that says how far the depths
-/// already there can push a control — go through it. That is the whole point of
-/// there being a function: an assumption in two places is an assumption that
-/// gets corrected in one of them.
+/// The fallback is written once, here, and both things that need it go through
+/// it: the drag that puts a number in a depth, and the band that says how far
+/// the depths already there can push a control. An assumption in two places is
+/// an assumption that gets corrected in one of them.
 fn reach_of(depth: ParamId, at: ParamId) -> f32 {
     depth.modulation_reach(at).unwrap_or(1.0)
 }
@@ -216,7 +215,7 @@ fn reach_of(depth: ParamId, at: ParamId) -> f32 {
 ///
 /// The other seven rows, carried to every control while the eighth is being
 /// mapped. Somebody choosing where a routing goes is choosing against what is
-/// already there — a second routing onto the same filter corner is a thing
+/// already there: a second routing onto the same filter corner is a thing
 /// people do on purpose and a thing people do by accident, and the difference
 /// is whether they could see the first one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -228,8 +227,8 @@ pub struct Reach {
     /// The parameter that holds how much of it arrives.
     ///
     /// The parameter and not just its byte, because how far a depth reaches is
-    /// read against that depth's own range and centre — which is the library's
-    /// to say, the same as everywhere else in this window.
+    /// read against that depth's own range and centre, which is the library's to
+    /// say, the same as everywhere else in this window.
     of: ParamId,
     /// The byte that parameter holds.
     depth: u8,
@@ -276,9 +275,9 @@ impl Reach {
     /// Returns how far it can push a control sitting at `value`, as two
     /// fractions of that control's own travel.
     ///
-    /// Low end first, both between nothing and one, and equal where the depth
-    /// is at its centre — a routing with no depth in it moves nothing, which is
-    /// a band of no width rather than no band.
+    /// Low end first, both between nothing and one, and equal where the depth is
+    /// at its centre: a routing with no depth in it moves nothing, which is a
+    /// band of no width rather than no band.
     ///
     /// # Which way it swings
     ///
@@ -291,10 +290,11 @@ impl Reach {
     ///
     /// So a `Centred` source gets a band either side of where the control sits
     /// and a `Rising` one gets a band from it, and the depth's sign is what it
-    /// always was on the second — which way round the routing applies the
-    /// source. A source the specification does not settle — `Off`, and the note
-    /// number, whose zero is printed nowhere — keeps the old reading, because a
-    /// band from where the control sits is the narrower claim of the two.
+    /// always was on the second, which is which way round the routing applies
+    /// the source. A source the specification does not settle, which is `Off`
+    /// and the note number, whose zero is printed nowhere, keeps the old
+    /// reading, because a band from where the control sits is the narrower
+    /// claim of the two.
     ///
     /// # What full depth is worth
     ///
@@ -319,7 +319,7 @@ impl Reach {
                 }
             }
             // A depth a later library makes unipolar has no direction in it, so
-            // all of it is upwards — the same reading the drag takes.
+            // all of it is upwards, which is the reading the drag takes.
             _ => (depth - low) / (high - low).max(1.0),
         } * reach_of(self.of, self.at);
         if self.swings == Some(Swing::Centred) {
@@ -338,9 +338,9 @@ impl Reach {
 
 /// What the modulation matrix has sent out into the window.
 ///
-/// The routing being mapped, and what the patch's other routings already reach
-/// — the second of those only matters while the first is up, which is why they
-/// travel together rather than as two arguments every control has to carry.
+/// The routing being mapped, and what the patch's other routings already reach.
+/// The second only matters while the first is up, which is why they travel
+/// together rather than as two arguments every control has to carry.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Sent<'a> {
     mapping: Mapping,
@@ -434,8 +434,8 @@ mod tests {
         // modulates, so neither lights while the matrix is mapping. How much
         // arrives is: the instrument's own table has a destination for every
         // one of the eight depths, which is what makes a routing that moves
-        // another routing's depth possible — so that one lights, and the table
-        // is what says so rather than a rule written here.
+        // another routing's depth possible, so that one lights and the table is
+        // what says so rather than a rule written here.
         let mapped = first();
 
         assert!(!mapped.reaches(ParamId::Mod1Source, DEFAULT_FIRMWARE));
@@ -516,9 +516,9 @@ mod tests {
 
         // The whole of the assumption, from the other end: full depth is taken
         // to move the control over all of its range, so a routing at full depth
-        // onto a control sitting at the bottom of its own range reaches the
-        // top of it — and one onto a control already at the top has nowhere
-        // left to go and says so.
+        // onto a control sitting at the bottom of its own range reaches the top
+        // of it, and one onto a control already at the top has nowhere left to
+        // go and says so.
         let at = ParamId::VcfFrequency;
         let full = u8::try_from(ParamId::Mod1Depth.max()).expect("a byte");
         let reach = Reach::new(at, "Mod 1", ParamId::Mod1Depth, full, Some(Swing::Rising));
@@ -675,7 +675,7 @@ mod tests {
 ///
 /// Two things, and they are the two ways of answering the same question. The
 /// [`Mapping`] routing is the one being mapped, if any. The lists are how a
-/// destination is chosen without mapping onto anything — one searchable list per
+/// destination is chosen without mapping onto anything: one searchable list per
 /// routing, so that eight rows can be typed into without sharing a caret.
 ///
 /// One per routing rather than one shared, because what a list of this kind
@@ -741,9 +741,9 @@ impl Mapper {
 ///
 /// Both ends, because the two columns are one control drawn twice. A source is
 /// one of 24 names and a destination one of 133, which is a difference in how
-/// far somebody scrolls and in nothing else — and a row that answered the short
-/// list with a picker and the long one with a field was a row wearing two
-/// controls for one question.
+/// far somebody scrolls and in nothing else. A row answering the short list with
+/// a picker and the long one with a field is a row wearing two controls for one
+/// question.
 ///
 /// The names are the parameter's own value table, asked of the library for the
 /// firmware that answered, which is the same call the rack makes when it draws

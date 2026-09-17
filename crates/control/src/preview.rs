@@ -15,8 +15,8 @@
 //!
 //! What differs is where the sound comes from. The window is pointed at the
 //! library's simulated synthesizer, and the unit powers up holding a program
-//! built from a seed — every parameter somewhere inside its own range — so the
-//! pictures are of an instrument holding a sound rather than of a window that
+//! built from a seed, with every parameter somewhere inside its own range, so
+//! the pictures are of an instrument holding a sound rather than of a window that
 //! has just opened and knows nothing. The window then reads the edit buffer, the
 //! way it does when any port opens, which is why every claim dot in a preview is
 //! the green one: this is what the synthesizer says it is, which is what a
@@ -237,8 +237,8 @@ impl Session {
             // buffer read after them: a read that overtook the turns would
             // photograph the sound the unit powers up holding.
             // The buffer is asked for once the thread is round its loop. The
-            // unit is already holding the sound — it powered up with it — so
-            // this is the ordinary read a window does when a port opens.
+            // unit is already holding the sound, because it powered up with it,
+            // so this is the ordinary read a window does when a port opens.
             Stage::Opening if waited >= SETTLE => {
                 self.app.update(Message::Read);
                 self.stage = Stage::Reading;
@@ -341,8 +341,8 @@ fn sound(seed: u64) -> Program {
 /// Returns a number from `seed` and `step`, the same one every time.
 ///
 /// The counter-through-a-hash the rest of this repository draws its scuffs from
-/// — see `control_ui`'s cases — rather than a generator with state: a seed
-/// printed beside a set of pictures has to be enough to get them back.
+/// (see `control_ui`'s cases) rather than a generator with state: a seed printed
+/// beside a set of pictures has to be enough to get them back.
 fn draw(seed: u64, step: u32) -> u32 {
     let mut word = seed
         .wrapping_mul(0x9E37_79B9_7F4A_7C15)

@@ -7,17 +7,17 @@
 //! every plate, and the thing a player most wants to see about a filter is the
 //! shape of it rather than three numbers that imply one.
 //!
-//! So every plate gets the drawing of its own part — the shapes the
-//! oscillators are making, where the filter's corner is, the gates the
-//! arpeggiator is opening — and the envelopes get the one drawing no hardware
-//! could show: all three of them at once, on one screen, which is what an
-//! instrument with one display and three envelope buttons cannot do.
+//! So every plate gets the drawing of its own part: the shapes the oscillators
+//! are making, where the filter's corner is, the gates the arpeggiator is
+//! opening. The envelopes get the one drawing no hardware could show, all three
+//! of them at once, which an instrument with one display and three envelope
+//! buttons cannot do.
 //!
 //! # A scene is found, not assigned
 //!
 //! Nothing here says which plate draws what. A scene names the controls it
 //! needs, the plate offers the controls it holds, and the first scene that is
-//! satisfied is the one drawn — so a plate that gains a fader gets the right
+//! satisfied is the one drawn, so a plate that gains a fader gets the right
 //! drawing and a plate the library empties draws nothing at all. The two
 //! filters are the one place a parameter is named rather than a section:
 //! `VCF` and `HPF` are two plates of one section, and which of them is which is
@@ -29,28 +29,28 @@
 //! gates: every one of those is a fact about the instrument, and 26.4 published
 //! them as functions
 //! ([deepmind-midi#32](https://github.com/MysteriousWolf/deepmind-midi/issues/32)).
-//! 26.5 published the four this file was still assembling for itself — the
+//! 26.5 published the four this file was still assembling for itself: the
 //! high-pass's slope, what each oscillator is putting out and how its two waves
 //! sum, the noise, and the LFO's fade
 //! ([#35](https://github.com/MysteriousWolf/deepmind-midi/issues/35),
-//! [#37](https://github.com/MysteriousWolf/deepmind-midi/issues/37)) — and with
-//! them the three things a shape can now say about itself:
+//! [#37](https://github.com/MysteriousWolf/deepmind-midi/issues/37)). With them
+//! came the three things a shape can now say about itself:
 //! [`rest`](deepmind_midi::generator::Generator::rest) is the line to measure it
 //! from, [`marks`](deepmind_midi::generator::Generator::marks) is where along it
 //! something happens, and [`anchored`](deepmind_midi::generator::Generator::anchored)
 //! says whether its left edge is a moment the instrument has
 //! ([#36](https://github.com/MysteriousWolf/deepmind-midi/issues/36)).
 //!
-//! What is left here is a sample loop — walk the columns of a band, ask
+//! What is left here is a sample loop: walk the columns of a band, ask
 //! [`Generator::at`](deepmind_midi::generator::Generator::at) what the shape is
 //! doing there, and print the dot nearest the answer. Where a byte's curve has
 //! not been measured the library says so in
 //! [`Scale`](deepmind_midi::generator::Scale) rather than inventing one, which
 //! is the same refusal this file used to make in prose and could not test.
 //!
-//! **Nothing about the instrument is written down in this file.** There was one
-//! number — the high-pass's 6 dB per octave, transcribed out of a doc comment —
-//! and there is not one now.
+//! **Nothing about the instrument is written down in this file.** The last
+//! number was the high-pass's 6 dB per octave, transcribed out of a doc comment,
+//! and it is gone.
 //!
 //! # What these drawings do not claim
 //!
@@ -59,7 +59,7 @@
 //! decibels about unity, because the slope of a pole is, and an LFO's
 //! horizontal is turns, because a cycle is a cycle whatever the rate byte does.
 //! Everything else is [`Scale::Normalised`](deepmind_midi::generator::Scale::Normalised),
-//! which says the shape is real and its axis is an ordering — so a corner is
+//! which says the shape is real and its axis is an ordering, so a corner is
 //! drawn at the fraction of its own range the byte sits at, which is exactly
 //! what the fader beside it says, and never at a frequency.
 //!
@@ -107,7 +107,7 @@ fn named(patch: &Patch, parameter: ParamId, firmware: Version) -> Option<&'stati
 /// rate this instrument has and is as much as the manual establishes; a screen
 /// is not a length of time, so nothing here is a speed. The shape being
 /// repeated is the library's, and so is the count of turns its own horizontal
-/// covers — this is only how many of them the glass is given.
+/// covers; this is only how many of them the glass is given.
 fn turns(travel: f32, least: f32, most: f32) -> f32 {
     least + travel * (most - least)
 }
@@ -116,10 +116,10 @@ fn turns(travel: f32, least: f32, most: f32) -> f32 {
 ///
 /// One, now that the library draws the shape about the line it rests on.
 ///
-/// It was two, and for a reason that has gone: the shape this file used to draw
-/// started at the bottom of its range, so one turn of a sine was a hill — it
-/// left the floor, reached the top and came back — and a hill is a bump rather
-/// than something going round. The second turn was what said it repeated.
+/// One, because the wave is drawn across its rest line. A shape drawn from the
+/// bottom of its range makes one turn of a sine a hill, which reads as a bump
+/// rather than as something going round, and then a second turn is what says it
+/// repeats.
 ///
 /// [`Generator::rest`] is published now, the wave is drawn crossing it, and one
 /// turn of a sine is a crest and a trough either side of a line: the picture of
@@ -210,8 +210,8 @@ const fn shape_of(which: LfoId) -> ParamId {
 /// name for it.
 ///
 /// `OSC 1 PWM Depth` is the first and `OSC 2 Level` the second. A parameter of
-/// the group that names neither — the noise — is the second's, which is where
-/// the panel prints it and which is the plate this window puts it on.
+/// the group that names neither, which is the noise, is the second's, because
+/// that is where the panel prints it.
 fn which(parameter: ParamId) -> Which {
     if parameter.name().starts_with("OSC 1") {
         Which::First
@@ -298,7 +298,7 @@ impl Scene {
             Self::Voicing => vec![ParamId::UnisonDetune, ParamId::PolyphonyMode],
             // Not the rate. How many steps the picture covers is the library's
             // `GATES_DRAWN` and not a byte: the gate time is published against
-            // a step — 128 is half of one, which the manual states outright —
+            // a step, where 128 is half of one as the manual states outright,
             // and what a step is worth in seconds is exactly what it does not
             // print. A rate byte stretched across the glass was this window
             // drawing an axis the instrument does not publish.
@@ -352,8 +352,8 @@ const TICK: i32 = 2;
 /// Rules the axis the library publishes for a shape, where it publishes one.
 ///
 /// [`generator::Scale`] is the honest half of a generator: two of its three
-/// answers are measured — an octave either side of a filter's corner, a turn of
-/// an LFO — and the third says outright that the horizontal is an ordering and
+/// answers are measured, an octave either side of a filter's corner and a turn
+/// of an LFO, and the third says outright that the horizontal is an ordering and
 /// nothing else. So this marks the first two and draws nothing at all for the
 /// third, which is the whole point of the library publishing it: a screen with
 /// a scale on it that nobody measured is a screen that looks like information.
@@ -381,8 +381,9 @@ fn ruled(screen: &mut Screen, band: Band, every: f32) {
 ///
 /// [`Generator::marks`] is the second half of what a generator knows about
 /// itself: the axis says how the horizontal is divided and the marks say where
-/// along it something *happens* — the corner of a filter, the end of a cycle,
-/// the edge of a pulse and how far modulation swings it. Every one is a number
+/// along it something *happens*, whether that is the corner of a filter, the end
+/// of a cycle, the edge of a pulse or how far modulation swings it. Every one is
+/// a number
 /// the library computed to build the shape, so a window that ruled them itself
 /// would be deriving the same thing from the same bytes a second time.
 ///
@@ -406,8 +407,8 @@ fn marked(screen: &mut Screen, band: Band, marks: impl Iterator<Item = (f32, Mar
         // Two marks closer than a tick is wide are one smudge. Six sampled
         // steps repeated eight times is forty-eight cycle ends across sixty
         // columns, and which of them a screen has room for is the screen's
-        // business — the library says where they are and says in the same
-        // breath that what to draw at one depends on the room a host has.
+        // business: the library says where they are and says in the same breath
+        // that what to draw at one depends on the room a host has.
         if taken.is_some_and(|last| column - last < APART) {
             continue;
         }
@@ -446,18 +447,19 @@ const APART: i32 = TICK + 1;
 /// declines to decide.
 ///
 /// A letter that would land on the one before it is dropped. Two boundaries
-/// share a position when a time byte is zero — an attack of nothing begins and
-/// ends at the left edge — and a screen cannot print two letters in one column.
+/// share a position when a time byte is zero, because an attack of nothing
+/// begins and ends at the left edge, and a screen cannot print two letters in
+/// one column.
 ///
 /// # Knocked out rather than written on
 ///
 /// A letter printed in the same dots as the curve, on a line the curve can
 /// reach, is four dots of writing in a drawing made of dots: the sustain runs
 /// along the foot of the band on most envelopes, straight through where the
-/// letters stand. So each one is drawn *in reverse* — a solid block of glass
-/// with the letter left unlit inside it — which is how this instrument's own
-/// display says a line is a heading, and it is legible whatever the curve is
-/// doing behind it.
+/// letters stand. So each one is drawn *in reverse*, a solid block of glass with
+/// the letter left unlit inside it, which is how this instrument's own display
+/// says a line is a heading and is legible whatever the curve is doing behind
+/// it.
 ///
 /// The block is a dot of glass wider and taller than the letter on every side,
 /// because a letter inverted against its own edges is a letter whose stem
@@ -487,10 +489,10 @@ fn segments(screen: &mut Screen, band: Band, shape: &Generator) {
         }
         let block = Band::new(at - QUIET, row - QUIET, wide + QUIET * 2, tall + QUIET * 2);
         // Cleared first, and cleared wider than the block: what is inverted
-        // afterwards would otherwise come out as holes in the letter — an
+        // afterwards would otherwise come out as holes in the letter, because an
         // envelope's fill is a dither and half a dither inside a letter is
-        // neither — and a solid block standing directly on that dither is a
-        // block with no edge. The ring of dark glass round it is the edge.
+        // neither. A solid block standing directly on that dither is a block
+        // with no edge, and the ring of dark glass round it is the edge.
         screen.wipe(Band::new(
             block.x - QUIET,
             block.y - QUIET,
@@ -515,8 +517,8 @@ const QUIET: i32 = 1;
 /// this adds is where the corner stands: the generator draws the response about
 /// its corner, because the slope of a pole is published and the frequency a
 /// byte lands on is not, so the corner is put at the fraction of its own range
-/// the byte sits at — the reading the fader beside it gives — and the response
-/// is sampled either side of it.
+/// the byte sits at, which is the reading the fader beside it gives, and the
+/// response is sampled either side of it.
 ///
 /// The passband sits at [`FILTER_UNITY`], which is where the library puts unity
 /// gain on that vertical, and the headroom above it is what a resonant peak
@@ -547,7 +549,7 @@ fn filter(screen: &mut Screen, patch: &Patch) {
 /// Draws how far the envelope moves the corner, and which way.
 ///
 /// A rule along the top of the screen from the corner to where the depth would
-/// take it, which is the depth drawn as the fraction of the axis it is — the
+/// take it, which is the depth drawn as the fraction of the axis it is, the
 /// same reading the fader beside it gives. It is not a second filter curve:
 /// that the two parameters are in the same units is exactly what the manual
 /// does not say, so this says how much of its own travel the depth is using and
@@ -587,9 +589,9 @@ fn reach(screen: &mut Screen, patch: &Patch, corner: f32) {
 /// and now asked of the library instead
 /// ([deepmind-midi#37](https://github.com/MysteriousWolf/deepmind-midi/issues/37)).
 ///
-/// What the library still will not do is put both corners on one axis — their
-/// spacing is two unpublished curves — and a plate with one filter on it is not
-/// asking it to. The corner is where the fader says it is, exactly as on the
+/// What the library still will not do is put both corners on one axis, because
+/// their spacing is two unpublished curves, and a plate with one filter on it is
+/// not asking it to. The corner is where the fader says it is, exactly as on the
 /// low-pass.
 ///
 /// The boost is not in the curve. It is two states, what it lifts the low end
@@ -632,7 +634,7 @@ fn high_pass(screen: &mut Screen, patch: &Patch) {
 /// A plate each, because the instrument has two oscillators and this window has
 /// a plate for each of them. What used to be here was the window assembling a
 /// shape out of six parameters and then refusing to add the two waves of `OSC 1`
-/// together, because how they sum is not something the manual gives — so they
+/// together, because how they sum is not something the manual gives, so they
 /// were drawn side by side, which is a picture of two oscillators where the
 /// instrument has one.
 ///
@@ -664,8 +666,8 @@ fn oscillator(screen: &mut Screen, patch: &Patch, which: Which) {
 
 /// Draws the noise generator over the plate `OSC 2` is on.
 ///
-/// [`generator::noise`], which is a scatter at the level byte's own reading —
-/// the same fixed sequence on every frame, because a screen that reseeded when
+/// [`generator::noise`], which is a scatter at the level byte's own reading, the
+/// same fixed sequence on every frame, because a screen that reseeded when
 /// nothing had moved would crawl and a crawling drawing says the sound is doing
 /// something it is not. The sequence used to be a table in this file; it is the
 /// library's now, and the library says in the same breath that it is not the
@@ -691,7 +693,7 @@ fn noise(screen: &mut Screen, patch: &Patch, band: Band) {
 /// Draws one envelope, filling the plate it is on.
 ///
 /// The instrument has three envelopes, one display and a `VCA`, `VCF` and `MOD`
-/// button choosing which of its four faders address — so a player comparing the
+/// button choosing which its four faders address, so a player comparing the
 /// filter's decay with the amplifier's is comparing one with a memory of the
 /// other. This window unfolds that into three plates, and this is what each of
 /// them draws: its own envelope, at the size of its own screen, with the faders
@@ -739,8 +741,8 @@ fn amplifier(screen: &mut Screen, patch: &Patch) {
 ///
 /// Five marks: nothing is claimed about how many voices a mode actually
 /// stacks, which is in the mode's own name and not in the detune. What the
-/// drawing says is what the fader says — how far through its travel the detune
-/// is — with the mode written above it in the display's own words.
+/// drawing says is what the fader says, how far through its travel the detune
+/// is, with the mode written above it in the display's own words.
 fn voicing(screen: &mut Screen, patch: &Patch, firmware: Version) {
     let mut band = screen.all();
     if let Some(mode) = named(patch, ParamId::PolyphonyMode, firmware)
@@ -765,8 +767,9 @@ fn voicing(screen: &mut Screen, patch: &Patch, firmware: Version) {
 ///
 /// [`generator::arpeggiator_gates`], which is the one drawing on the panel
 /// whose two axes are both published: the manual gives the gate time byte as a
-/// fraction of a step outright — 0 is no note, 255 a full one and 128 half of
-/// one — and [`GATES_DRAWN`] steps is the pattern its own illustration uses.
+/// fraction of a step outright, 0 for no note, 255 for a full one and 128 for
+/// half of one, and [`GATES_DRAWN`] steps is the pattern its own illustration
+/// uses.
 ///
 /// The rate is not in it. What a step is worth in seconds is exactly what the
 /// manual does not print, so a rate byte stretched across the glass was this
@@ -812,7 +815,7 @@ fn arpeggiator(screen: &mut Screen, patch: &Patch) {
 
 /// Draws an LFO's shape, at its own rate, under the fade that brings it in.
 ///
-/// The shape is [`generator::lfo`] — the seven the value table names, including
+/// The shape is [`generator::lfo`]: the seven the value table names, including
 /// the two sampled ones, whose steps used to be a scatter table in this file
 /// and are now a fixed sequence the library publishes and marks as not being
 /// the instrument's own stream. A byte this firmware's table does not name is
@@ -822,7 +825,7 @@ fn arpeggiator(screen: &mut Screen, patch: &Patch) {
 /// The rate is how many of the library's own horizontals fit across the screen
 /// and is not a speed: what a byte of `Rate` is in hertz is not published, and
 /// what this says is that more of it is more cycles. One is what the library
-/// publishes — a turn of a sine, and six steps of a sample and hold, which is
+/// publishes: a turn of a sine, and six steps of a sample and hold, which is
 /// what that shape needs to show itself.
 ///
 /// # What 26.5 moved out of here
@@ -1063,8 +1066,8 @@ mod tests {
     fn each_envelope_is_its_own_screen_reading_only_its_own_eight() {
         // The whole of what unfolding the section bought. Three envelopes
         // sharing one screen were three sets of dots in the same place, and the
-        // question the display is for — which of these decays first — is the
-        // one an overlay answers worst. Three plates answer it by being three
+        // question the display is for, which of these decays first, is the one
+        // an overlay answers worst. Three plates answer it by being three
         // drawings.
         assert_eq!(envelopes().len(), 3);
         for group in envelopes() {
@@ -1187,8 +1190,8 @@ mod tests {
         // ends, and the shape covers six of them before the rate repeats it up
         // to eight times over. Which of those forty-eight a screen has room for
         // is the screen's business, so the ones that could not be told apart
-        // are dropped — a plate this wide would otherwise have a tick in
-        // roughly every column of its foot.
+        // are dropped: a plate this wide would otherwise have a tick in roughly
+        // every column of its foot.
         let mut patch = read();
         assert!(patch.edit(ParamId::Lfo1Shape, LfoShape::SampleAndHold.raw()));
         assert!(patch.edit(ParamId::Lfo1Rate, 255));

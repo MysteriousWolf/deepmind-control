@@ -63,7 +63,7 @@ pub fn run() -> iced::Result {
 /// As wide as the widest surface measures, plus the ground it stands on and the
 /// bar it scrolls on, so a window opens on the instrument's own arrangement
 /// rather than on a wrapped one. Narrower than this and the panel's rows wrap,
-/// which is readable and is no longer two rows and a screen — and the effects
+/// which is readable and is no longer two rows and a screen, and the effects
 /// page draws its chain past the edge of its own glass, which is not readable at
 /// all.
 ///
@@ -167,8 +167,8 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
                 // The bar is cut into the window beside the panel rather than
                 // laid over it. The panel is drawn out to the room it is given
                 // now, so a bar that floated over the end of it would be a bar
-                // over the last plate of every row — and a panel that shrank
-                // away from one the moment there was enough of it to scroll.
+                // over the last plate of every row, and a panel that shrank away
+                // from one the moment there was enough of it to scroll.
                 .direction(scrollable::Direction::Vertical(
                     scrollable::Scrollbar::new().spacing(BESIDE),
                 ))
@@ -259,7 +259,7 @@ fn status(app: &App) -> Element<'_, Message> {
 /// The press that turns the displays over.
 ///
 /// Every display in the window turns over together, the way a screen has one
-/// backlight, so it belongs to the window rather than to any one surface — and
+/// backlight, so it belongs to the window rather than to any one surface, and
 /// the foot of the window is where the things that are true of the window live.
 ///
 /// It is a display rather than a word. `Negative display` said which way up they
@@ -417,7 +417,7 @@ fn editor(app: &App) -> Element<'_, Message> {
 ///
 /// One line, and the name is the only thing on it that is not a control. It
 /// carried the project's mark and a subtitle on a case with wooden end cheeks,
-/// which is `docs/banner.svg` reproduced — and the banner is the picture that
+/// which is `docs/banner.svg` reproduced. The banner is the picture that
 /// introduces this project to somebody who has never seen it, which is not the
 /// job of the top of a window somebody has open all afternoon. The mark is the
 /// application's icon, where an icon belongs.
@@ -469,8 +469,8 @@ fn header(app: &App) -> Element<'_, Message> {
 /// What is known about the instrument on the other end of the port, under a
 /// press that opens when the pointer is over it.
 ///
-/// Two rows of sentences used to stand under the header saying this — who
-/// answered, what the last thing to happen was, and whatever went wrong — on
+/// Two rows of sentences used to stand under the header saying this: who
+/// answered, what the last thing to happen was, and whatever went wrong, on
 /// every page, whether or not anybody was asking. It is four facts about a
 /// cable that change perhaps twice a session, and it was being given the most
 /// expensive room on the screen.
@@ -489,7 +489,7 @@ fn about(app: &App) -> Element<'_, Message> {
         ],
         // What this window is assuming meanwhile, said as an assumption. The
         // firmware decides which value tables every list in the window is drawn
-        // from, so it is never not an answer — it is either the instrument's or
+        // from, so it is never not an answer: it is either the instrument's or
         // this window's, and which of those it is is the whole distinction.
         _ => vec![
             ("Device", "nobody has answered".to_owned()),
@@ -532,17 +532,17 @@ fn about(app: &App) -> Element<'_, Message> {
 
 /// The project's own name, as `docs/wordmark.svg` sets it.
 ///
-/// A file rather than a drawing. The name is the banner's name — outlined from
+/// A file rather than a drawing. The name is the banner's name, outlined from
 /// the mark's own face, tracked the way the banner tracks it, and cut by the
-/// five slices that *are* the mark — and what this window was doing instead was
-/// setting the word in a font and laying five rectangles over it, each of them
+/// five slices that *are* the mark. What this window did instead was set the
+/// word in a font and lay five rectangles over it, each of them
 /// under two points tall and each rounded to whatever the pointer's device
 /// gives it. Five lines from a sixtieth of an em to a twentieth, rounded
 /// independently, are five bands of grey at five weights the mark does not
 /// have: what somebody sees is stripes rather than a slice.
 ///
 /// As vector it is the same geometry at any size, which is the whole of what
-/// the mark asks for — and it is the *same file's* geometry as the banner, so
+/// the mark asks for, and it is the *same file's* geometry as the banner, so
 /// the two cannot drift.
 fn wordmark() -> Element<'static, Message> {
     svg(svg::Handle::from_memory(WORDMARK))
@@ -561,15 +561,15 @@ const WORDMARK: &[u8] = include_bytes!("../../../docs/wordmark.svg");
 /// How tall the name is drawn.
 ///
 /// The width follows from it, because the file knows its own proportions. It is
-/// the height of the ink and the slices together — the word plus what hangs
-/// below it — so a header built around it has the room the mark actually needs.
+/// the height of the ink and the slices together, the word plus what hangs
+/// below it, so a header built around it has the room the mark actually needs.
 const NAME: f32 = 54.0;
 
 /// A press whose whole face is a mark, and what it says about itself.
 ///
 /// It was a mark and a word inside a rounded rectangle with a metal rim. Three
 /// of those along the header and two along the foot are five rims on a panel
-/// whose own controls have none — and the rim was drawn to the height of the
+/// whose own controls have none, and the rim was drawn to the height of the
 /// *words*, so a nine-dot mark stood in the middle of it with four points of
 /// panel above and below. A mark scaled to a box built for type is a mark that
 /// is never the size it was drawn at.
@@ -586,8 +586,8 @@ fn chrome(mark: control_ui::Badge) -> button::Button<'static, Message, Theme, ic
 /// Says what a press does in the footer while the pointer is on it.
 ///
 /// A trait rather than a function so that it reads the way the toolkit's own
-/// builders do, and so that a press that is built two different ways — a mark,
-/// or a display the size of a character — says it the same way.
+/// builders do, and so that a press built either way, as a mark or as a display
+/// the size of a character, says it the same way.
 trait Hinted<'a> {
     /// The sentence the footer prints while the pointer is over this.
     fn on_hint(self, said: &'static str) -> Element<'a, Message>;
@@ -629,8 +629,8 @@ const MARKED: f32 = 0.82;
 /// A press with a mark or a display in it, at the size the thing in it is
 /// drawn.
 ///
-/// No rim and no fill until a hand comes near it — see
-/// [`marked`](control_ui::marked) — and no height of its own: what is in it is
+/// No rim and no fill until a hand comes near it (see
+/// [`marked`](control_ui::marked)), and no height of its own: what is in it is
 /// a drawing with a size, and a press built to the height of the words that are
 /// no longer in it is a press built for nothing. The padding is what keeps two
 /// of them from touching.
@@ -651,11 +651,11 @@ const BESIDE_MARK: f32 = 5.0;
 
 /// What a panel admits about itself, and where it says it.
 ///
-/// Nowhere on the panel. Two paragraphs used to stand under every rack — what
-/// the effects page cannot know about a byte, and what this window does not
-/// write into the synthesizer — and they were an essay printed under a panel
-/// somebody was trying to read, on every section, whether or not it was the one
-/// they were about.
+/// Nowhere on the panel. Two paragraphs used to stand under every rack, saying
+/// what the effects page cannot know about a byte and what this window does not
+/// write into the synthesizer, which is an essay printed under a panel somebody
+/// was trying to read, on every section, whether or not it was the one they were
+/// about.
 ///
 /// What they were defending is still defended, by the parts of the window that
 /// are already about one control at a time: the line under a slot says the two
@@ -663,9 +663,9 @@ const BESIDE_MARK: f32 = 5.0;
 /// prints none, the footer describes whatever is under the pointer in the
 /// library's own words, and a value nobody has read is drawn as a value nobody
 /// has read. Those answer the same questions where somebody is actually asking
-/// them. The rest of it — that this window writes no program into the
-/// instrument, and why — belongs in `README.md` and `docs/interface.md`, which
-/// is where it now is alone.
+/// them. The rest of it, that this window writes no program into the instrument
+/// and why, belongs in `README.md` and `docs/interface.md`, which is where it
+/// now is alone.
 const fn _admissions() {}
 
 #[cfg(test)]

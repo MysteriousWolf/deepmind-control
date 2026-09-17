@@ -2,7 +2,7 @@
 //!
 //! The panel that needs the library most. `FX 1 Param 3` is `Size` on a Room
 //! Reverb and `Depth` on a Phaser, and which of the two a window is drawing
-//! depends on a byte somewhere else in the same program — read for the firmware
+//! depends on a byte somewhere else in the same program, read for the firmware
 //! that answered the inquiry, because firmware 1.1 inserted an algorithm rather
 //! than appending one.
 //!
@@ -67,7 +67,7 @@ fn read() -> App {
     });
     // Connecting reads the sound: the window asks for the edit buffer the
     // moment a synthesizer answers the inquiry, so a second read here would put
-    // a second dump on the wire. That matters beyond being wasteful — a test
+    // a second dump on the wire. That matters beyond being wasteful: a test
     // that edits and then reads is asserting that the dump it waited for went
     // out *behind* its edit, and a stray earlier dump landing after the edit
     // carries the value from before it.

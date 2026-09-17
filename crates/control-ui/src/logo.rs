@@ -12,7 +12,7 @@
 //! lookalike set in whatever bold sans a machine has is not the mark.
 //!
 //! **The mark is the application's icon**, and it is not in the window. It was,
-//! for a while, on a case with wooden end cheeks across the top — but a banner
+//! for a while, on a case with wooden end cheeks across the top, but a banner
 //! is the picture that introduces this project to somebody who has never seen
 //! it, and the top of a window somebody has open all afternoon is a heading. An
 //! icon belongs where an icon goes. It is drawn here rather than loaded so that
@@ -21,9 +21,9 @@
 //! # Why this one is drawn and the name is not
 //!
 //! The mark is a *surface*: wood, a panel, a recess, three caps of lit metal.
-//! Every surface in this window asks the theme what it is made of — that is
-//! what makes the displays turn over on one press — and a mark loaded from a
-//! file could not. The name has no surfaces in it. It is a shape, it is the
+//! Every surface in this window asks the theme what it is made of, which is what
+//! makes the displays turn over on one press, and a mark loaded from a file
+//! could not. The name has no surfaces in it. It is a shape, it is the
 //! same shape in either theme, and the one thing it needs is to be *that*
 //! shape, which only the file can promise.
 //!
@@ -36,7 +36,7 @@
 //!
 //! Measured against the file's own 128-unit box, the eight run from 1 unit to
 //! 3.6, which at a mark of forty-odd points is a third of a point to one and a
-//! third — thin at the top of the run and solid at the bottom, which is what
+//! third: thin at the top of the run and solid at the bottom, which is what
 //! they are on the mark itself.
 
 use iced_core::gradient::Linear;

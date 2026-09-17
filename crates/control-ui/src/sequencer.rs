@@ -7,9 +7,9 @@
 //! can read. They are one strip here, in the order the instrument plays them,
 //! with the step's number under it and nothing else.
 //!
-//! The six settings that are not steps — enable, clock divider, length, swing,
-//! sync and slew — stay slots in the rack beneath, because that is what they
-//! are.
+//! The six settings that are not steps, which are enable, clock divider, length,
+//! swing, sync and slew, stay slots in the rack beneath, because that is what
+//! they are.
 //!
 //! # A step is the same control it was
 //!
@@ -22,9 +22,9 @@
 //! # What the strip says now that the library answers it
 //!
 //! Two things the manual records were, until `deepmind-midi` 26.3, notes in
-//! `spec/parameters.toml` rather than anything `ParamId` answered — so this
-//! file said which musical facts it was getting wrong rather than transcribing
-//! them. Both are typed now, and the strip acts on both:
+//! `spec/parameters.toml` rather than anything `ParamId` answered, so this file
+//! said which musical facts it was getting wrong rather than transcribing them.
+//! Both are typed now, and the strip acts on both:
 //!
 //! - A step is **bipolar**. [`ParamId::shape`] gives the centre it is read
 //!   about, so a step reads `+40` or `-12` rather than `168` or `116`, and the
@@ -127,9 +127,9 @@ where
                 }),
             // The rule under the steps that are played, which stops where the
             // sequence does. A step past the length is still drawn and still
-            // editable — it is in the program and it is what the sequence plays
-            // the moment somebody lengthens it — but it is not part of what
-            // anybody is listening to, and a strip that drew all thirty-two
+            // editable, because it is in the program and is what the sequence
+            // plays the moment somebody lengthens it, but it is not part of
+            // what anybody is listening to, and a strip that drew all thirty-two
             // alike said it was. The mark is under the lane rather than on the
             // control, so that nothing about a claim is faked to say it.
             container(Space::new())
@@ -155,8 +155,8 @@ where
 
 /// How many of the run are played, when the library says what bounds it.
 ///
-/// [`ParamId::bounded_by`] names the parameter — `Sequence Length` for every
-/// one of the thirty-two — and the length is read out of the patch like any
+/// [`ParamId::bounded_by`] names the parameter, `Sequence Length` for every one
+/// of the thirty-two, and the length is read out of the patch like any
 /// other value. `None` when nothing bounds the run, or when the bound is a
 /// value nobody has read: a strip that dimmed two thirds of itself because it
 /// had not been told the length would be stating a fact it does not have.

@@ -269,8 +269,8 @@ where
             // steeper than the line is thick is a line rather than a row of
             // marks with the shape missing between them. A decay of nothing
             // falls the whole height of the drawing between two columns, and
-            // with nothing filled under it — which is how a value this window
-            // is claiming is drawn — the fall was not drawn at all.
+            // with nothing filled under it, which is how a value this window is
+            // claiming is drawn, the fall was not drawn at all.
             let last = previous.unwrap_or(top);
             let from = last.min(top) - 1.0;
             let to = last.max(top) + 1.0;

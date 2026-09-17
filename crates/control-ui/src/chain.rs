@@ -1,7 +1,7 @@
 //! The chain: what the effects block does with the four engines it holds.
 //!
 //! `FX Routing` is one byte and ten topologies, and the value table names them
-//! the way the manual does — `Parallel 1/2, parallel 3/4`. That sentence is
+//! the way the manual does: `Parallel 1/2, parallel 3/4`. That sentence is
 //! what a person reads and it is not a picture: four engines in a line, two
 //! pairs side by side and a loop around the fourth are three different
 //! instruments to play, and a list that names them makes somebody hold the
@@ -21,8 +21,8 @@
 //! what is summed at the end are all asked of the routing the byte selects. A
 //! picture assembled by matching `Serial 1-2-3-4` against a string would be
 //! this repository holding an eleventh copy of the table, wrong on the day a
-//! firmware renumbers one — which is the whole reason the library was asked for
-//! the graph instead of the names.
+//! firmware renumbers one, which is why the library was asked for the graph
+//! instead of the names.
 //!
 //! Where an engine stands is this file's, because the library publishes what is
 //! wired to what and not where to draw it. Columns are how far an engine is
@@ -35,8 +35,8 @@
 //!
 //! A dot matrix at the pitch every display in this window shares, over the two
 //! settings it is a picture of, which is the arrangement the front panel's
-//! plates already have. A `DeepMind` cannot show this — its own FX page is a
-//! list — and that is the same reason the panel's plates carry drawings the
+//! plates already have. A `DeepMind` cannot show this, because its own FX page
+//! is a list, which is the same reason the panel's plates carry drawings the
 //! hardware has no room for.
 //!
 //! [`ROWS`] down, and [`columns`] across. The height is the instrument's own
@@ -46,19 +46,15 @@
 //! the instrument's display and then some, and every dot of that is a name in a
 //! box rather than a name in a list under one.
 //!
-//! It is still one width for all ten topologies rather than one per topology —
-//! a page that resized itself when a routing byte moved was a page that jumped
-//! under the hand that moved it — and it is still derived rather than chosen.
-//! A firmware that adds a longer abbreviation makes this glass wider, in the
-//! same breath and without anybody editing a number, which is the same rule the
-//! front panel opens its window by.
+//! It is one width for all ten topologies rather than one per topology, because
+//! a page that resized itself when a routing byte moved would jump under the
+//! hand that moved it, and it is derived rather than chosen. A firmware that
+//! adds a longer abbreviation makes this glass wider without anybody editing a
+//! number, which is the rule the front panel opens its window by.
 //!
-//! One size for the ten topologies, rather than one per topology. A page that
-//! resized itself when a routing byte moved was a page that jumped under the
-//! hand that moved it, and what the shallow topologies do with the glass they
-//! are not filling is spend it: a column holding one engine draws a taller box,
-//! and a box with the room for it carries the mark of the family its algorithm
-//! is in.
+//! What the shallow topologies do with the glass they are not filling is spend
+//! it: a column holding one engine draws a taller box, and a box with the room
+//! for it carries the mark of the family its algorithm is in.
 
 use std::sync::LazyLock;
 
@@ -72,9 +68,9 @@ use crate::{Confidence, Element, Patch};
 
 /// How many dots across the glass is.
 ///
-/// Enough that the widest topology — four engines in a line, which is the one
-/// the instrument ships on — gives every box the room to say what is running in
-/// it. That is the whole derivation: the longest abbreviation in the library's
+/// Enough that the widest topology, four engines in a line, which is the one the
+/// instrument ships on, gives every box the room to say what is running in it.
+/// That is the whole derivation: the longest abbreviation in the library's
 /// own table, with an engine's number in front of it, written at the size this
 /// glass writes, inside a frame, four of those across with the gutters between
 /// them and the rails at either end.
@@ -82,7 +78,7 @@ use crate::{Confidence, Element, Patch};
 /// Asked of the library rather than written down. A number here would be a
 /// number that was right about the 35 algorithms that shipped and wrong about
 /// the first one a firmware adds, and the way it would be wrong is a name
-/// printed past the edge of its own box — which is a box belonging to whichever
+/// printed past the edge of its own box, which is a box belonging to whichever
 /// engine the reader guesses.
 pub(crate) fn columns() -> i32 {
     static ACROSS: LazyLock<i32> = LazyLock::new(|| {
@@ -106,9 +102,9 @@ const PADDING: i32 = 4;
 /// What a box writes inside its own frame, in the room it has.
 ///
 /// Three answers, in the order of how much they say. The engine's number and
-/// the abbreviation on one line, where the box is wide enough for both — which
-/// is a column holding two engines or more, where a box is half the graph or
-/// all of it. The number over the name on two lines, where the box is wide
+/// the abbreviation on one line, where the box is wide enough for both, which is
+/// a column holding two engines or more. The number over the name on two lines,
+/// where the box is wide
 /// enough for the name and tall enough to stack them, which is what four
 /// engines in a line get: narrow boxes on a graph one box deep, with the height
 /// to spare that the width has not got. And the number alone where it is
@@ -132,9 +128,9 @@ fn writing(number: &str, name: Option<&str>, room: i32, height: i32) -> Vec<Stri
 
 /// How many dots down it is.
 ///
-/// Derived the way the width is, and for the same reason. It was 64 — the
-/// instrument's own display — and 64 is not a measurement of anything this
-/// picture has to fit: the deepest of the ten topologies stacks four boxes, and
+/// Derived the way the width is, and for the same reason. The instrument's own
+/// display is 64, and 64 is not a measurement of anything this picture has to
+/// fit: the deepest of the ten topologies stacks four boxes, and
 /// four boxes that each have a dot of glass inside their own frame, with a
 /// heading over them and the analog path's foot under them, come to more than
 /// that. What the number was doing instead was taking the dot back off the
@@ -150,7 +146,7 @@ pub(crate) const ROWS: i32 = HEADING + ENGINES * LEGIBLE + (ENGINES - 1) * APART
 ///
 /// The library's own count, which is a `usize` because it counts a slice. A
 /// const cannot go through [`i32`], so this is the one place the number is
-/// written twice — and the test below is what stops the two from drifting.
+/// written twice, and the test below is what stops the two from drifting.
 const ENGINES: i32 = 4;
 
 /// How tall one engine's plate is drawn, at most.
@@ -158,8 +154,8 @@ const ENGINES: i32 = 4;
 /// A column holding four gets a quarter of the graph and a column holding one
 /// would get all of it, which is a box as tall as the picture. This is where a
 /// box stops growing: the mark of the family its algorithm is in, the engine's
-/// number, and what it is running — which is the most a box has to say, and is
-/// what a column holding one engine spends the room on.
+/// number, and what it is running, which is the most a box has to say and what a
+/// column holding one engine spends the room on.
 const PLATE: i32 = MARK + 2 + LINE + 1 + LINE + 4;
 
 /// How many dots a line of the display's own face takes inside a box.
@@ -190,7 +186,7 @@ const HEADING: i32 = Screen::height_of(Size::Small) + 4;
 /// The loops are drawn there, and so is an output taken from an engine with
 /// others after it: the two ways a signal goes somewhere other than along the
 /// chain, which are the two that cannot be drawn between the boxes. A topology
-/// with neither does not pay for the lane — see [`Chain::under`] — because a
+/// with neither does not pay for the lane (see [`Chain::under`]), because a
 /// picture with a band of empty glass under it is a display saying there is
 /// something to look at.
 const UNDER: i32 = 14;
@@ -201,10 +197,10 @@ const UNDER: i32 = 14;
 /// they are not one measurement: the lane under the graph holds wires that have
 /// to clear the boxes they leave and the heads they end in, and the foot holds
 /// a word with a rule beside it. Sharing the number meant every dot the loops
-/// were given was taken off the graph a second time at the bottom — which, on
-/// the topology that stacks four engines with the voices routed round the
-/// block, left each box eight dots deep where nine is the least `plate` will
-/// draw, and the picture came out empty.
+/// were given was taken off the graph a second time at the bottom, which on the
+/// topology that stacks four engines with the voices routed round the block left
+/// each box eight dots deep where nine is the least `plate` will draw, and the
+/// picture came out empty.
 const FOOT: i32 = Screen::height_of(Size::Small) + 2;
 
 /// How much glass is left under a graph with nothing in that lane.
@@ -439,17 +435,16 @@ where
         .then(|| Chain::read(patch, firmware))
         .flatten();
     responsive(move |room| {
-        // The glass takes the band. A display given more room does not get
-        // bigger dots — it gets more of them, which is the rule every screen in
-        // this window is drawn under, and it is why this can fill the band
-        // without becoming a picture stretched across one. What [`columns`]
+        // The glass takes the band. A display given more room gets more dots
+        // rather than bigger ones, which is the rule every screen in this window
+        // is drawn under, and it is why this can fill the band without becoming
+        // a picture stretched across one. What [`columns`]
         // derives is the *fewest* dots that name four engines in a line, so it
         // is a floor rather than a width: below it a name would not fit, above
         // it the boxes are simply wider.
         //
-        // It stood at that floor and was centred, with the band's own dark
-        // either side of it — which reads as a picture that did not know how
-        // much room it had.
+        // Standing at that floor and centred, with the band's own dark either
+        // side of it, reads as a picture that did not know how much room it had.
         let across = lcd::fits(room.width).max(columns());
         let mut screen = Screen::new(across, ROWS);
         if let Some(chain) = chain {
@@ -475,9 +470,9 @@ pub(crate) fn note(patch: &Patch) -> Option<&'static str> {
 /// Draws the whole picture onto `screen`.
 ///
 /// The glass is one size for all ten topologies, so the question each of them
-/// answers is what to do with it. The graph takes what its boxes need — as
-/// tall as a box has any use for, and no taller — and what is left is spent on
-/// the list of what the four engines are running, for the engines whose own box
+/// answers is what to do with it. The graph takes what its boxes need, as tall
+/// as a box has any use for and no taller, and what is left is spent on the
+/// list of what the four engines are running, for the engines whose own box
 /// on the graph was too narrow to say. A topology that stacks its four engines
 /// spends the glass on the boxes and needs no list; one that lines them up has
 /// four narrow boxes and the room for one.
@@ -507,8 +502,8 @@ fn draw(screen: &mut Screen, chain: Chain) {
 
 /// Divides the glass into the graph and the band under it.
 ///
-/// The graph takes what its boxes need — as tall as a box has any use for and
-/// never shorter than one can be read at — and the list takes what is left,
+/// The graph takes what its boxes need, as tall as a box has any use for and
+/// never shorter than one can be read at, and the list takes what is left,
 /// less the lane a loop turns in and less whatever the analog path has taken
 /// off the foot. That is what makes one size of glass do for all ten
 /// topologies: the glass is as tall as four engines stacked, and the ones that
@@ -692,11 +687,11 @@ fn i32(of: usize) -> i32 {
 /// instrument's own display prints where the box is wide enough to hold it.
 ///
 /// The mark is [`Algorithm::mark`] on the library's own seven by seven grid,
-/// blitted a pixel to a dot. It is the drawing that survives a box this size —
-/// at forty-nine dots which of them are lit is the whole of the design, which
-/// is why the library draws that grid by hand rather than reducing its strokes
-/// into it — and it is what says a reverb from a distortion in a box with no
-/// room for either word.
+/// blitted a pixel to a dot. It is the drawing that survives a box this size: at
+/// forty-nine dots which of them are lit is the whole of the design, which is
+/// why the library draws that grid by hand rather than reducing its strokes into
+/// it. It is what tells a reverb from a distortion in a box with no room for
+/// either word.
 fn plate(screen: &mut Screen, engine: Engine, chain: Chain, band: Band, ink: Ink) {
     if band.width < 6 || band.height < LEGIBLE {
         return;
@@ -724,7 +719,7 @@ fn plate(screen: &mut Screen, engine: Engine, chain: Chain, band: Band, ink: Ink
     // A name written past the edge of its own box is a box belonging to
     // whichever engine the reader guesses, so the box writes what it has the
     // room for. The glass is cut so that what it has the room for is the name,
-    // on all ten topologies — see [`columns`].
+    // on all ten topologies. See [`columns`].
     let lines = writing(
         &number,
         running.map(|algorithm| algorithm.name),
@@ -840,10 +835,10 @@ fn rails(screen: &mut Screen, chain: Chain, boxes: &[Band; ENGINE_COUNT], graph:
         let out = band.y + band.height / 2;
         if band.x < last {
             // Something stands between this box and the rail, so the wire goes
-            // under everything rather than through it — and it leaves through
-            // the bottom rather than the side. Beside the box it ran the depth
-            // of the frame a dot away from it, which is not a wire leaving a
-            // box: it is a box with one edge drawn twice.
+            // under everything rather than through it, and it leaves through the
+            // bottom rather than the side. Beside the box it ran the depth of
+            // the frame a dot away from it, which is not a wire leaving a box:
+            // it is a box with one edge drawn twice.
             //
             // Three quarters of the way across, which is the side it is headed
             // for, and not the middle, where a loop returning into this same box
@@ -946,7 +941,7 @@ impl Wire {
 /// engines fed by one drew two, and what a reader saw was a single bar with
 /// stubs rather than three wires and a junction.
 ///
-/// So the gutter is shared out — by where the wires *arrive* rather than by how
+/// So the gutter is shared out by where the wires *arrive* rather than by how
 /// many there are. Wires into different boxes never stand on the same column,
 /// which is what tells two paths apart; wires into the *same* box share one,
 /// because they are one junction and drawing them as three columns two dots
@@ -1046,9 +1041,9 @@ const HEAD: i32 = 3;
 /// How far under the graph the first loop's lane runs.
 ///
 /// The head that points back up into the box, and enough dashes under it to be
-/// a line rather than a gap. It was half the lane, which left one dash between
-/// the two — and a head sitting on a rule with one dot of daylight is not an
-/// arrow arriving along a wire, it is a cross.
+/// a line rather than a gap. Half the lane leaves one dash between the two, and
+/// a head sitting on a rule with one dot of daylight is not an arrow arriving
+/// along a wire, it is a cross.
 const LOOP: i32 = HEAD + 4;
 
 /// How much glass stands between the rail the input runs down and the boxes it
@@ -1097,8 +1092,8 @@ fn points(screen: &mut Screen, from: i32, y: i32, at: i32, ink: Ink) {
 /// Solid, and not the open chevron it was. The same thing the matrix's two
 /// presses found out about a nine-dot glyph: at this pitch an outline is not a
 /// shape, it is a handful of specks arranged near one. A chevron in a nine-dot
-/// gutter, between two frames the bypassed chain draws dotted, read as an
-/// asterisk — which is a mark this display uses for something else.
+/// gutter, between two frames the bypassed chain draws dotted, reads as an
+/// asterisk, which is a mark this display uses for something else.
 fn arrow(screen: &mut Screen, x: i32, y: i32) {
     for back in 0..HEAD {
         for step in -back..=back {
@@ -1154,7 +1149,7 @@ fn along(screen: &mut Screen, from: i32, to: i32, y: i32) {
 /// Longer than the one it arrives with: five dots along and five across,
 /// tapering every other column rather than every one. An arrival's head is three
 /// along and five across, which is the right shape when a frame is standing
-/// directly behind it to say what has been arrived at — and the wrong one in
+/// directly behind it to say what has been arrived at, and the wrong one in
 /// open glass, where a wedge that steep is a column of five dots with a couple
 /// of specks in front of it, and what the eye reads is a tick on the line.
 fn nose(screen: &mut Screen, x: i32, y: i32, onward: bool) {
@@ -1201,7 +1196,7 @@ mod tests {
         // instrument joins one column to the next, so they all turn in the same
         // gap; turning at the midpoint put everything crossing it on one column,
         // and two wires drawn down one column are one wire as far as anybody
-        // reading it is concerned — unless they really are one, which is what
+        // reading it is concerned, unless they really are one, which is what
         // `wires_into_one_box_share_a_lane_and_wires_into_two_do_not` holds.
         for count in 1..=super::ENGINE_COUNT {
             let turns: Vec<i32> = (0..count)
@@ -1308,7 +1303,7 @@ mod tests {
     fn nothing_is_drawn_through_the_inside_of_a_box() {
         // What "underlapping" looks like on a dot matrix: a wire that runs
         // behind a box comes out the other side, and the dots in between are
-        // the box's. The test is the box's own interior — everything inside its
+        // the box's. The test is the box's own interior: everything inside its
         // frame must be something the box itself put there, which is its mark
         // and its name and nothing else.
         for routing in Routing::all() {
@@ -1416,7 +1411,7 @@ mod tests {
     fn every_box_is_big_enough_to_read_on_every_topology_and_mode() {
         // What the glass is cut for. A box shorter than a line of type is a box
         // `plate` declines to draw at all, so a topology that squeezed one out
-        // would be a picture of a three-engine synthesizer — and the squeeze
+        // would be a picture of a three-engine synthesizer, and the squeeze
         // comes from the two bands under the graph, which are paid for by the
         // graph itself.
         for routing in Routing::all() {
@@ -1524,10 +1519,10 @@ mod tests {
     #[test]
     fn every_engine_is_named_inside_its_own_box_on_every_topology() {
         // What the glass is cut for. A name under the graph is a name the
-        // reader has to carry back up to a box, and the box is where it
-        // belongs — so the width is derived from the longest of the 35 rather
-        // than chosen, and this is the check that the derivation is the one the
-        // drawing actually needs.
+        // reader has to carry back up to a box, and the box is where it belongs,
+        // so the width is derived from the longest of the 35 rather than chosen
+        // and this is the check that the derivation is the one the drawing
+        // actually needs.
         //
         // Every algorithm against every topology, because the worst case is a
         // long name in the topology with the narrowest boxes and neither half
@@ -1549,8 +1544,8 @@ mod tests {
     #[test]
     fn the_box_a_topology_draws_holds_what_the_list_said_it_would() {
         // The list and the box answer the same question against two different
-        // heights — the list against the cap a box grows to, the box against
-        // the band it was actually given — so this is the check that the two
+        // heights, the list against the cap a box grows to and the box against
+        // the band it was actually given, so this is the check that the two
         // cannot fall out of step: a name the list decided not to carry is a
         // name the box really does write.
         for routing in Routing::all() {

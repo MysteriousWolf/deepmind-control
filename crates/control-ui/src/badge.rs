@@ -3,8 +3,8 @@
 //! Every press in this window's chrome asks the instrument something or says
 //! something about the window: ask who is there, read the edit buffer, look for
 //! ports again, open one, put one down, say what is known about the cable. They
-//! were words, and a row of words beside the one press that is a picture — the
-//! display that shows which way up the glass is about to be — was a row where
+//! were words, and a row of words beside the one press that is a picture, the
+//! display that shows which way up the glass is about to be, was a row where
 //! one press was drawn and the rest were labelled.
 //!
 //! # Why they are dots
@@ -16,7 +16,7 @@
 //! small drawing here made of anything else.
 //!
 //! So a mark is a grid, `SIDE` square, and it is stencilled onto the panel
-//! rather than lit on glass — [`crate::stencil`] is what draws it, which is the
+//! rather than lit on glass. [`crate::stencil`] is what draws it, which is the
 //! same call the numbers on a case and in a matrix row go through. The
 //! exception is the press that turns the displays over: that one is a display,
 //! because what it is about *is* the display.
@@ -25,7 +25,7 @@
 //!
 //! Seven is the cell a *character* stands in, and these are not characters.
 //! Nine is the smallest odd grid with a middle dot, a dot either side of it and
-//! a dot either side of those — which is what a circle, an arrow and a plug all
+//! a dot either side of those, which is what a circle, an arrow and a plug all
 //! need before they stop being suggestions. At the pitch every display here
 //! shares that is twenty-two points, which is what a press this window's height
 //! has room for.
@@ -36,7 +36,7 @@
 //! smallest arrangement of dots that says the thing: a socket is the five pins
 //! a `DIN` plug has, a read is an arrow coming down into a tray, an inquiry is
 //! a question mark, a rescan is an arrow going round. Where a grid this size
-//! has no honest answer the press keeps its word — which is why the words are
+//! has no honest answer the press keeps its word, which is why the words are
 //! still there beside them.
 
 use crate::lcd::Screen;
@@ -143,9 +143,9 @@ pub const READ: Badge = Badge::new(
 /// Look for ports again: a magnifier.
 ///
 /// A ring with a handle, which is what looking for something is drawn as in
-/// every grid this size ever made. It was a circular arrow — three quarters of
-/// a ring with a stub on the end of it, which at nine dots is a broken circle
-/// with specks round it rather than a thing going round. What this press does
+/// every grid this size ever made. A circular arrow is three quarters of a ring
+/// with a stub on the end of it, which at nine dots is a broken circle with
+/// specks round it rather than a thing going round. What this press does
 /// is go and *look*, and a magnifier is a shape with two parts rather than a
 /// shape with a gap in it.
 pub const RESCAN: Badge = Badge::new(
@@ -170,10 +170,9 @@ pub const RESCAN: Badge = Badge::new(
 /// pins in the arc the standard puts them in. Empty, because the press is the
 /// one that puts something in it.
 ///
-/// The ring is two dots thick at its shoulders now. It was a hairline circle
-/// with five single dots inside it, which at this size is a dotted circle with
-/// specks in the middle — the ring has to be a ring before the pins read as
-/// pins.
+/// The ring is two dots thick at its shoulders. A hairline circle with five
+/// single dots inside it is, at this size, a dotted circle with specks in the
+/// middle: the ring has to be a ring before the pins read as pins.
 pub const PORT: Badge = Badge::new(
     &[
         0b0_0111_1100,
@@ -191,9 +190,9 @@ pub const PORT: Badge = Badge::new(
 
 /// Put the port down: the same socket with a plug in it.
 ///
-/// Two presses that did the same thing to the same port wore the same mark and
-/// differed by the word beside them — and the words have gone to the footer, so
-/// the mark is what has to say which of the two this is. A socket with
+/// Two presses that do the same thing to the same port would otherwise differ
+/// only by the word beside them, and the words are in the footer, so the mark is
+/// what has to say which of the two this is. A socket with
 /// something in it is a port that is open, which is a fact about the cable
 /// rather than an instruction, and it reads at a glance the way a lit lamp
 /// does.
@@ -215,7 +214,7 @@ pub const PLUGGED: Badge = Badge::new(
 /// What is known about the instrument: a lower-case `i`, set as a mark.
 ///
 /// The one press whose subject is this window rather than the instrument, and
-/// the one place a letter is the honest drawing — an inquiry has no shape and
+/// the one place a letter is the honest drawing: an inquiry has no shape and
 /// every reader of every interface knows this one.
 pub const ABOUT: Badge = Badge::new(
     &[
@@ -235,12 +234,12 @@ pub const ABOUT: Badge = Badge::new(
 /// Send this routing out into the window: a reticle.
 ///
 /// What the press does is put the routing over the panel and wait for somebody
-/// to take hold of a control — so the mark is the thing you aim, and a ring
-/// with a crosshair through it and a dot in the middle is what aiming has
-/// looked like for as long as anything has been aimed.
+/// to take hold of a control, so the mark is the thing you aim: a ring with a
+/// crosshair through it and a dot in the middle is what aiming has looked like
+/// for as long as anything has been aimed.
 ///
-/// It was the word `MAP`, stencilled. A word is the honest mark where a grid
-/// this size has no answer — which is why [`ABOUT`] is still a letter — but
+/// A word is the honest mark where a grid this size has no answer, which is why
+/// [`ABOUT`] is still a letter, but
 /// this one has an answer, and a press whose face is a picture is a press that
 /// does not have to be read. The word has not gone anywhere: it is in the
 /// footer, as the sentence the pointer brings up, the same as every other press
@@ -269,19 +268,19 @@ pub const MAP: Badge = Badge::new(
 /// A solid triangle, [seven dots across](ARROW) and four down, because of where
 /// it stands: above a numeral written in the display's own character cell, in a
 /// row as tall as one line of controls, with its twin below. What it is not is
-/// an arrow with a shaft — at this size a three-dot head on a one-dot stem
-/// reads as a cross, and the head has to be most of the mark before anybody
-/// sees which way it points.
+/// an arrow with a shaft: at this size a three-dot head on a one-dot stem reads
+/// as a cross, and the head has to be most of the mark before anybody sees
+/// which way it points.
 ///
-/// It was the typographer's `\u{25b2}` set at nine points — a glyph whose size
-/// is the face's business and whose weight is the face's too, which is why the
-/// two of them never looked like a pair.
+/// Nor is it the typographer's `\u{25b2}` set at nine points, whose size and
+/// weight are both the face's business, which is why two of those never looked
+/// like a pair.
 pub const UP: Badge = Badge::new(&[0b000_1000, 0b001_1100, 0b011_1110, 0b111_1111], ARROW);
 
 /// Move it down: the same triangle, the other way up.
 ///
 /// Drawn rather than flipped in code, because the two are what somebody
-/// compares — a pair that is visibly one mark reflected is a pair, and a pair
+/// compares: a pair that is visibly one mark reflected is a pair, and a pair
 /// that differs by a row is a mistake nobody can see and everybody can feel.
 pub const DOWN: Badge = Badge::new(&[0b111_1111, 0b011_1110, 0b001_1100, 0b000_1000], ARROW);
 

@@ -1,12 +1,10 @@
 //! The effects: four engines, and what the algorithm in one says its twelve
 //! bytes are.
 //!
-//! Fifty-eight parameters, and fifty-six of them are `FX 1 Param 3`. That name
+//! Fifty-eight parameters, and fifty-six of them are named `FX 1 Param 3`. That
 //! is the truth about the wire and useless on a panel: the byte is `Size` on a
 //! Room Reverb, `Depth` on a Phaser, and nothing at all on a TC Deep Reverb,
-//! which uses five of its twelve. A rack of fifty-eight slots under those names
-//! is complete, honest and unreadable, which is what stage 3 left here and what
-//! this replaces.
+//! which uses five of its twelve.
 //!
 //! `deepmind-midi` 26.2 published the table that settles it. [`Engine`] is which
 //! parameters one engine addresses, [`Algorithm`] is the 35 and which byte
@@ -16,31 +14,27 @@
 //!
 //! # Nothing here is transcribed
 //!
-//! Which group holds the engines is [`Engine::algorithm_parameter`]'s own group,
-//! not a name written down. Which slot a parameter is under the loaded algorithm
-//! is [`Algorithm::slot_of`]. Which algorithm a byte selects is
+//! Which group holds the engines is [`Engine::algorithm_parameter`]'s own group.
+//! Which slot a parameter is under the loaded algorithm is
+//! [`Algorithm::slot_of`]. Which algorithm a byte selects is
 //! [`Algorithm::for_value`] for the firmware a device inquiry reported, because
-//! firmware 1.1 inserted Vintage Pitch rather than appending it and 33 is Rotary
+//! firmware 1.1 inserted Vintage Pitch rather than appending it, so 33 is Rotary
 //! Speaker on 1.0. A fifth engine, a thirty-sixth algorithm or a renamed slot
 //! arrives with nothing in this file to edit.
 //!
 //! # The page is the instrument's own, and so is the grid
 //!
-//! 26.3 published the rest of it
-//! ([deepmind-midi#22](https://github.com/MysteriousWolf/deepmind-midi/issues/22)):
-//! the grid the synthesizer's own FX page lays a slot out on, measured off the
-//! 35 screenshots in the manual, and what the figure printed beside each
-//! algorithm is made of. Six columns and two rows, and
-//! [`FxSlot::position`] says which cell a slot is drawn in.
+//! 26.3 published the grid the synthesizer's own FX page lays a slot out on,
+//! measured off the 35 screenshots in the manual, and what the figure printed
+//! beside each algorithm is made of
+//! ([deepmind-midi#22](https://github.com/MysteriousWolf/deepmind-midi/issues/22)).
+//! Six columns and two rows, with [`FxSlot::position`] naming the cell.
 //!
-//! The cell is what this draws it in. Six columns, each the same width and each
-//! there whether or not a slot stands in it, spread across the whole page — so
-//! the third column of the second row stands under the third column of the
-//! first, and an algorithm using five slots on one row and six on the next
-//! draws the five where the hardware draws them. Reading the grid as the *order*
-//! of a row instead, and packing each row against the left at the width of a
-//! rack's slot, is what left two rows that did not line up in the left half of
-//! an empty plate.
+//! Every column is drawn whether or not a slot stands in it, and all six are
+//! spread across the page, so the third column of the second row stands under
+//! the third column of the first. Reading the grid as the *order* of a row
+//! instead, and packing each row against the left, leaves two rows that do not
+//! line up in the left half of an empty plate.
 //!
 //! [`Panel::control`] is the shape: 29 of the 35 figures are rotary knobs, five
 //! are faders and one is a numeric display, and a slot on a knob panel is drawn
@@ -48,49 +42,38 @@
 //!
 //! # A case is as deep as what is in it
 //!
-//! Four plates on a page at four heights, rather than four at one. The grid is
-//! two rows and an algorithm as short as five slots fills one of them, and
-//! drawing the empty second row anyway — along with the deepest band of display
-//! names any of the 35 needs — made every case the same shape at the price of
-//! half of most of them being blank panel. A rack unit with nothing on its
-//! lower half is a rack unit somebody looks for the missing knobs on. What is
-//! still reserved is the shape of a row: every column of a row stands a
-//! column's height whether or not a slot is in it, so the columns line up down
-//! the plate and two engines running algorithms of one shape do come out level.
+//! The grid is two rows and an algorithm as short as five slots fills one of
+//! them, so a plate draws the rows its algorithm needs rather than always two
+//! and the deepest band of display names any of the 35 takes. What is still
+//! reserved is the shape of a row: every column stands a column's height
+//! whether or not a slot is in it, so the columns line up and two engines
+//! running algorithms of one shape come out level.
 //!
 //! # Four at once, and what that costs the livery
 //!
-//! All four engines are on the page together, in the two-by-two the four of
-//! them make. One at a time behind a row of tabs was an engine you could see
-//! and three you had to remember, on a page whose whole subject is what four
-//! effects are doing *together* — and the chain drawn across the top of it is a
-//! picture of exactly that. Each engine's own case carries the strip that says
-//! what it is running, which is also the list that changes it, and how loud it
-//! comes out; there is no separate header, because a header was a second place
-//! saying which algorithm an engine was running and neither place was the
-//! engine.
+//! All four engines are on the page, in the two-by-two the four of them make.
+//! One at a time behind a row of tabs is an engine you can see and three you
+//! have to remember, on a page whose whole subject is what the four are doing
+//! together. Each case carries the strip that says what it is running, which is
+//! also the list that changes it, and how loud it comes out. There is no
+//! separate header, because a header is a second place naming the algorithm and
+//! neither place is the engine.
 //!
-//! The library publishes four measured colours per algorithm. How many of them
-//! this page can afford depends on how many units stand on it. With one open at
-//! a time it wore the lot — case, face and cap — because a single unit can be
-//! that unit without the window becoming a shelf of other people's boxes. Four
-//! stand on it now, and four liveries side by side are exactly the collage this
-//! editor's whole argument is against. So the face went back to the window's
-//! own plate and the cap back to the window's own metal, and what an engine
-//! wears is its case and a hairline of its accent: enough to tell the reverb
-//! from the distortion at arm's length, which is all four units at once can
-//! afford to say.
+//! The library publishes four measured colours per algorithm, and how many of
+//! them this page can afford depends on how many units stand on it. With one
+//! open at a time it wore the lot. With four, four liveries side by side are the
+//! collage this editor argues against, so the face is the window's own plate and
+//! the cap the window's own metal, and an engine wears its case and a hairline
+//! of its accent: enough to tell the reverb from the distortion at arm's length.
 //!
 //! # Nothing is printed in a colour that cannot be read on what is under it
 //!
-//! Half of the 35 measured chassis are pale and half are dark, and no word on
-//! this page names an ink of its own. It names the surface it lands on — the
-//! face, a case, a band's strip, the recess the chain is cut into — and
-//! [`ink`] and [`legend`] answer with whichever of the instrument's two can be
-//! read there, measured rather than judged. A reading keeps the colour of its
-//! claim, because that is what it means, and is lifted until it clears the
-//! same threshold: amber stays amber and green stays green, and what moves is
-//! how light it is.
+//! Half of the 35 measured chassis are pale, so no word on this page names an
+//! ink. It names the surface it lands on, the face, a case, a band's strip or
+//! the recess the chain is cut into, and [`ink`] and [`legend`] answer with
+//! whichever of the instrument's two can be read there, measured rather than
+//! judged. A reading keeps the colour of its claim, because that is what it
+//! means, and is lifted until it clears the same threshold.
 //!
 //! # What an effect is, and what it is doing
 //!
@@ -100,72 +83,59 @@
 //! [#33](https://github.com/MysteriousWolf/deepmind-midi/issues/33)), and all
 //! four answers are spent here.
 //!
-//! [`Algorithm::mark`] is nine drawings across the 35 — a decaying tail, a train
-//! of repeats, a horn going round — and one of them stands at the head of every
-//! engine's strip, where four long names previously had to be read one at a
-//! time. The library publishes the strokes rather than a picture, which is what
-//! lets [`mark`](crate::mark) draw the same mark in this window's own ink on a
-//! cream chassis and on a black one.
+//! [`Algorithm::mark`] is nine drawings across the 35, a decaying tail, a train
+//! of repeats, a horn going round, and one of them stands at the head of every
+//! engine's strip. The library publishes the strokes rather than a picture,
+//! which is what lets [`mark`](crate::mark) draw the same mark in this window's
+//! own ink on a cream chassis and on a black one.
 //!
-//! [`FxSlot::is_enable`] is how an effect is switched off, and the answer is
-//! that on 32 of the 35 it is not: `FX n Type` is 35 effects with no `Off` in
-//! the table, and what takes effects out of circuit is the `Bypass` mode, which
-//! is the whole block of four. Three algorithms spend one of their twelve bytes
-//! on a switch of their own, and where one of those reads off the strip says so
-//! and the chain draws that engine as something the signal goes past. The
-//! window used to have no way to know, so every engine drew its full panel and
-//! said nothing.
+//! [`FxSlot::is_enable`] is how an effect is switched off, and on 32 of the 35
+//! it is not: `FX n Type` is 35 effects with no `Off` in the table, and what
+//! takes effects out of circuit is the `Bypass` mode, which covers the whole
+//! block of four. Three algorithms spend one of their twelve bytes on a switch
+//! of their own. Where one of those reads off, the strip says so and the chain
+//! draws that engine as something the signal goes past.
 //!
 //! [`effect::response`] is what an engine is doing to a signal, and it answers
-//! for two of the 35: the tap delays, whose panels are literally a time and a
-//! gain per tap. Those two get the screen every other panel in this window has;
-//! the other 33 get nothing, which is the honest answer rather than a gap. A
-//! reverb's impulse response is its designer's, and a plausible one drawn here
-//! would look like information and not be any.
+//! for two of the 35: the tap delays, whose panels are a time and a gain per
+//! tap. Those two get a screen and the other 33 get nothing, which is the
+//! answer rather than a gap. A reverb's impulse response is its designer's, and
+//! a plausible one drawn here would look like information without being any.
 //!
 //! [`FxSlot::quantity`] is what a slot does to a signal as against what it is
-//! called, and it fills the line under every slot that has no printed range: a
+//! called, and it fills the line under every slot with no printed range: a
 //! `Mix`, a `Feedback` and a `Pre-Delay` are all a byte `0..=255` and they do
 //! three unrelated things.
 //!
 //! # A named slot is the same control it was
 //!
-//! The library says two things about a slot and they are not the same thing.
-//! `FxSlot::kind` is how the *display* reads the byte, and the parameter table
-//! is what the byte *is*: `Freeze` is two states on the panel and a parameter
-//! that accepts 256 values on the wire, and the curve between the two is not
-//! published. So the control is still [`control`] over the parameter's own
-//! range, chosen by the same code from the same table as every other slot in
-//! the editor, and what the algorithm supplies is the naming: the title, the
-//! abbreviation the instrument's display prints, the band the slot belongs to,
-//! and the two ends of the reading it shows. Hand layout changes the arrangement
-//! and never what a control is, and that rule is what keeps this panel from
-//! inventing a mapping the manual does not give.
+//! The library says two things about a slot and they are not the same.
+//! `FxSlot::kind` is how the *display* reads the byte; the parameter table is
+//! what the byte *is*. `Freeze` is two states on the panel and a parameter that
+//! accepts 256 values on the wire, and the curve between them is not published.
+//! So the control is [`control`] over the parameter's own range, chosen by the
+//! same code from the same table as every other slot in the editor, and the
+//! algorithm supplies the naming: the title, the abbreviation the instrument's
+//! display prints, the band the slot belongs to, and the two ends of the
+//! reading it shows.
 //!
-//! For the same reason a slot whose display shows names — `Ambience`, `Church`,
-//! `Gate` — is not drawn as a list. The manual prints those names and never the
+//! For the same reason a slot whose display shows names (`Ambience`, `Church`,
+//! `Gate`) is not drawn as a list. The manual prints those names and never the
 //! bytes they sit at, [`FxSlot::values`] says so, and a list that sent one of
 //! them would be sending a guess. The names are printed as what the display
-//! will show, and the byte stays draggable.
-//!
-//! Under the row the slot stands on, rather than under the whole plate. Nine
-//! reverb presets set at nine points are two lines long on a case a quarter of
-//! this page wide, so printing all of a plate's at its foot put the longest
-//! thing on the case as far as it could get from the control it is about, with
-//! the abbreviation at the head of the line the only thing saying which control
-//! that was.
+//! will show, under the row that slot stands on, and the byte stays draggable.
+//! Printing a whole plate's names at its foot puts the longest thing on the
+//! case as far as it can get from the control it is about.
 //!
 //! # Twelve bytes, however many the algorithm uses
 //!
 //! An engine holds twelve whatever it is running, and
 //! [`Algorithm::slots`](deepmind_midi::effect::Algorithm::slots) is as short as
-//! five. The ones the algorithm has a name for are drawn as that name; the rest
-//! are drawn at the end of the plate under the library's own `Fx 1 Param 6`,
-//! marked as doing nothing, because a byte in the program that no panel reaches
-//! is a byte the modulation matrix can still be mapped onto. An engine whose
-//! algorithm this firmware's table does not name — or whose type nobody has read
-//! — draws all twelve that way, which is stage 3's rack for exactly as long as
-//! there is nothing better to say.
+//! five. The ones the algorithm names are drawn as that name; the rest go at the
+//! end of the plate under the library's own `Fx 1 Param 6`, marked as doing
+//! nothing, because a byte no panel reaches is a byte the modulation matrix can
+//! still be mapped onto. An engine whose algorithm this firmware's table does
+//! not name, or whose type nobody has read, draws all twelve that way.
 
 use deepmind_midi::effect::{
     self, Algorithm, Character, Colour, Control, Engine, FxSlot, Panel, Quantity, grid,
@@ -190,10 +160,8 @@ use crate::{Confidence, Element, Patch, tint};
 /// How much room the ten topologies are laid out in.
 ///
 /// The band, rather than a number: they take whatever the display over them
-/// leaves after the mode beside them, which is nearly all of it. A width
-/// written down here was a band half full with the rest of the page blank
-/// beside it — the routing is the widest thing in the group and there is
-/// nothing else to give the room to.
+/// leaves after the mode beside them, which is nearly all of it. The routing is
+/// the widest thing in the group and there is nothing else to give the room to.
 ///
 /// It is still passed, because a column has to be as wide as
 /// `Parallel 1/2, parallel 3/4` before the band is divided into
@@ -205,9 +173,8 @@ const SETTING: f32 = 500.0;
 /// Three, which is four, four and two: read down, because the manual numbers
 /// them `M-1` to `M-10` and the byte follows that order, so a column is a run
 /// of consecutive topologies. Three rather than two because the band under the
-/// display is wide and the page is better spent across than down — ten of them
-/// four deep is a block the eye takes in, and five deep was a column as tall as
-/// the plates beside it.
+/// display is wide and ten of them four deep is a block the eye takes in, where
+/// five deep is a column as tall as the plates beside it.
 const SETTING_COLUMNS: usize = 3;
 
 /// How much room one whose choices are lit rather than listed is given.
@@ -217,10 +184,10 @@ const LIT_SETTING: f32 = 86.0;
 
 /// Returns how one of the group's own settings is chosen.
 ///
-/// Both of them are lit rather than listed now: three words for the mode, and
-/// the ten topologies laid out in columns. Which of the two a parameter is, is
-/// asked of how many choices the library gives it rather than of its name, so a
-/// firmware that adds an eleventh topology gets another lamp.
+/// Both are lit rather than listed: three words for the mode, and the ten
+/// topologies in columns. Which of the two a parameter is is asked of how many
+/// choices the library gives it rather than of its name, so a firmware that
+/// adds an eleventh topology gets another lamp.
 fn chosen_in(parameter: ParamId, firmware: Version) -> Room {
     if lit_rather_than_listed(parameter, firmware) {
         Room::lamps(LIT_SETTING, panel::lit_band(MODE_CHOICES))
@@ -234,20 +201,18 @@ const MODE_CHOICES: usize = 3;
 
 /// How large the output gain is drawn on the strip.
 ///
-/// A knob, and a small one. It was a fader lying on its side and it was the
-/// widest thing on the strip by some way — a hundred and fifty points for one
-/// byte, on a line where the name of the algorithm had to fit as well. A knob
-/// of this size is a quarter of that, and what the difference bought is the
-/// room the response picture now stands in.
+/// A knob, and a small one: a quarter of the width a fader on its side took for
+/// one byte on a line that also has to hold the name of the algorithm. The
+/// difference is the room the response picture stands in.
 const GAIN: f32 = 26.0;
 
 /// Height of the box a slot's title is set in.
 ///
 /// Two lines of it. A column of the grid is about a sixth of half the page, so
-/// `Crossover Frequency 1` wraps and `Decay` does not, and both of them have to
-/// leave the line under them in the same place. Fixed and set in the middle, so
-/// a title of one line sits the same distance under its value as its units sit
-/// under it rather than at one end of a gap.
+/// `Crossover Frequency 1` wraps and `Decay` does not, and both have to leave
+/// the line under them in the same place. Fixed and set in the middle, so a
+/// title of one line sits the same distance under its value as its units sit
+/// under it.
 const TITLE: f32 = 26.0;
 
 /// Height of the line a slot's reading is described on.
@@ -284,15 +249,14 @@ const WITHIN_SLOT: f32 = 2.0;
 
 /// How much case a band keeps above and below what it holds.
 ///
-/// Enough that the tinted block reads as a block. A band was a pale bar over
-/// some controls and nothing said where it stopped; it is a surface its own
-/// columns stand on now, and a surface needs an edge somebody can see.
+/// Enough that the tinted block reads as a block. A band is a surface its own
+/// columns stand on, and a surface needs an edge somebody can see.
 const BAND_PAD: f32 = 4.0;
 
 /// How far apart two bands of one row stand.
 ///
-/// The gap is what separates them. Two runs touching is one strip of two words
-/// rather than two bands, which is what `low` and `mid` looked like.
+/// The gap is what separates them. Two runs touching read as one strip with two
+/// words on it rather than as two bands.
 const BESIDE_BAND: f32 = 5.0;
 
 /// How far one row of the grid stands from the next.
@@ -305,32 +269,30 @@ const BETWEEN_ROWS: f32 = 12.0;
 
 /// How big the thing a hand takes hold of is drawn on an effect plate.
 ///
-/// Smaller than a rack's slot rather than larger, which is what changed when
-/// all four engines came onto one page: this is twenty-four controls, four
-/// cases and a chain on one surface, and the rack's forty have a page each.
+/// Smaller than a rack's slot, because this is twenty-four controls, four cases
+/// and a chain on one surface where the rack's forty have a page each.
 ///
-/// The grid publishes the instrument's own proportion — a control 11.9 wide in
-/// a column pitched 20, on a 128 point display — and that is not what decides
-/// this. It measures a dot matrix drawing its own labels in dots, and it does
-/// not survive a title set in a real face. What this window takes from the grid
-/// is the arrangement, which is published and exact.
+/// The grid publishes the instrument's own proportion, a control 11.9 wide in a
+/// column pitched 20 on a 128 point display, and that is not what decides this:
+/// it measures a dot matrix drawing its own labels in dots and does not survive
+/// a title set in a real face. What this window takes from the grid is the
+/// arrangement, which is published and exact.
 const BODY: f32 = 40.0;
 
 /// How deep the band a slot's control stands in is.
 ///
 /// The taller of the two the library asks for, so a plate of knobs and a plate
-/// of faders come out the same height. An algorithm's figure decides which
-/// shape a hand takes hold of, and that is a fact about the algorithm; how deep
-/// the row it stands in is, is a fact about the page, and four cases on one page
-/// whose rows are at different heights are four cases that do not line up.
+/// of faders come out the same height. Which shape a hand takes hold of is a
+/// fact about the algorithm; how deep the row it stands in is is a fact about
+/// the page.
 const CONTROL_ROW: f32 = TRAVEL;
 
 /// How far a fader on one of them runs.
 ///
 /// Shorter than a rack's, the way the instrument's own front panel runs its
 /// faders short to hold two rows of them. A knob shrinks in both directions at
-/// once and a fader only along its travel, so the two come down to the same
-/// weight in a column at different numbers.
+/// once and a fader only along its travel, so the two reach the same weight in
+/// a column at different numbers.
 const TRAVEL: f32 = 50.0;
 
 /// How big one is drawn where the algorithm does not use the byte.
@@ -347,31 +309,28 @@ const SLOT_NUMBER: f32 = 24.0;
 /// A cell of the display's own grid, at the pitch every display in this window
 /// shares, which comes out seventeen and a half points tall: as large as the
 /// strip is deep and no larger. It stands behind the line rather than in it,
-/// which is what makes it a ground; a numeral *taller* than the line is a
-/// numeral with its head and its feet cut off, and a digit shaved at both ends
-/// reads as a mistake rather than as a mark on a case.
+/// which is what makes it a ground, and a numeral taller than the line is a
+/// numeral with its head and feet cut off.
 ///
-/// [`Size::Large`] is the other thing on offer and it is twice this, which is
-/// half as tall again as the strip — and a bigger dot is not on offer at all,
-/// here or anywhere: a display given more room gets more dots, and so does a
-/// case.
+/// [`Size::Large`] is the other thing on offer and it is twice this, half as
+/// tall again as the strip. A bigger dot is not on offer anywhere: a display
+/// given more room gets more dots, and so does a case.
 const SLOT_SIZE: Size = Size::Small;
 
 /// How far it is carried from the case towards the case's own ink.
 ///
 /// Further than the family's mark, because it is one character where the mark
 /// is a drawing across a whole face, and a numeral at a watermark's strength is
-/// a numeral nobody can read. Further again now that it is printed in dots
-/// rather than drawn solid: a dot covers roughly half the cell it stands in and
-/// a glyph roughly half the cells of its box, so the same ink laid down the
-/// same way reads about half as hard as a solid one did.
+/// a numeral nobody can read. Further again because it is printed in dots: a
+/// dot covers about half the cell it stands in and a glyph about half the cells
+/// of its box, so the same ink reads about half as hard as a solid numeral.
 const SLOT_INK: f32 = 0.7;
 
 /// Draws the family's mark large and faint across an engine's face.
 ///
-/// Nothing at all where the algorithm is one this firmware cannot name, which is
-/// the same rule everything else on the plate follows: there is no family to
-/// mark, and a mark chosen anyway would be a guess drawn at the size of a case.
+/// Nothing at all where the algorithm is one this firmware cannot name: there is
+/// no family to mark, and a mark chosen anyway is a guess drawn at the size of a
+/// case.
 fn hero<'a, Renderer>(patch: &Patch, engine: Engine, firmware: Version) -> Element<'a, Renderer>
 where
     Renderer: iced_core::Renderer + 'a,
@@ -380,7 +339,7 @@ where
         return Space::new().into();
     };
     // Stamped into the face of an old unit, raised off a modern one, and left
-    // flat where the case is neither — see [`Relief`](crate::mark::Relief). The
+    // flat where the case is neither: see [`Relief`](crate::mark::Relief). The
     // two inks are the light and the shadow a stamping catches, which is what
     // makes an indent an indent rather than a second colour.
     let relief = match Finish::of(algorithm) {
@@ -401,12 +360,11 @@ where
 /// Draws the finish of the plate an engine's controls stand on.
 ///
 /// The same material as the case around it, in the window's own plate colour
-/// rather than in a fourth measured one: what an engine wears is its case and a
-/// hairline of its accent, because four measured liveries side by side are the
-/// collage this page has always refused to be. The library publishes
-/// `Panel::face` and `Panel::cap` as well, and those are the two this window
-/// declines — a surface can carry what kind of unit it is without wearing its
-/// paint.
+/// rather than a fourth measured one: an engine wears its case and a hairline of
+/// its accent, because four measured liveries side by side are a collage. The
+/// library publishes `Panel::face` and `Panel::cap` as well, and those are the
+/// two this window declines: a surface can carry what kind of unit it is without
+/// wearing its paint.
 fn face<'a, Renderer>(algorithm: Option<&'static Algorithm>) -> Element<'a, Renderer>
 where
     Renderer: iced_core::Renderer + 'a,
@@ -418,13 +376,11 @@ where
 
 /// Draws the face of the case an engine is in.
 ///
-/// A rack unit's face is brushed rather than painted flat, and what kind of
-/// unit it is decides how: `Algorithm::characters` says which of the 35 came in
-/// a box from before effects were digital and which one degrades what goes
-/// through it, and [`case`](crate::case) is the material that follows from
-/// that. The colour under it is the library's measurement; the finish is this
-/// window's, the same way the weight of a stroke and the pitch of a display's
-/// dots are.
+/// A rack unit's face is brushed rather than painted flat, and what kind of unit
+/// it is decides how: `Algorithm::characters` says which of the 35 came in a box
+/// from before effects were digital and which one degrades what goes through it,
+/// and [`case`](crate::case) is the material that follows. The colour under it is
+/// the library's measurement; the finish is this window's.
 ///
 /// `seed` is the algorithm's own number, so two engines running the same
 /// algorithm are two of the same unit rather than two differently scuffed ones.
@@ -465,17 +421,11 @@ const PICTURE: i32 = 72;
 
 /// How many dots down it is.
 ///
-/// Two thirds of what it was, which is what moving it onto the engine's own
-/// strip costs and is worth paying. It used to stand at the head of the grid,
-/// where it was a pale rectangle as wide as two of six columns with nothing
-/// beside it and the controls it is a picture of underneath — a display given a
-/// row of the plate and none of the room in it.
-///
-/// On the strip it has a line of its own under the name of the thing it is a
-/// picture of, where nothing is competing for the room and the grid can start
-/// at the top of the plate. Small, because what it draws is a train of three or
-/// four taps along a time: a screen big enough to be a panel of its own would
-/// be claiming to say more about the engine than four gains and four times can.
+/// Small, because it stands on the engine's own strip, under the name of the
+/// thing it is a picture of, and the grid starts at the top of the plate. What
+/// it draws is a train of three or four taps along a time, and a screen big
+/// enough to be a panel of its own would claim to say more about the engine than
+/// four gains and four times can.
 const PICTURE_ROWS: i32 = 10;
 
 /// One of an engine's twelve bytes, and what the loaded algorithm calls it.
@@ -512,11 +462,10 @@ pub(crate) fn engines(group: Group) -> Option<Vec<Engine>> {
 
 /// Returns the parameters this panel draws rather than leaving to the rack.
 ///
-/// The whole group, where the group holds the engines. Four plates of fourteen
-/// parameters each are not a layout a rack of two leftovers sits under: the
-/// settings that are not an engine's are the first thing on the panel instead,
-/// which is where a connection mode belongs and where a parameter a later
-/// library adds to this group will appear.
+/// The whole group, where the group holds the engines. The settings that are no
+/// engine's are the first thing on the panel rather than a rack of leftovers
+/// under it, which is where a connection mode belongs and where a parameter a
+/// later library adds to this group will appear.
 pub(crate) fn claimed(group: Group) -> Vec<ParamId> {
     match engines(group) {
         Some(_) => group.parameters().collect(),
@@ -553,10 +502,10 @@ fn addresses(engine: Engine, parameter: ParamId) -> bool {
 /// Effects group has no per-engine enable, and `FX Mode` is the whole block of
 /// four at once
 /// ([deepmind-midi#30](https://github.com/MysteriousWolf/deepmind-midi/issues/30)).
-/// Three algorithms spend one of their twelve bytes on it instead — Stereo
-/// Imaging and Chorus D on an `ON`, the Noise Gate on a `PWR` — and
-/// [`FxSlot::is_enable`] is what says which, so this window does not match on
-/// those two words across 35 panels.
+/// Three algorithms spend one of their twelve bytes on it instead, Stereo
+/// Imaging and Chorus D on an `ON` and the Noise Gate on a `PWR`, and
+/// [`FxSlot::is_enable`] says which, so this window does not match on those two
+/// words across 35 panels.
 ///
 /// Which way round the switch reads is the slot's own two ends, because the
 /// Noise Gate is the one that reads `ON` at the bottom of its range. The byte
@@ -575,17 +524,17 @@ pub(crate) fn switched_on(
 
 /// Draws the picture of what an engine is doing to a signal, where there is one.
 ///
-/// [`effect::response`] answers for two of the 35 — the 3-Tap and the 4-Tap
-/// delays, whose panels are literally a time and a gain per tap and whose times
-/// are ratios of the master delay that the manual prints as fractions. Every
-/// other engine gets nothing, and nothing is the honest answer: a reverb's
-/// impulse response is its designer's, a compressor's knee is not published,
-/// and a picture of either would look like information and not be any
+/// [`effect::response`] answers for two of the 35: the 3-Tap and the 4-Tap
+/// delays, whose panels are a time and a gain per tap and whose times are ratios
+/// of the master delay that the manual prints as fractions. Every other engine
+/// gets nothing, and nothing is the honest answer: a reverb's impulse response
+/// is its designer's, a compressor's knee is not published, and a picture of
+/// either would look like information without being any
 /// ([deepmind-midi#33](https://github.com/MysteriousWolf/deepmind-midi/issues/33)).
 ///
-/// The horizontal is `Scale::Normalised` — the ratios between the taps are
-/// published and the master time they are ratios *of* is a byte with no
-/// published curve — so the glass carries the train and no axis.
+/// The horizontal is `Scale::Normalised`, because the ratios between the taps
+/// are published and the master time they are ratios *of* is a byte with no
+/// published curve, so the glass carries the train and no axis.
 fn picture<'a, Renderer>(
     patch: &Patch,
     engine: Engine,
@@ -665,11 +614,11 @@ pub(crate) fn lanes(patch: &Patch, engine: Engine, firmware: Version) -> Vec<Lan
 /// instrument places it, so the third column of the second row stands under the
 /// third column of the first however many slots either row happens to hold.
 ///
-/// Returns the rows, and whatever has no place on the grid. The second is the
-/// bytes the loaded algorithm does not use — as many as seven of the twelve —
-/// and, if a later library ever measured a slot outside the grid it publishes,
-/// that slot as well. Either way nothing is dropped: a byte this panel does not
-/// draw is a byte the modulation matrix can still be mapped onto.
+/// Returns the rows, and whatever has no place on the grid: the bytes the loaded
+/// algorithm does not use, as many as seven of the twelve, and any slot a later
+/// library measured outside the grid it publishes. Nothing is dropped, because a
+/// byte this panel does not draw is a byte the modulation matrix can still be
+/// mapped onto.
 ///
 /// Everything with no place, where nothing is known about the algorithm. That
 /// is stage 3's rack: twelve bytes under the library's own names, and no page
@@ -720,10 +669,8 @@ fn placed(lanes: &[Lane], panel: Option<&'static Panel>) -> (Vec<Line>, Vec<Lane
 /// In column order and covering every column, so that a strip built from this
 /// and the row of slots under it divide the same width the same way: a run of
 /// three labelled columns is one entry three wide, and a column the library
-/// labelled nothing is an entry of its own one wide, whether or not the column
-/// beside it is also unlabelled. Two unlabelled slots side by side are two
-/// slots and not a pair, which is the rule the clusters followed before the
-/// grid replaced them, and an empty column is not a band either.
+/// labelled nothing is an entry of its own one wide. Two unlabelled slots side
+/// by side are two slots and not a pair, and an empty column is not a band.
 fn spans(line: &Line) -> Vec<(Option<&'static str>, usize)> {
     let mut runs: Vec<(Option<&'static str>, usize)> = Vec::new();
     for cell in line {
@@ -738,11 +685,10 @@ fn spans(line: &Line) -> Vec<(Option<&'static str>, usize)> {
 
 /// Which of the effects page's surfaces a word is printed on.
 ///
-/// Every colour in this window is chosen for what it means, and what it lands
-/// on here is not always chosen at all: an engine's case is a colour somebody
-/// measured off a photograph of a rack unit, and half of the 35 are pale. So
-/// nothing on this page names an ink directly. It names the surface, and
-/// [`ink`] and [`legend`] work out what can be read on it.
+/// Every colour in this window is chosen for what it means, and what it lands on
+/// here is not: an engine's case is a colour measured off a photograph of a rack
+/// unit, and half of the 35 are pale. So nothing on this page names an ink. It
+/// names the surface, and [`ink`] and [`legend`] work out what can be read on it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum On {
     /// The face an engine's controls stand on, which is the window's own plate.
@@ -770,11 +716,10 @@ impl On {
 
 /// Returns the ink a word on `on` is printed in.
 ///
-/// Whichever of the instrument's two the surface can be read against. Nothing
-/// on this page picks an ink itself, because half the surfaces on it are
-/// measured off somebody else's rack unit and a window that printed every title
-/// in the one ink it uses everywhere else would have picked the wrong one for
-/// half the algorithms.
+/// Whichever of the instrument's two the surface can be read against. Half the
+/// surfaces on this page are measured off somebody else's rack unit, so a window
+/// printing every title in the one ink it uses elsewhere would pick the wrong
+/// one for half the algorithms.
 fn ink(theme: &Theme, on: On) -> Color {
     style::ink_on(on.colour(theme), theme)
 }
@@ -782,11 +727,8 @@ fn ink(theme: &Theme, on: On) -> Color {
 /// The same ink, at the strength a legend is silkscreened in.
 ///
 /// Half way back to the surface it is printed on and then lifted until it is
-/// readable, which is to say: the dimmest a legend can be on this surface and
-/// still be a legend. A grey chosen once for a dark window is a grey that
-/// disappears on a cream one, and the tint of a value nobody has read — which
-/// is what these words used to be drawn in — said of a printed word that its
-/// value was unknown.
+/// readable: the dimmest a legend can be here and still be a legend. A grey
+/// chosen once for a dark window disappears on a cream one.
 fn legend(theme: &Theme, on: On) -> Color {
     let surface = on.colour(theme);
     let full = style::ink_on(surface, theme);
@@ -806,11 +748,11 @@ where
 /// Draws what a parameter is holding, in the colour of what backs it.
 ///
 /// [`panel::readout`](crate::panel::readout) with the surface taken into
-/// account: a claim is amber or green because of what it means, and an engine
-/// wearing a cream case is a surface neither of them was chosen against. What
-/// moves is how light the colour is and never which colour it is, so an amber
-/// claim stays amber and the distinction the whole editor turns on survives
-/// being printed on somebody else's rack unit.
+/// account: a claim is amber or green because of what it means, and a cream case
+/// is a surface neither was chosen against. What moves is how light the colour
+/// is and never which colour it is, so an amber claim stays amber and the
+/// distinction the whole editor turns on survives being printed on somebody
+/// else's rack unit.
 fn reading<'a, Renderer>(
     parameter: ParamId,
     value: Option<u8>,
@@ -832,12 +774,10 @@ where
 
 /// Draws the effects: the chain, what shapes it, and the four engines under it.
 ///
-/// All four at once, in the two-by-two the four of them make. One at a time
-/// behind a row of tabs was an engine you could see and three you had to
-/// remember, on a page whose whole subject is what four effects are doing
-/// together — and the chain drawn across the top of it is a picture of exactly
-/// that. A tab row is the right shape for a section of an instrument and the
-/// wrong one for four things wired to each other.
+/// All four at once, in the two-by-two the four of them make, with the chain
+/// across the top as a picture of how they are wired. A tab row is the right
+/// shape for a section of an instrument and the wrong one for four things wired
+/// to each other.
 pub(crate) fn panels<'a, Renderer>(
     patch: &Patch,
     group: Group,
@@ -850,9 +790,9 @@ where
 {
     let engines = engines(group)?;
     // The picture, and under it the two settings that shape it. The routing
-    // *is* the chain — which engine feeds which is the drawing, and whether the
+    // *is* the chain: which engine feeds which is the drawing, and whether the
     // four of them are inserted, sent or bypassed is the rest of the same
-    // sentence — so they stand together.
+    // sentence, so they stand together.
     //
     // Under rather than beside, which is what changed when the glass grew wide
     // enough to name what each engine is running inside its own box. The
@@ -925,12 +865,10 @@ where
 
 /// How wide this surface has to be before the chain stops fitting in it.
 ///
-/// The one page in this window whose width is decided by a *display* rather
-/// than by its controls: the chain's glass is a fixed count of dots — enough
-/// that every box can name what is running in it, which is the longest
-/// abbreviation in the library's own table, four times over — and a window
-/// narrower than that is a window drawing a picture past the edge of its own
-/// glass.
+/// The one page in this window whose width is decided by a *display* rather than
+/// by its controls. The chain's glass is a fixed count of dots: enough that
+/// every box can name what is running in it, which is the longest abbreviation
+/// in the library's own table, four times over.
 ///
 /// Read by the application when it decides how wide to open, beside
 /// [`panel_width`](crate::panel_width). A window opens as wide as the widest
@@ -975,9 +913,8 @@ where
     // One run at a time, each of them a block: the strip and the columns it
     // covers stand in the same container, so a band is a thing on the plate
     // rather than a bar with some controls somewhere under it. The container
-    // takes no width of its own — a run of three is three of the grid's own
-    // portions — so the columns still line up down the rows, which is what the
-    // grid is for.
+    // takes no width of its own, since a run of three is three of the grid's
+    // own portions, so the columns still line up down the rows.
     let runs = spans(line).into_iter().map(|(label, across)| {
         let portion = u16::try_from(across).unwrap_or(1);
         let held: Vec<Element<'a, Renderer>> = cells.by_ref().take(across).collect();
@@ -1015,18 +952,16 @@ where
 
 /// What is no longer printed under a row, and why.
 ///
-/// Every slot whose display shows names rather than a number used to print them
+/// A slot whose display shows names rather than a number does not print them
 /// all: `FCL Delay Factor, left shows 1/4, 1/3, 1/2, 2/3, 3/4, 1, 4/3, 3/2, 2,
-/// 3`, two of those under one row of a delay, and nine reverb presets wrapped
-/// onto two lines under another. It is the instrument's own value table, set
-/// out in full, under a control that is already sitting on one of those values
-/// — and the byte it is sitting on is the one thing the line did not say.
+/// 3` is the instrument's own value table set out in full under a control
+/// already sitting on one of those values, and which value that is was the one
+/// thing the line did not say.
 ///
-/// For somebody playing the instrument that is a specification printed on the
-/// panel. What they need from a knob is what it is *on*, which the reading
+/// What somebody playing needs from a knob is what it is *on*, which the reading
 /// under it gives, and how many places it stops at, which the line under that
-/// still says: `10 settings`. Where the exact name of a setting matters, the
-/// control is a list and the list has the names in it.
+/// says: `10 settings`. Where the exact name of a setting matters, the control
+/// is a list and the list has the names in it.
 const fn _the_names_a_display_shows() {}
 
 /// The pale strip a band's name is knocked out of.
@@ -1068,9 +1003,9 @@ where
 /// is a fader on the window's own plate, which is what it always was.
 ///
 /// The colours are not in here. Four engines stand on this page at once, and
-/// four measured liveries side by side are the collage this window has always
-/// refused to be — so what an engine wears is its case and a hairline of its
-/// accent, and both of those belong to the plate rather than to a slot.
+/// four measured liveries side by side are a collage, so an engine wears its
+/// case and a hairline of its accent, both of which belong to the plate rather
+/// than to a slot.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Figure {
     /// What shape a control that sweeps a range takes.
@@ -1109,9 +1044,9 @@ impl Figure {
 /// table, in the shape the algorithm's own figure uses: 29 of the 35 are knobs,
 /// five are faders and one is a numeric display, and the library says which
 /// without saying anything about what the byte is. A knob and a fader are the
-/// same control over the same range with the same drag — see [`knob`](crate::knob)
-/// — so the shape is an arrangement, which is the one thing hand layout here is
-/// allowed to choose.
+/// same control over the same range with the same drag (see
+/// [`knob`](crate::knob)), so the shape is an arrangement, which is the one
+/// thing hand layout here is allowed to choose.
 ///
 /// The display is drawn as a fader. It is the one shape this window does not
 /// have and the one algorithm that wants it, and a control invented for a
@@ -1196,18 +1131,14 @@ where
 /// Draws the twelve bytes of an engine whose algorithm has no name here.
 ///
 /// The one case left. An algorithm that *is* named leaves as many as seven of
-/// its twelve unused, and those are no longer drawn: moving one does nothing a
-/// player can hear, a byte the loaded algorithm does not read is not a control,
-/// and a strip of seven of them under the five that do something was the
-/// loudest half of a plate spent on the half that does nothing. They are still
-/// in the program, still sent, and still reachable from the modulation matrix,
-/// which is where a byte with no panel belongs.
+/// its twelve unused, and those are not drawn: moving one does nothing a player
+/// can hear, because the loaded algorithm does not read it. They are still in
+/// the program, still sent, and still reachable from the modulation matrix.
 ///
-/// What this is for is the other thing: an engine running a type byte this
-/// firmware's table does not name, which is what a dump from a unit on the
-/// other firmware hands over. There is no panel to lay out and no name to print
-/// for any of the twelve, so all twelve go under the library's own `Param 9` —
-/// stage 3's rack, for exactly as long as there is nothing better to say.
+/// What this is for is an engine running a type byte this firmware's table does
+/// not name, which is what a dump from a unit on the other firmware hands over.
+/// There is no panel to lay out and no name to print for any of the twelve, so
+/// all twelve go under the library's own `Param 9`.
 fn spare<'a, Renderer>(
     patch: &Patch,
     engine: Engine,
@@ -1269,11 +1200,11 @@ where
 
 /// Draws one engine: what it is running, and what that makes its twelve bytes.
 ///
-/// On the grid the instrument's own FX page uses. 26.3 published it — six
-/// columns and two rows, measured off the 35 screenshots in the manual, and
-/// every slot's column and row on it
-/// ([deepmind-midi#22](https://github.com/MysteriousWolf/deepmind-midi/issues/22))
-/// — so a plate is not twelve slots wrapped into whatever width the window
+/// On the grid the instrument's own FX page uses. 26.3 published it: six columns
+/// and two rows, measured off the 35 screenshots in the manual, and every slot's
+/// column and row on it
+/// ([deepmind-midi#22](https://github.com/MysteriousWolf/deepmind-midi/issues/22)).
+/// So a plate is not twelve slots wrapped into whatever width the window
 /// happened to have, and it is not six things in a row either. It is the six
 /// columns, each of them there whether or not a slot stands in it, spread
 /// across the whole of this engine's half of the page. That is the arrangement
@@ -1304,10 +1235,9 @@ where
     }
     // The family's mark, large and faint, under the grid rather than under the
     // case: the face plate the controls stand on is opaque, so a watermark
-    // behind that is a watermark nobody sees. See [`mark::hero`]. And under the
-    // mark, the face's own finish — which is where most of a case's surface
-    // actually is, so a texture only on the frame round it is a texture nobody
-    // sees either.
+    // behind that is a watermark nobody sees. See [`mark::hero`]. Under the mark
+    // is the face's own finish, because most of a case's surface is the face and
+    // a texture only on the frame round it is a texture nobody sees either.
     let drawn = container(
         stack![drawn]
             .push_under(hero(patch, engine, firmware))
@@ -1332,7 +1262,7 @@ where
         // The twelve under the library's own names, for an engine running an
         // algorithm this firmware's table cannot name. That is the only case
         // left: where the algorithm *is* named, the bytes it does not use are
-        // not drawn at all — see [`spare`].
+        // not drawn at all. See [`spare`].
         .extend(
             panel
                 .is_none()
@@ -1353,15 +1283,14 @@ where
         .width(Length::Fill)
         .clip(true)
         // As deep as what is in it, which is not the same depth as the case
-        // beside it. A row is still a row of the grid — every column stands a
+        // beside it. A row is still a row of the grid: every column stands a
         // column's height whether or not a slot is in it, every run keeps the
         // room a band's strip takes, and every control stands in a band of one
-        // depth whether the figure calls for a knob or a fader — so two engines
-        // running algorithms of the same shape do come out level. What is no
-        // longer reserved is the shape an algorithm does not have: a five-slot
-        // reverb was drawing the grid's empty second row and the deepest band
-        // of display names any of the 35 needs, and half of that case was
-        // blank panel waiting for an algorithm that was not loaded.
+        // depth whether the figure calls for a knob or a fader, so two engines
+        // running algorithms of the same shape come out level. What is not
+        // reserved is the shape an algorithm does not have, because a five-slot
+        // reverb drawing the grid's empty second row is half a case of blank
+        // panel waiting for an algorithm that is not loaded.
         .style(move |theme: &Theme| {
             // Cut into the group's face plate rather than raised off it: the
             // plate is what the four engines are recessed into, which is the
@@ -1382,20 +1311,17 @@ where
 /// Returns the colour the case an engine is drawn in is painted.
 ///
 /// The measured chassis of the algorithm's own figure, most of the way back to
-/// the panel this window is. The library publishes four colours per algorithm —
-/// [deepmind-midi#22](https://github.com/MysteriousWolf/deepmind-midi/issues/22)
-/// — and they are the colours of 35 imaginary rack units: a cream fader panel,
-/// a black one, a blue-grey one.
+/// the panel this window is. The library publishes four colours per algorithm
+/// ([deepmind-midi#22](https://github.com/MysteriousWolf/deepmind-midi/issues/22)),
+/// the colours of 35 imaginary rack units: a cream fader panel, a black one, a
+/// blue-grey one.
 ///
-/// Two of the four are spent and two are not, and which two depends on how many
-/// units are on the surface. With one open at a time this page wore the lot,
-/// case and face and cap, because a single unit can be that unit without the
-/// window becoming a shelf of other people's boxes. Four stand on it now, and
-/// four liveries side by side are exactly the collage this editor's whole
-/// argument is against — so the face went back to the window's own plate and
-/// the cap back to the window's own metal, and what is left is the case and a
+/// Two of the four are spent, and which two depends on how many units are on the
+/// surface. With one open at a time this page wore the lot. With four on it,
+/// four liveries side by side are a collage, so the face is the window's own
+/// plate and the cap the window's own metal, and what is left is the case and a
 /// hairline of the accent: enough to tell the reverb from the distortion at
-/// arm's length, which is all four units at once can afford to say.
+/// arm's length.
 fn chassis(theme: &Theme, figure: Option<(Colour, Colour)>) -> Color {
     let material = materials(theme);
     let Some((chassis, _)) = figure else {
@@ -1404,14 +1330,13 @@ fn chassis(theme: &Theme, figure: Option<(Colour, Colour)>) -> Color {
     let worn = colour(chassis);
     // As much of the case as can be worn and still be printed on. A measured
     // chassis carried half way into the panel lands, for the cream ones, in the
-    // exact middle of the instrument's two inks — where the best either can do
-    // is 4.45 against it, and every word on the strip is a word somebody has to
-    // squint at. So the carry is not a number somebody picked: it is the most
-    // of the livery that leaves the case readable, found by backing off towards
-    // the panel until it is.
+    // exact middle of the instrument's two inks, where the best either can do is
+    // 4.45 against it. So the carry is not a number somebody picked: it is the
+    // most of the livery that leaves the case readable, found by backing off
+    // towards the panel until it is.
     //
     // Backing off darkens, because the panel is dark, so this always terminates
-    // at the panel itself — which is what an engine with no figure wears.
+    // at the panel itself, which is what an engine with no figure wears.
     (0..=CARRY)
         .rev()
         .map(|step| {
@@ -1490,25 +1415,23 @@ fn colour(measured: Colour) -> Color {
 /// it comes out.
 ///
 /// That split is the whole of the arrangement. Six things strung along one line
-/// left a name squeezed between a drop-down and a fader, and the name is the
-/// thing on the strip that is read rather than operated. The algorithm is still
-/// the parameter's own value table under the abbreviations the instrument's
-/// display prints — a list, which is to say the thing you press to change it —
-/// with what those stand for written out beside it rather than substituted into
-/// it, because the control is the library's and the prose is the panel's.
+/// leave the name squeezed between a drop-down and a fader, and the name is the
+/// thing on the strip that is read rather than operated. The algorithm is the
+/// parameter's own value table under the abbreviations the instrument's display
+/// prints, with what those stand for written out beside the list rather than
+/// substituted into it, because the control is the library's and the prose is
+/// the panel's.
 ///
 /// # One line, because the strip is not the subject
 ///
-/// The category sat on a line of its own under the name, which made every strip
-/// two lines of text tall — and the strip is a label on a case, not the thing
-/// on the page anybody is reading. Four of them down a page is four times what
-/// that costs. `Reverb` and `Processing` are one word each and they follow the
-/// name the way a subtitle does, so they go beside it at legend weight and the
-/// strip comes down to roughly two thirds of what it stood at.
+/// A category on a line of its own makes every strip two lines of text tall, and
+/// four of them down a page is four times what that costs. `Reverb` and
+/// `Processing` are one word each and follow the name the way a subtitle does,
+/// so they go beside it at legend weight.
 ///
-/// This is where the page it replaced had a whole header band of its own, under
-/// a row of tabs that had the name on it as well. Two places saying which
-/// algorithm an engine is running, and neither of them where the engine was.
+/// The page this replaced had a header band of its own under a row of tabs that
+/// carried the name as well: two places saying which algorithm an engine is
+/// running, and neither of them where the engine was.
 fn header<'a, Renderer>(
     patch: &Patch,
     engine: Engine,
@@ -1523,15 +1446,14 @@ where
     let on = On::Case(panel.map(|panel| (panel.chassis(), panel.accent())));
     let strip = row![
         // The gutter the slot's own number stands in, which is drawn behind the
-        // strip rather than in it — see below.
+        // strip rather than in it. See below.
         Space::new().width(Length::Fixed(SLOT_NUMBER)),
-        // The list *is* the title. It was a list of the display's own
-        // abbreviations with what they stand for written out beside it, which
-        // is two controls' worth of room saying one thing: the name is what a
-        // reader wants and the list is what a hand wants, and a list whose
-        // entries are the names is both. The abbreviation has not gone
-        // anywhere — it is what the chain's own glass prints in every box, and
-        // what the footer says about the byte.
+        // The list *is* the title. A list of the display's own abbreviations
+        // with what they stand for written beside it is two controls' worth of
+        // room saying one thing: the name is what a reader wants, the list is
+        // what a hand wants, and a list whose entries are the names is both.
+        // The abbreviation is what the chain's own glass prints in every box,
+        // and what the footer says about the byte.
         container(named(patch, engine, firmware, on)).width(Length::Fill),
         // What kind of thing it is, beside what it does. One or two quiet
         // words, and nothing at all for the plain reverbs and the noise gate,
@@ -1592,8 +1514,8 @@ where
 /// The same parameter, the same value table and the same bytes as the rack's
 /// own control draws; what changes is which of the library's two names for an
 /// algorithm each entry carries. `Algorithm::full_name` is the library's own
-/// join between the two, so this is not the panel translating anything — it is
-/// the panel choosing which of the published names has the room.
+/// join between the two, so the panel is choosing which published name has the
+/// room rather than translating anything.
 fn named<'a, Renderer>(
     patch: &Patch,
     engine: Engine,
@@ -1654,7 +1576,7 @@ where
 /// a Hall Reverb is a reverb and nothing else a word can add.
 ///
 /// They are read here rather than matched on. `Vintage` is not "the name
-/// contains the word vintage" — the library's own file carries a reason per
+/// contains the word vintage": the library's own file carries a reason per
 /// membership, and the reasons are the manual's name for the effect, the slots
 /// it gives it, or the unit a name refers to. A window deriving that from
 /// `full_name` would be right until the day it was not.
@@ -1704,8 +1626,8 @@ const CHARACTER_INK: f32 = 0.55;
 /// Returns the word for one of the kinds an effect can be.
 ///
 /// [`Character`] is marked as a set that can grow, and one this window has no
-/// word for prints nothing rather than a guess — the same rule
-/// [`quantity`] is read under.
+/// word for prints nothing rather than a guess, which is the rule [`quantity`]
+/// is read under too.
 fn word(character: Character) -> Option<&'static str> {
     Some(match character {
         Character::Vintage => "vintage",
@@ -1882,7 +1804,7 @@ where
 /// [`FxSlot::glyph`], published in 26.5: every slot has one, because what a
 /// slot does is the one thing the algorithm always knows about it. It is finer
 /// than the [`Quantity`] the line under it is drawn from and it is for a
-/// different job — a pre-delay and a decay are both a time, and a plate with
+/// different job: a pre-delay and a decay are both a time, and a plate with
 /// twelve of these on it wants the gap drawn on one and the tail on the other.
 ///
 /// The same glyph serves every slot doing the same thing, so a `Low Cut` on a
@@ -2189,11 +2111,10 @@ mod tests {
         // The two surfaces a value is ever printed on, and the reason the list
         // is two rather than four: a claim is amber or green because of what it
         // means, and both were chosen against this window's own dark panel. On
-        // the palest of the 35 measured cases each of them has to be lifted so
-        // far to be read that they arrive as the same ink — so nothing on this
-        // page prints a value on a case. The one value the strip across a case
-        // carries sits in a recess cut into it, which is where a control
-        // belongs anyway.
+        // the palest of the 35 measured cases each has to be lifted so far to be
+        // read that they arrive as the same ink, so nothing on this page prints
+        // a value on a case. The one value the strip across a case carries sits
+        // in a recess cut into it, which is where a control belongs anyway.
         let theme = deepmind();
         for on in [On::Face, On::Recess] {
             let surface = on.colour(&theme);
@@ -2548,7 +2469,7 @@ mod tests {
     #[test]
     fn every_character_the_library_publishes_has_a_word() {
         // The same rule the quantities are read under: the set is marked as one
-        // that can grow, so a kind this window has no word for prints nothing —
+        // that can grow, so a kind this window has no word for prints nothing,
         // and a kind it *does* have is one it prints rather than derives from
         // the algorithm's name.
         for character in Character::ALL {

@@ -29,7 +29,7 @@ use crate::Confidence;
 /// window cannot outline anything: it asks for a family and takes what the
 /// machine has. So it asks for the mark's family where that is the usual name
 /// for it, and for the metrically compatible face every other platform ships
-/// under a different name — Liberation Sans is an Arial clone, which is what
+/// under a different name. Liberation Sans is an Arial clone, which is what
 /// makes the substitution a spelling rather than a second typeface.
 ///
 /// A machine with neither falls back to the system's own sans, which is the
@@ -143,10 +143,9 @@ pub struct Materials {
     /// The lit face of a display.
     ///
     /// The one bright surface on the instrument. A `DeepMind`'s screen is a
-    /// backlit positive display — a pale green-white ground with the dots
-    /// printed dark on it — so it is the only part of this panel that gives off
-    /// light rather than catching it, and everything drawn on it is darker than
-    /// it is.
+    /// backlit positive display, a pale green-white ground with the dots printed
+    /// dark on it, so it is the only part of this panel that gives off light
+    /// rather than catching it, and everything drawn on it is darker than it is.
     pub glass: Color,
     /// The far end of the backlight, which is the bottom of the glass.
     ///
@@ -171,8 +170,8 @@ pub struct Materials {
     ///
     /// A `DeepMind` is a panel between two pieces of wood, and it is the one
     /// material on the instrument that is not metal, ink or the panel itself.
-    /// The mark and the banner are both built out of it — see `docs/logo.svg`
-    /// — so the window that carries the same mark carries the same two colours
+    /// The mark and the banner are both built out of it (see `docs/logo.svg`),
+    /// so the window that carries the same mark carries the same two colours
     /// rather than a third pair chosen to look like them.
     pub wood: Color,
     /// The far side of it, which is where the light has stopped reaching.
@@ -263,8 +262,8 @@ pub fn deepmind() -> Theme {
 
 /// The same window with the display the other way up.
 ///
-/// Every `DeepMind` ships with a positive display — dark dots printed on lit
-/// glass — and the panel around it is dark, so the screen is the one thing on
+/// Every `DeepMind` ships with a positive display, dark dots printed on lit
+/// glass, and the panel around it is dark, so the screen is the one thing on
 /// the instrument that is brighter than its surroundings. That is what
 /// [`deepmind`] draws. A negative display is the same glass driven the other
 /// way: the ground goes dark and the dots light up, which is what most dot
@@ -273,7 +272,7 @@ pub fn deepmind() -> Theme {
 ///
 /// Nothing else in the window changes. The panel, the metal, the recesses and
 /// both claims stay exactly what they are, and the claim on the glass stays
-/// three depths of one ink rather than three colours — see [`written`], which
+/// three depths of one ink rather than three colours. See [`written`], which
 /// turns the ordering over with the glass so that the strongest reading is
 /// still the one that stands out most.
 #[must_use]
@@ -296,9 +295,9 @@ pub fn is_negative(theme: &Theme) -> bool {
 /// goes away when a dump comes back.
 ///
 /// It is never the only thing doing the work. A drawn control carries its claim
-/// in the fill of its moving part — filled for a fact, an outline for a claim,
-/// nothing at all for a value nobody has read — and this colour agrees with
-/// that fill rather than replacing it, so the difference survives greyscale, a
+/// in the fill of its moving part, filled for a fact, an outline for a claim and
+/// nothing at all for a value nobody has read, and this colour agrees with that
+/// fill rather than replacing it, so the difference survives greyscale, a
 /// projector, and the readers who would not see the pair.
 ///
 /// Taken from whatever theme is passed rather than from this crate's own palette,
@@ -319,7 +318,7 @@ pub fn tint(theme: &Theme, confidence: Confidence) -> Color {
 /// screen is the one pale surface in this window, and the copper and the green
 /// that read as a claim and a fact against a dark panel are both lighter than
 /// the ground they would be printed on here. So a claim is not a colour on the
-/// glass but a depth of ink — the fact is printed hard, the claim is printed in
+/// glass but a depth of ink: the fact is printed hard, the claim is printed in
 /// the copper mixed most of the way to the same black, and what nobody has read
 /// is barely printed at all.
 ///
@@ -359,9 +358,9 @@ pub fn written(theme: &Theme, confidence: Confidence) -> Color {
 /// which for darkening one colour towards another dark one is close enough that
 /// a colour space would be arithmetic nobody could see the result of.
 ///
-/// Public because a control that lights mixes its own lamp through the panel —
-/// an unlit cap is the panel with a little metal in it, a claimed one is the
-/// claim's colour a fifth of the way up — and a caller doing that with its own
+/// Public because a control that lights mixes its own lamp through the panel: an
+/// unlit cap is the panel with a little metal in it, and a claimed one is the
+/// claim's colour a fifth of the way up. A caller doing that with its own
 /// arithmetic is a second mixer to keep in step with this one.
 #[must_use]
 pub fn mix(colour: Color, into: Color, amount: f32) -> Color {
@@ -417,8 +416,8 @@ pub const READABLE: f32 = 4.5;
 ///
 /// The instrument's own two, chosen by which one the surface is further from:
 /// a recess is what a legend is knocked out of on a pale part, and a metal
-/// highlight is what one is printed in on a dark one. Neither is a new colour —
-/// the whole point of this file is that there are no new colours.
+/// highlight is what one is printed in on a dark one. Neither is a new colour,
+/// because the whole point of this file is that there are none.
 ///
 /// By distance rather than by a threshold, because a measured chassis half way
 /// between the instrument's ink and its metal is exactly where a threshold
@@ -435,9 +434,9 @@ pub fn ink_on(surface: Color, theme: &Theme) -> Color {
 
 /// Returns `ink`, moved as far as it has to go to be read on `surface`.
 ///
-/// A colour in this window is chosen for what it means — a claim is amber or
-/// green, a legend is the panel's own grey — and what it is printed on is not
-/// always chosen at all: an effect plate wears a chassis somebody measured off
+/// A colour in this window is chosen for what it means, a claim amber or green
+/// and a legend the panel's own grey, and what it is printed on is not always
+/// chosen at all: an effect plate wears a chassis somebody measured off
 /// a photograph of a rack unit, and half of the 35 are pale. So the meaning
 /// picks the colour and this makes sure it arrives: nothing, where the ink
 /// already clears [`READABLE`], and otherwise the same ink carried towards
@@ -484,8 +483,8 @@ pub const MOULD: f32 = 7.0;
 /// What makes a button on the instrument read as rubber: the cap stands proud
 /// of the panel, the room's light falls across its crown, and its foot sits in
 /// its own shadow. So a cap is a gradient down its own height and never one
-/// flat colour — the same reason [`ground`] is a gradient and not the dark end
-/// of one.
+/// flat colour, which is the same reason [`ground`] is a gradient rather than
+/// the dark end of one.
 ///
 /// `pressed` turns it over. A cap pushed into the panel catches the light along
 /// its foot instead, which is the same face seen from the other side of the
@@ -580,9 +579,9 @@ pub fn chrome(theme: &Theme, status: button::Status) -> button::Style {
 /// a rim to say where the word stops being a label and starts being a button;
 /// a press whose face is a nine-dot mark does not, because the mark is already
 /// a shape on the panel and a rounded rectangle round it is a second shape
-/// saying the same thing — and one drawn to the height of the *words* beside
-/// it, so a twenty-two point mark ends up floating in a twenty-nine point box
-/// with four points of panel above and below it.
+/// saying the same thing. A rim drawn to the height of the *words* beside it
+/// leaves a twenty-two point mark floating in a twenty-nine point box, with four
+/// points of panel above and below it.
 ///
 /// So the mark stands on the panel the way the numbers on a rack unit's case
 /// stand on the case, and what a hand gets back is light rather than a frame:
@@ -617,8 +616,8 @@ pub fn marked(theme: &Theme, status: button::Status) -> button::Style {
 ///
 /// It is [moulded](moulded) like every other cap in the window, so what is lit
 /// is a soft thing standing proud of the panel rather than a filled rectangle.
-/// Pressing takes the cap off the lamp — the face goes to the full colour and
-/// the rim with it — and hovering is halfway there, so that the press has
+/// Pressing takes the cap off the lamp, so the face goes to the full colour and
+/// the rim with it, and hovering is halfway there so that the press has
 /// somewhere to go. A button with nothing to open loses the lamp altogether and
 /// keeps the panel, which is a hole where a light should be and reads as
 /// unavailable at a glance.
