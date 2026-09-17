@@ -128,8 +128,8 @@ where
 /// name can be set at any size and get the mark's own proportions. The banner's
 /// name has an ascender height of 56.65 units and its five cuts fall between
 /// 25.2 and 5.0 units above the baseline: at the face's ascender of 0.905 em
-/// that is [`FIRST`] em above the baseline, [`STEP`] em apart, thickening from
-/// a sixtieth of an em to a twentieth.
+/// that is 0.403 em above the baseline, 0.081 em apart, thickening from a
+/// sixtieth of an em to a twentieth.
 ///
 /// The baseline is one em below the top of the line box, which is what iced's
 /// default line height of 1.3 leaves once the face's ascender and descender are
