@@ -1459,6 +1459,28 @@ second row readable down against the first.
   — and a head sitting on a rule with one dot of daylight is not an arrow
   arriving along a wire, it is a cross.
 
+  **Every box has a dot of glass inside its own frame**, and the glass is as
+  deep as that makes it. It was 64 dots — the instrument's own display — and 64
+  is not a measurement of anything this picture has to fit: four stacked boxes
+  that each keep a dot inside their rules, with a heading over them and the
+  analog path's foot under them, come to more than that. What the number was
+  doing instead was taking the dot back off the boxes, so the four stacked ones
+  had their names printed against their own rules and the rule and the tops of
+  the letters read as one stroke. The height is derived now, the way the width
+  already was.
+
+  **And the two long wires under the graph say which way they run.** A loop goes
+  back and an output taken from the middle of the chain goes on; both leave a box
+  downwards, cross the width of the graph and rise at the far end, and dashes
+  against solid does not say which of those is which. So each carries a head half
+  way along it — the rule running into its back, and clear glass in front of its
+  point. The clear glass is the whole of it: a head with the line drawn on both
+  sides is a thickening of the line, and what is left standing above and below it
+  is the head's own back column, which reads as a tick. That head is longer than
+  the one a wire arrives with, five dots along against three, because an
+  arrival's head has a frame standing right behind it to say what has been
+  arrived at and this one is alone in open glass.
+
   **The lane under the graph and the foot the analog path stands on are two
   measurements**, and they were one constant. Every dot the loops were given was
   therefore taken off the graph a second time at the bottom, and on the topology

@@ -132,10 +132,26 @@ fn writing(number: &str, name: Option<&str>, room: i32, height: i32) -> Vec<Stri
 
 /// How many dots down it is.
 ///
-/// Enough for the deepest of the ten topologies — four engines stacked, with a
-/// heading over them and the loop's lane under them — which is what makes the
-/// same number do for all ten.
-pub(crate) const ROWS: i32 = 64;
+/// Derived the way the width is, and for the same reason. It was 64 — the
+/// instrument's own display — and 64 is not a measurement of anything this
+/// picture has to fit: the deepest of the ten topologies stacks four boxes, and
+/// four boxes that each have a dot of glass inside their own frame, with a
+/// heading over them and the analog path's foot under them, come to more than
+/// that. What the number was doing instead was taking the dot back off the
+/// boxes, so the four stacked ones had their names printed against their own
+/// rules.
+///
+/// So it is what the deepest topology needs, worked out here rather than
+/// chosen. The two that draw a loop are one box deep and need far less; this
+/// covers them the way one width covers all ten.
+pub(crate) const ROWS: i32 = HEADING + ENGINES * LEGIBLE + (ENGINES - 1) * APART + SPARE + FOOT;
+
+/// How many engines there are, as the arithmetic above counts them.
+///
+/// The library's own count, which is a `usize` because it counts a slice. A
+/// const cannot go through [`i32`], so this is the one place the number is
+/// written twice — and the test below is what stops the two from drifting.
+const ENGINES: i32 = 4;
 
 /// How tall one engine's plate is drawn, at most.
 ///
@@ -159,7 +175,12 @@ const LINE: i32 = Screen::height_of(Size::Small);
 const MARK: i32 = lcd::CELL;
 
 /// The least room a box needs before anything is written in it.
-const LEGIBLE: i32 = LINE + 2;
+///
+/// Its two rules, a dot of glass inside each of them, and the line between. The
+/// dot is the whole of the difference from what this was: a name printed hard
+/// against the rule over it is a name in a box that is too small for it, and at
+/// this pitch the rule and the tops of the letters read as one stroke.
+const LEGIBLE: i32 = LINE + 4;
 
 /// How many dots the line at the top of the glass takes, gap and all.
 const HEADING: i32 = Screen::height_of(Size::Small) + 4;
@@ -832,6 +853,7 @@ fn rails(screen: &mut Screen, chain: Chain, boxes: &[Band; ENGINE_COUNT], graph:
             let aside = band.x + band.width * 3 / 4;
             screen.down(aside, under, below - under + 1, ink);
             screen.across(aside, below, leaving - aside + 1, ink);
+            along(screen, aside, leaving, below);
             screen.down(leaving, middle, below - middle + 1, ink);
             continue;
         }
@@ -1003,6 +1025,7 @@ fn returns(screen: &mut Screen, wires: &[Wire], graph: Band) {
             (leave - enter).abs() + 1,
             Ink::Dashed,
         );
+        along(screen, leave, enter, below);
         // From under the head rather than from the box, so the dashes do not
         // run up through the arrow that is pointing at it.
         let head = tip + HEAD;
@@ -1092,6 +1115,65 @@ fn up(screen: &mut Screen, x: i32, y: i32) {
         }
     }
 }
+
+/// Puts a head in the middle of a run, pointing the way the run travels.
+///
+/// The two long wires under the graph are the two whose direction the picture
+/// cannot otherwise show. Both leave a box downwards, run the width of the
+/// graph and rise at the far end, and the ends alone do not say which way round
+/// that is: a loop goes back and an output taken from the middle of the chain
+/// goes on, and told apart only by dashes against solid they are two lines under
+/// the same boxes.
+///
+/// So each carries a head half way along it, pointing where it is going, with
+/// the rule running into its back and clear glass in front of its point.
+///
+/// The clear glass is the whole of it. A head with the line drawn on both sides
+/// is a thickening of the line: the point is buried in the rule running on past
+/// it, and at this pitch what is left standing above and below is the head's own
+/// back column, which reads as a tick. A head the line runs *into*, with nothing
+/// in front of it, is the shape every other wire on this glass already arrives
+/// with.
+fn along(screen: &mut Screen, from: i32, to: i32, y: i32) {
+    if (to - from).abs() < HEAD * 6 {
+        return;
+    }
+    let onward = to > from;
+    let tip = i32::midpoint(from, to);
+    screen.wipe(Band::new(
+        if onward { tip + 1 } else { tip - CLEARING },
+        y - HEAD + 1,
+        CLEARING,
+        HEAD * 2 - 1,
+    ));
+    nose(screen, tip, y, onward);
+}
+
+/// The head a wire wears in the middle of a run, pointing `onward` or back.
+///
+/// Longer than the one it arrives with: five dots along and five across,
+/// tapering every other column rather than every one. An arrival's head is three
+/// along and five across, which is the right shape when a frame is standing
+/// directly behind it to say what has been arrived at — and the wrong one in
+/// open glass, where a wedge that steep is a column of five dots with a couple
+/// of specks in front of it, and what the eye reads is a tick on the line.
+fn nose(screen: &mut Screen, x: i32, y: i32, onward: bool) {
+    for step in 0..REACH {
+        let half = step / 2;
+        for row in -half..=half {
+            screen.dot(if onward { x - step } else { x + step }, y + row);
+        }
+    }
+}
+
+/// How many dots along a mid-run head reaches back from its point.
+const REACH: i32 = 5;
+
+/// How much glass a head in the middle of a run keeps in front of its point.
+///
+/// Enough that the rule beyond is a rule the wire is still travelling along
+/// rather than more of the stroke the head is part of.
+const CLEARING: i32 = 4;
 
 #[cfg(test)]
 #[expect(
@@ -1320,6 +1402,14 @@ mod tests {
         assert_eq!(super::placing(tall, 7, 40), super::Placing::Above);
         assert_eq!(super::placing(wide, 7, 40), super::Placing::Beside);
         assert_eq!(super::placing(small, 7, 40), super::Placing::Nowhere);
+    }
+
+    #[test]
+    fn the_glass_is_cut_for_the_engines_the_library_has() {
+        // `ROWS` counts the engines in a const, where the library's own count
+        // cannot go. A firmware with a fifth engine would make the glass one box
+        // too short and nothing else would say so.
+        assert_eq!(usize::try_from(super::ENGINES), Ok(super::ENGINE_COUNT));
     }
 
     #[test]
