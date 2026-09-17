@@ -68,13 +68,13 @@ use deepmind_midi::param::{Group, Kind, ParamId};
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::alignment::{Horizontal, Vertical};
 use iced_core::{Background, Font, Length, Theme, border, text::Renderer as TextRenderer};
-use iced_widget::{Space, button, column, combo_box, container, row, text};
+use iced_widget::{Space, button, column, combo_box, container, mouse_area, row, text};
 
 use crate::glyphs;
 use crate::lcd::{self, Band, Ink, Screen, Size};
 use crate::mapping::{Mapper, Mapping, Reach, Sent};
 use crate::panel::{Choice, Message, Room, choices, control, sits_at};
-use crate::style::{self, chrome, field, materials, shortlist};
+use crate::style::{self, field, materials, shortlist};
 use crate::{Confidence, Element, Patch, tint};
 
 /// How far the numeral beside a row is carried from the plate towards the metal.
@@ -96,21 +96,32 @@ const NUMERAL: f32 = 0.78;
 const LABEL: f32 = 20.0;
 
 /// How much room a source is chosen in.
-const SOURCE: f32 = 108.0;
+const SOURCE: f32 = 116.0;
 
 /// How much room a destination is chosen in.
 ///
 /// Wider than a source, because there are 133 of them and their names are the
 /// long ones: `VCF Envelope Attack` has to be readable to be chosen.
-const DESTINATION: f32 = 158.0;
+const DESTINATION: f32 = 168.0;
 
-/// How long the depth fader's travel is.
+/// How big the depth's dial is drawn, which is all the room it takes.
 ///
-/// Shorter than it was, because the glass beside the rows wanted the room and
-/// wanted it more: a depth is one byte and ninety points of travel is already
-/// finer than a hand can be, where the patch bay is eight routings and cannot
-/// be read at all if the two columns of names meet in the middle.
-const DEPTH: f32 = 80.0;
+/// A knob's own size, taken down enough to stand inside a row's card with the
+/// card still showing either side of it. How far a *drag* on it runs is not a
+/// number this file has: a knob's sweep is the rack fader's travel, written
+/// down once in [`knob`](crate::knob) so that every control in this window
+/// moves at one rate under one hand.
+const DIAL: f32 = 38.0;
+
+/// How wide the box a source or destination's picture stands in is.
+///
+/// Seven dots at the pitch every display in this window shares, which is the
+/// cell the instrument's own screen writes a character in and the size the
+/// library is asked for in deepmind-midi#40.
+const PICTURE_ACROSS: f32 = 7.0 * lcd::PITCH;
+
+/// How much card there is between that picture and the list beside it.
+const BESIDE_PICTURE: f32 = 6.0;
 
 /// How much room the arrow between a source and its destination takes.
 const ARROW: f32 = 18.0;
@@ -127,6 +138,15 @@ pub(crate) struct Routing {
 }
 
 impl Routing {
+    /// Returns the parameter that says where this routing comes from.
+    ///
+    /// Asked for the same reason [`destination`](Self::destination) is: both
+    /// ends of a routing are chosen from a searchable list built once for the
+    /// firmware that answered, and the list is built out here.
+    pub(crate) const fn source(self) -> ParamId {
+        self.source
+    }
+
     /// Returns the parameter that says where this routing goes.
     ///
     /// The one of the three anything outside this file asks about: it is what
@@ -367,12 +387,19 @@ where
     let first = routings.first().copied()?;
     let header = row![
         Space::new().width(Length::Fixed(LABEL)),
-        heading(first.source, SOURCE),
+        heading(first.source, SOURCE + PICTURE_ACROSS + BESIDE_PICTURE),
         Space::new().width(Length::Fixed(ARROW)),
-        heading(first.destination, DESTINATION + POINT + 6.0),
-        heading(first.depth, DEPTH),
+        heading(
+            first.destination,
+            DESTINATION + PICTURE_ACROSS + BESIDE_PICTURE + POINT + 10.0
+        ),
+        heading(first.depth, DIAL),
     ]
     .spacing(10)
+    // The card the rows stand on has its own padding, and a heading that
+    // ignored it would be a heading half a word to the left of the column it
+    // names.
+    .padding([0.0, BESIDE_ROW])
     .height(Length::Fixed(HEADING - DOWN));
     let rows = routings
         .iter()
@@ -383,10 +410,30 @@ where
                 // Where a routing can be moved to, which is the one thing a
                 // matrix of eight identical slots gives nobody a way to do.
                 shifts(patch, &routings, index),
-                cell(patch, routing.source, firmware, Room::listed(SOURCE), sent),
+                chosen(patch, routing.source, firmware, mapper, sent, SOURCE),
                 arrow(),
-                going(patch, routing, firmware, mapper, sent),
-                cell(patch, routing.depth, firmware, Room::across(DEPTH), sent),
+                chosen(
+                    patch,
+                    routing.destination,
+                    firmware,
+                    mapper,
+                    sent,
+                    DESTINATION
+                ),
+                mapping_press(routing, mapper),
+                // A knob rather than a fader lying down. A depth is read about
+                // its centre — `-128` at one end, `+127` at the other and no
+                // modulation in the middle — and a dial is the control that
+                // shows a middle by pointing at it. Eight faders at four
+                // different places along their tracks are eight positions to
+                // compare; eight dials are eight hands on eight clocks.
+                cell(
+                    patch,
+                    routing.depth,
+                    firmware,
+                    Room::across(DIAL).turned(),
+                    sent
+                ),
             ]
             .spacing(10)
             .align_y(Vertical::Center);
@@ -461,7 +508,11 @@ const BESIDE_ROW: f32 = 10.0;
 /// The footer already says what is under the pointer, which for anything in
 /// this table is its name, its reading and its range, so a row that printed the
 /// same number a third time was a row and a half.
-const ROW: f32 = 46.0;
+///
+/// What decides it now is the column that moves a routing: two five-dot arrows,
+/// the numeral between them in the display's own character cell, and the card
+/// either side of the three.
+const ROW: f32 = 50.0;
 
 /// How much panel there is between two of those rows.
 const DOWN: f32 = 8.0;
@@ -547,6 +598,19 @@ where
 /// Apart from [`bay`] so that what it draws can be looked at without a window
 /// to draw it in, which for a picture made of dots is the only way to look at
 /// it at all.
+///
+/// # A name is drawn once, and what leaves it is a list
+///
+/// One cell per source and one per destination, however many routings touch
+/// them — because that is the picture: one LFO driving three things is one cell
+/// with three wires out of it, and the same thing drawn as three cells reading
+/// `LFO 1` is a table with lines on it.
+///
+/// What each of those three wires *carries* is written at the end it leaves
+/// from: the routing's number and its depth, one line each, down the source's
+/// own cell. So the numbers are beside the wires they belong to rather than in
+/// a block along the foot of the glass — which is where the eight depths went
+/// when every cell was a name and there was nowhere else to put them.
 fn drawn(wires: &[Wire], deep: i32, of: usize, run: &str) -> Screen {
     let mut screen = Screen::new(BAY, deep);
     // The heading, inverted, which is how a display with one colour of light
@@ -573,81 +637,64 @@ fn drawn(wires: &[Wire], deep: i32, of: usize, run: &str) -> Screen {
         ends
     };
     let (sources, destinations) = (ends(|wire| wire.from), ends(|wire| wire.to));
-    // Which routings touch each end, so that a destination three of them are
-    // fighting over says `1 4 7` rather than making somebody trace three wires
-    // back. It is the number the row beside it is printing, which is what makes
-    // the two one page rather than two.
-    let using = |name: &'static str, pick: fn(&Wire) -> &'static str| -> String {
+    // What leaves each source: its routings, in the order the matrix reads
+    // them, and how much of it each one carries.
+    let leaving = |name: &'static str| -> Vec<String> {
         wires
             .iter()
-            .filter(|wire| pick(wire) == name)
-            .map(|wire| wire.number)
-            .collect::<Vec<_>>()
-            .join(" ")
+            .filter(|wire| wire.from == name)
+            .map(|wire| format!("{} {}", wire.number, wire.depth).trim().to_owned())
+            .collect()
     };
-    // And the depths, along the foot, which is where the eight exact amounts
-    // are now that no row prints one: the fader is the picture of a depth and
-    // the footer is its number when somebody points at one, so a column of
-    // eight readings down the table was a third copy.
-    let (readings, step, across) = listed(wires);
     let head = MARGIN * 2 + LINE;
-    // What the readings along the foot take, so that a column of cells stops
-    // above them rather than standing on them.
-    let standing = deep - foot(readings.len().div_ceil(across));
-    let left = Column::new(MARGIN, head, standing, sources.len());
-    let right = Column::new(
-        BAY - MARGIN - CELL_ACROSS,
-        head,
-        standing,
-        destinations.len(),
-    );
-    for (index, name) in sources.iter().enumerate() {
-        left.cell(
-            &mut screen,
-            index,
-            name,
-            &using(name, |wire| wire.from),
-            Side::From,
-        );
+    let depths: Vec<i32> = sources
+        .iter()
+        .map(|name| cell_deep(leaving(name).len()))
+        .collect();
+    let left = spread(head, deep, &depths);
+    let right = spread(head, deep, &vec![cell_deep(0); destinations.len()]);
+
+    for ((index, name), top) in sources.iter().enumerate().zip(&left) {
+        node(&mut screen, MARGIN, *top, name, &leaving(name), Side::From);
+        let _ = index;
     }
-    for (index, name) in destinations.iter().enumerate() {
-        right.cell(
+    for (name, top) in destinations.iter().zip(&right) {
+        node(
             &mut screen,
-            index,
+            BAY - MARGIN - CELL_ACROSS,
+            *top,
             name,
-            &using(name, |wire| wire.to),
+            &[],
             Side::To,
         );
     }
-    let lines = readings.len().div_ceil(across);
-    for (line, run) in readings.chunks(across).enumerate() {
-        // Counted back from the foot, so that the first four stand above the
-        // last four rather than under them: a list printed from the bottom up
-        // is a list read in the wrong order.
-        let up = i32::try_from(lines - 1 - line).unwrap_or(0);
-        let down = deep - MARGIN - LINE - up * (LINE + APART);
-        for (place, reading) in run.iter().enumerate() {
-            let at = MARGIN + i32::try_from(place).unwrap_or(0) * step;
-            screen.write(at, down, reading, Size::Small);
-        }
-    }
-    // A wire for every routing, bending out of one node and into the other. A
-    // straight line between two cells three quarters of a glass apart is a
-    // diagonal that crosses every other diagonal at the same angle and says
-    // nothing about which end is which; a wire that leaves flat, turns, and
-    // arrives flat reads as going from somewhere to somewhere, and two wires
-    // leaving the same node are visibly two wires leaving the same node.
+    // A wire for every routing, out of the line that says what it carries and
+    // into the cell it arrives at. A track each, because two wires down the
+    // same part of the glass have to be two wires and not one heavier one.
     for (lane, wire) in wires.iter().enumerate() {
-        let (Some(from), Some(to)) = (
+        let (Some(source), Some(destination)) = (
             sources.iter().position(|name| *name == wire.from),
             destinations.iter().position(|name| *name == wire.to),
         ) else {
             continue;
         };
+        let Some(top) = left.get(source).copied() else {
+            continue;
+        };
+        let Some(arrives) = right.get(destination).copied() else {
+            continue;
+        };
+        // Which of that source's lines this routing is, so that the wire leaves
+        // beside its own number rather than from the middle of a list.
+        let line = wires
+            .iter()
+            .filter(|other| other.from == wire.from)
+            .position(|other| other.number == wire.number)
+            .unwrap_or(0);
         bend(
             &mut screen,
-            left.knot(from),
-            right.knot(to),
+            (MARGIN + CELL_ACROSS - 1, reading_at(top, line) + LINE / 2),
+            (BAY - MARGIN - CELL_ACROSS, arrives + cell_deep(0) / 2),
             i32::try_from(lane).unwrap_or(0),
         );
     }
@@ -657,124 +704,103 @@ fn drawn(wires: &[Wire], deep: i32, of: usize, run: &str) -> Screen {
 /// How tall one line of writing is on the glass.
 const LINE: i32 = 7;
 
-/// Which end of a wire a cell is, which decides where its knot sits.
+/// How deep a cell with `lines` readings written down it is.
+///
+/// The name, a line for each routing that leaves it, and the glass above and
+/// below. A destination has none — what arrives at it is written at the end it
+/// left from — so it is a cell one line deep.
+fn cell_deep(lines: usize) -> i32 {
+    let lines = i32::try_from(lines).unwrap_or(0);
+    2 + LINE + lines * (APART + LINE) + 2
+}
+
+/// Where the `line`th reading in a cell standing at `top` is written.
+fn reading_at(top: i32, line: usize) -> i32 {
+    top + 2 + LINE + APART + i32::try_from(line).unwrap_or(0) * (APART + LINE)
+}
+
+/// Returns where a column of cells `depths` deep stands, spread down the glass.
+///
+/// Spread rather than stacked, because the room is what the wires are drawn in:
+/// three cells against a glass as deep as eight rows of controls leave eighty
+/// dots between them, and eighty dots is a wire that visibly goes somewhere.
+/// Capped and centred, so that three of them are a group in the middle of the
+/// glass rather than three cells in its corners.
+fn spread(under: i32, deep: i32, depths: &[i32]) -> Vec<i32> {
+    let total: i32 = depths.iter().sum();
+    let count = i32::try_from(depths.len()).unwrap_or(0);
+    let room = deep - under - MARGIN - total;
+    let apart = if count > 1 {
+        (room / (count - 1)).clamp(0, PITCH)
+    } else {
+        0
+    };
+    let mut top = under + (room - apart * (count - 1).max(0)) / 2;
+    let mut tops = Vec::with_capacity(depths.len());
+    for depth in depths {
+        tops.push(top);
+        top += depth + apart;
+    }
+    tops
+}
+
+/// Which end of a wire a cell is, which decides where its knots sit.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Side {
-    /// A source: the wire leaves its right-hand edge.
+    /// A source: the wires leave its right-hand edge, one per reading.
     From,
-    /// A destination: the wire arrives at its left-hand edge.
+    /// A destination: they arrive at the middle of its left-hand edge.
     To,
 }
 
-/// One column of the bay: where its cells stand and where its wires attach.
-#[derive(Debug, Clone, Copy)]
-struct Column {
-    /// The left edge of every cell in it.
-    at: i32,
-    /// How far apart two cells are, top to top.
-    apart: i32,
-    /// Where the first one starts.
-    first: i32,
-}
-
-impl Column {
-    /// A column of `count` cells, spread down `deep` dots of glass.
-    ///
-    /// Spread rather than stacked, because the room is what the curves are for:
-    /// three sources against a glass as deep as eight rows of controls leave
-    /// eighty dots between them, and eighty dots is a wire that visibly goes
-    /// somewhere. Stacked at the top they would be three cells and a lot of
-    /// empty glass, with the same three diagonals in the corner of it.
-    fn new(at: i32, under: i32, deep: i32, count: usize) -> Self {
-        let count = i32::try_from(count).unwrap_or(1).max(1);
-        let room = deep - under - MARGIN - CELL_DEEP;
-        // As far apart as the glass allows, up to a limit: three sources spread
-        // over a glass as deep as eight rows of controls are three cells in the
-        // corners of an empty screen with three long verticals between them,
-        // which is a picture of the glass rather than of the patch. Capped,
-        // they are a group — and the group is centred, because a column of
-        // three is not eight rows with five missing.
-        let apart = if count > 1 {
-            (room / (count - 1)).min(PITCH)
-        } else {
-            0
-        };
-        let first = under + (room - apart * (count - 1)) / 2;
-        Self { at, apart, first }
+/// Draws one end of a routing on the glass: its frame, the box its picture will
+/// stand in, its name, whatever leaves it, and the knots the wires attach to.
+fn node(screen: &mut Screen, at: i32, top: i32, name: &'static str, lines: &[String], side: Side) {
+    let deep = cell_deep(lines.len());
+    screen.frame(Band::new(at, top, CELL_ACROSS, deep), Ink::Solid);
+    // Where the library's own picture of this source or destination will go:
+    // seven dots by seven, which is the cell this display writes a character
+    // in. Empty, because a picture of `LFO 1` is a fact about the instrument
+    // and one invented here would be this window making it up — asked for in
+    // deepmind-midi#40, and the same empty box the row beside the glass draws
+    // against the same name.
+    screen.frame(
+        Band::new(at + GUTTER, top + 2, PICTURE, PICTURE),
+        Ink::Solid,
+    );
+    // The name, in the field left over. A name too long for it scrolls rather
+    // than losing its tail: `Pitch Bend` and `BreathCtrl` are ten characters in
+    // a field cut for nine, and half a name is a name somebody has to already
+    // know to read.
+    let field = at + GUTTER + PICTURE + GUTTER;
+    screen.marquee(
+        field,
+        top + 2,
+        CELL_ACROSS - GUTTER - (field - at),
+        name,
+        Size::Small,
+    );
+    // What leaves it, one line per routing, against the edge the wires go out
+    // of — so a reading and its own wire are the same line of the drawing.
+    for (line, said) in lines.iter().enumerate() {
+        let at = at + CELL_ACROSS - GUTTER - Screen::width_of(said, Size::Small);
+        screen.write(at, reading_at(top, line), said, Size::Small);
     }
-
-    /// Where the `index`th cell's top edge is.
-    fn top(self, index: usize) -> i32 {
-        self.first + i32::try_from(index).unwrap_or(0) * self.apart
-    }
-
-    /// Draws one cell: its frame, the box its picture will stand in, the
-    /// routings that use it, its name, and the knot a wire attaches to.
-    ///
-    /// Two lines rather than one. A cell that ran picture, name and numbers
-    /// across was nearly a third of the glass wide and eleven dots deep, which
-    /// left the wires a narrow gap to cross and a tall empty screen to cross it
-    /// in — the wrong way round for a drawing whose whole subject is what goes
-    /// where. Stacked, a cell is as wide as its name and the gap is half the
-    /// glass.
-    fn cell(self, screen: &mut Screen, index: usize, name: &'static str, using: &str, side: Side) {
-        let top = self.top(index);
-        screen.frame(Band::new(self.at, top, CELL_ACROSS, CELL_DEEP), Ink::Solid);
-        // Where the library's own picture of this source or destination will
-        // go: seven dots by seven, which is the cell this display writes a
-        // character in. Dotted, because an empty solid box is a box and a
-        // dotted one is a box waiting for something — and nothing is drawn in
-        // it, because a picture of `LFO 1` is a fact about the instrument and
-        // one invented here would be this window making one up. Asked for in
-        // deepmind-midi#40.
-        screen.frame(
-            Band::new(self.at + GUTTER, top + 2, PICTURE, PICTURE),
-            Ink::Dotted,
-        );
-        // Beside the picture, on the same line: which routings use it. A
-        // destination three of them are fighting over says `1 4 7` rather than
-        // making somebody trace three wires back, and the numbers are the ones
-        // the rows beside the glass are printing — which is what makes the
-        // table and the picture one page rather than two.
-        let numbers = Screen::width_of(using, Size::Small).min(NUMBERS);
-        screen.write(
-            self.at + CELL_ACROSS - GUTTER - numbers,
-            top + 2,
-            using,
-            Size::Small,
-        );
-        // And the name under both, which is the line that decides how wide a
-        // cell is.
-        let written: String = name
-            .chars()
-            .take(usize::try_from(LETTERS).unwrap_or(0))
-            .collect();
-        screen.write(
-            self.at + GUTTER,
-            top + 2 + PICTURE + APART,
-            &written,
-            Size::Small,
-        );
-        // The knot: a blob on the edge the wire leaves or arrives at, so that
-        // three wires out of one source are visibly three wires out of one
-        // source rather than three lines that happen to converge.
-        let (x, y) = self.knot(index);
+    // The knots: a blob on the edge a wire leaves or arrives at, so that three
+    // wires out of one source are visibly three wires out of one source rather
+    // than three lines that happen to converge.
+    let knots = match side {
+        Side::From => (0..lines.len())
+            .map(|line| (at + CELL_ACROSS - 1, reading_at(top, line) + LINE / 2))
+            .collect::<Vec<_>>(),
+        Side::To => vec![(at, top + deep / 2)],
+    };
+    for (x, y) in knots {
         let out = match side {
             Side::From => 0,
             Side::To => -(KNOT - 1),
         };
         screen.fill(Band::new(x + out, y - KNOT / 2, KNOT, KNOT));
-    }
-
-    /// Where a wire attaches to the `index`th cell.
-    fn knot(self, index: usize) -> (i32, i32) {
-        let x = match self.at {
-            // The left-hand column's wires leave its right-hand edge; the
-            // right-hand column's arrive at its left.
-            at if at == MARGIN => at + CELL_ACROSS - 1,
-            at => at,
-        };
-        (x, self.top(index) + CELL_DEEP / 2)
     }
 }
 
@@ -786,10 +812,6 @@ impl Column {
 /// is a fifth of that across, so anything drawn as a single sweep between two
 /// distant nodes comes out as a near-vertical scratch that could have started
 /// anywhere.
-///
-/// A track each, so that two wires down the same part of the glass are two
-/// wires rather than one heavier one — which is the whole question somebody
-/// looks at a patch bay to answer.
 fn bend(screen: &mut Screen, from: (i32, i32), to: (i32, i32), lane: i32) {
     let (x, y) = from;
     let (across, down) = to;
@@ -821,13 +843,11 @@ const LANE: i32 = 2;
 /// as mitred — the most a dot matrix can say about a radius.
 const CHAMFER: i32 = 3;
 
-/// How many characters of a name a cell has room for./// How many characters of a name a cell has room for.
+/// How many characters of a name a cell's field holds without scrolling.
 ///
-/// A display clips, which is what a display does and what this one is a picture
-/// of. Ten is what the instrument's own screen prints for all but a handful:
-/// `Pitch Bend`, `BreathCtrl` and `VCF Freq` are ten, nine and eight, and the
-/// few that run past lose their tail rather than push the two columns into each
-/// other.
+/// Nine, which is what the instrument's own screen prints for all but a
+/// handful: `Pitch Bend` and `BreathCtrl` are the ten-character ones, and they
+/// are why the field scrolls rather than clips.
 const LETTERS: i32 = 9;
 
 /// How wide the box a name's picture will stand in is, and how deep.
@@ -836,44 +856,25 @@ const LETTERS: i32 = 9;
 /// size asked of the library in deepmind-midi#40.
 const PICTURE: i32 = 7;
 
-/// How wide a cell is, which is what its name needs.
-///
-/// The picture and the routing numbers share the line above the name and are
-/// narrower than it together, so the name is the only thing that decides this.
-const CELL_ACROSS: i32 = GUTTER * 2 + (LETTERS * glyphs::ADVANCE - glyphs::GAP);
-
-/// How deep a cell is: the picture, the name under it, and the glass around
+/// How wide a cell is: its picture, its name's field, and the glass around
 /// both.
-const CELL_DEEP: i32 = 2 + PICTURE + APART + LINE + 2;
+const CELL_ACROSS: i32 = GUTTER * 3 + PICTURE + (LETTERS * glyphs::ADVANCE - glyphs::GAP);
 
 /// How much glass there is between a cell's picture, its name and its frame.
 const GUTTER: i32 = 3;
 
-/// How much glass there is between the longest name a cell holds and the
-/// routings printed after it.
+/// How much glass there is between two lines written in a cell.
 ///
-/// Wider than the gutter before the name, because a name that fills its field
-/// ends where the numbers begin and two runs of writing that touch are one run
-/// of writing.
-const APART: i32 = 5;
-
-/// How much room a cell keeps for the routings that use it.
-///
-/// Three of them. A destination four routings reach is a patch somebody built
-/// on purpose and will recognise from the three it does print; a cell sized for
-/// all eight is a cell that is mostly empty on every patch anybody writes.
-const NUMBERS: i32 = 3 * glyphs::ADVANCE - glyphs::GAP;
+/// Three dots. Two lines of writing with one between them are two lines a
+/// reader's eye separates without being asked to; a name sitting straight on
+/// the reading under it is one taller line of something illegible.
+const APART: i32 = 3;
 
 /// How big the blob a wire attaches to is.
 const KNOT: i32 = 3;
 
-/// The most glass there is between two cells in a column, top to top.
-///
-/// A cell and two lines of glass under it. Eight at that pitch fill a glass as
-/// deep as the eight rows beside it, which is the case this is laid out for,
-/// and three of them are a group in the middle of one rather than three cells
-/// in its corners.
-const PITCH: i32 = CELL_DEEP + LINE * 2;
+/// The most glass there is between two cells in a column.
+const PITCH: i32 = LINE * 3;
 
 /// How much glass the wires have to cross.
 ///
@@ -893,33 +894,6 @@ const BAY: i32 = MARGIN * 2 + CELL_ACROSS * 2 + LINK;
 
 /// How much glass there is around the drawing.
 const MARGIN: i32 = 3;
-
-/// Returns how much glass `lines` of depths along the foot take.
-fn foot(lines: usize) -> i32 {
-    i32::try_from(lines).unwrap_or(1).max(1) * (LINE + APART)
-}
-
-/// Returns the depths as the glass prints them, how far apart they stand, and
-/// how many fit on one line.
-///
-/// One place, because the drawing has to reserve exactly the room it then uses:
-/// a column of cells that stopped a line short of the readings would stand on
-/// them, and one that stopped a line early would leave a gap nobody asked for.
-fn listed(wires: &[Wire]) -> (Vec<String>, i32, usize) {
-    let readings: Vec<String> = wires
-        .iter()
-        .filter(|wire| !wire.depth.is_empty())
-        .map(|wire| format!("{} {}", wire.number, wire.depth))
-        .collect();
-    let step = readings
-        .iter()
-        .map(|reading| Screen::width_of(reading, Size::Small))
-        .max()
-        .unwrap_or(0)
-        + APART * 3;
-    let across = usize::try_from(((BAY - MARGIN * 2) / step.max(1)).max(1)).unwrap_or(1);
-    (readings, step, across)
-}
 
 /// Draws the two presses that move a routing up or down the table.
 ///
@@ -949,7 +923,7 @@ where
     let claim = routing.map_or(Confidence::Unknown, |routing| {
         patch.claim_across(routing.parameters())
     });
-    let press = |label: &'static str, towards: Option<usize>| {
+    let press = |mark: crate::Badge, said: &'static str, towards: Option<usize>| {
         let swap = routing.zip(towards.and_then(|at| routings.get(at).copied()));
         let known = |routing: Routing| {
             !matches!(
@@ -957,18 +931,39 @@ where
                 Confidence::Unknown
             )
         };
-        button(text(label).size(9).center())
-            .width(Length::Fixed(LABEL))
-            .height(Length::Fixed(SHIFT))
-            .padding(0)
-            .style(chrome)
-            .on_press_maybe(
-                swap.filter(|(one, other)| known(*one) && known(*other))
-                    .map(|(one, other)| Message::Swap {
-                        one: one.parameters(),
-                        other: other.parameters(),
-                    }),
+        let live = swap.filter(|(one, other)| known(*one) && known(*other));
+        // The mark on the panel, in the metal a hand touches where the press
+        // does something and most of the way back to the panel where it does
+        // not — which is how a rack unit's own case says a control is not
+        // wired to anything.
+        let arrow = lcd::stencil(mark.screen(), move |theme: &Theme| {
+            let material = materials(theme);
+            style::mix(
+                materials(theme).plate,
+                material.metal,
+                if live.is_some() { MARKED } else { DEAD },
             )
+        });
+        let press = button(
+            container(arrow)
+                .center_x(Length::Fill)
+                .center_y(Length::Fill),
+        )
+        .width(Length::Fixed(LABEL))
+        .height(Length::Fixed(SHIFT))
+        .padding(0)
+        .style(style::marked)
+        .on_press_maybe(live.map(|(one, other)| Message::Swap {
+            one: one.parameters(),
+            other: other.parameters(),
+        }));
+        // What it does, said in the footer while the pointer is on it. There is
+        // nowhere on a mark nine dots square to write it, and a word printed
+        // beside every press in the table would be two columns of words on a
+        // page whose whole argument is that the rows were saying too much.
+        mouse_area(press)
+            .on_enter(Message::Hinted(Some(said)))
+            .on_exit(Message::Hinted(None))
     };
     // The number between them, because it is the thing that moves: sending a
     // routing up the table is `3` becoming `2`, and the press above the numeral
@@ -978,79 +973,92 @@ where
     // engine's case already carries — and the numeral the glass beside these
     // rows prints against every source and destination the routing touches, so
     // the table and the picture are saying the same thing in the same hand.
-    column![press("\u{25b2}", index.checked_sub(1))]
-        .push(
-            container(lcd::stencil(
-                Screen::of(routing.map_or("", Routing::number), Size::Small),
-                move |theme: &Theme| {
-                    style::mix(materials(theme).plate, tint(theme, claim), NUMERAL)
-                },
-            ))
-            .width(Length::Fixed(LABEL))
-            .align_x(Horizontal::Center),
-        )
-        .push(press(
-            "\u{25bc}",
-            Some(index + 1).filter(|at| *at < routings.len()),
+    column![press(
+        crate::UP,
+        "Move this routing up the matrix, trading places with the one above it.",
+        index.checked_sub(1)
+    )]
+    .push(
+        container(lcd::stencil(
+            Screen::of(routing.map_or("", Routing::number), Size::Small),
+            move |theme: &Theme| style::mix(materials(theme).plate, tint(theme, claim), NUMERAL),
         ))
-        .spacing(3)
-        .align_x(Horizontal::Center)
-        .into()
+        .width(Length::Fixed(LABEL))
+        .align_x(Horizontal::Center),
+    )
+    .push(press(
+        crate::DOWN,
+        "Move this routing down the matrix, trading places with the one below it.",
+        Some(index + 1).filter(|at| *at < routings.len()),
+    ))
+    .spacing(SHIFT_APART)
+    .align_x(Horizontal::Center)
+    .into()
 }
+
+/// How far a live press's arrow is carried from the card towards the metal.
+const MARKED: f32 = 0.82;
+
+/// The same, for a press with nothing to trade.
+///
+/// Most of the way back to the card it is printed on: a mark that is still
+/// there and no longer a control, which is what a dead press looks like on an
+/// instrument.
+const DEAD: f32 = 0.28;
 
 /// How tall one of those presses stands.
 ///
-/// Two of them and the glass between are a control's own height, so the pair
-/// stands in the row the way everything else in it does.
-const SHIFT: f32 = 15.0;
+/// A little more than the five-dot mark on it, so that the light a press shows
+/// under the pointer is a shape around the arrow rather than a shape the arrow
+/// is touching the edges of. Two of them, the numeral between them and the
+/// glass either side of that are one [row](ROW) exactly.
+const SHIFT: f32 = 14.0;
 
-/// Draws where a routing goes: the name, the search it is found in, and the/// Draws where a routing goes: the name, the search it is found in, and the
-/// press that asks the window instead.
+/// How much card there is between the two presses and the numeral they move.
+const SHIFT_APART: f32 = 2.0;
+
+/// Draws one end of a routing: its picture, and the list its name is chosen
+/// from.
 ///
-/// Two ways to answer one question, side by side, because they are good at
-/// opposite things. Typing is how somebody who knows the name of the thing
-/// finds it among 133 — three letters and `VCF Envelope Attack` is the only one
-/// left. Mapping is how somebody who knows the *control* finds it: the name of
-/// a destination is an abbreviation the instrument's display prints, and
-/// knowing which abbreviation stands over the fader you have in mind is the
-/// whole of what makes this column hard.
-fn going<'a, Renderer>(
+/// **One component for both ends.** A source is one of 24 names and a
+/// destination one of 133, which is a difference in how long the list is and in
+/// nothing else — and they were drawn as two different controls, a picker with
+/// a handle beside a field with a caret, in one row, four points apart. Both
+/// are searchable lists now, because the one that is hard to scroll decides:
+/// three letters and `VCF Envelope Attack` is the only one left, and the same
+/// three letters cost a source nothing.
+///
+/// Where the library has no complete table for an end, the row keeps whatever
+/// control the library says that parameter is — which is not a decision this
+/// file makes, and is why the list is asked for rather than assumed.
+///
+/// # The picture
+///
+/// A dotted box, seven dots square, with nothing in it: where the library's own
+/// mark for this source or destination will go when
+/// [deepmind-midi#40](https://github.com/MysteriousWolf/deepmind-midi/issues/40)
+/// lands. It is the same empty box the patch bay draws against the same name,
+/// so the row and the glass are waiting for the same picture — and a mark for
+/// `LFO 1` invented here would be this window making up a fact about the
+/// instrument.
+fn chosen<'a, Renderer>(
     patch: &Patch,
-    routing: Routing,
+    parameter: ParamId,
     firmware: Version,
     mapper: &'a Mapper,
     sent: Option<Sent<'_>>,
+    width: f32,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
-    let destination = routing.destination;
-    let mapping = mapper
-        .mapped()
-        .is_some_and(|mapped| mapped.destination() == destination);
-    let press = button(text(if mapping { "stop" } else { "map" }).size(10).center())
-        .width(Length::Fixed(POINT))
-        .height(Length::Fixed(crate::panel::BUTTON))
-        .padding(0)
-        .style(move |theme: &Theme, status| {
-            if mapping {
-                lamp(theme)
-            } else {
-                chrome(theme, status)
-            }
-        })
-        .on_press(Message::Mapper(
-            (!mapping).then(|| Mapping::new(routing.label, destination, routing.depth)),
-        ));
-    // A searchable list where the library names every value the parameter
-    // accepts, and whatever the library says the parameter is where it does
-    // not. Which of the two it is, is not a decision this file makes: the list
-    // exists exactly where [`Mapper`] could build one, which is where
-    // `ParamId::choices_for` answered.
-    let chosen: Element<'a, Renderer> = match mapper.list(destination) {
-        Some(list) => {
-            let value = patch.value(destination);
-            let selected = choices(destination, firmware, value).and_then(|options| {
+    let listed: Element<'a, Renderer> = match mapper.list(parameter) {
+        // A list that opened while the matrix was mapping would be a menu over
+        // the controls somebody is trying to map onto, so while one is up the
+        // row falls back to the control `control` draws for the mode.
+        Some(list) if sent.is_none() => {
+            let value = patch.value(parameter);
+            let selected = choices(parameter, firmware, value).and_then(|options| {
                 options
                     .into_iter()
                     .find(|choice| Some(choice.byte()) == value)
@@ -1058,7 +1066,7 @@ where
             container(
                 combo_box(list, "search", selected.as_ref(), move |choice: Choice| {
                     Message::Edit {
-                        parameter: destination,
+                        parameter,
                         value: choice.byte(),
                     }
                 })
@@ -1067,24 +1075,99 @@ where
                 .menu_height(Length::Fixed(MENU))
                 .input_style(field)
                 .menu_style(shortlist)
-                .width(Length::Fixed(DESTINATION)),
+                .width(Length::Fixed(width)),
             )
             .height(Length::Fixed(crate::panel::BUTTON))
             .align_y(Vertical::Center)
             .into()
         }
-        None => cell(
-            patch,
-            destination,
-            firmware,
-            Room::listed(DESTINATION),
-            sent,
-        ),
+        _ => cell(patch, parameter, firmware, Room::listed(width), sent),
     };
-    container(row![chosen, press].spacing(6).align_y(Vertical::Center))
-        .width(Length::Fixed(DESTINATION + POINT + 6.0))
+    row![picture(), listed]
+        .spacing(BESIDE_PICTURE)
+        .align_y(Vertical::Center)
         .into()
 }
+
+/// Draws the box a source or destination's picture will stand in.
+///
+/// Printed on the card rather than lit on glass, because it is a mark beside a
+/// control and not a display: the same call the numeral beside the row goes
+/// through. A box with nothing in it, dim, which is what waiting for a picture
+/// looks like — drawn as a frame rather than as a dotted one, because seven
+/// dots square is too small for a dotted line to read as anything but scatter.
+fn picture<'a, Renderer>() -> Element<'a, Renderer>
+where
+    Renderer: iced_core::Renderer + 'a,
+{
+    let mut screen = Screen::new(PICTURE, PICTURE);
+    screen.frame(Band::new(0, 0, PICTURE, PICTURE), Ink::Solid);
+    lcd::stencil(screen, |theme: &Theme| {
+        let material = materials(theme);
+        style::mix(material.plate, material.metal_low, WAITING)
+    })
+}
+
+/// How far the empty picture box is carried from the card towards the metal.
+///
+/// Not far. It is a box with nothing in it, and a box with nothing in it drawn
+/// as loudly as the name beside it would be the loudest thing in a row that is
+/// about the name.
+const WAITING: f32 = 0.55;
+
+/// Draws the press that sends a routing out into the window.
+///
+/// A word stencilled on the card, the way every other mark in this window is: a
+/// press whose face is a drawing rather than a label needs no rim to say where
+/// the label stops and the button starts, and a row whose other controls are
+/// two recesses and a dial had a rounded rectangle sitting in the middle of it.
+///
+/// What changes while the mode is up is the ink. It goes to the one saturated
+/// colour on the panel — the same cyan every control the routing can reach is
+/// lit in at that moment — because the press and the lit controls are one thing
+/// happening, so they are one colour. The word does not change: a press that
+/// said `MAP` and then `STOP` would be two presses of two widths, and the row
+/// would move under the hand that pressed it.
+fn mapping_press<'a, Renderer>(routing: Routing, mapper: &Mapper) -> Element<'a, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    let destination = routing.destination;
+    let mapping = mapper
+        .mapped()
+        .is_some_and(|mapped| mapped.destination() == destination);
+    let word = lcd::stencil(Screen::of(WORD, Size::Small), move |theme: &Theme| {
+        if mapping {
+            style::MODULATION
+        } else {
+            let material = materials(theme);
+            style::mix(material.plate, material.metal, MARKED)
+        }
+    });
+    let press = button(
+        container(word)
+            .center_x(Length::Fill)
+            .center_y(Length::Fill),
+    )
+    .width(Length::Fixed(POINT))
+    .height(Length::Fixed(crate::panel::BUTTON))
+    .padding(0)
+    .style(style::marked)
+    .on_press(Message::Mapper(
+        (!mapping).then(|| Mapping::new(routing.label, destination, routing.depth)),
+    ));
+    mouse_area(press)
+        .on_enter(Message::Hinted(Some(if mapping {
+            "Stop mapping: leave this routing where it is."
+        } else {
+            "Send this routing out into the window, and take hold of the control it should move."
+        })))
+        .on_exit(Message::Hinted(None))
+        .into()
+}
+
+/// What that press says.
+const WORD: &str = "MAP";
 
 /// Says what mapping a routing at the window means while one is mapped.
 ///
@@ -1114,21 +1197,10 @@ where
     .into()
 }
 
-/// The style the press wears while its own routing is the one being mapped.
+/// How much room the press that maps a routing onto the window takes.
 ///
-/// The one saturated colour on the panel, which is what every control the
-/// routing can reach is outlined in at the same moment: the press and the lit
-/// controls are one thing happening, so they are one colour.
-fn lamp(theme: &Theme) -> button::Style {
-    button::Style {
-        background: Some(Background::Color(style::MODULATION)),
-        text_color: materials(theme).panel,
-        border: border::rounded(3).width(1.0).color(style::MODULATION),
-        ..button::Style::default()
-    }
-}
-
-/// How much room the press that points a routing at the window takes.
+/// The word on it and the card either side of it, which is the same room every
+/// other mark in this window is given.
 const POINT: f32 = 44.0;
 
 /// How tall the list a destination is searched in opens.
@@ -1187,7 +1259,7 @@ mod tests {
 
     use super::{moved, of, routed};
 
-    use super::{BAY, CELL_ACROSS, CELL_DEEP, Wire, deep, drawn};
+    use super::{BAY, CELL_ACROSS, Wire, deep, drawn};
     use crate::Confidence;
 
     /// The screen as characters, so that a picture made of dots can be looked
@@ -1250,39 +1322,57 @@ mod tests {
     #[test]
     fn a_source_with_three_destinations_is_one_cell_and_three_wires() {
         // The whole of why the bay exists. The table says it three times, once
-        // per row; the glass says it once, as a fan.
-        let screen = shown(&wired(&[
+        // per row; the glass says it once, as a fan — and each of the three
+        // lines leaving that one cell says how much it carries.
+        let wires = wired(&[
             ("LFO 1", "VCF Freq"),
             ("LFO 1", "VCA Level"),
             ("LFO 1", "Pitch"),
-        ]));
-        let ink = |band: crate::Band| {
-            (0..band.height)
-                .flat_map(|row| (0..band.width).map(move |column| (column, row)))
-                .filter(|(column, row)| screen.is_inked(band.x + column, band.y + row))
-                .count()
-        };
-        // One cell on the left, three on the right, and the glass between them
-        // carrying three wires rather than one.
-        let gap = crate::Band::new(
-            super::MARGIN + CELL_ACROSS,
-            0,
-            BAY - super::MARGIN * 2 - CELL_ACROSS * 2,
-            screen.rows(),
+        ]);
+        let screen = shown(&wires);
+        let depths = vec![super::cell_deep(3)];
+        let top = super::spread(super::MARGIN * 2 + super::LINE, deep(8), &depths)
+            .first()
+            .copied()
+            .expect("a source stands somewhere");
+
+        // One cell on the left, three lines written down it, and a knot on the
+        // edge beside each of them.
+        for (line, wire) in wires.iter().enumerate() {
+            let y = super::reading_at(top, line) + super::LINE / 2;
+            assert!(
+                screen.is_inked(super::MARGIN + CELL_ACROSS - 1, y),
+                "no wire leaves the cell at line {line}:\n{}",
+                printed(&screen)
+            );
+            let said = format!("{} {}", wire.number, wire.depth);
+            let across = crate::Screen::width_of(&said, crate::Size::Small);
+            let at = super::MARGIN + CELL_ACROSS - super::GUTTER - across;
+            assert!(
+                (0..super::LINE).any(|row| {
+                    (0..across).any(|column| {
+                        screen.is_inked(at + column, super::reading_at(top, line) + row)
+                    })
+                }),
+                "nothing says what line {line} carries:\n{}",
+                printed(&screen)
+            );
+        }
+        // And three cells on the right rather than one, because three
+        // destinations are three destinations.
+        let arriving = super::spread(
+            super::MARGIN * 2 + super::LINE,
+            deep(8),
+            &[super::cell_deep(0); 3],
         );
-        assert!(
-            ink(gap) > 0,
-            "nothing crosses the glass between the columns:\n{}",
-            printed(&screen)
-        );
-        // The one source sits in the middle of its column rather than at the
-        // top, because a column of one is not the top of a list.
-        let middle = screen.rows() / 2;
-        assert!(
-            (0..CELL_DEEP).any(|row| screen.is_inked(super::MARGIN, middle - CELL_DEEP / 2 + row)),
-            "the lone source is not in the middle:\n{}",
-            printed(&screen)
-        );
+        assert_eq!(arriving.len(), 3);
+        for top in arriving {
+            assert!(
+                screen.is_inked(BAY - super::MARGIN - CELL_ACROSS, top),
+                "a destination is missing its frame:\n{}",
+                printed(&screen)
+            );
+        }
     }
 
     #[test]
@@ -1293,34 +1383,23 @@ mod tests {
         // could have started anywhere. Flat out, down a track, flat in — and a
         // track each, so that two wires down the same part of the glass are two
         // wires rather than one heavier one.
-        let dots = deep(8);
-        // One source and four destinations, so that the two wires under test
-        // are the ones furthest apart and their vertical runs are long enough
-        // to tell from a corner.
-        let screen = shown(&wired(&[("A", "B"), ("A", "C"), ("A", "D"), ("A", "E")]));
+        let wires = wired(&[("A", "B"), ("A", "C"), ("A", "D"), ("A", "E")]);
+        let screen = shown(&wires);
         let under = super::MARGIN * 2 + super::LINE;
-        let (readings, _, across) =
-            super::listed(&wired(&[("A", "B"), ("A", "C"), ("A", "D"), ("A", "E")]));
-        let standing = dots - super::foot(readings.len().div_ceil(across));
-        let left = super::Column::new(super::MARGIN, under, standing, 1);
-        let right = super::Column::new(BAY - super::MARGIN - CELL_ACROSS, under, standing, 4);
-        let (x, y) = left.knot(0);
+        let top = super::spread(under, deep(8), &[super::cell_deep(4)])
+            .first()
+            .copied()
+            .expect("the one source");
+        let x = super::MARGIN + CELL_ACROSS - 1;
 
         // Flat until the corner, which is where it is allowed to start turning.
         let flat = super::TURN - super::CHAMFER;
-        for step in 0..=flat {
-            assert!(
-                screen.is_inked(x + step, y),
-                "the wire is already falling {step} dots out of its source:\n{}",
-                printed(&screen)
-            );
-        }
-        for index in 0..4 {
-            let (to, row) = right.knot(index);
+        for line in 0..4 {
+            let y = super::reading_at(top, line) + super::LINE / 2;
             for step in 0..=flat {
                 assert!(
-                    screen.is_inked(to - step, row),
-                    "the wire is still falling {step} dots short of its destination:\n{}",
+                    screen.is_inked(x + step, y),
+                    "the wire is already falling {step} dots out of its source:\n{}",
                     printed(&screen)
                 );
             }
@@ -1331,8 +1410,6 @@ mod tests {
                 .filter(|row| screen.is_inked(at, *row))
                 .count()
         };
-        // The first and the last, which are the two furthest from the source
-        // and so the two with a run long enough to tell from a corner.
         for lane in [0, 3] {
             let track = x + super::TURN + lane * super::LANE;
             assert!(

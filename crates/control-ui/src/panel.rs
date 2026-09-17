@@ -389,12 +389,12 @@ impl Room {
 
 /// What a view in this crate asks for.
 ///
-/// Six things, and the last three never reach a wire: a parameter should move,
+/// Seven things, and the last four never reach a wire: a parameter should move,
 /// the program should be called something, a section should be the one on the
-/// screen, the pointer has come to rest on a control, a routing is being
-/// mapped onto the window, or a drag while it is mapped has said where and how
-/// much. What an edit costs on a wire, when it goes out and what it goes out
-/// behind is the host crate's business.
+/// screen, the pointer has come to rest on a control or on a press, a routing
+/// is being mapped onto the window, or a drag while it is mapped has said where
+/// and how much. What an edit costs on a wire, when it goes out and what it
+/// goes out behind is the host crate's business.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Message {
     /// A parameter should move to this value.
@@ -427,6 +427,19 @@ pub enum Message {
     ///
     /// It never reaches a wire. Looking at a control is not editing it.
     Pointed(Option<ParamId>),
+    /// The pointer is over a press, or has left the one it was over.
+    ///
+    /// The same question [`Pointed`](Message::Pointed) asks about a control,
+    /// for the things in this window that are not parameters: the marks along
+    /// the header and the foot, and the two presses that move a routing up and
+    /// down the matrix. A press whose whole face is a nine-dot mark has nowhere
+    /// to put a word, and a word beside it is a word on the panel whether or
+    /// not anybody is asking — so the answer goes where this window already
+    /// says what is under the pointer.
+    ///
+    /// It is what the press says about itself rather than anything read from
+    /// the instrument, which is why it is a string and not a parameter.
+    Hinted(Option<&'static str>),
     /// This routing is being mapped onto the window, or none is any more.
     ///
     /// While one is, every control the matrix can reach is lit across all three
@@ -957,6 +970,7 @@ where
 {
     let low = u8::try_from(parameter.min()).unwrap_or(u8::MIN);
     let high = u8::try_from(parameter.max()).unwrap_or(u8::MAX);
+    let idle = idle(parameter);
     match parameter.kind() {
         // A switch is two states, and the library says which parameters are
         // switches. Where it also says one accepts 256 values, the two answers
@@ -976,7 +990,7 @@ where
             None => sweep(
                 parameter,
                 low..=high,
-                value.unwrap_or(low),
+                value.unwrap_or(idle),
                 claim,
                 room,
                 asked,
@@ -987,11 +1001,30 @@ where
         _ => sweep(
             parameter,
             low..=high,
-            value.unwrap_or(low),
+            value.unwrap_or(idle),
             claim,
             room,
             asked,
         ),
+    }
+}
+
+/// Returns where a control stands when this window has no value to stand it at.
+///
+/// Nothing is drawn to take hold of either way — see the cap in
+/// [`fader`](crate::fader) — so this is where the *track* is read from, and for
+/// a value read about a centre that is the centre. A modulation depth nobody
+/// has read, drawn at the floor of its own range, is a control sitting at
+/// `-128` on a page whose whole subject is how much of something arrives: the
+/// window would be showing full negative modulation where it means to be
+/// showing that it has not asked.
+fn idle(parameter: ParamId) -> u8 {
+    let low = u8::try_from(parameter.min()).unwrap_or(u8::MIN);
+    match parameter.shape() {
+        Shape::Bipolar { centre } => u8::try_from(centre).unwrap_or(low),
+        // Unipolar, and anything a later library adds: a range that counts up
+        // from somewhere starts where it counts from.
+        _ => low,
     }
 }
 
@@ -1476,6 +1509,26 @@ pub(crate) fn sits_at(parameter: ParamId, value: u8) -> String {
 mod readings {
     use super::sits_at;
     use deepmind_midi::param::{ParamId, Shape};
+
+    #[test]
+    fn a_control_nobody_has_read_stands_where_its_range_is_read_from() {
+        // The floor for a value that counts up from one, and the centre for a
+        // value read about one. Both are places the control is drawn with
+        // nothing to take hold of; only one of them is a picture of full
+        // negative modulation.
+        let Shape::Bipolar { centre } = ParamId::Mod1Depth.shape() else {
+            panic!("a depth is read about its centre");
+        };
+
+        assert_eq!(
+            super::idle(ParamId::Mod1Depth),
+            u8::try_from(centre).unwrap_or_default()
+        );
+        assert_eq!(
+            super::idle(ParamId::Lfo1Rate),
+            u8::try_from(ParamId::Lfo1Rate.min()).unwrap_or_default()
+        );
+    }
 
     #[test]
     fn a_bipolar_value_is_read_about_its_centre_and_not_from_the_floor() {

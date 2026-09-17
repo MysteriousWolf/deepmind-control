@@ -562,7 +562,7 @@ pub struct Mapper {
     /// it rebuilds them: firmware 1.1 renumbered the destinations, and a list
     /// built for the other one would offer the wrong names for the right bytes.
     firmware: Version,
-    /// The searchable list each routing's destination is chosen from.
+    /// The searchable list each end of each routing is chosen from.
     lists: Vec<(ParamId, combo_box::State<Choice>)>,
 }
 
@@ -601,31 +601,37 @@ impl Mapper {
     }
 
     /// Returns the searchable list a routing's destination is chosen from.
-    pub(crate) fn list(&self, destination: ParamId) -> Option<&combo_box::State<Choice>> {
+    pub(crate) fn list(&self, end: ParamId) -> Option<&combo_box::State<Choice>> {
         self.lists
             .iter()
-            .find(|(parameter, _)| *parameter == destination)
+            .find(|(parameter, _)| *parameter == end)
             .map(|(_, list)| list)
     }
 }
 
-/// One searchable list per routing, in the order the matrix reads them.
+/// One searchable list per end of every routing, in the order the matrix reads
+/// them.
 ///
-/// The names are the destination parameter's own value table, asked of the
-/// library for the firmware that answered, which is the same call the rack
-/// makes when it draws that parameter as a list. A routing whose destination
-/// the table does not name every value of gets no list, and its row keeps the
-/// control the library says the parameter is.
+/// Both ends, because the two columns are one control drawn twice. A source is
+/// one of 24 names and a destination one of 133, which is a difference in how
+/// far somebody scrolls and in nothing else — and a row that answered the short
+/// list with a picker and the long one with a field was a row wearing two
+/// controls for one question.
+///
+/// The names are the parameter's own value table, asked of the library for the
+/// firmware that answered, which is the same call the rack makes when it draws
+/// that parameter as a list. An end whose table does not name every value gets
+/// no list, and its row keeps the control the library says the parameter is.
 fn built(firmware: Version) -> Vec<(ParamId, combo_box::State<Choice>)> {
     Group::ORDER
         .iter()
         .copied()
         .filter_map(matrix::of)
         .flatten()
-        .filter_map(|routing| {
-            let destination = routing.destination();
-            let options = choices(destination, firmware, None)?;
-            Some((destination, combo_box::State::new(options)))
+        .flat_map(|routing| [routing.source(), routing.destination()])
+        .filter_map(|end| {
+            let options = choices(end, firmware, None)?;
+            Some((end, combo_box::State::new(options)))
         })
         .collect()
 }

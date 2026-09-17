@@ -50,6 +50,9 @@ use crate::{Confidence, Element, Patch};
 /// Draws what the pointer is over, or what to do with the panel when it is over
 /// nothing.
 ///
+/// `hinted` is what a press under the pointer says about itself, for the
+/// presses that are a mark rather than a word.
+///
 /// The empty state is not a blank strip. A footer that vanishes is a footer
 /// nobody learns is there, and the row it stands in would jump every time the
 /// pointer crossed a gap between two faders.
@@ -59,13 +62,21 @@ pub fn footer<'a, Renderer>(
     patch: &Patch,
     firmware: Version,
     mapped: Option<Mapping>,
+    hinted: Option<&'static str>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
-    let line = match pointed {
-        Some(parameter) => described(parameter, patch, firmware),
-        None => vec![Part::Quiet(
+    let line = match (pointed, hinted) {
+        (Some(parameter), _) => described(parameter, patch, firmware),
+        // A press whose whole face is a nine-dot mark says what it does here,
+        // because there is nowhere on a nine-dot mark to write it and a word
+        // printed beside every one of them is a row of words on the panel
+        // whether or not anybody is asking. It is one sentence and no facts:
+        // what the library knows about a parameter is what the rest of this
+        // line is for, and a press is not a parameter.
+        (None, Some(said)) => vec![Part::Name(said.to_owned())],
+        (None, None) => vec![Part::Quiet(
             "Point at a control to read what it is.".to_owned(),
         )],
     };

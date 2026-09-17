@@ -3,7 +3,7 @@
 use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 
 use deepmind_midi::ids::{DeviceId, ProtocolVersion, Slot};
-use deepmind_midi::param::ParamId;
+use deepmind_midi::param::{ParamId, Shape};
 use deepmind_midi::program::{Program, ProgramName};
 use deepmind_midi::sim::{Library, Synth};
 use deepmind_midi::syx::File;
@@ -141,7 +141,7 @@ impl SimPort {
     /// Builds a unit holding `memory`, and the panel that stands in front of it.
     #[must_use]
     pub fn new(memory: Pack) -> (Self, Panel) {
-        let mut sound = Program::new(ProtocolVersion::V7);
+        let mut sound = blank();
         if let Ok(name) = ProgramName::new("Simulator") {
             sound.set_name(name);
         }
@@ -169,6 +169,30 @@ impl SimPort {
             }
         }
     }
+}
+
+/// The sound the simulated unit powers up holding.
+///
+/// `Program::new` puts every parameter at the floor of its own range, which for
+/// the 197 that count up from one is the right answer and for the other 45 is
+/// not: a value read about a centre has its zero in the middle, so a program
+/// built out of minimums is one with every modulation depth at full negative,
+/// every detune at the bottom of its swing and every pan hard left. That is not
+/// a blank sound, it is a particular and rather strange one — and eight
+/// modulation depths reading `-128` in a window that has just opened look like
+/// the window's own default rather than the instrument's answer.
+///
+/// So the bipolar ones are put where their own zero is. The library publishes
+/// that centre for each of them, so nothing here is invented: this is the
+/// library's own arithmetic applied to the library's own list.
+fn blank() -> Program {
+    let mut sound = Program::new(ProtocolVersion::V7);
+    for parameter in ParamId::ALL.iter().copied() {
+        if let Shape::Bipolar { centre } = parameter.shape() {
+            sound.set_clamped(parameter, u8::try_from(centre).unwrap_or_default());
+        }
+    }
+    sound
 }
 
 /// Handed to the simulator's drain to stop it after one reply.
@@ -211,5 +235,33 @@ impl Port for SimPort {
         target.copy_from_slice(source);
         self.partial.drain(..taken);
         Ok(taken)
+    }
+}
+
+#[cfg(test)]
+#[expect(clippy::panic, reason = "a failed expectation is the test failure")]
+mod tests {
+    use deepmind_midi::param::{ParamId, Shape};
+
+    use super::blank;
+
+    #[test]
+    fn the_simulated_unit_powers_up_with_its_bipolar_values_at_zero() {
+        // A modulation depth of `-128` is full negative modulation, and eight
+        // of them is what a program built out of minimums says the instrument
+        // is doing. The 197 that count up from one are untouched: their floor
+        // is where they read from.
+        let depth = ParamId::Mod1Depth;
+        let Shape::Bipolar { centre } = depth.shape() else {
+            panic!("a depth is read about its centre");
+        };
+        let sound = blank();
+
+        assert_eq!(u16::from(sound.get(depth)), centre);
+        assert_eq!(
+            u16::from(sound.get(ParamId::Lfo1Rate)),
+            ParamId::Lfo1Rate.min(),
+            "a value that counts up from one is left where it counts from"
+        );
     }
 }

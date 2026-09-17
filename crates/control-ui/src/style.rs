@@ -583,6 +583,37 @@ pub fn chrome(theme: &Theme, status: button::Status) -> button::Style {
     }
 }
 
+/// What a press whose whole face is a mark is drawn as.
+///
+/// Nothing at all, until a hand comes near it. A press with a word in it needs
+/// a rim to say where the word stops being a label and starts being a button;
+/// a press whose face is a nine-dot mark does not, because the mark is already
+/// a shape on the panel and a rounded rectangle round it is a second shape
+/// saying the same thing — and one drawn to the height of the *words* beside
+/// it, so a twenty-two point mark ends up floating in a twenty-nine point box
+/// with four points of panel above and below it.
+///
+/// So the mark stands on the panel the way the numbers on a rack unit's case
+/// stand on the case, and what a hand gets back is light rather than a frame:
+/// the panel lifts to the plate under the pointer and to the recess while it
+/// is held, which is the same pair of surfaces every other press here moves
+/// between. What the press *does* is said in the footer while the pointer is
+/// on it, where this window already says what is under the pointer.
+#[must_use]
+pub fn marked(theme: &Theme, status: button::Status) -> button::Style {
+    let material = materials(theme);
+    button::Style {
+        background: match status {
+            button::Status::Hovered => Some(Background::Color(material.plate)),
+            button::Status::Pressed => Some(Background::Color(material.recess)),
+            button::Status::Active | button::Status::Disabled => None,
+        },
+        text_color: material.metal,
+        border: border::rounded(3),
+        ..button::Style::default()
+    }
+}
+
 /// What a press that opens a section is drawn as: a lamp behind a cap.
 ///
 /// The hardware's `EDIT` is not a word on the panel. It is a rubber button that

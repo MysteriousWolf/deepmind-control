@@ -139,6 +139,20 @@ pub const fn room(dots: i32) -> f32 {
 /// allow for and what a count of dots has to be measured back out of.
 const SURROUND: f32 = BEZEL + MARGIN;
 
+/// How fast a field too small for its name scrolls, in dots a second.
+///
+/// Eight, which at this pitch is twenty points a second: slow enough to read a
+/// ten-character name without chasing it and fast enough that a name arrives
+/// rather than creeps.
+const RATE: f32 = 8.0;
+
+/// How long a scrolling field holds still at each end of its travel, in
+/// seconds.
+///
+/// Long enough to read the beginning of a name without waiting for it to come
+/// back round, which is the whole reason a label has a beginning.
+const HOLD: f32 = 1.5;
+
 /// How a line is laid down.
 ///
 /// One screen, one colour, and three things to tell apart on it: the ink is
@@ -488,8 +502,94 @@ impl Screen {
     /// Returns where the next character would start, so that a line built out
     /// of several pieces does not have to count them.
     pub fn write(&mut self, x: i32, y: i32, words: &str, size: Size) -> i32 {
+        self.written(x, y, words, size, None)
+    }
+
+    /// Writes `words` into a field `across` dots wide, scrolling them when they
+    /// are too long for it.
+    ///
+    /// What a hardware display does with a name that does not fit, and what
+    /// this window was doing instead was cutting the tail off: `Pitch Bend` and
+    /// `BreathCtrl` are ten characters in a field cut for nine, and `Pitch Ben`
+    /// is a name somebody has to already know to read. A field that scrolls
+    /// says the whole thing and takes a moment over it, which is the trade
+    /// every instrument with a two-line screen on it has already made.
+    ///
+    /// Nothing scrolls that fits: a field only moves when moving is the only
+    /// way to say all of it, so a page of short names is a still page.
+    ///
+    /// It **holds, travels and holds**, then starts again — rather than running
+    /// round and round with the tail of the name chasing its head. A name that
+    /// wraps is two names on the glass at once for as long as the gap between
+    /// them takes to cross, and the first thing somebody wants from a label is
+    /// its beginning: this one is at the beginning for a second and a half out
+    /// of every lap, at the end for as long again, and moving in between at
+    /// eight dots a second.
+    ///
+    /// Where it has got to is a clock this module keeps rather than state a
+    /// caller has to thread through, because how far a display has scrolled is
+    /// not a fact about the sound. Every field in the window travels together
+    /// on it, and it advances with the window's own redraws.
+    pub fn marquee(&mut self, x: i32, y: i32, across: i32, words: &str, size: Size) {
+        let width = Self::width_of(words, size);
+        let over = width - across;
+        if over <= 0 {
+            self.write(x, y, words, size);
+            return;
+        }
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "a count of dots the field holds still for"
+        )]
+        let hold = (RATE * HOLD) as i32;
+        let gone = Self::crawl(over + hold * 2);
+        let by = (gone - hold).clamp(0, over);
+        self.written(x - by, y, words, size, Some((x, across)));
+    }
+    /// How far a scrolling field has got round its lap, in dots.
+    ///
+    /// Off a clock this module starts the first time anything asks, which is
+    /// the one piece of state in this crate that is not a fact about the
+    /// instrument: every field in the window travels together, at one rate,
+    /// because they are one screen as far as a reader is concerned.
+    ///
+    /// It advances with the window's own redraws — every frame while a port is
+    /// open, and not at all while the application is idle. A window with
+    /// nothing to hear is a window with nothing to say, and a still label on
+    /// one is not a label that has stopped working.
+    fn crawl(lap: i32) -> i32 {
+        static STARTED: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+        let seconds = STARTED
+            .get_or_init(std::time::Instant::now)
+            .elapsed()
+            .as_secs_f32();
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "dots since the window opened, taken back round the lap"
+        )]
+        let gone = (seconds * RATE) as i32;
+        gone.rem_euclid(lap.max(1))
+    }
+
+    /// Writes `words` at `x`, keeping only what falls inside `field`.
+    ///
+    /// `field` is where a scrolling name is allowed to be seen — its left edge
+    /// and how wide it is — and `None` is the whole screen, which is what an
+    /// ordinary write is.
+    fn written(
+        &mut self,
+        x: i32,
+        y: i32,
+        words: &str,
+        size: Size,
+        field: Option<(i32, i32)>,
+    ) -> i32 {
         let scale = size.scale();
         let mut pen = x;
+        let shows = |at: i32| match field {
+            Some((from, across)) => at >= from && at < from + across,
+            None => true,
+        };
         for character in words.chars() {
             for (row, dots) in glyphs::of(character).iter().enumerate() {
                 let row = i32::try_from(row).unwrap_or_default();
@@ -499,7 +599,10 @@ impl Screen {
                     }
                     for down in 0..scale {
                         for across in 0..scale {
-                            self.dot(pen + column * scale + across, y + row * scale + down);
+                            let at = pen + column * scale + across;
+                            if shows(at) {
+                                self.dot(at, y + row * scale + down);
+                            }
                         }
                     }
                 }
@@ -916,6 +1019,43 @@ where
 #[cfg(test)]
 mod tests {
     use super::{Band, Ink, Screen, Size};
+
+    #[test]
+    fn a_name_that_fits_its_field_does_not_move_and_one_that_does_not_stays_inside_it() {
+        // Two claims and they are the whole of what a scrolling field promises.
+        // A short name is a still name: a page where everything moves is a page
+        // nobody can read. A long one is cut to the field by the field rather
+        // than by its own tail, so a name three characters too long is three
+        // characters that arrive rather than three that are lost.
+        let across = Screen::width_of("123456", Size::Small);
+        let mut fits = Screen::new(40, 7);
+        fits.marquee(2, 0, across, "abc", Size::Small);
+        let mut written = Screen::new(40, 7);
+        written.write(2, 0, "abc", Size::Small);
+
+        for row in 0..7 {
+            for column in 0..40 {
+                assert_eq!(
+                    fits.is_inked(column, row),
+                    written.is_inked(column, row),
+                    "a name that fits moved at {column},{row}"
+                );
+            }
+        }
+
+        let mut long = Screen::new(40, 7);
+        long.marquee(2, 0, across, "a name nobody has room for", Size::Small);
+
+        assert!(!long.is_blank(), "a scrolling name is drawn at all");
+        for row in 0..7 {
+            for column in 0..40 {
+                assert!(
+                    !long.is_inked(column, row) || (2..2 + across).contains(&column),
+                    "a scrolling name is outside its field at {column},{row}"
+                );
+            }
+        }
+    }
 
     /// How many dots of a screen are printed.
     fn inked(screen: &Screen) -> usize {

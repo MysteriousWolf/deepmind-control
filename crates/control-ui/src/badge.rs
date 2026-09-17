@@ -41,26 +41,58 @@
 
 use crate::lcd::Screen;
 
-/// How many dots across a mark is drawn, and how many down.
+/// How many dots across the marks a press in the window's chrome wear are
+/// drawn, and how many down.
 pub const SIDE: i32 = 9;
 
-/// A mark, as the nine rows of nine dots it is drawn from.
+/// How wide the two arrows beside a matrix row are drawn.
 ///
-/// Row-major from the top, one bit per dot, the high bit at the left. Written
-/// out rather than computed because at this size there is nothing to compute:
-/// the drawing *is* the nine numbers.
+/// Seven, which is the cell the display writes a character in. They stand above
+/// and below a numeral written in that cell, in a row as tall as one line of
+/// controls: a nine-dot arrow there is an arrow taller than the number it
+/// moves, and a five-dot one is nine dots of ink with gaps between them, which
+/// at this pitch is a smudge rather than a direction.
+pub const ARROW: i32 = 7;
+
+/// A mark, as the rows of dots it is drawn from.
+///
+/// Row-major from the top, one bit per dot, the dot at the left in the bit at
+/// `across - 1`. Written out rather than computed because at these sizes there
+/// is nothing to compute: the drawing *is* the numbers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Badge([u16; SIDE as usize]);
+pub struct Badge {
+    /// The dots, one row per number.
+    rows: &'static [u16],
+    /// How many of each number are the drawing.
+    across: i32,
+}
 
 impl Badge {
+    /// A mark `across` dots wide and as many deep as it has rows.
+    const fn new(rows: &'static [u16], across: i32) -> Self {
+        Self { rows, across }
+    }
+
+    /// How many dots across this mark is drawn.
+    #[must_use]
+    pub const fn across(self) -> i32 {
+        self.across
+    }
+
+    /// How many dots down it is, which is how many rows it was written as.
+    #[must_use]
+    pub fn down(self) -> i32 {
+        i32::try_from(self.rows.len()).unwrap_or_default()
+    }
+
     /// Returns this mark as a screen, ready to be stencilled onto the panel.
     #[must_use]
     pub fn screen(self) -> Screen {
-        let mut screen = Screen::new(SIDE, SIDE);
-        for (row, dots) in self.0.into_iter().enumerate() {
+        let mut screen = Screen::new(self.across, self.down());
+        for (row, dots) in self.rows.iter().copied().enumerate() {
             let row = i32::try_from(row).unwrap_or_default();
-            for column in 0..SIDE {
-                if dots & (1 << (SIDE - 1 - column)) != 0 {
+            for column in 0..self.across {
+                if dots & (1 << (self.across - 1 - column)) != 0 {
                     screen.dot(column, row);
                 }
             }
@@ -73,96 +105,168 @@ impl Badge {
 ///
 /// The one press that asks the instrument to say what it is, and a question
 /// mark is what a question looks like in every grid this size ever drawn.
-pub const WHO: Badge = Badge([
-    0b0_0111_1100,
-    0b0_1100_0110,
-    0b0_1000_0010,
-    0b0_0000_0110,
-    0b0_0001_1100,
-    0b0_0011_0000,
-    0b0_0011_0000,
-    0b0_0000_0000,
-    0b0_0011_0000,
-]);
+pub const WHO: Badge = Badge::new(
+    &[
+        0b0_0111_1100,
+        0b0_1100_0110,
+        0b0_1000_0010,
+        0b0_0000_0110,
+        0b0_0001_1100,
+        0b0_0011_0000,
+        0b0_0011_0000,
+        0b0_0000_0000,
+        0b0_0011_0000,
+    ],
+    SIDE,
+);
 
 /// Read the edit buffer: an arrow coming down into a tray.
 ///
 /// What is being asked for arrives here, which is the direction the arrow
 /// points; the tray is the line it lands on, and it is open at the top because
 /// something is still coming.
-pub const READ: Badge = Badge([
-    0b0_0001_0000,
-    0b0_0001_0000,
-    0b0_0001_0000,
-    0b0_0001_0000,
-    0b0_1001_0010,
-    0b0_0101_0100,
-    0b0_0011_1000,
-    0b0_0001_0000,
-    0b0_1111_1110,
-]);
+pub const READ: Badge = Badge::new(
+    &[
+        0b0_0001_0000,
+        0b0_0001_0000,
+        0b0_0001_0000,
+        0b0_0001_0000,
+        0b0_1001_0010,
+        0b0_0101_0100,
+        0b0_0011_1000,
+        0b0_0001_0000,
+        0b0_1111_1110,
+    ],
+    SIDE,
+);
 
-/// Look for ports again: an arrow that goes round.
+/// Look for ports again: a magnifier.
 ///
-/// Three quarters of a ring with a head on the end of it, which is the one
-/// thing a grid this size can say about starting over.
-pub const RESCAN: Badge = Badge([
-    0b0_0011_1000,
-    0b0_1100_0110,
-    0b0_1000_0011,
-    0b0_1000_0000,
-    0b0_1000_0000,
-    0b0_1000_0011,
-    0b0_1100_0110,
-    0b0_0111_1100,
-    0b0_0011_0000,
-]);
+/// A ring with a handle, which is what looking for something is drawn as in
+/// every grid this size ever made. It was a circular arrow — three quarters of
+/// a ring with a stub on the end of it, which at nine dots is a broken circle
+/// with specks round it rather than a thing going round. What this press does
+/// is go and *look*, and a magnifier is a shape with two parts rather than a
+/// shape with a gap in it.
+pub const RESCAN: Badge = Badge::new(
+    &[
+        0b0_1110_0000,
+        0b1_0001_0000,
+        0b1_0001_0000,
+        0b1_0001_0000,
+        0b0_1110_0000,
+        0b0_0001_1000,
+        0b0_0000_1100,
+        0b0_0000_0110,
+        0b0_0000_0011,
+    ],
+    SIDE,
+);
 
-/// Open a port: the five pins of a `DIN` socket.
+/// Open a port: an empty `DIN` socket.
 ///
 /// The connector this whole application arrives through, drawn the way it is
-/// stamped on the back of every instrument that has one: a ring, a key notch at
-/// the top, and five pins in the arc the standard puts them in.
-pub const PORT: Badge = Badge([
-    0b0_0011_1000,
-    0b0_0100_0100,
-    0b0_1001_0010,
-    0b0_1000_0001,
-    0b0_1010_0101,
-    0b0_1000_0001,
-    0b0_1001_0010,
-    0b0_0100_0100,
-    0b0_0011_1000,
-]);
+/// stamped on the back of every instrument that has one: a ring, and the five
+/// pins in the arc the standard puts them in. Empty, because the press is the
+/// one that puts something in it.
+///
+/// The ring is two dots thick at its shoulders now. It was a hairline circle
+/// with five single dots inside it, which at this size is a dotted circle with
+/// specks in the middle — the ring has to be a ring before the pins read as
+/// pins.
+pub const PORT: Badge = Badge::new(
+    &[
+        0b0_0111_1100,
+        0b0_1000_0010,
+        0b1_0010_1001,
+        0b1_0000_0001,
+        0b1_0100_0101,
+        0b1_0001_0001,
+        0b0_1000_0010,
+        0b0_0111_1100,
+        0b0_0000_0000,
+    ],
+    SIDE,
+);
+
+/// Put the port down: the same socket with a plug in it.
+///
+/// Two presses that did the same thing to the same port wore the same mark and
+/// differed by the word beside them — and the words have gone to the footer, so
+/// the mark is what has to say which of the two this is. A socket with
+/// something in it is a port that is open, which is a fact about the cable
+/// rather than an instruction, and it reads at a glance the way a lit lamp
+/// does.
+pub const PLUGGED: Badge = Badge::new(
+    &[
+        0b0_0111_1100,
+        0b0_1000_0010,
+        0b1_0011_1001,
+        0b1_0111_1101,
+        0b1_0111_1101,
+        0b1_0011_1001,
+        0b0_1000_0010,
+        0b0_0111_1100,
+        0b0_0000_0000,
+    ],
+    SIDE,
+);
 
 /// What is known about the instrument: a lower-case `i`, set as a mark.
 ///
 /// The one press whose subject is this window rather than the instrument, and
 /// the one place a letter is the honest drawing — an inquiry has no shape and
 /// every reader of every interface knows this one.
-pub const ABOUT: Badge = Badge([
-    0b0_0001_0000,
-    0b0_0001_0000,
-    0b0_0000_0000,
-    0b0_0011_0000,
-    0b0_0001_0000,
-    0b0_0001_0000,
-    0b0_0001_0000,
-    0b0_0001_0000,
-    0b0_0011_1000,
-]);
+pub const ABOUT: Badge = Badge::new(
+    &[
+        0b0_0001_0000,
+        0b0_0001_0000,
+        0b0_0000_0000,
+        0b0_0011_0000,
+        0b0_0001_0000,
+        0b0_0001_0000,
+        0b0_0001_0000,
+        0b0_0001_0000,
+        0b0_0011_1000,
+    ],
+    SIDE,
+);
+
+/// Move this routing up the matrix: an arrow, pointing that way.
+///
+/// A solid triangle, [seven dots across](ARROW) and four down, because of where
+/// it stands: above a numeral written in the display's own character cell, in a
+/// row as tall as one line of controls, with its twin below. What it is not is
+/// an arrow with a shaft — at this size a three-dot head on a one-dot stem
+/// reads as a cross, and the head has to be most of the mark before anybody
+/// sees which way it points.
+///
+/// It was the typographer's `\u{25b2}` set at nine points — a glyph whose size
+/// is the face's business and whose weight is the face's too, which is why the
+/// two of them never looked like a pair.
+pub const UP: Badge = Badge::new(&[0b000_1000, 0b001_1100, 0b011_1110, 0b111_1111], ARROW);
+
+/// Move it down: the same triangle, the other way up.
+///
+/// Drawn rather than flipped in code, because the two are what somebody
+/// compares — a pair that is visibly one mark reflected is a pair, and a pair
+/// that differs by a row is a mistake nobody can see and everybody can feel.
+pub const DOWN: Badge = Badge::new(&[0b111_1111, 0b011_1110, 0b001_1100, 0b000_1000], ARROW);
 
 #[cfg(test)]
 mod tests {
-    use super::{ABOUT, Badge, PORT, READ, RESCAN, SIDE, WHO};
+    use super::{ABOUT, ARROW, Badge, DOWN, PLUGGED, PORT, READ, RESCAN, SIDE, UP, WHO};
 
     /// Every mark this module publishes.
-    const ALL: [(&str, Badge); 5] = [
+    const ALL: [(&str, Badge); 8] = [
         ("who", WHO),
         ("read", READ),
         ("rescan", RESCAN),
         ("port", PORT),
+        ("plugged", PLUGGED),
         ("about", ABOUT),
+        ("up", UP),
+        ("down", DOWN),
     ];
 
     #[test]
@@ -171,9 +275,9 @@ mod tests {
         // drawing: a mark with a dot up there is a mark with a dot nobody can
         // see, which is a typing mistake rather than a design.
         for (name, badge) in ALL {
-            for dots in badge.0 {
+            for dots in badge.rows.iter().copied() {
                 assert_eq!(
-                    dots >> u32::try_from(SIDE).unwrap_or_default(),
+                    dots >> u32::try_from(badge.across()).unwrap_or_default(),
                     0,
                     "{name} has a dot off the right-hand side of its grid"
                 );
@@ -186,20 +290,55 @@ mod tests {
         for (name, badge) in ALL {
             let screen = badge.screen();
             assert!(!screen.is_blank(), "{name} is an empty grid");
-            assert_eq!(screen.columns(), SIDE);
-            assert_eq!(screen.rows(), SIDE);
+            assert_eq!(screen.columns(), badge.across());
+            assert_eq!(screen.rows(), badge.down());
+            // One of the two widths this module draws in, and nothing between
+            // them: a mark at a size nothing else on the panel is drawn at is a
+            // mark somebody chose rather than a mark that fits where it goes.
+            assert!(
+                badge.across() == SIDE || badge.across() == ARROW,
+                "{name} is {} dots across",
+                badge.across()
+            );
+        }
+    }
+
+    #[test]
+    fn the_two_arrows_are_one_mark_reflected() {
+        // They stand one above the other in the same column, four points
+        // apart, and a pair that differ by a row is a pair somebody reads as
+        // wobbling without ever seeing why.
+        let up = UP.screen();
+        let down = DOWN.screen();
+
+        for row in 0..UP.down() {
+            for column in 0..ARROW {
+                assert_eq!(
+                    up.is_inked(column, row),
+                    down.is_inked(column, UP.down() - 1 - row),
+                    "the arrows differ at {column},{row}"
+                );
+            }
         }
     }
 
     #[test]
     fn a_mark_is_the_rows_it_was_written_as() {
-        // The top row of the socket is its three top dots, and they are where
+        // The top row of the socket is its five top dots, and they are where
         // the row says they are: this is the one thing that can go wrong with a
         // drawing written as numbers, and it goes wrong silently.
         let screen = PORT.screen();
 
-        assert!(!screen.is_inked(2, 0));
-        assert!(screen.is_inked(3, 0) && screen.is_inked(4, 0) && screen.is_inked(5, 0));
-        assert!(!screen.is_inked(6, 0));
+        assert!(!screen.is_inked(1, 0));
+        assert!((2..=6).all(|column| screen.is_inked(column, 0)));
+        assert!(!screen.is_inked(7, 0));
+        // And the one with a plug in it is the same socket with its middle
+        // filled: a pair that differed anywhere else would be two sockets.
+        let plugged = PLUGGED.screen();
+        for column in 0..SIDE {
+            assert_eq!(screen.is_inked(column, 0), plugged.is_inked(column, 0));
+            assert_eq!(screen.is_inked(column, 7), plugged.is_inked(column, 7));
+        }
+        assert!(plugged.is_inked(4, 3) && !screen.is_inked(4, 3));
     }
 }

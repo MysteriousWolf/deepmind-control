@@ -109,6 +109,14 @@ pub struct App {
     /// looking, which is the window's own business and is forgotten the moment
     /// they look somewhere else.
     pointed: Option<ParamId>,
+    /// What the press the pointer is over says about itself.
+    ///
+    /// The same thing [`pointed`](Self::pointed) is, for the parts of this
+    /// window that are not parameters: the marks along the header and the foot,
+    /// and the two presses that move a routing up and down the matrix. A mark
+    /// nine dots square has nowhere to carry a word, so the word is here while
+    /// somebody is asking for it and nowhere at all while nobody is.
+    hinted: Option<&'static str>,
     /// What the modulation matrix is asking the window for.
     ///
     /// Not part of the sound and never sent anywhere. Two things: the routing
@@ -153,6 +161,7 @@ impl App {
             patch: Patch::new(),
             section: first_section(),
             pointed: None,
+            hinted: None,
             mapper: Mapper::new(DEFAULT_FIRMWARE),
             shelf: Shelf::new(),
             bank: Bank::A,
@@ -217,6 +226,12 @@ impl App {
     #[must_use]
     pub const fn pointed(&self) -> Option<ParamId> {
         self.pointed
+    }
+
+    /// Returns what the press under the pointer says about itself.
+    #[must_use]
+    pub const fn hinted(&self) -> Option<&'static str> {
+        self.hinted
     }
 
     /// Returns what the modulation matrix is asking the window for.
@@ -383,6 +398,7 @@ impl App {
             Message::Invert => self.negative = !self.negative,
             Message::Ui(control_ui::Message::Rename(name)) => self.rename(name),
             Message::Ui(control_ui::Message::Pointed(parameter)) => self.pointed = parameter,
+            Message::Ui(control_ui::Message::Hinted(said)) => self.hinted = said,
         }
         self.drain();
         // After the drain, because the drain is what an inquiry's answer

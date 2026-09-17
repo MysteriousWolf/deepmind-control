@@ -218,13 +218,18 @@ fn status(app: &App) -> Element<'_, Message> {
             app.patch(),
             app.firmware(),
             app.mapper().mapped(),
+            app.hinted(),
         )
         .map(Message::Ui),
         // At the right-hand end, in the order somebody reaches for them: ask
         // the instrument what it is, ask it what it is playing, and turn the
         // glass over.
-        chrome(control_ui::WHO, "Who").on_press_maybe(open.then_some(Message::Identify)),
-        chrome(control_ui::READ, "Read").on_press_maybe(open.then_some(Message::Read)),
+        chrome(control_ui::WHO)
+            .on_press_maybe(open.then_some(Message::Identify))
+            .on_hint("Ask the synthesizer what it is: device, firmware, voices and channel."),
+        chrome(control_ui::READ)
+            .on_press_maybe(open.then_some(Message::Read))
+            .on_hint("Read the sound the synthesizer is playing into this window."),
         livery(app),
     ]
     .spacing(6)
@@ -243,13 +248,9 @@ fn status(app: &App) -> Element<'_, Message> {
 /// character showing itself the way it is about to be says the same thing
 /// without being read, and says it in the one material this press is about.
 fn livery(app: &App) -> Element<'_, Message> {
-    pressed(
-        container(Element::from(control_ui::swatch(!app.is_negative())).map(Message::Ui))
-            .center_y(Length::Fill),
-    )
-    .padding([0.0, BESIDE_SCREEN])
-    .on_press(Message::Invert)
-    .into()
+    pressed(Element::from(control_ui::swatch(!app.is_negative())).map(Message::Ui))
+        .on_press(Message::Invert)
+        .on_hint("Turn every display in this window over, dark glass for light.")
 }
 
 /// What the instrument's own display would be showing./// What the instrument's own display would be showing.
@@ -406,10 +407,18 @@ fn editor(app: &App) -> Element<'_, Message> {
 /// on the panel with the port beside it.
 fn header(app: &App) -> Element<'_, Message> {
     let ports = app.ports().to_vec();
+    // A socket with a plug in it where one is open, and an empty one where none
+    // is: the two presses do the same thing to the same port and the word that
+    // told them apart is in the footer now, so the mark is what says which of
+    // them this is.
     let connection = if app.is_connected() {
-        chrome(control_ui::PORT, "Close").on_press(Message::Disconnect)
+        chrome(control_ui::PLUGGED)
+            .on_press(Message::Disconnect)
+            .on_hint("Put this port down.")
     } else {
-        chrome(control_ui::PORT, "Open").on_press_maybe(app.chosen().map(|_| Message::Connect))
+        chrome(control_ui::PORT)
+            .on_press_maybe(app.chosen().map(|_| Message::Connect))
+            .on_hint("Open the chosen port and listen on it.")
     };
     row![
         wordmark(),
@@ -425,7 +434,9 @@ fn header(app: &App) -> Element<'_, Message> {
             .style(control_ui::selector)
             .menu_style(control_ui::shortlist)
             .width(Length::Fixed(220.0)),
-        chrome(control_ui::RESCAN, "Rescan").on_press(Message::Rescan),
+        chrome(control_ui::RESCAN)
+            .on_press(Message::Rescan)
+            .on_hint("Look for MIDI ports again."),
         connection,
     ]
     .spacing(10)
@@ -492,7 +503,7 @@ fn about(app: &App) -> Element<'_, Message> {
         }))
         .spacing(4);
     tooltip(
-        pressed(badge(control_ui::ABOUT)).padding([0.0, BESIDE_SCREEN]),
+        pressed(badge(control_ui::ABOUT)),
         container(said).padding(10).style(control_ui::bay),
         tooltip::Position::Bottom,
     )
@@ -537,16 +548,44 @@ fn wordmark() -> Element<'static, Message> {
 /// point, which is not a slice.
 const NAME: f32 = 34.0;
 
-/// A button that is not a parameter, in the instrument's own materials./// A button that is not a parameter, in the instrument's own materials.
-fn chrome(
-    mark: control_ui::Badge,
-    label: &str,
-) -> button::Button<'_, Message, Theme, iced::Renderer> {
-    pressed(
-        row![badge(mark), text(label).size(13).center(),]
-            .spacing(7)
-            .align_y(Center),
-    )
+/// A press whose whole face is a mark, and what it says about itself.
+///
+/// It was a mark and a word inside a rounded rectangle with a metal rim. Three
+/// of those along the header and two along the foot are five rims on a panel
+/// whose own controls have none — and the rim was drawn to the height of the
+/// *words*, so a nine-dot mark stood in the middle of it with four points of
+/// panel above and below. A mark scaled to a box built for type is a mark that
+/// is never the size it was drawn at.
+///
+/// So the word goes to the footer, where this window already says what is under
+/// the pointer, and what is left on the panel is the mark: stencilled on it the
+/// way the numbers on a rack unit's case are stencilled on the case, with the
+/// panel lifting under the pointer and dipping while it is held. What it does
+/// is said by [`on_hint`](Hinted::on_hint), which every one of them carries.
+fn chrome(mark: control_ui::Badge) -> button::Button<'static, Message, Theme, iced::Renderer> {
+    pressed(badge(mark))
+}
+
+/// Says what a press does in the footer while the pointer is on it.
+///
+/// A trait rather than a function so that it reads the way the toolkit's own
+/// builders do, and so that a press that is built two different ways — a mark,
+/// or a display the size of a character — says it the same way.
+trait Hinted<'a> {
+    /// The sentence the footer prints while the pointer is over this.
+    fn on_hint(self, said: &'static str) -> Element<'a, Message>;
+}
+
+impl<'a, Into_> Hinted<'a> for Into_
+where
+    Into_: Into<Element<'a, Message>>,
+{
+    fn on_hint(self, said: &'static str) -> Element<'a, Message> {
+        iced::widget::mouse_area(self)
+            .on_enter(Message::Ui(control_ui::Message::Hinted(Some(said))))
+            .on_exit(Message::Ui(control_ui::Message::Hinted(None)))
+            .into()
+    }
 }
 
 /// Draws one of the marks a press wears.
@@ -556,9 +595,9 @@ fn chrome(
 /// number beside a matrix row already go through. The one press that is a
 /// display is the one whose subject is the display.
 ///
-/// In the metal a hand touches, carried most of the way back to the panel — a
-/// mark on a press is as loud as the word beside it and no louder, because the
-/// two are saying the same thing.
+/// In the metal a hand touches, carried part of the way back to the panel: it
+/// is a legend on an instrument rather than a lamp, and the loudest thing on
+/// this panel is a fader cap.
 fn badge(mark: control_ui::Badge) -> Element<'static, Message> {
     Element::from(control_ui::stencil(mark.screen(), |theme: &Theme| {
         let material = control_ui::materials(theme);
@@ -568,44 +607,30 @@ fn badge(mark: control_ui::Badge) -> Element<'static, Message> {
 }
 
 /// How far a press's mark is carried from the panel towards the metal.
-const MARKED: f32 = 0.72;
+const MARKED: f32 = 0.82;
 
-/// A press with something else inside it, at the same size as all the others.
+/// A press with a mark or a display in it, at the size the thing in it is
+/// drawn.
 ///
-/// Every press in this window's chrome is one press: the same height, the same
-/// padding either side of whatever is in it, and the same metal rim. What is
-/// inside varies — a word, a letter, a display the size of a character — and
-/// that is the only thing that should.
-///
-/// The height is [`PRESS`] and it is the display's, not the type's: the press
-/// that turns the glass over has a seven-by-seven screen in it, and a row where
-/// one press is a screen's height and the rest are a word's height is a row of
-/// presses that do not line up.
+/// No rim and no fill until a hand comes near it — see
+/// [`marked`](control_ui::marked) — and no height of its own: what is in it is
+/// a drawing with a size, and a press built to the height of the words that are
+/// no longer in it is a press built for nothing. The padding is what keeps two
+/// of them from touching.
 fn pressed<'a>(
     inside: impl Into<Element<'a, Message>>,
 ) -> button::Button<'a, Message, Theme, iced::Renderer> {
     button(inside)
-        .height(Length::Fixed(PRESS))
-        .padding([0.0, BESIDE_WORD])
-        .style(control_ui::chrome)
+        .padding(BESIDE_MARK)
+        .style(control_ui::marked)
 }
 
-/// How tall every press in this window's chrome stands.
+/// How much panel there is around the mark on a press.
 ///
-/// What the display in the one that turns the glass over needs: seven dots at
-/// the pitch every display here shares, the moulding it is set into, and a
-/// point of panel either side of that.
-const PRESS: f32 = 29.0;
-
-/// How much press there is either side of what is in it.
-const BESIDE_WORD: f32 = 10.0;
-
-/// The same, where what is in it is a display rather than a word.
-///
-/// Tighter, because a display is already set into a moulding with its own dead
-/// border: the glass and the panel it stands on need less between them than two
-/// words on the same panel do.
-const BESIDE_SCREEN: f32 = 4.0;
+/// Enough that the light under the pointer is a shape around the mark rather
+/// than a shape the mark is touching the edges of, and little enough that the
+/// mark is what somebody sees.
+const BESIDE_MARK: f32 = 5.0;
 
 /// What a panel admits about itself, and where it says it.
 ///
