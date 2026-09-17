@@ -180,6 +180,7 @@ use iced_core::{
 };
 use iced_widget::{Space, column, container, pick_list, row, stack, text};
 
+use crate::aim::Aimed;
 use crate::chain;
 use crate::fader;
 use crate::lcd::{self, Ink, Screen, Size};
@@ -824,6 +825,7 @@ pub(crate) fn panels<'a, Renderer>(
     group: Group,
     firmware: Version,
     moved: &[ParamId],
+    aim: Option<Aimed>,
 ) -> Option<Element<'a, Renderer>>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -848,6 +850,7 @@ where
             parameter.short_name(),
             moved,
             On::Recess,
+            aim,
         )
     }))
     .spacing(14)
@@ -895,7 +898,7 @@ where
         body = body.push(
             row(pair
                 .iter()
-                .map(|engine| plate(patch, *engine, firmware, moved)))
+                .map(|engine| plate(patch, *engine, firmware, moved, aim)))
             .spacing(8),
         );
     }
@@ -916,12 +919,13 @@ fn line_of<'a, Renderer>(
     firmware: Version,
     moved: &[ParamId],
     figure: Figure,
+    aim: Option<Aimed>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
     let mut cells = line.iter().map(|cell| match cell {
-        Some(byte) => slot(patch, engine, *byte, firmware, moved, figure),
+        Some(byte) => slot(patch, engine, *byte, firmware, moved, figure, aim),
         // A column the grid has nothing in still stands the height of one, so
         // that a row of two slots is as deep as a row of six and a plate is as
         // deep as the grid rather than as deep as what happens to be on it.
@@ -1082,6 +1086,7 @@ fn slot<'a, Renderer>(
     firmware: Version,
     moved: &[ParamId],
     figure: Figure,
+    aim: Option<Aimed>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1107,6 +1112,7 @@ where
             patch.claim(lane.parameter),
             firmware,
             figure.room(false),
+            aim,
         ))
         .height(Length::Fixed(CONTROL_ROW))
         .align_y(Vertical::Center),
@@ -1162,6 +1168,7 @@ fn spare<'a, Renderer>(
     firmware: Version,
     moved: &[ParamId],
     figure: Figure,
+    aim: Option<Aimed>,
 ) -> Option<Element<'a, Renderer>>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1184,6 +1191,7 @@ where
                 patch.claim(lane.parameter),
                 firmware,
                 figure.room(true),
+                aim,
             ),
             printing(within(engine, lane.parameter).to_owned(), On::Recess).size(9),
         ]
@@ -1234,6 +1242,7 @@ fn plate<'a, Renderer>(
     engine: Engine,
     firmware: Version,
     moved: &[ParamId],
+    aim: Option<Aimed>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1244,7 +1253,7 @@ where
     let (grid, left) = placed(&lanes, panel);
     let mut drawn = column![].spacing(BETWEEN_ROWS);
     for line in &grid {
-        drawn = drawn.push(line_of(patch, engine, line, firmware, moved, figure));
+        drawn = drawn.push(line_of(patch, engine, line, firmware, moved, figure, aim));
     }
     // The family's mark, large and faint, under the grid rather than under the
     // case: the face plate the controls stand on is opaque, so a watermark
@@ -1264,7 +1273,7 @@ where
                 ..container::Style::default()
             }
         });
-    let body = column![header(patch, engine, firmware, moved, panel)]
+    let body = column![header(patch, engine, firmware, moved, panel, aim)]
         .push(drawn)
         // The twelve under the library's own names, for an engine running an
         // algorithm this firmware's table cannot name. That is the only case
@@ -1273,7 +1282,7 @@ where
         .extend(
             panel
                 .is_none()
-                .then(|| spare(patch, engine, &left, firmware, moved, figure))
+                .then(|| spare(patch, engine, &left, firmware, moved, figure, aim))
                 .flatten(),
         )
         .spacing(6);
@@ -1452,6 +1461,7 @@ fn header<'a, Renderer>(
     firmware: Version,
     moved: &[ParamId],
     panel: Option<&'static Panel>,
+    aim: Option<Aimed>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1480,7 +1490,7 @@ where
     // say it outright. On the strip, between the name and the level, which is
     // the room the gain gave up by turning into a knob.
     .extend(picture(patch, engine, firmware))
-    .push(output(patch, engine, firmware, moved))
+    .push(output(patch, engine, firmware, moved, aim))
     .spacing(10)
     .align_y(Vertical::Center);
     // Which slot this is, set the way the family's mark is set on the case:
@@ -1603,6 +1613,7 @@ fn output<'a, Renderer>(
     engine: Engine,
     firmware: Version,
     moved: &[ParamId],
+    aim: Option<Aimed>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1622,6 +1633,7 @@ where
                 patch.claim(gain),
                 firmware,
                 Room::SLOT.turned().sized(GAIN),
+                aim,
             ),
             reading(
                 gain,
@@ -1655,6 +1667,10 @@ where
 /// A slot of the rack with its title moved off the bottom, because what these
 /// stand in is a row and not a column: the address and the modulation mark
 /// above, the control, and the reading under it.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "a control, what it is called, what it stands on, and what is pointed at it"
+)]
 fn cell<'a, Renderer>(
     patch: &Patch,
     parameter: ParamId,
@@ -1663,6 +1679,7 @@ fn cell<'a, Renderer>(
     title: &'a str,
     moved: &[ParamId],
     on: On,
+    aim: Option<Aimed>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1685,7 +1702,7 @@ where
         ]
         .spacing(4)
         .align_y(Vertical::Center),
-        control(parameter, value, claim, firmware, room),
+        control(parameter, value, claim, firmware, room, aim),
     ]
     .spacing(3)
     .width(room.across_as())

@@ -24,6 +24,32 @@
 //! rows cannot each be 128 points tall, and eight depths in a column of bars
 //! are comparable at a glance in a way eight numbers are not.
 //!
+//! # Two ways to say where a routing goes
+//!
+//! A destination is one of 133 names and a depth is a number nobody can pick
+//! without having heard it, and those are the two things that make this page
+//! hard. Each has an answer here and they are answers to opposite problems.
+//!
+//! **Typing**, for somebody who knows the name. The destination is chosen from
+//! a list that can be typed into rather than one that has to be scrolled: three
+//! letters and `VCF Envelope Attack` is the only one left. The names are the
+//! parameter's own value table, asked of the library for the firmware that
+//! answered, which is the same call the rack makes when it draws that parameter
+//! — and where the library has no complete table, the row keeps whatever
+//! control the library says the parameter is, with nothing here to decide.
+//!
+//! **Pointing**, for somebody who knows the *control*. `point` sends the
+//! routing out into the window: every control the matrix can reach lights up on
+//! all three surfaces, everything else is passed over, and taking hold of one
+//! is the answer — a click chooses it, and a drag sets the depth as well, from
+//! how far the drag would have moved it. See [`Aim`](crate::Aim), which is also
+//! where the one assumption on this page is written down.
+//!
+//! Pointing is the one an editor has and a front panel does not, and it is the
+//! answer to the real difficulty of this column: a destination is an
+//! abbreviation the instrument's display prints, and knowing which abbreviation
+//! stands over the fader you have in mind is harder than knowing the fader.
+//!
 //! # Nothing is written down here either
 //!
 //! The eight are found by what the library calls them: a parameter whose name
@@ -32,15 +58,21 @@
 //! library that grows a ninth routing draws a ninth row; a group with a lone
 //! `Source` in it — the oscillators have one — is not a matrix and is not
 //! drawn as one.
+//!
+//! The same rule covers where a routing may be pointed. Which controls light up
+//! is `ValueEntry::parameters` read backwards — the destinations that name the
+//! parameter under the pointer — so a firmware that moves a destination lights
+//! a different set of controls with nothing in this file to edit.
 
 use deepmind_midi::param::{Group, Kind, ParamId};
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::alignment::Vertical;
-use iced_core::{Font, Length, Theme, text::Renderer as TextRenderer};
-use iced_widget::{Space, column, container, row, text};
+use iced_core::{Background, Font, Length, Theme, border, text::Renderer as TextRenderer};
+use iced_widget::{Space, button, column, combo_box, container, row, text};
 
-use crate::panel::{Room, control, readout};
-use crate::style::reading;
+use crate::aim::{Aim, Aimed};
+use crate::panel::{Choice, Message, Room, choices, control, readout};
+use crate::style::{self, chrome, field, materials, reading, shortlist};
 use crate::{Confidence, Element, Patch, tint};
 
 /// How much room the number of a routing is given.
@@ -73,6 +105,15 @@ pub(crate) struct Routing {
 }
 
 impl Routing {
+    /// Returns the parameter that says where this routing goes.
+    ///
+    /// The one of the three anything outside this file asks about: it is what
+    /// a searchable list is built for and what a routing pointed at the window
+    /// writes into.
+    pub(crate) const fn destination(self) -> ParamId {
+        self.destination
+    }
+
     /// The three, in the order the row reads them.
     fn parameters(self) -> [ParamId; 3] {
         [self.source, self.destination, self.depth]
@@ -171,14 +212,16 @@ pub(crate) fn moved(patch: &Patch, firmware: Version) -> Vec<ParamId> {
 }
 
 pub(crate) fn table<'a, Renderer>(
-    patch: &Patch,
+    patch: &'a Patch,
     group: Group,
     firmware: Version,
+    aim: &'a Aim,
 ) -> Option<Element<'a, Renderer>>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
     let routings = of(group)?;
+    let aimed = aim.aimed();
     let heading = |parameter: ParamId, width: f32| -> Element<'a, Renderer> {
         // The heading is the parameter's own name with what the row already
         // says taken off the front, which is the rule a slot's title follows
@@ -193,11 +236,11 @@ where
         Space::new().width(Length::Fixed(LABEL)),
         heading(first.source, SOURCE),
         Space::new().width(Length::Fixed(ARROW)),
-        heading(first.destination, DESTINATION),
+        heading(first.destination, DESTINATION + POINT + 6.0),
         heading(first.depth, DEPTH),
     ]
     .spacing(10);
-    let rows = routings.into_iter().map(|routing| {
+    let rows = routings.iter().copied().map(|routing| {
         row![
             // The routing's own name and where it lives, which the rack would
             // print above and below each of its three parameters. Against the
@@ -217,22 +260,173 @@ where
             .width(Length::Fixed(LABEL))
             .height(Length::Fill)
             .align_y(Vertical::Center),
-            cell(patch, routing.source, firmware, Room::listed(SOURCE)),
+            cell(patch, routing.source, firmware, Room::listed(SOURCE), aimed),
             arrow(),
-            cell(
-                patch,
-                routing.destination,
-                firmware,
-                Room::listed(DESTINATION)
-            ),
-            cell(patch, routing.depth, firmware, Room::across(DEPTH)),
+            going(patch, routing, firmware, aim),
+            cell(patch, routing.depth, firmware, Room::across(DEPTH), aimed),
         ]
         .spacing(10)
         .align_y(Vertical::Bottom)
         .into()
     });
-    Some(column![header].extend(rows).spacing(8).into())
+    Some(
+        column![header]
+            .extend(rows)
+            // What the mode is, while it is up. On the page the routing is on
+            // rather than beside the control somebody is about to take hold of,
+            // because the whole point of it is that they are about to go
+            // somewhere else in the window.
+            .extend(aimed.map(pointing))
+            .spacing(8)
+            .into(),
+    )
 }
+
+/// Draws where a routing goes: the name, the search it is found in, and the
+/// press that asks the window instead.
+///
+/// Two ways to answer one question, side by side, because they are good at
+/// opposite things. Typing is how somebody who knows the name of the thing
+/// finds it among 133 — three letters and `VCF Envelope Attack` is the only one
+/// left. Pointing is how somebody who knows the *control* finds it: the name of
+/// a destination is an abbreviation the instrument's display prints, and
+/// knowing which abbreviation stands over the fader you have in mind is the
+/// whole of what makes this column hard.
+fn going<'a, Renderer>(
+    patch: &Patch,
+    routing: Routing,
+    firmware: Version,
+    aim: &'a Aim,
+) -> Element<'a, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    let destination = routing.destination;
+    let pointing = aim
+        .aimed()
+        .is_some_and(|aimed| aimed.destination() == destination);
+    let press = button(
+        text(if pointing { "stop" } else { "point" })
+            .size(10)
+            .center(),
+    )
+    .width(Length::Fixed(POINT))
+    .height(Length::Fixed(crate::panel::BUTTON))
+    .padding(0)
+    .style(move |theme: &Theme, status| {
+        if pointing {
+            aiming(theme)
+        } else {
+            chrome(theme, status)
+        }
+    })
+    .on_press(Message::Aim(
+        (!pointing).then(|| Aimed::new(routing.label, destination, routing.depth)),
+    ));
+    // A searchable list where the library names every value the parameter
+    // accepts, and whatever the library says the parameter is where it does
+    // not. Which of the two it is, is not a decision this file makes: the list
+    // exists exactly where [`Aim`] could build one, which is where
+    // `ParamId::choices_for` answered.
+    let chosen: Element<'a, Renderer> = match aim.list(destination) {
+        Some(list) => {
+            let value = patch.value(destination);
+            let selected = choices(destination, firmware, value).and_then(|options| {
+                options
+                    .into_iter()
+                    .find(|choice| Some(choice.byte()) == value)
+            });
+            container(
+                combo_box(list, "search", selected.as_ref(), move |choice: Choice| {
+                    Message::Edit {
+                        parameter: destination,
+                        value: choice.byte(),
+                    }
+                })
+                .size(11)
+                .padding([2, 6])
+                .menu_height(Length::Fixed(MENU))
+                .input_style(field)
+                .menu_style(shortlist)
+                .width(Length::Fixed(DESTINATION)),
+            )
+            .height(Length::Fixed(crate::panel::BUTTON))
+            .align_y(Vertical::Center)
+            .into()
+        }
+        None => cell(
+            patch,
+            destination,
+            firmware,
+            Room::listed(DESTINATION),
+            aim.aimed(),
+        ),
+    };
+    column![
+        row![chosen, press].spacing(6).align_y(Vertical::Center),
+        readout(
+            destination,
+            patch.value(destination),
+            patch.claim(destination),
+            firmware
+        ),
+    ]
+    .spacing(3)
+    .width(Length::Fixed(DESTINATION + POINT + 6.0))
+    .into()
+}
+
+/// Says what pointing a routing at the window means while one is pointed.
+///
+/// One line, under the eight rows, and it is where the mode is explained
+/// because it is where the mode was asked for. It says the two things somebody
+/// needs and no more: that a click is the destination, and that a drag is the
+/// depth as well.
+fn pointing<'a, Renderer>(aimed: Aimed) -> Element<'a, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    container(
+        text(format!(
+            "{} is pointed at the window. Take hold of any lit control to send it there \u{2014} \
+             a click chooses it, and a drag sets the depth from how far it went. \
+             What full depth is worth is assumed; the manual does not print it.",
+            aimed.label()
+        ))
+        .size(11),
+    )
+    .padding([6, 8])
+    .width(Length::Fill)
+    .style(|_theme: &Theme| container::Style {
+        border: border::rounded(3).width(1.0).color(style::MODULATION),
+        ..container::Style::default()
+    })
+    .into()
+}
+
+/// The style the press wears while its own routing is the one being pointed.
+///
+/// The one saturated colour on the panel, which is what every control the
+/// routing can reach is outlined in at the same moment: the press and the lit
+/// controls are one thing happening, so they are one colour.
+fn aiming(theme: &Theme) -> button::Style {
+    button::Style {
+        background: Some(Background::Color(style::MODULATION)),
+        text_color: materials(theme).panel,
+        border: border::rounded(3).width(1.0).color(style::MODULATION),
+        ..button::Style::default()
+    }
+}
+
+/// How much room the press that points a routing at the window takes.
+const POINT: f32 = 44.0;
+
+/// How tall the list a destination is searched in opens.
+///
+/// Deep enough to be worth scrolling and short enough to leave the rows under
+/// it visible, because what somebody is choosing between is often two rows that
+/// both say `LFO 1`.
+const MENU: f32 = 220.0;
 
 /// Draws one parameter of a routing, as the row has room for it.
 ///
@@ -244,6 +438,7 @@ fn cell<'a, Renderer>(
     parameter: ParamId,
     firmware: Version,
     room: Room,
+    aim: Option<Aimed>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -251,7 +446,7 @@ where
     let claim = patch.claim(parameter);
     let value = patch.value(parameter);
     column![
-        control(parameter, value, claim, firmware, room),
+        control(parameter, value, claim, firmware, room, aim),
         readout(parameter, value, claim, firmware),
     ]
     .spacing(3)

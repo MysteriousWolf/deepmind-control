@@ -82,6 +82,7 @@ pub struct Knob<'a, Message> {
     range: RangeInclusive<u8>,
     claim: Confidence,
     size: f32,
+    live: bool,
     on_change: Box<dyn Fn(u8) -> Message + 'a>,
 }
 
@@ -100,6 +101,7 @@ pub fn knob<'a, Message>(
         range,
         claim,
         size: SIZE,
+        live: true,
         on_change: Box::new(on_change),
     }
 }
@@ -112,6 +114,19 @@ impl<Message> Knob<'_, Message> {
     #[must_use]
     pub fn size(mut self, size: f32) -> Self {
         self.size = size.max(12.0);
+        self
+    }
+
+    /// Says whether this one can be taken hold of at all.
+    ///
+    /// The claim already answers that for a value nobody has read, and this is
+    /// the other reason: the modulation matrix pointed at the window makes a
+    /// control the matrix cannot reach something to look past rather than
+    /// something to move. The drawing is untouched — the cap is where the value
+    /// is, in the colour the claim is worth — and what goes is the grab.
+    #[must_use]
+    pub fn live(mut self, live: bool) -> Self {
+        self.live = live;
         self
     }
 }
@@ -183,7 +198,7 @@ impl<Message> Knob<'_, Message> {
 
     /// Returns whether there is anything here to take hold of.
     fn is_live(&self) -> bool {
-        !matches!(self.claim, Confidence::Unknown)
+        self.live && !matches!(self.claim, Confidence::Unknown)
     }
 
     /// Rounds a value a drag has accumulated into the byte a parameter holds.

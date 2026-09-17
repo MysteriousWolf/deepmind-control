@@ -18,7 +18,7 @@ use iced_core::gradient::Linear;
 use iced_core::theme::{Base, Palette};
 use iced_core::{Background, Border, Color, Font, Gradient, Radians, Shadow, Theme, border, color};
 use iced_widget::overlay::menu;
-use iced_widget::{button, container, pick_list};
+use iced_widget::{button, container, pick_list, text_input};
 
 use crate::Confidence;
 
@@ -651,6 +651,40 @@ pub fn shortlist(theme: &Theme) -> menu::Style {
         selected_text_color: material.metal_high,
         selected_background: Background::Color(material.plate),
         shadow: Shadow::default(),
+    }
+}
+
+/// What a field somebody types into is drawn as.
+///
+/// The same recess a [`selector`] is cut into, because it is the same control
+/// wearing a caret: the modulation matrix's destinations are a list of 133 and
+/// the only way through them at speed is to type, so the picker on that row is
+/// a list that can be typed into rather than a list beside a search box.
+///
+/// What is typed is metal and what has not been typed yet is the dim metal a
+/// legend is printed in, which is the same pair every unlit thing in this
+/// window uses. The edge lights the way a section button lights while the
+/// caret is in it, so that a field being typed into is as obvious as a section
+/// being looked at.
+#[must_use]
+pub fn field(theme: &Theme, status: text_input::Status) -> text_input::Style {
+    let material = materials(theme);
+    let rim = match status {
+        text_input::Status::Focused { .. } => material.lit,
+        text_input::Status::Hovered => material.metal_low,
+        text_input::Status::Active | text_input::Status::Disabled => material.recess_edge,
+    };
+    text_input::Style {
+        background: Background::Color(material.recess),
+        border: Border {
+            color: rim,
+            width: 1.0,
+            radius: 2.into(),
+        },
+        icon: material.metal_low,
+        placeholder: material.metal_low,
+        value: material.metal_high,
+        selection: material.plate,
     }
 }
 

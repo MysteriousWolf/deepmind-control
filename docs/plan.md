@@ -774,7 +774,7 @@ group and changes only the arrangement, never what a control is:
 | --- | --- |
 | Program | **Done.** The name is 17 parameters, one character each, and 17 faders is not a name, so the 17 slots are the one display the instrument shows them on |
 | VCF, VCA and Mod envelopes | **Done.** Four faders and the shape they make, drawn above the rack, which is the one group whose meaning is a picture |
-| Mod Matrix | **Done.** Eight rows of source, destination and depth, read across rather than down, because twenty-four slots in one wrapping line are eight sentences with their words in the wrong order |
+| Mod Matrix | **Done.** Eight rows of source, destination and depth, read across rather than down, because twenty-four slots in one wrapping line are eight sentences with their words in the wrong order. A destination is chosen from a list that can be typed into, or by pointing the routing at the window and taking hold of the control it should move — which sets the depth too, from how far the drag went |
 | Control Sequencer | **Done.** 32 steps as one strip in the order they are played, with the six settings that are not steps left in the rack |
 | Effects | **Done.** Four plates, each an engine's own settings and its twelve bytes under the names the loaded algorithm gives them, read for the firmware that answered |
 
@@ -798,6 +798,34 @@ routings are pointed at carries the one saturated mark on the panel, read once
 per panel from the destinations the patch holds. A destination nobody has read
 moves nothing: a mark drawn from a value this window has not seen says the
 instrument is doing something it may not be.
+
+**A routing is pointed as well as chosen.** The two columns of that table are
+hard for opposite reasons, and both of them are answered now. A destination is
+one of 133 names the instrument's display prints abbreviated, so the row chooses
+it from a list that can be typed into rather than scrolled — three letters and
+`VCF Envelope Attack` is the only one left. And a depth is a number nobody can
+pick without having already heard it.
+
+The second answer covers both, and it is the one an editor has and a front panel
+does not: `point` sends the routing out into the window. Every control the matrix
+can reach lights up, on the front panel and in all fourteen racks and on the four
+effect engines at once; everything else is passed over; the sections still open
+and the panel still scrolls and nothing edits the sound. Taking hold of a lit
+control is the answer — a click chooses it, and a drag sets the depth as well,
+from how far the drag would have moved it. It is the answer to what actually
+makes that column hard, which is that knowing which abbreviation stands over the
+fader you have in mind is harder than knowing the fader.
+
+Which controls light is the same join the mark is drawn from, read backwards, so
+nothing is written down for it either. What *is* assumed is one number: the drag
+is read as if a full depth moved the control over its whole range, because the
+manual prints no law relating a depth byte to its destination's range. It is
+marked in `control-ui/src/aim.rs`, printed on the page, asked for in
+[deepmind-midi#38](https://github.com/MysteriousWolf/deepmind-midi/issues/38) and
+listed in [waiting.md](waiting.md). The ranking that picks `VCF Attack` over `All
+Attack` when both reach a control is the other judgement this page is making that
+the library would make better, and it is
+[#39](https://github.com/MysteriousWolf/deepmind-midi/issues/39).
 
 That is also where hand layout stops being only an arrangement of whole
 controls. A row gives a list the width its names need and turns the depth fader

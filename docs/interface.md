@@ -644,10 +644,10 @@ Eight modulation routings, one to a row, read across: the routing's name, where
 the modulation comes from, an arrow, where it goes, and how much.
 
 ```
-        Source              Destination          Depth
+        Source              Destination                    Depth
 
-Mod 1   [ LFO 1        v]  ->  [ VCF Freq    v]  [======|========]
-93-95   2                   44                   138
+Mod 1   [ LFO 1        v]  ->  [ VCF Freq      ] [point]  [======|========]
+93-95   2                   44                            138
 ```
 
 
@@ -676,6 +676,53 @@ Mod 1   [ LFO 1        v]  ->  [ VCF Freq    v]  [======|========]
   have one — is not a matrix and is not drawn as one.
 - **A parameter no row claimed stays in the rack**, under the table, so a group
   that grows one keeps it rather than losing it to a layout.
+- **The destination is typed into rather than scrolled.** 133 names in a
+  drop-down is a drop-down somebody scrolls past what they wanted; the same
+  names in a list that filters as you type are three letters and one answer. It
+  is still the parameter's own value table, asked of the library for the
+  firmware that answered, and a destination the library has no complete table
+  for keeps whatever control the library says the parameter is.
+- **Or the routing is pointed at the window, and you take hold of what it should
+  move.** `point` is the press. While it is down, every control the matrix can
+  reach is outlined in the modulation colour — on the front panel, in all
+  fourteen racks, on all four effect engines — and everything it cannot reach is
+  covered by the panel it stands on until it is barely there. Lit *and* dimmed,
+  because forty faders with six outlined is a page somebody searches and the
+  same page with thirty-four faded is a page with six faders on it.
+
+  Nothing edits the sound while it is up. The sections still open, the panel
+  still scrolls, the lists still say what they are showing, and the one thing a
+  control no longer does is send anything. Taking hold of a lit one answers the
+  question: a click chooses it, and a drag sets the depth as well.
+
+  It is the answer to what actually makes that column hard. A destination is an
+  abbreviation the instrument's display prints, and knowing which abbreviation
+  stands over the fader you have in mind is harder than knowing the fader.
+- **The drag is the same drag.** The same relative grab over the same range at
+  the same rate, and what comes out of it is the fraction of the control's own
+  travel rather than the value it would have reached — laid onto the depth's own
+  range about its own centre, so dragging a control a third of the way up asks
+  for a third of the depth and dragging it down asks for the same the other way.
+
+  **What full depth is worth is assumed.** The manual prints no law relating a
+  depth byte to its destination's range, so the window assumes full depth moves
+  the control over all of it. That is the one assumption on the page, it is
+  marked in the code and printed under the table while a routing is pointed, and
+  it is asked for in
+  [deepmind-midi#38](https://github.com/MysteriousWolf/deepmind-midi/issues/38).
+  Until it is answered the gesture is a way of *saying* an amount into the byte
+  the depth fader already held, and the fader is unchanged.
+- **Which controls light is the mark's own join, read backwards.** The
+  destinations whose `parameters` include the control, so a firmware that moves
+  a destination lights a different set with nothing here to edit. Where several
+  reach one control the narrowest wins — `VCF Attack` over `All Attack`, because
+  somebody who took hold of the filter envelope's attack meant the filter's —
+  and *that* ranking is a judgement about the instrument being made in a window,
+  which is [deepmind-midi#39](https://github.com/MysteriousWolf/deepmind-midi/issues/39).
+- **A mode says so where somebody can see it.** The footer carries the routing's
+  name while it is pointed, on all three surfaces, and pressing it stops. A mode
+  that could only be left from the page it was started on is a mode somebody
+  gets stuck in, and somebody in this one is by definition somewhere else.
 
 ### Effects
 

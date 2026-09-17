@@ -138,8 +138,10 @@ fn view(app: &App) -> Element<'_, Message> {
                 // and a front panel with its lower row below the fold is a
                 // front panel with the whole voice missing.
                 View::Panel => scrollable(
-                    control_ui::panel(app.patch(), app.firmware(), |screen| paint(screen, app))
-                        .map(Message::Ui),
+                    control_ui::panel(app.patch(), app.firmware(), app.aim(), |screen| {
+                        paint(screen, app);
+                    })
+                    .map(Message::Ui),
                 )
                 // The bar is cut into the window beside the panel rather than
                 // laid over it. The panel is drawn out to the room it is given
@@ -157,7 +159,15 @@ fn view(app: &App) -> Element<'_, Message> {
             // Along the foot, under whichever surface is showing, because a
             // control is pointed at on all three of them and a footer that
             // moved with the surface would be a different footer each time.
-            .push(control_ui::footer(app.pointed(), app.patch(), app.firmware()).map(Message::Ui))
+            .push(
+                control_ui::footer(
+                    app.pointed(),
+                    app.patch(),
+                    app.firmware(),
+                    app.aim().aimed(),
+                )
+                .map(Message::Ui),
+            )
             .spacing(12)
             .padding(GROUND),
     )
@@ -350,7 +360,7 @@ fn editor(app: &App) -> Element<'_, Message> {
         scrollable(
             column![
                 text(section.name()).size(18),
-                control_ui::group(app.patch(), section, app.firmware()).map(Message::Ui),
+                control_ui::group(app.patch(), section, app.firmware(), app.aim()).map(Message::Ui),
             ]
             .spacing(12)
             .padding([0, 12]),

@@ -21,6 +21,15 @@
 //! sent, and what it is sent behind is the host crate's problem: the views do
 //! not know that a wire has a speed.
 //!
+//! # And one thing it is given back
+//!
+//! [`Aim`] is the modulation matrix asking the rest of the window a question.
+//! A routing pointed at the window lights every control the matrix can reach,
+//! on all three surfaces at once, and the next one somebody takes hold of is
+//! where the routing goes — a click chooses it and a drag sets the depth as
+//! well. The application owns the state because the mode outlives the page it
+//! was started on, which is the whole point of it.
+//!
 //! # The panel, and then the fourteen behind it
 //!
 //! [`panel`] is the front of the instrument: two rows of section plates with a
@@ -138,6 +147,7 @@
 //! do not have to agree on one, and concrete in the theme, because
 //! [`iced_core::Theme`] is what both of them have.
 
+mod aim;
 mod chain;
 mod confidence;
 mod effect;
@@ -158,6 +168,7 @@ mod section;
 mod sequencer;
 mod style;
 
+pub use aim::{Aim, Aimed};
 pub use confidence::Confidence;
 pub use fader::{Axis, Fader, fader};
 pub use footer::footer;

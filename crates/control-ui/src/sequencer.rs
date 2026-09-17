@@ -44,6 +44,7 @@ use iced_core::alignment::Horizontal;
 use iced_core::{Background, Font, Length, Theme, text::Renderer as TextRenderer};
 use iced_widget::{Space, column, container, row, text};
 
+use crate::aim::Aimed;
 use crate::panel::{Room, control, sits_at};
 use crate::style::{materials, reading};
 use crate::{Confidence, Element, Patch, tint};
@@ -92,6 +93,7 @@ pub(crate) fn strip<'a, Renderer>(
     patch: &Patch,
     group: Group,
     firmware: Version,
+    aim: Option<Aimed>,
 ) -> Option<Element<'a, Renderer>>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -104,7 +106,7 @@ where
         let value = patch.value(parameter);
         let beyond = played.is_some_and(|played| index >= played);
         column![
-            control(parameter, value, claim, firmware, Room::step(WIDTH)),
+            control(parameter, value, claim, firmware, Room::step(WIDTH), aim),
             // What the step is doing, in one line under it: the signed
             // distance from the centre it is read about, or the word for a
             // step that is skipped rather than sounded.

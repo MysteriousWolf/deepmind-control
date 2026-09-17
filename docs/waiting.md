@@ -35,18 +35,24 @@ like that does not become permanent.
 
 ## Open
 
-Three, all from one pass over the section plates' own displays. 26.4 published
-the shapes; these are what a shape still cannot say about itself.
+Five. Three from one pass over the section plates' own displays — 26.4 published
+the shapes, and these are what a shape still cannot say about itself — and two
+from the modulation matrix, which grew a way of pointing a routing at a control
+by taking hold of it and found the one number nobody has published.
 
 | | | What the window does meanwhile |
 | --- | --- | --- |
+| [#38](https://github.com/MysteriousWolf/deepmind-midi/issues/38) | What a modulation depth is worth: the law between `Mod n Depth` and the destination's own range | **Assumes full depth moves the destination over its whole range.** A routing pointed at the window is set by taking hold of the control it should move, and how far the drag went is the depth — which needs the fraction of a destination's range a full depth covers, and nothing publishes it. The assumption is marked in `control-ui/src/aim.rs` and printed on the page itself. It blocks nothing: the drag puts a number in the same byte the depth fader already held, and the fader is unchanged |
+| [#39](https://github.com/MysteriousWolf/deepmind-midi/issues/39) | The destination join, read backwards, and which of several destinations is the narrowest | Walks `ValueTable::entries` itself and ranks the candidates **narrowest first** — fewest parameters, ties to the lower value — so that a click on the filter envelope's attack chooses `VCF Attack` over `All Attack`. The walk is over the library's own published slices and is not a second copy of anything; the *ranking* is a judgement about the instrument being made in a window |
 | [#35](https://github.com/MysteriousWolf/deepmind-midi/issues/35) | `generator::lfo` reads the shape byte and ignores the four other parameters that shape an LFO | Draws the shape it is given, over at least two turns, with a dotted rule across the middle of the band for the level it swings about. **The middle is assumed.** `LFO n Unipolar` is what says whether an LFO swings about the centre of its range or rides up from the floor, and the generator is not reading it, so a unipolar LFO is drawn with its rest line in the wrong place. `Slew Rate`, `Delay / Fade` and `Key Sync` are not drawn at all |
 | [#36](https://github.com/MysteriousWolf/deepmind-midi/issues/36) | The marks along a generator's horizontal | Rules the two axes that are regular enough to derive — an octave a tick on the filter plates out of `Scale::Octaves`, a cycle a tick on the LFO plates out of `Scale::Turns`. The envelope plates have no marks at all: the four bytes a player is editing are the four segments of that line and nothing on the screen says which part is which |
 | [#37](https://github.com/MysteriousWolf/deepmind-midi/issues/37) | The high-pass response, and what the oscillators are making | Draws both by hand. The high-pass is the one number about the instrument still written down in this tree — `HIGH_PASS_SLOPE`, transcribed out of a doc comment in the library — and the two oscillator plates assemble their own shapes and their own mixing law out of six parameters |
 
-None of the three blocks anything. They are each a place where the window is
+None of the five blocks anything. They are each a place where the window is
 deciding something the library would decide better, which is the same argument
-every row in the table below was filed on.
+every row in the table below was filed on. The last two are the newest kind: not
+a drawing the window is deriving, but a number and an ordering it is choosing,
+which is the same failure wearing different clothes.
 
 ## Answered
 

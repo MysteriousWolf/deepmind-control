@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use control_ui::{Patch, first_section};
+use control_ui::{Aim, Patch, first_section};
 use deepmind_host::{Command, Event, Link, Outcome, PortRef, open, ports};
 use deepmind_midi::device::Event as DeviceEvent;
 use deepmind_midi::ids::{Bank, PROGRAMS_PER_BANK, ProgramNumber};
@@ -109,6 +109,13 @@ pub struct App {
     /// looking, which is the window's own business and is forgotten the moment
     /// they look somewhere else.
     pointed: Option<ParamId>,
+    /// What the modulation matrix is asking the window for.
+    ///
+    /// Not part of the sound and never sent anywhere. Two things: the routing
+    /// somebody is pointing at the window, if any, and the searchable list each
+    /// of the eight destinations is chosen from — which is state because what a
+    /// list of that kind remembers is what has been typed into it.
+    aim: Aim,
     /// The sounds that are kept rather than played.
     shelf: Shelf,
     /// The bank the picker is sitting on, which is the one a read would read.
@@ -146,6 +153,7 @@ impl App {
             patch: Patch::new(),
             section: first_section(),
             pointed: None,
+            aim: Aim::new(DEFAULT_FIRMWARE),
             shelf: Shelf::new(),
             bank: Bank::A,
             view: View::Panel,
@@ -209,6 +217,27 @@ impl App {
     #[must_use]
     pub const fn pointed(&self) -> Option<ParamId> {
         self.pointed
+    }
+
+    /// Returns what the modulation matrix is asking the window for.
+    ///
+    /// Taken by reference and not by value: the searchable lists in it are what
+    /// the eight destination pickers are drawn from, and a picker draws the one
+    /// the application is holding rather than a copy of it.
+    #[must_use]
+    pub const fn aim(&self) -> &Aim {
+        &self.aim
+    }
+
+    /// Makes sure the destination lists are the ones this firmware names.
+    ///
+    /// Called at the end of every message rather than where an inquiry lands,
+    /// so that there is one place this can be forgotten rather than several.
+    /// Firmware 1.1 renumbered the destinations, and a list built for 1.0 would
+    /// offer the wrong names for the right bytes.
+    fn settle(&mut self) {
+        let firmware = self.firmware();
+        self.aim.reading(firmware);
     }
 
     /// Returns the channel edits go out on, once one is settled.
@@ -305,18 +334,55 @@ impl App {
                 self.view = View::Editor;
             }
             Message::Ui(control_ui::Message::Edit { parameter, value }) => {
-                // The view moved it, so the window already shows it there. What
-                // the synthesizer is told is the same thing, once: an edit it
-                // already holds is a message the wire did not need.
-                if self.patch.edit(parameter, value) {
-                    self.ask(Command::SetParameter { parameter, value });
+                self.moved(parameter, value);
+                // A routing pointed at the window is asking where it goes, and
+                // this is the answer arriving: whichever of the two ways said
+                // it — a name chosen from the searchable list, or a control
+                // taken hold of somewhere else in the window — the question has
+                // been answered and the mode comes down.
+                if self
+                    .aim
+                    .aimed()
+                    .is_some_and(|aimed| aimed.destination() == parameter)
+                {
+                    self.aim.point(None);
                 }
             }
+            // The two halves of one gesture: a drag on a lit control while a
+            // routing is pointed at the window says where the routing goes and
+            // how much of it arrives. Both bytes were worked out by the view
+            // that knows which control the drag is on; this is where they go
+            // out, and the mode stays up until the hand lets go.
+            Message::Ui(control_ui::Message::Reach {
+                destination,
+                at,
+                depth,
+                by,
+            }) => {
+                self.moved(destination, at);
+                self.moved(depth, by);
+            }
+            Message::Ui(control_ui::Message::Aim(at)) => self.aim.point(at),
             Message::Invert => self.negative = !self.negative,
             Message::Ui(control_ui::Message::Rename(name)) => self.rename(name),
             Message::Ui(control_ui::Message::Pointed(parameter)) => self.pointed = parameter,
         }
         self.drain();
+        // After the drain, because the drain is what an inquiry's answer
+        // arrives in and the firmware it reports is what the destination lists
+        // have to be built for.
+        self.settle();
+    }
+
+    /// Moves a parameter, and tells the synthesizer about it once.
+    ///
+    /// The view moved it, so the window already shows it there. What the
+    /// synthesizer is told is the same thing, once: an edit it already holds is
+    /// a message the wire did not need.
+    fn moved(&mut self, parameter: ParamId, value: u8) {
+        if self.patch.edit(parameter, value) {
+            self.ask(Command::SetParameter { parameter, value });
+        }
     }
 
     /// Names the program, one character at a time because that is how it is
