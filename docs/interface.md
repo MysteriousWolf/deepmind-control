@@ -466,6 +466,15 @@ along the bottom of a window.
   own name, the range and the controller are five questions put to
   `deepmind-midi`. The footer writes down nothing about a parameter, which is
   the rule the controls themselves are drawn under.
+- **And it opens with a picture.** `ParamId::glyph`, published in 26.5: seven
+  dots by seven before the name, on the same grid the effects' marks and the
+  modulation sources' cells are on — a decay as a tail, a mix as wet against
+  dry, a pedal as a treadle. It is first because a picture is read before a word
+  is, and because somebody who points at the same control twice should stop
+  needing the word. 177 of the 242 parameters carry one; the rest are the effect
+  slots, whose picture depends on the algorithm the engine is running and is on
+  the slot itself, and the seventeen characters of the program's name, which are
+  letters rather than a control.
 - **The claim is in words here, not in a colour.** A footer is a sentence, and a
   sentence that said what backs a value by being a different colour would be
   saying it only to the readers who see the colour.
@@ -573,7 +582,7 @@ are two plates of one group.
 | | |
 | --- | --- |
 | VCF | `generator::filter_response`, with the corner put where the byte sits in its own travel. The vertical is decibels from the library's floor to its ceiling with unity ruled across it, so the resonant peak has headroom to rise into rather than a passband chosen to leave room for it. A dotted rule along the top says how far the envelope's depth would move the corner, and which way the polarity points it |
-| HPF | The high-pass, on the same decibel vertical and across as many octaves as its own slope needs to reach the floor, and `BOOST` printed under the curve where a high-pass has nothing |
+| HPF | The high-pass, `generator::high_pass_response` on the same decibel vertical and the same octave span as the low-pass beside it, and `BOOST` printed under the curve where a high-pass has nothing |
 | DCO 1 & 2 | Two lanes. Whichever of `DCO 1`'s shapes are switched on, side by side; `DCO 2`'s square as tall as its own level, with the noise scattered over it at its |
 | ENVELOPES | One envelope a plate, from `generator::envelope`: the four times and levels, bent by the four curve bytes |
 | VCA | The amplifier's envelope under the level it is played at, with the level as a dotted ceiling |
@@ -605,9 +614,17 @@ under, because they are the library's:
   information. What each of those says is *where in its travel* a value is,
   which is exactly what the fader beside it says.
 
-  Ruling the rest is [#36](https://github.com/MysteriousWolf/deepmind-midi/issues/36):
-  the marks worth drawing on a `Normalised` shape are where its segments join,
-  and the library is the one that knows.
+  The rest is ruled from `Generator::marks`, which 26.5 publishes
+  ([#36](https://github.com/MysteriousWolf/deepmind-midi/issues/36)): where an
+  envelope's segments join, where a filter's corner sits, where each cycle ends,
+  where a pulse falls and how far modulation swings that edge. Every one is a
+  number the library computed to build the shape rather than a second derivation
+  from the same bytes. What is *drawn* at one is the screen's decision, which is
+  what the library says it should be — a division of the axis gets a tick along
+  the foot, and the two marks that are moments in a wave stand up the band.
+
+  The envelope plates take it furthest: `A`, `D`, `S` and `R` at the four
+  boundaries, which is the one thing four faders under a line could not say.
 - **Nothing is drawn from a value nobody has read.** A scene's claim is the
   weakest of everything it read, and a scene with anything unread is not drawn
   at all: a filter assembled from four values the synthesizer described and one
@@ -618,21 +635,35 @@ library's table starts at the bottom of its range, so that the seven can be
 drawn side by side without one looking shifted — which means one turn of a sine
 is a hill. It leaves the floor, reaches the top and comes back, and a picture of
 that reads as a bump rather than as something going round. So an LFO gets at
-least two turns however slow its rate is, and a dotted rule across the middle of
-the band for the level it swings about. The two turns are this window's; the
-middle is an assumption, marked where it is made and asked for in
-[#35](https://github.com/MysteriousWolf/deepmind-midi/issues/35), because
-`LFO n Unipolar` is a byte and the generator is not reading it.
+least two turns however slow its rate is, and a dotted rule for the level it
+swings about. The two turns are this window's; the level is
+`Generator::rest`, which 26.5 publishes
+([#35](https://github.com/MysteriousWolf/deepmind-midi/issues/35)) — the middle
+for an LFO read as it swings and the floor for one read unipolar, and the
+library is what knows which. The same release put `Slew Rate` into the shape
+itself, so corners round and a square becomes a ramp between its levels with
+nothing here to do about it.
 
-Three things are left out by that rule rather than by oversight. The bass boost
-is printed as a word instead of drawn as a shelf, because what it lifts is not
+Where the left edge of a picture is a moment the instrument *has* is published
+too, as `Generator::anchored`. An LFO whose `Key Sync` is on restarts with each
+note, so phase 0 is where that note finds it, and the glass rules it. A free
+running one is caught wherever it had got to, so the glass leaves it alone: a
+picture has to start somewhere and the instrument does not.
+
+One thing is left out by that rule rather than by oversight: the bass boost is
+printed as a word instead of drawn as a shelf, because what it lifts is not
 published and a shelf would be this window choosing a height and then drawing it
-as confidently as the corner beside it. The LFO's `Delay / Fade` is not drawn,
-because it is one parameter doing two things and the manual does not say where
-the byte stops doing one and starts the other. And pulse width modulation is two
-dotted marks either side of the pulse's edge — the depth's own travel, drawn
-where the edge is — because what a byte of it does to a duty cycle is nowhere in
-the manual.
+as confidently as the corner beside it. The library declines it for the same
+reason and says so.
+
+Two things that used to be on that list are not any more. The LFO's
+`Delay / Fade` is `generator::lfo_fade`, drawn as its own dotted line under the
+wave — as two readings rather than multiplied together, because the library
+publishes them as two shapes and their product is not a third thing it
+published. And pulse width modulation is a `Width` mark with two `Sweep` marks
+either side of it, which is the library saying where the edge falls and how far
+the modulation moves it rather than this window drawing the depth's travel next
+to a guess.
 
 The arpeggiator's rate is out of the picture for the same reason. The gate time
 is published against a step — 0 is no note, 255 a full one and 128 half of one,
@@ -640,12 +671,25 @@ which the manual states outright — and what a step is worth in seconds is
 exactly what it does not print, so a rate byte stretched across the glass was
 this window drawing an axis nobody published. The fader says what the rate is.
 
-One number about a filter is still here, marked where it is used: the high-pass
-slope. The library draws the low-pass alone, because putting both corners on one
-axis needs the spacing between two bytes whose curves are both unpublished, and
-a plate with one filter on it is not asking for that. How far past its own fall
-the axis reaches is read back out of the span the library publishes rather than
-chosen, and a test holds the two together.
+**No number about the instrument is written down in this repository.** There was
+one — the high-pass's 6 dB per octave, transcribed out of a doc comment in the
+library — and 26.5 published the curve it belonged to as
+`generator::high_pass_response`
+([#37](https://github.com/MysteriousWolf/deepmind-midi/issues/37)). The two
+filter plates now agree because they are two calls to one library on one span
+and one vertical, rather than because this window arranged for them to.
+
+The refusal under it stands, and it is the library's: the two corners are not
+put on one axis, because doing that needs the spacing between two bytes whose
+curves are both unpublished. A plate with one filter on it is not asking for
+that.
+
+The same release published what the oscillators are making. `OSC 1`'s saw and
+pulse used to be drawn side by side — two shapes in one lane — because how they
+sum is not something the manual gives and this window would not invent a mixing
+law. `generator::oscillator` sums them at equal weight and states in its own
+documentation that the equal weight is the library's reading, which is the
+difference between a guess and a published one.
 
 ### Matrix
 
@@ -656,7 +700,7 @@ the modulation comes from, an arrow, where it goes, and how much.
          Source                Destination                 Depth
 
    ^
-   1   [#][ Pitch Bend  ]  ->  [#][ VCF Freq        ] [MAP]    (o)
+   1   [~][ Pitch Bend  ]  ->  [/][ VCF Freq        ]  (+)     (o)
    v
 ```
 
@@ -678,10 +722,14 @@ the modulation comes from, an arrow, where it goes, and how much.
   source nothing. Where the library has no complete table for an end, that end
   keeps whatever control the library says the parameter is, which is not a
   decision this page makes.
-- **Each of them has a box for its picture beside it.** Seven dots square, drawn
-  on the card, empty: the same box the patch bay draws against the same name,
-  waiting for the same mark. See the bay below, and
-  [deepmind-midi#40](https://github.com/MysteriousWolf/deepmind-midi/issues/40).
+- **Each of them has its picture beside it.** Seven dots square, stencilled on
+  the card: an LFO's wave, a wheel, a filter's corner. A source's is the
+  library's own cell for it and a destination's is the glyph of the parameter it
+  moves, both published in 26.5
+  ([deepmind-midi#40](https://github.com/MysteriousWolf/deepmind-midi/issues/40)),
+  and both the same picture the patch bay draws against the same name. An end
+  that is `Off` or that nobody has drawn keeps the empty box, which is what all
+  of them were before.
 - **The depth is a dial.** A depth is read about its centre — `-128` at one end,
   `+127` at the other and no modulation in the middle — and a dial is the
   control that shows a middle by pointing at it. Eight faders at four places
@@ -706,14 +754,21 @@ the modulation comes from, an arrow, where it goes, and how much.
   parameter's own value table, asked of the library for the firmware that
   answered.
 - **Or the routing is mapped onto the window, and you take hold of what it
-  should move.** `MAP` is the press, and it is the word stencilled on the card
-  in the display's own dots — no rim, like every other press in this window
-  whose face is a drawing rather than a label. What changes while the mode is up
-  is the ink: it goes to the one saturated colour on the panel, which is the
-  same cyan every control the routing can reach is lit in at that moment,
-  because the press and the lit controls are one thing happening. The word does
-  not change: a press that said `MAP` and then `STOP` would be two presses of
-  two widths, and the row would move under the hand that pressed it. While it is
+  should move.** The press is a **reticle** stencilled on the card in the
+  display's own dots — a ring with a crosshair through it and a dot in the
+  middle — with no rim, like every other press in this window whose face is a
+  drawing rather than a label. It was the word `MAP`. What the press does is put
+  the routing over the panel and wait for somebody to aim it at a control, and
+  that is a thing with a picture; the word has gone to the footer, as the
+  sentence the pointer brings up, the same as every other mark-faced press here.
+  That is also what makes the press square rather than as wide as a word.
+
+  What changes while the mode is up is the ink: it goes to the one saturated
+  colour on the panel, which is the same cyan every control the routing can
+  reach is lit in at that moment, because the press and the lit controls are one
+  thing happening. The mark does not change — a press that showed a reticle and
+  then a cross would be two marks to learn, and the colour has already said
+  which of the two states it is in. While it is
   down, every control the matrix
   can reach is lit — on the front panel, in all fourteen racks, on all four
   effect engines — and everything it cannot reach is covered by the panel it
@@ -740,11 +795,19 @@ the modulation comes from, an arrow, where it goes, and how much.
   routing a band belongs to is the footer's to say, because a bar on a fader
   cannot carry a name.
 
-  How far a band reaches is **assumed**, the same assumption the drag makes:
-  full depth is taken to move a control over the whole of its range. So is which
-  way it swings — a routing from an LFO moves a control about where it sits and
-  one from an envelope rides up from it, and what a source puts out is not
-  published either. Both are in the open list rather than quietly correct.
+  Which way a band swings is the source's, published in 26.5 as `Swing`
+  ([deepmind-midi#41](https://github.com/MysteriousWolf/deepmind-midi/issues/41)).
+  A `Centred` source — an LFO, the pitch bender — gets a band either side of
+  where the control sits, and a `Rising` one — an envelope, a wheel, a pressure
+  — gets a band from it. This window used to take the depth's own sign as the
+  whole answer, which is right for the second and wrong for the first: a band
+  drawn one way from a filter's corner said the filter could only ever open.
+
+  How far a band reaches is still **assumed**: full depth is taken to move a
+  control over the whole of its range. 26.5 published the accessor for it and
+  not the number — nobody has measured what a depth byte does at the other end
+  of a routing — so the assumption is a fallback behind a question now, in one
+  function, and it is the one row left in the open list.
 
 ### The patch bay
 
@@ -902,15 +965,22 @@ the next and never says how much of anything there is — that rule is written
 down in `lcd.rs` and this is the first drawing that had a reason to want to
 break it. How much is the depth, and the depth is the fader beside the glass.
 
-**The picture in each cell is a box and nothing in it.** Seven dots by seven,
-which is the cell this display writes a character in: an LFO's wave, an
-envelope's corner, a wheel, a filter's knee. Those are the library's to publish
-for the same reason the effect families' marks were — a picture of `LFO 1` is a
-fact about the instrument, and one drawn here would be this window making one
-up. So the box is drawn and left empty, which says a picture is coming without
-inventing one, and the same box stands beside the same name in the row. Asked
-for in
-[deepmind-midi#40](https://github.com/MysteriousWolf/deepmind-midi/issues/40).
+**The picture in each cell is a picture.** Seven dots by seven, which is the
+cell this display writes a character in: an LFO's wave, a wheel, an envelope's
+corner on one side, and what the destination's parameter does on the other. 26.5
+publishes the sources' as `ValueTable::cell_of` and the parameters' as
+`ParamId::glyph`
+([deepmind-midi#40](https://github.com/MysteriousWolf/deepmind-midi/issues/40)),
+so two columns of abbreviations are two columns of pictures — which is what a
+patch bay is *for*, because the shape of a matrix is something you read at a
+glance or not at all.
+
+They are the library's for the same reason the effect families' marks were: a
+picture of `LFO 1` is a fact about the instrument and one drawn here would be
+this window inventing it. The names stay beside them, because a picture and a
+name say different amounts to somebody who has not met either — and an end
+nobody has drawn keeps the empty box, so one gap in a column reads as one thing
+undrawn rather than as a column that has not been drawn.
 
   Nothing edits the sound while it is up. The sections still open, the panel
   still scrolls, the lists still say what they are showing, and the one thing a
@@ -926,21 +996,28 @@ for in
   range about its own centre, so dragging a control a third of the way up asks
   for a third of the depth and dragging it down asks for the same the other way.
 
-  **What full depth is worth is assumed.** The manual prints no law relating a
-  depth byte to its destination's range, so the window assumes full depth moves
-  the control over all of it. That is the one assumption on the page, it is
-  marked in the code and printed under the table while a routing is pointed, and
-  it is asked for in
-  [deepmind-midi#38](https://github.com/MysteriousWolf/deepmind-midi/issues/38).
-  Until it is answered the gesture is a way of *saying* an amount into the byte
-  the depth fader already held, and the fader is unchanged.
-- **Which controls light is the mark's own join, read backwards.** The
-  destinations whose `parameters` include the control, so a firmware that moves
-  a destination lights a different set with nothing here to edit. Where several
-  reach one control the narrowest wins — `VCF Attack` over `All Attack`, because
-  somebody who took hold of the filter envelope's attack meant the filter's —
-  and *that* ranking is a judgement about the instrument being made in a window,
-  which is [deepmind-midi#39](https://github.com/MysteriousWolf/deepmind-midi/issues/39).
+  **What full depth is worth is assumed**, and it is the last assumption on this
+  page. The manual prints no law relating a depth byte to its destination's
+  range, so the window assumes full depth moves the control over all of it. 26.5
+  published `ParamId::modulation_reach`, which is where to ask
+  ([deepmind-midi#38](https://github.com/MysteriousWolf/deepmind-midi/issues/38))
+  and not the answer — it returns nothing for every pair, because nobody has
+  measured it. So the guess is a fallback behind a question now, written once and
+  reached by both the drag and the bands, and the day a measurement lands in the
+  library it stops being reached with no diff here. Until then the gesture is a
+  way of *saying* an amount into the byte the depth fader already held, and the
+  fader is unchanged.
+- **Which controls light is the library's own join, read backwards.**
+  `ValueTable::values_naming`, published in 26.5
+  ([deepmind-midi#39](https://github.com/MysteriousWolf/deepmind-midi/issues/39)):
+  the destinations that reach a control, narrowest first, and `next` is the one
+  to take. `VCF Attack` beats `All Attack`, because somebody who took hold of
+  the filter envelope's attack meant the filter's — and that ranking used to be
+  made here, which is a judgement about the instrument being made in a window
+  however honest the slices under it were. It is on the other side of the split
+  now, down to what happens when two destinations move the same number of
+  parameters: the library puts them in value order and says outright that
+  nothing makes one of them the narrower.
 - **A mode says so where somebody can see it.** The footer carries the routing's
   name while it is pointed, on all three surfaces, and pressing it stops. A mode
   that could only be left from the page it was started on is a mode somebody
@@ -1040,6 +1117,22 @@ Six columns, every one of them there whether or not a slot stands in it, spread
 across the whole of this engine's half of the page. That is what makes the
 second row readable down against the first.
 
+- **A slot wears the picture of what it does.** `FxSlot::glyph`, published in
+  26.5: seven dots by seven beside the title, and every slot has one, because
+  what a slot does is the one thing the algorithm always knows about it. It is
+  finer than the `Quantity` the line under it is drawn from and it is for a
+  different job — a pre-delay and a decay are both a time, and a plate with
+  twelve of these on it wants the gap drawn on one and the tail on the other.
+  The same glyph serves every slot doing the same job, so a `Low Cut` on a
+  reverb and one on a delay are one picture, and it is the same picture the
+  footer puts beside a program parameter doing that job.
+- **An engine says what kind of thing it is.** `Algorithm::characters`, also
+  26.5: one or two quiet words after the name — *vintage*, *modelled*, *stereo*,
+  *dual*, *multiband*, *two in one*, *lo-fi*, *modulated*, *dynamic* — and
+  nothing at all for the plain reverbs and the noise gate, whose family says
+  everything a word can. Read rather than derived: the library carries a reason
+  per membership, and a window matching on `Vintage` in a name would be right
+  until the day it was not.
 - **A slot is named by the algorithm, and drawn by the parameter table.** Those
   are two different claims and only one of them is published: `Freeze` is two
   states on the display and a parameter that accepts 256 values on the wire, and
@@ -1093,8 +1186,16 @@ second row readable down against the first.
   Two columns the library labelled nothing are two columns and not a pair, and a
   row it grouped nothing on has no strip on it — but it keeps the room one
   takes, so every row of the grid is one depth.
-- **The mark is the library's strokes and this window's layout.** Nine of them
-  across the 35, one per family, published as a polyline, an arc, a sine and a
+- **The mark is the library's strokes and this window's layout.** Nine families
+  across the 35, and, since 26.5, a finer mark where an effect's kind is
+  something a symbol can carry: a plate reverb as a plate with wavefronts
+  leaving it, a hall as wavefronts far from their source, an ambient reverb —
+  which is a reverb and nothing a symbol can add to — as the family's own. The
+  window asks `Algorithm::mark` and gets whichever applies, so the better marks
+  arrived with nothing here to change, and they are the same language either
+  way, which is what keeps the four engines reading as one set.
+
+  They are published as a polyline, an arc, a sine and a
   filled disc in a unit box — not as a picture, for the same reason the panels
   are data: this window and the plugin want the same mark at two sizes and in
   two inks, and neither can theme an image it did not draw. `mark.rs` lays a
@@ -1104,7 +1205,7 @@ second row readable down against the first.
   which of them are lit is the whole of the design.
 
   **The window places what the strokes reach, not the box they arrived in.**
-  None of the nine fills that box and no two of them leave it the same way: the
+  None of them fills that box and no two leave it the same way: the
   reverb's wavefronts leave a third of the width empty on one side, the imaging
   mark uses less than half the height, the delay's bars use nearly all of it.
   Drawn straight onto the room they are given, a row of engine strips has the

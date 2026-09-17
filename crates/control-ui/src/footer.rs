@@ -34,13 +34,31 @@
 //! The library writes `None` rather than a guess where its own specification
 //! does not establish what a parameter does, which is the same refusal every
 //! other drawing in this crate is under.
+//!
+//! # And the picture of it
+//!
+//! The seventh question, and the first one answered: 26.5 publishes a glyph per
+//! parameter and per standard controller — a decay as a tail, a mix as wet
+//! against dry, a pedal as a treadle — on the same seven by seven grid the
+//! effects' marks and the modulation sources' cells are on. It stands at the
+//! head of the line, before the name, because a picture is read before a word
+//! is and because somebody who points at the same control twice should stop
+//! needing the word.
+//!
+//! 177 of the 242 carry one. The rest are the effect slots, whose picture
+//! depends on which algorithm the engine is running and is `FxSlot::glyph`
+//! instead, and the seventeen characters of the program's name, which are
+//! letters rather than a control. A parameter with no glyph draws none, the
+//! same as one with no sentence.
 
 use deepmind_midi::param::{Controller, Kind, ParamId};
+use deepmind_midi::pixels::Pixels;
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::alignment::Vertical;
 use iced_core::{Background, Border, Font, Length, Theme, border, text::Renderer as TextRenderer};
 use iced_widget::{button, container, row, text};
 
+use crate::lcd::{self, Screen};
 use crate::mapping::{Mapping, Reach};
 use crate::matrix;
 use crate::panel::{Message, sits_at};
@@ -119,6 +137,8 @@ where
 
 /// One piece of the line, and how loudly it is said.
 enum Part {
+    /// The library's picture of what the control does.
+    Pictured(&'static Pixels),
     /// The parameter's own name, which is what somebody pointed at it to read.
     Name(String),
     /// A reading: what it is sitting on, in the display's own face.
@@ -136,6 +156,15 @@ impl Part {
         Renderer: TextRenderer<Font = Font> + 'a,
     {
         match self {
+            // Stencilled on the card rather than lit on glass, because it is a
+            // mark beside a word and not a display — the same call every other
+            // mark in this window goes through. In the ink the name is in, so
+            // that the picture and the word it stands before read as one thing.
+            Self::Pictured(cell) => {
+                let mut screen = Screen::new(lcd::CELL, lcd::CELL);
+                screen.blit(cell, 0, 0);
+                lcd::stencil(screen, |theme: &Theme| materials(theme).metal_high)
+            }
             Self::Name(said) => text(said)
                 .size(13)
                 .font(printed())
@@ -177,10 +206,15 @@ impl Part {
 /// because that is the second one; then the facts that are true of it whatever
 /// it is sitting on.
 fn described(parameter: ParamId, patch: &Patch, firmware: Version) -> Vec<Part> {
-    let mut line = vec![
-        Part::Name(parameter.name().to_owned()),
-        Part::Quiet(parameter.group().name().to_owned()),
-    ];
+    let mut line = Vec::new();
+    // The picture first, where the library has one. A control that is driven by
+    // a standard controller is pictured the way the parameter is, so the two
+    // agree without this asking twice.
+    if let Some(glyph) = parameter.glyph() {
+        line.push(Part::Pictured(glyph.pixels()));
+    }
+    line.push(Part::Name(parameter.name().to_owned()));
+    line.push(Part::Quiet(parameter.group().name().to_owned()));
     line.push(Part::Reading(reading_of(parameter, patch, firmware)));
     line.push(Part::Quiet(range_of(parameter)));
     if let Some(controller) = Controller::for_parameter(parameter) {

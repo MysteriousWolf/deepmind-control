@@ -168,7 +168,7 @@
 //! there is nothing better to say.
 
 use deepmind_midi::effect::{
-    self, Algorithm, Colour, Control, Engine, FxSlot, Panel, Quantity, grid,
+    self, Algorithm, Character, Colour, Control, Engine, FxSlot, Panel, Quantity, grid,
 };
 use deepmind_midi::param::{DEFAULT_FIRMWARE, Group, ParamId};
 use deepmind_midi::sysex::inquiry::Version;
@@ -1124,12 +1124,17 @@ where
             On::Face,
         ),
         container(
-            text(title)
-                .size(10)
-                .center()
-                .style(move |theme: &Theme| text::Style {
-                    color: Some(ink(theme, On::Face)),
-                })
+            row![
+                pictured(lane.slot),
+                text(title)
+                    .size(10)
+                    .center()
+                    .style(move |theme: &Theme| text::Style {
+                        color: Some(ink(theme, On::Face)),
+                    })
+            ]
+            .spacing(3)
+            .align_y(Vertical::Center)
         )
         .height(Length::Fixed(TITLE))
         .width(Length::Fill)
@@ -1479,6 +1484,10 @@ where
         // anywhere — it is what the chain's own glass prints in every box, and
         // what the footer says about the byte.
         container(named(patch, engine, firmware, on)).width(Length::Fill),
+        // What kind of thing it is, beside what it does. One or two quiet
+        // words, and nothing at all for the plain reverbs and the noise gate,
+        // whose family says everything there is to say about them.
+        kind(patch, engine, firmware, on),
         // Where an engine carries its own switch and that switch is off, that
         // it is out of circuit. Three of the 35 can say it and the other 32
         // cannot, which is the instrument's answer rather than this window's.
@@ -1585,6 +1594,82 @@ where
             .padding([3, 8]),
         )
     }
+}
+
+/// Draws what kind of thing an engine is, beside its name.
+///
+/// [`Algorithm::characters`], published in 26.5: any number of them, in the
+/// order the specification declares them, and empty for an algorithm with
+/// nothing to say beyond its family. A Tel-Ray Delay is a vintage unit and a
+/// lo-fi one; a Stereo Chorus is two channels and something moving inside it;
+/// a Hall Reverb is a reverb and nothing else a word can add.
+///
+/// They are read here rather than matched on. `Vintage` is not "the name
+/// contains the word vintage" — the library's own file carries a reason per
+/// membership, and the reasons are the manual's name for the effect, the slots
+/// it gives it, or the unit a name refers to. A window deriving that from
+/// `full_name` would be right until the day it was not.
+///
+/// Quiet, and after the name: it is a caption on a thing that already has a
+/// mark across its case and a title along its strip, and a third loud thing on
+/// one row is a row with no first thing.
+fn kind<'a, Renderer>(
+    patch: &Patch,
+    engine: Engine,
+    firmware: Version,
+    on: On,
+) -> Element<'a, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    let said: Vec<&'static str> = algorithm(patch, engine, firmware)
+        .map(|algorithm| {
+            algorithm
+                .characters()
+                .iter()
+                .filter_map(|character| word(*character))
+                .collect()
+        })
+        .unwrap_or_default();
+    if said.is_empty() {
+        return Space::new().width(Length::Fixed(0.0)).into();
+    }
+    text(said.join(" \u{00b7} "))
+        .size(10)
+        .style(move |theme: &Theme| text::Style {
+            color: Some(style::mix(
+                chassis(theme, None),
+                ink(theme, on),
+                CHARACTER_INK,
+            )),
+        })
+        .into()
+}
+
+/// How far a character's word is carried from the case towards its ink.
+///
+/// Not far. It is a caption, and a caption as loud as the name it captions is
+/// a second title.
+const CHARACTER_INK: f32 = 0.55;
+
+/// Returns the word for one of the kinds an effect can be.
+///
+/// [`Character`] is marked as a set that can grow, and one this window has no
+/// word for prints nothing rather than a guess — the same rule
+/// [`quantity`] is read under.
+fn word(character: Character) -> Option<&'static str> {
+    Some(match character {
+        Character::Vintage => "vintage",
+        Character::Modelled => "modelled",
+        Character::Stereo => "stereo",
+        Character::Dual => "dual",
+        Character::Multiband => "multiband",
+        Character::Combined => "two in one",
+        Character::LoFi => "lo-fi",
+        Character::Modulated => "modulated",
+        Character::Dynamic => "dynamic",
+        _ => return None,
+    })
 }
 
 /// An algorithm, named the way the list names it.
@@ -1743,6 +1828,33 @@ where
         .into()
 }
 
+/// Draws the picture of what a slot does, beside its title.
+///
+/// [`FxSlot::glyph`], published in 26.5: every slot has one, because what a
+/// slot does is the one thing the algorithm always knows about it. It is finer
+/// than the [`Quantity`] the line under it is drawn from and it is for a
+/// different job — a pre-delay and a decay are both a time, and a plate with
+/// twelve of these on it wants the gap drawn on one and the tail on the other.
+///
+/// The same glyph serves every slot doing the same thing, so a `Low Cut` on a
+/// reverb and one on a delay are one picture; and it is the same picture the
+/// footer puts beside a program parameter doing that job, which is the whole
+/// value of the glyphs being the library's.
+///
+/// A byte the algorithm does not use has no slot and so no picture: there is
+/// nothing to draw a picture *of*.
+fn pictured<'a, Renderer>(slot: Option<&'static FxSlot>) -> Element<'a, Renderer>
+where
+    Renderer: iced_core::Renderer + 'a,
+{
+    let Some(slot) = slot else {
+        return Space::new().width(Length::Fixed(0.0)).into();
+    };
+    let mut screen = Screen::new(lcd::CELL, lcd::CELL);
+    screen.blit(slot.glyph().pixels(), 0, 0);
+    lcd::stencil(screen, |theme: &Theme| ink(theme, On::Face))
+}
+
 /// The line under a slot's title: what the instrument's display reads there.
 ///
 /// The two ends of the reading and its unit, which the manual prints, and never
@@ -1868,7 +1980,7 @@ fn within(engine: Engine, parameter: ParamId) -> &'static str {
     reason = "a failed expectation is the test failure"
 )]
 mod tests {
-    use deepmind_midi::effect::{Algorithm, Engine, SLOTS_PER_ENGINE, grid};
+    use deepmind_midi::effect::{Algorithm, Character, Engine, SLOTS_PER_ENGINE, grid};
     use deepmind_midi::ids::ProtocolVersion;
     use deepmind_midi::param::{DEFAULT_FIRMWARE, Group, ParamId};
     use deepmind_midi::program::Program;
@@ -2464,6 +2576,77 @@ mod tests {
         // And a byte the algorithm does not use still says nothing, because the
         // strip it stands on has said it already.
         assert!(hint(None).is_empty());
+    }
+
+    #[test]
+    fn every_character_the_library_publishes_has_a_word() {
+        // The same rule the quantities are read under: the set is marked as one
+        // that can grow, so a kind this window has no word for prints nothing —
+        // and a kind it *does* have is one it prints rather than derives from
+        // the algorithm's name.
+        for character in Character::ALL {
+            assert!(
+                super::word(character).is_some(),
+                "{character:?} has no word"
+            );
+        }
+    }
+
+    #[test]
+    fn an_effect_says_what_kind_of_thing_it_is_from_the_library() {
+        let tel_ray = Algorithm::by_name("T-RayDelay").expect("a Tel-Ray Delay");
+        assert!(
+            tel_ray.has(Character::Vintage),
+            "not read as a vintage unit"
+        );
+        assert!(tel_ray.has(Character::LoFi));
+
+        // And the ones with nothing to add print nothing rather than a blank
+        // caption: the family's mark on the case has already said it.
+        let hall = Algorithm::by_name("HallRev").expect("a Hall Reverb");
+        assert!(!hall.has(Character::Vintage));
+    }
+
+    #[test]
+    fn an_effect_wears_its_own_mark_where_the_library_draws_one() {
+        // 26.5 tells a plate from a hall, which 26.4 declined to: the window
+        // asks for a mark and gets the finer one where there is one, so this
+        // is the library's answer arriving rather than anything drawn here.
+        let plate = Algorithm::by_name("PlateRev").expect("a Plate Reverb");
+        let ambient = Algorithm::by_name("AmbVerb").expect("an Ambient Reverb");
+
+        assert!(plate.own_mark().is_some(), "a plate has no mark of its own");
+        assert!(ambient.own_mark().is_none());
+        assert_ne!(
+            plate.mark().pixels(),
+            ambient.mark().pixels(),
+            "two reverbs drew one picture"
+        );
+    }
+
+    #[test]
+    fn every_slot_carries_the_picture_of_what_it_does() {
+        // Every slot has one, which is what the library says: what a slot does
+        // is the one thing the algorithm always knows about it. And the same
+        // job is the same picture wherever it is met.
+        for algorithm in Algorithm::all() {
+            for slot in algorithm.slots {
+                let drawn = slot.glyph().pixels();
+                assert!(
+                    drawn.rows().iter().any(|row| *row != 0),
+                    "{}'s {} is a blank picture",
+                    algorithm.name,
+                    slot.title
+                );
+            }
+        }
+        let room = Algorithm::by_name("RoomRev").expect("a Room Reverb");
+        let decay = room.slot(2).expect("a Decay slot").glyph();
+        assert_eq!(
+            Some(decay),
+            ParamId::VcfEnvelopeDecayTime.glyph(),
+            "a decay on a reverb and a decay on an envelope drew two pictures"
+        );
     }
 
     #[test]

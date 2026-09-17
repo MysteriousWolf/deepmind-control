@@ -232,6 +232,38 @@ pub const ABOUT: Badge = Badge::new(
     SIDE,
 );
 
+/// Send this routing out into the window: a reticle.
+///
+/// What the press does is put the routing over the panel and wait for somebody
+/// to take hold of a control — so the mark is the thing you aim, and a ring
+/// with a crosshair through it and a dot in the middle is what aiming has
+/// looked like for as long as anything has been aimed.
+///
+/// It was the word `MAP`, stencilled. A word is the honest mark where a grid
+/// this size has no answer — which is why [`ABOUT`] is still a letter — but
+/// this one has an answer, and a press whose face is a picture is a press that
+/// does not have to be read. The word has not gone anywhere: it is in the
+/// footer, as the sentence the pointer brings up, the same as every other press
+/// in this window.
+///
+/// The centre dot is the whole of why it is a reticle rather than a ring. A
+/// ring is a thing; a ring with something in the middle of it is a thing
+/// pointed at something.
+pub const MAP: Badge = Badge::new(
+    &[
+        0b0_0001_0000,
+        0b0_0001_0000,
+        0b0_0011_1000,
+        0b0_0100_0100,
+        0b1_1101_0111,
+        0b0_0100_0100,
+        0b0_0011_1000,
+        0b0_0001_0000,
+        0b0_0001_0000,
+    ],
+    SIDE,
+);
+
 /// Move this routing up the matrix: an arrow, pointing that way.
 ///
 /// A solid triangle, [seven dots across](ARROW) and four down, because of where
@@ -255,16 +287,17 @@ pub const DOWN: Badge = Badge::new(&[0b111_1111, 0b011_1110, 0b001_1100, 0b000_1
 
 #[cfg(test)]
 mod tests {
-    use super::{ABOUT, ARROW, Badge, DOWN, PLUGGED, PORT, READ, RESCAN, SIDE, UP, WHO};
+    use super::{ABOUT, ARROW, Badge, DOWN, MAP, PLUGGED, PORT, READ, RESCAN, SIDE, UP, WHO};
 
     /// Every mark this module publishes.
-    const ALL: [(&str, Badge); 8] = [
+    const ALL: [(&str, Badge); 9] = [
         ("who", WHO),
         ("read", READ),
         ("rescan", RESCAN),
         ("port", PORT),
         ("plugged", PLUGGED),
         ("about", ABOUT),
+        ("map", MAP),
         ("up", UP),
         ("down", DOWN),
     ];

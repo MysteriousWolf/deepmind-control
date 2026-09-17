@@ -170,7 +170,7 @@ mod section;
 mod sequencer;
 mod style;
 
-pub use badge::{ABOUT, ARROW, Badge, DOWN, PLUGGED, PORT, READ, RESCAN, SIDE, UP, WHO};
+pub use badge::{ABOUT, ARROW, Badge, DOWN, MAP, PLUGGED, PORT, READ, RESCAN, SIDE, UP, WHO};
 pub use confidence::Confidence;
 pub use fader::{Axis, Fader, fader};
 pub use footer::footer;

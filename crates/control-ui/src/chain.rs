@@ -62,9 +62,7 @@
 
 use std::sync::LazyLock;
 
-use deepmind_midi::effect::{
-    Algorithm, ENGINE_COUNT, Engine, MARK_PIXEL_SIDE, Mode, Pixels, Routing, Source,
-};
+use deepmind_midi::effect::{Algorithm, ENGINE_COUNT, Engine, Mode, Routing, Source};
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::Length;
 use iced_widget::{container, responsive};
@@ -153,15 +151,12 @@ const LINE: i32 = Screen::height_of(Size::Small);
 
 /// How many dots a family's mark is, across and down.
 ///
-/// The library draws one at [`MARK_PIXEL_SIDE`] a side for exactly this: a
+/// The library draws one at `MARK_PIXEL_SIDE` a side for exactly this: a
 /// display with no room to stroke anything, which is what a box fifteen dots
-/// wide is.
-#[expect(
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    reason = "a side of the library's own mark, which is seven pixels"
-)]
-const MARK: i32 = MARK_PIXEL_SIDE as i32;
+/// wide is. It is the same grid the modulation sources' cells and the
+/// parameters' glyphs are on, which is why the walk over it lives on the
+/// screen as [`Screen::blit`] rather than in this file.
+const MARK: i32 = lcd::CELL;
 
 /// The least room a box needs before anything is written in it.
 const LEGIBLE: i32 = LINE + 2;
@@ -688,37 +683,13 @@ fn plate(screen: &mut Screen, engine: Engine, chain: Chain, band: Band, ink: Ink
     let stack = written + marked.map_or(0, |_| MARK + 2);
     let top = band.y + (band.height - stack) / 2;
     if let Some(mark) = marked {
-        blit(
-            screen,
-            *mark.pixels(),
-            band.x + (band.width - MARK) / 2,
-            top,
-        );
+        screen.blit(mark.pixels(), band.x + (band.width - MARK) / 2, top);
     }
     let mut y = top + stack - written;
     for line in &lines {
         let x = band.x + (band.width - Screen::width_of(line, Size::Small)) / 2;
         screen.write(x.max(band.x + 1), y, line, Size::Small);
         y += LINE + 1;
-    }
-}
-
-/// Blits a family's mark, a lit pixel to a printed dot.
-///
-/// The library's own grid, walked as it documents: the origin is the top left,
-/// the same way up as its strokes, and a pixel outside the grid answers unlit
-/// so nothing here has to bound-check it.
-fn blit(screen: &mut Screen, pixels: Pixels, x: i32, y: i32) {
-    for down in 0..MARK {
-        for across in 0..MARK {
-            let (column, row) = (
-                u8::try_from(across).unwrap_or(0),
-                u8::try_from(down).unwrap_or(0),
-            );
-            if pixels.is_lit(column, row) {
-                screen.dot(x + across, y + down);
-            }
-        }
     }
 }
 

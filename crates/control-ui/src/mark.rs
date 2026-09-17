@@ -2,13 +2,18 @@
 //!
 //! `deepmind-midi` 26.4 publishes one per family
 //! ([deepmind-midi#31](https://github.com/MysteriousWolf/deepmind-midi/issues/31)):
-//! nine of them across the 35 algorithms, because the difference between a Hall
-//! Reverb and a Plate Reverb is not something a symbol carries and a drawing
-//! that implied it would be inventing one. What it publishes is the strokes and
-//! not the picture — a polyline in a unit box, an arc, a sine, a filled disc —
-//! for the same reason it publishes the effect panels as data: this window and
-//! the plugin want the same mark at two sizes, and neither can theme an image it
-//! did not lay out.
+//! nine of them across the 35 algorithms. 26.5 publishes a finer one where an
+//! effect's kind is something a symbol can carry — a plate reverb as a plate
+//! with wavefronts leaving it, a hall as wavefronts far from their source —
+//! and `Algorithm::mark` hands back whichever applies, so a window that asks
+//! for a mark got the better one with nothing here to change. They are the same
+//! language either way, which is what keeps the four engines reading as one
+//! set whichever marks they land on.
+//!
+//! What is published is the strokes and not the picture — a polyline in a unit
+//! box, an arc, a sine, a filled disc — for the same reason the effect panels
+//! are published as data: this window and the plugin want the same mark at two
+//! sizes, and neither can theme an image it did not lay out.
 //!
 //! So this is the laying out. The host provides the size, the stroke width and
 //! the ink, which is the whole of what the library says a host provides.

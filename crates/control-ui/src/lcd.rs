@@ -46,6 +46,8 @@
 //! readers who would not see the copper. A screen with nothing read behind it
 //! is left blank, which on this display means lit and empty.
 
+use deepmind_midi::pixels::{self, Pixels};
+
 use core::fmt;
 
 use iced_core::gradient::Linear;
@@ -697,7 +699,45 @@ impl Screen {
     pub fn mark(&mut self, band: Band, fraction: f32, ink: Ink) {
         self.down(band.column(fraction), band.y, band.height, ink);
     }
+
+    /// Blits one of the library's one-bit grids, a lit pixel to a printed dot.
+    ///
+    /// Three things in the library are drawn on one grid at [`pixels::SIDE`] a
+    /// side — an effect's mark, a modulation source's cell, and the glyph of
+    /// what a parameter does — for exactly this display: one with no room to
+    /// stroke anything, where which of forty-nine dots are lit is the whole of
+    /// the design.
+    ///
+    /// Walked the way the library documents: the origin is the top left, and a
+    /// pixel outside the grid answers unlit, so nothing here bounds-check it.
+    /// A dot outside the screen is dropped by [`dot`](Self::dot), the same as
+    /// every other drawing on it.
+    pub fn blit(&mut self, pixels: &Pixels, x: i32, y: i32) {
+        for down in 0..CELL {
+            for across in 0..CELL {
+                let (column, row) = (
+                    u8::try_from(across).unwrap_or(u8::MAX),
+                    u8::try_from(down).unwrap_or(u8::MAX),
+                );
+                if pixels.is_lit(column, row) {
+                    self.dot(x + across, y + down);
+                }
+            }
+        }
+    }
 }
+
+/// How many dots one of the library's grids is, across and down.
+///
+/// Seven, which is [`pixels::SIDE`] and also the cell this display writes a
+/// character in — the two being the same size is what lets a picture stand
+/// beside a name without either of them being resampled.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    reason = "a side of the library's own grid, which is seven pixels"
+)]
+pub const CELL: i32 = pixels::SIDE as i32;
 
 /// Draws `screen` as the display it is, in the colour of `claim`.
 ///

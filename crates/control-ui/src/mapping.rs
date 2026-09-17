@@ -26,37 +26,49 @@
 //!
 //! # Which destination names a control
 //!
-//! Not a table here. A destination is a value of the parameter's own value
-//! table and `ValueEntry::parameters` is what that value moves, published by
-//! `deepmind-midi` 26.2 for exactly this — so [`Mapping::names`] reads the join
-//! backwards: the entries whose parameters include the control somebody took
-//! hold of, narrowest first.
+//! Not a walk here either. `ValueEntry::parameters` says what a destination
+//! moves, and 26.5 publishes the join read backwards as
+//! `ValueTable::values_naming` — the destinations that reach a control,
+//! narrowest first — so [`Mapping::names`] is one call and a `next`.
 //!
-//! Narrowest first is the whole of the choice. `All Attack` moves three
-//! envelopes and `VCF Attack` moves one, and somebody who took hold of the
-//! filter envelope's attack fader meant the filter's. A destination that moves
-//! nothing a program parameter addresses — the pitch a key is playing, the
-//! amplitude of a voice — names no control, so no control lights for it, which
-//! is the honest answer rather than a gap.
+//! Narrowest first used to be this window's ordering, and an ordering is a
+//! judgement about the instrument however honest the slices under it are:
+//! `All Attack` moves three envelopes and `VCF Attack` moves one, and saying
+//! that somebody who took hold of the filter envelope's attack fader meant the
+//! filter's is a claim about what the matrix is for. It belonged on the other
+//! side of the split and it is there now
+//! ([deepmind-midi#39](https://github.com/MysteriousWolf/deepmind-midi/issues/39)),
+//! down to what happens when two destinations move the same number of
+//! parameters — which the library answers by putting them in value order and
+//! saying outright that nothing makes one of them the narrower.
 //!
-//! # What a drag is worth, and the one thing it assumes
+//! A destination that moves nothing a program parameter addresses — the pitch a
+//! key is playing, the amplitude of a voice — names no control, so no control
+//! lights for it, which is the honest answer rather than a gap.
+//!
+//! # What a drag is worth, and the one thing it still assumes
 //!
 //! **A drag is read as if full depth moved the control over its whole range.**
 //! Dragging `VCF Frequency` a third of the way up asks for a third of the
-//! depth. That is an assumption, it is the only one on this page, and it is
-//! marked here because the manual does not publish the law: what `Mod 1 Depth`
-//! at `+64` does to the bytes at the other end of the routing is nowhere in it,
-//! and the library refuses to guess as firmly as this repository does. It is
-//! asked for in
-//! [deepmind-midi#38](https://github.com/MysteriousWolf/deepmind-midi/issues/38)
-//! and recorded in [`docs/waiting.md`](https://github.com/MysteriousWolf/deepmind-control/blob/main/docs/waiting.md).
+//! depth. That is an assumption and it is the last one on this page.
 //!
-//! Until it is answered the gesture is a way of *saying* an amount rather than
-//! a promise about what will be heard, which is what a depth fader already was:
-//! the fader that the drag moves is the same fader, holding the same byte, and
-//! the drag is a second way to put a number in it.
+//! What changed in 26.5 is where it is asked.
+//! [`ParamId::modulation_reach`] is the accessor
+//! ([deepmind-midi#38](https://github.com/MysteriousWolf/deepmind-midi/issues/38)),
+//! and it answers `None` for every pair today — the manual prints the depth's
+//! own range and nothing relating a depth to what it does at the other end of
+//! the routing, and nobody has measured it. So the number is still the whole
+//! range; it is now a fallback behind a question this window asks, in one
+//! place ([`reach_of`]), rather than a fraction written into two of them. The
+//! day a measurement lands in the library the fallback stops being reached and
+//! nothing here changes.
+//!
+//! Until then the gesture is a way of *saying* an amount rather than a promise
+//! about what will be heard, which is what a depth fader already was: the fader
+//! that the drag moves is the same fader, holding the same byte, and the drag
+//! is a second way to put a number in it.
 
-use deepmind_midi::param::{Group, Kind, ParamId, Shape};
+use deepmind_midi::param::{Group, Kind, ParamId, Shape, Swing};
 use deepmind_midi::sysex::inquiry::Version;
 use iced_widget::combo_box;
 
@@ -109,12 +121,10 @@ impl Mapping {
 
     /// Returns the destination value that names `at`, if one does.
     ///
-    /// The value table's own join, read backwards. `ValueEntry::parameters`
-    /// says which program parameters a destination moves, so the destination
-    /// for a control is the entry that lists it — and where several do, the one
-    /// that lists the fewest, because `All Attack` moves three envelopes and
-    /// `VCF Attack` moves one and somebody who took hold of the filter's attack
-    /// meant the filter's.
+    /// `ValueTable::values_naming`, which is the library's own join read
+    /// backwards and ordered narrowest first, and `next` is what it says to
+    /// take for one destination. The walk and the ranking used to be here; see
+    /// the module's note on why an ordering is not a window's to make.
     ///
     /// `None` for every control the matrix cannot reach, which is most of them:
     /// 130 destinations against 242 parameters, and a good many of the 130 name
@@ -126,11 +136,9 @@ impl Mapping {
         };
         table
             .table_for(firmware)
-            .entries
-            .iter()
-            .filter(|entry| entry.parameters.contains(&at))
-            .min_by_key(|entry| (entry.parameters.len(), entry.value))
-            .and_then(|entry| u8::try_from(entry.value).ok())
+            .values_naming(at)
+            .next()
+            .and_then(|value| u8::try_from(value).ok())
     }
 
     /// Returns whether the matrix can be pointed at `at` at all.
@@ -147,13 +155,17 @@ impl Mapping {
     /// for the same amount the other way, which on the ten bipolar parameters
     /// whose range is not symmetric is not the same number of bytes.
     ///
-    /// **What full depth is worth is assumed**, and it is the one assumption on
-    /// this page: see the module's own note and
-    /// [deepmind-midi#38](https://github.com/MysteriousWolf/deepmind-midi/issues/38).
+    /// **What full depth is worth is asked of the library and assumed where it
+    /// has no answer**, which is everywhere today: see `reach_of` and the
+    /// module's own note.
     #[must_use]
     pub fn depth_of(self, at: ParamId, from: u8, to: u8) -> u8 {
         let span = f32::from(at.max().saturating_sub(at.min())).max(1.0);
-        let travelled = (f32::from(to) - f32::from(from)) / span;
+        // How far the control was dragged, in depths rather than in its own
+        // travel: a depth that covered half the range would need twice as much
+        // of itself to move the control the same distance.
+        let travelled =
+            (f32::from(to) - f32::from(from)) / span / reach_of(self.depth, at).max(f32::EPSILON);
         let low = f32::from(self.depth.min());
         let high = f32::from(self.depth.max());
         let asked = match self.depth.shape() {
@@ -183,6 +195,23 @@ impl Mapping {
     }
 }
 
+/// Returns how much of `at`'s own range a full `depth` covers.
+///
+/// [`ParamId::modulation_reach`] where the library establishes it, and the
+/// whole range where it does not. It does not, on any pair, today: the manual
+/// prints what a `Mod n Depth` byte ranges over and never what that does at the
+/// other end of a routing, and the library will not guess
+/// ([deepmind-midi#38](https://github.com/MysteriousWolf/deepmind-midi/issues/38)).
+///
+/// The fallback is written once, here, and both things that need it — the drag
+/// that puts a number in a depth and the band that says how far the depths
+/// already there can push a control — go through it. That is the whole point of
+/// there being a function: an assumption in two places is an assumption that
+/// gets corrected in one of them.
+fn reach_of(depth: ParamId, at: ParamId) -> f32 {
+    depth.modulation_reach(at).unwrap_or(1.0)
+}
+
 /// What one routing the patch already holds does to one control.
 ///
 /// The other seven rows, carried to every control while the eighth is being
@@ -204,16 +233,31 @@ pub struct Reach {
     of: ParamId,
     /// The byte that parameter holds.
     depth: u8,
+    /// Which way the source at the other end of the routing moves things.
+    ///
+    /// `ValueTable::swing_of`, read once where the routing is: it is a fact
+    /// about the source and the same for every routing that uses it, so it is
+    /// carried rather than looked up per control. `None` for a source the
+    /// specification does not settle and for `Off`, which moves nothing.
+    swings: Option<Swing>,
 }
 
 impl Reach {
-    /// A routing that lands on `at`, with `depth` in `of`.
-    pub(crate) const fn new(at: ParamId, label: &'static str, of: ParamId, depth: u8) -> Self {
+    /// A routing that lands on `at`, with `depth` in `of`, from a source that
+    /// `swings` the way the library says it does.
+    pub(crate) const fn new(
+        at: ParamId,
+        label: &'static str,
+        of: ParamId,
+        depth: u8,
+        swings: Option<Swing>,
+    ) -> Self {
         Self {
             at,
             label,
             of,
             depth,
+            swings,
         }
     }
 
@@ -236,21 +280,28 @@ impl Reach {
     /// is at its centre — a routing with no depth in it moves nothing, which is
     /// a band of no width rather than no band.
     ///
-    /// **What full depth is worth is assumed**, exactly as it is for a drag:
-    /// full depth is taken to move the control over the whole of its range.
-    /// The manual does not print the law and the library refuses to guess, so
-    /// this band is the same claim the drag makes, drawn instead of typed. It
-    /// is asked for in
-    /// [deepmind-midi#38](https://github.com/MysteriousWolf/deepmind-midi/issues/38).
+    /// # Which way it swings
     ///
-    /// Which *way* it swings is assumed too, and it is the second thing: a
-    /// routing from an LFO swings a control about where it sits and one from an
-    /// envelope rides up from it, and what a source puts out is not published
-    /// either. So the band runs from where the control sits to as far as the
-    /// depth reaches in the direction the depth's own sign gives, which is what
-    /// the fader holding it already says out loud, and which is right for a
-    /// wheel and wrong for an LFO. Asked for in
-    /// [deepmind-midi#41](https://github.com/MysteriousWolf/deepmind-midi/issues/41).
+    /// The source's, which 26.5 publishes as `Swing`
+    /// ([deepmind-midi#41](https://github.com/MysteriousWolf/deepmind-midi/issues/41)).
+    /// This window used to take the depth's own sign as the whole answer, which
+    /// is right for a wheel and for an envelope and wrong for an LFO: an LFO at
+    /// depth swings a control up *and* down about where it sits, and a band
+    /// drawn one way from it said a filter could only ever open.
+    ///
+    /// So a `Centred` source gets a band either side of where the control sits
+    /// and a `Rising` one gets a band from it, and the depth's sign is what it
+    /// always was on the second — which way round the routing applies the
+    /// source. A source the specification does not settle — `Off`, and the note
+    /// number, whose zero is printed nowhere — keeps the old reading, because a
+    /// band from where the control sits is the narrower claim of the two.
+    ///
+    /// # What full depth is worth
+    ///
+    /// Asked of `reach_of`, the same as the drag asks, and assumed to be the
+    /// whole range until the library has an answer. Which way a source swings
+    /// and how far a depth reaches are two facts on two parameters, and only
+    /// the first of them has landed.
     #[must_use]
     pub fn swing(self, value: u8) -> (f32, f32) {
         let span = f32::from(self.at.max().saturating_sub(self.at.min())).max(1.0);
@@ -270,7 +321,16 @@ impl Reach {
             // A depth a later library makes unipolar has no direction in it, so
             // all of it is upwards — the same reading the drag takes.
             _ => (depth - low) / (high - low).max(1.0),
-        };
+        } * reach_of(self.of, self.at);
+        if self.swings == Some(Swing::Centred) {
+            // Either side, and the sign says nothing: an inverted LFO reaches
+            // exactly as far as an upright one and reaches it both ways.
+            let reaches = reaches.abs();
+            return (
+                (sits - reaches).clamp(0.0, 1.0),
+                (sits + reaches).clamp(0.0, 1.0),
+            );
+        }
         let lands = (sits + reaches).clamp(0.0, 1.0);
         (sits.min(lands), sits.max(lands))
     }
@@ -314,7 +374,7 @@ impl<'a> Sent<'a> {
     reason = "a failed expectation is the test failure"
 )]
 mod tests {
-    use deepmind_midi::param::{DEFAULT_FIRMWARE, ParamId, Shape};
+    use deepmind_midi::param::{DEFAULT_FIRMWARE, ParamId, Shape, Swing};
 
     use super::Mapping;
 
@@ -440,6 +500,7 @@ mod tests {
             "Mod 1",
             ParamId::Mod1Depth,
             u8::try_from(centre).expect("a byte"),
+            Some(Swing::Rising),
         );
         let (from, to) = reach.swing(64);
 
@@ -460,7 +521,7 @@ mod tests {
         // left to go and says so.
         let at = ParamId::VcfFrequency;
         let full = u8::try_from(ParamId::Mod1Depth.max()).expect("a byte");
-        let reach = Reach::new(at, "Mod 1", ParamId::Mod1Depth, full);
+        let reach = Reach::new(at, "Mod 1", ParamId::Mod1Depth, full, Some(Swing::Rising));
         let low = u8::try_from(at.min()).expect("a byte");
         let high = u8::try_from(at.max()).expect("a byte");
 
@@ -472,12 +533,13 @@ mod tests {
     fn a_routing_below_the_centre_sweeps_downwards() {
         use super::Reach;
 
-        // Which way a depth swings is the depth's own sign, and a band that
-        // drew a negative depth as an upward sweep would be a band saying the
-        // opposite of the number under the fader that holds it.
+        // For a source that rides up from where it rests, which way a depth
+        // swings is the depth's own sign: a band that drew a negative depth as
+        // an upward sweep would say the opposite of the number under the fader
+        // that holds it.
         let at = ParamId::VcfFrequency;
         let none = u8::try_from(ParamId::Mod1Depth.min()).expect("a byte");
-        let reach = Reach::new(at, "Mod 1", ParamId::Mod1Depth, none);
+        let reach = Reach::new(at, "Mod 1", ParamId::Mod1Depth, none, Some(Swing::Rising));
         let middle = u8::try_from(u16::midpoint(at.min(), at.max())).expect("a byte");
         let (from, to) = reach.swing(middle);
 
@@ -485,6 +547,71 @@ mod tests {
         assert!(
             to <= 0.51,
             "a depth at its floor reached up to {to} from the middle"
+        );
+    }
+
+    #[test]
+    fn a_centred_source_swings_a_control_both_ways() {
+        use super::Reach;
+
+        // The whole of what 26.5 answered here: an LFO at depth moves a
+        // control up and down about where it sits, so a band drawn one way
+        // from it said a filter could only ever open. The depth's sign says
+        // which way round the routing applies the source and nothing about how
+        // far it reaches, so an inverted LFO draws the same band.
+        let at = ParamId::VcfFrequency;
+        let middle = u8::try_from(u16::midpoint(at.min(), at.max())).expect("a byte");
+        let floor = u8::try_from(ParamId::Mod1Depth.min()).expect("a byte");
+        let ceiling = u8::try_from(ParamId::Mod1Depth.max()).expect("a byte");
+
+        let down = Reach::new(at, "Mod 1", ParamId::Mod1Depth, floor, Some(Swing::Centred));
+        // Where the control sits, which is where a rising source's band would
+        // start and where a centred one's is centred.
+        let sits = f32::from(middle) / f32::from(u8::try_from(at.max()).expect("a byte"));
+        let (from, to) = down.swing(middle);
+        assert!(from < sits, "an LFO reached nothing below the control");
+        assert!(to > sits, "an LFO reached nothing above the control");
+
+        let up = Reach::new(
+            at,
+            "Mod 1",
+            ParamId::Mod1Depth,
+            ceiling,
+            Some(Swing::Centred),
+        );
+        let (rose, fell) = up.swing(middle);
+        assert!((rose - from).abs() < 0.02, "inverting it moved the band");
+        assert!((fell - to).abs() < 0.02, "inverting it moved the band");
+
+        // And a rising source is the band it always was.
+        let rising = Reach::new(
+            at,
+            "Mod 1",
+            ParamId::Mod1Depth,
+            ceiling,
+            Some(Swing::Rising),
+        );
+        let (starts, _) = rising.swing(middle);
+        assert!(
+            (starts - sits).abs() < f32::EPSILON,
+            "a rising source's band left the control at {starts}"
+        );
+    }
+
+    #[test]
+    fn a_control_the_library_has_no_law_for_is_swept_over_its_whole_range() {
+        // The assumption behind both the drag and the band, asked the way the
+        // window asks it. The library answers `None` for every pair today, so
+        // this is the fallback; the day it answers a fraction, this test is
+        // what says the window stopped assuming.
+        let reach = ParamId::Mod1Depth.modulation_reach(ParamId::VcfFrequency);
+
+        assert_eq!(
+            reach, None,
+            "the library has an answer and nothing reads it"
+        );
+        assert!(
+            (super::reach_of(ParamId::Mod1Depth, ParamId::VcfFrequency) - 1.0).abs() < f32::EPSILON
         );
     }
 

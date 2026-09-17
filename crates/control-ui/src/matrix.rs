@@ -65,6 +65,7 @@
 //! a different set of controls with nothing in this file to edit.
 
 use deepmind_midi::param::{Group, Kind, ParamId};
+use deepmind_midi::pixels::Pixels;
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::alignment::{Horizontal, Vertical};
 use iced_core::{Background, Font, Length, Theme, border, text::Renderer as TextRenderer};
@@ -116,8 +117,8 @@ const DIAL: f32 = 38.0;
 /// How wide the box a source or destination's picture stands in is.
 ///
 /// Seven dots at the pitch every display in this window shares, which is the
-/// cell the instrument's own screen writes a character in and the size the
-/// library is asked for in deepmind-midi#40.
+/// cell the instrument's own screen writes a character in and the grid the
+/// library draws its cells, its glyphs and its marks on.
 const PICTURE_ACROSS: f32 = 7.0 * lcd::PITCH;
 
 /// How much card there is between that picture and the list beside it.
@@ -277,13 +278,70 @@ pub(crate) struct Wire {
     number: &'static str,
     /// How much of it arrives, as the instrument's own display would print it.
     depth: String,
-    /// The source's name, as the display prints it.
-    from: &'static str,
-    /// The destination's, the same way.
-    to: &'static str,
+    /// Where it comes from.
+    from: End,
+    /// Where it goes.
+    to: End,
     /// The weaker of the two claims, because a line drawn between a fact and a
     /// guess is a guess.
     claim: Confidence,
+}
+
+/// One end of a routing: the name the display prints, and the picture beside it.
+///
+/// Two readings of one value, so two ends that are equal by name are equal by
+/// picture too and the glass can key its cells on either.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct End {
+    /// What the instrument's own display calls it.
+    name: &'static str,
+    /// The library's picture of it, where there is one.
+    ///
+    /// A source's is `ValueTable::cell_of` — an LFO's wave, a wheel, an
+    /// envelope's corner, drawn once in the library so that every host draws
+    /// the same picture. A destination's is the glyph of the narrowest
+    /// parameter it moves: a destination is a set of program parameters and the
+    /// picture of what one of those does is [`ParamId::glyph`].
+    ///
+    /// `None` for an end nobody has drawn, which is what the name beside it is
+    /// for.
+    cell: Option<&'static Pixels>,
+}
+
+/// Returns the picture of the source `value` names, where the library has one.
+///
+/// `ValueTable::cell_of`, which 26.5 publishes for the modulation sources
+/// ([deepmind-midi#40](https://github.com/MysteriousWolf/deepmind-midi/issues/40)).
+/// The cells are the library's for the reason the effect families' marks were:
+/// a picture of `LFO 1` is a fact about the instrument, and one drawn here
+/// would be this window inventing one.
+fn cell_from(parameter: ParamId, value: u8, firmware: Version) -> Option<&'static Pixels> {
+    let Kind::Enumerated(table) = parameter.kind() else {
+        return None;
+    };
+    table.table_for(firmware).cell_of(u16::from(value))
+}
+
+/// Returns the picture of the destination `value` names, where there is one.
+///
+/// A destination is not a value with a cell — it is a set of program
+/// parameters — so the picture is the glyph of the narrowest of them, which is
+/// the same parameter [`Mapping::names`](crate::mapping::Mapping::names) would
+/// have chosen coming the other way. `VCF Freq` draws a filter's corner because
+/// `VCF Frequency` does, and the same picture stands on the fader itself.
+///
+/// `None` for a destination that moves several parameters at once with no one
+/// narrowest among them, and for one whose parameters carry no glyph.
+fn cell_to(parameter: ParamId, value: u8, firmware: Version) -> Option<&'static Pixels> {
+    let Kind::Enumerated(table) = parameter.kind() else {
+        return None;
+    };
+    let table = table.table_for(firmware);
+    let moved = table.parameters_of(u16::from(value));
+    let [only] = moved else {
+        return None;
+    };
+    Some(only.glyph()?.pixels())
 }
 
 /// Returns the routings the patch has actually wired, in the order the matrix
@@ -295,7 +353,9 @@ pub(crate) struct Wire {
 /// instrument ships with all eight sitting on `Off`, and eight lines from `Off`
 /// to `Off` is a picture of nothing drawn eight times.
 pub(crate) fn wiring(patch: &Patch, firmware: Version) -> Vec<Wire> {
-    let named = |parameter: ParamId| -> Option<&'static str> {
+    let named = |parameter: ParamId,
+                 picture: fn(ParamId, u8, Version) -> Option<&'static Pixels>|
+     -> Option<End> {
         let value = patch.value(parameter)?;
         let name = choices(parameter, firmware, Some(value))?
             .into_iter()
@@ -303,7 +363,10 @@ pub(crate) fn wiring(patch: &Patch, firmware: Version) -> Vec<Wire> {
             .name();
         // `Off` is the instrument saying this end is not wired, and it is the
         // library's own word for it rather than this window's.
-        (!name.eq_ignore_ascii_case("off")).then_some(name)
+        (!name.eq_ignore_ascii_case("off")).then(|| End {
+            name,
+            cell: picture(parameter, value, firmware),
+        })
     };
     Group::ORDER
         .iter()
@@ -316,8 +379,8 @@ pub(crate) fn wiring(patch: &Patch, firmware: Version) -> Vec<Wire> {
                 depth: patch
                     .value(routing.depth)
                     .map_or_else(String::new, |value| sits_at(routing.depth, value)),
-                from: named(routing.source)?,
-                to: named(routing.destination)?,
+                from: named(routing.source, cell_from)?,
+                to: named(routing.destination, cell_to)?,
                 claim: patch.claim_across([routing.source, routing.destination]),
             })
         })
@@ -350,8 +413,25 @@ pub(crate) fn reaching(patch: &Patch, firmware: Version) -> Vec<Reach> {
             else {
                 continue;
             };
+            // Which way the source at the other end of this routing moves what
+            // it reaches, which 26.5 publishes and which the band drawn on
+            // every control it lands on is read from. A source nobody has read
+            // swings nowhere, the same as a source the specification does not
+            // settle: both are a band this window would be drawing blind.
+            let swings = match routing.source.kind() {
+                Kind::Enumerated(sources) => patch
+                    .value(routing.source)
+                    .and_then(|source| sources.table_for(firmware).swing_of(u16::from(source))),
+                _ => None,
+            };
             for parameter in table.table_for(firmware).parameters_of(u16::from(value)) {
-                reaches.push(Reach::new(*parameter, routing.label, routing.depth, depth));
+                reaches.push(Reach::new(
+                    *parameter,
+                    routing.label,
+                    routing.depth,
+                    depth,
+                    swings,
+                ));
             }
         }
     }
@@ -554,18 +634,21 @@ fn deep(rows: usize) -> i32 {
 /// window shares, and it takes the band it is given — more dots, not bigger
 /// ones, which is the rule the chain's glass is cut under too.
 ///
-/// # What is not drawn yet
+/// # The cells are pictures
 ///
-/// A **7 by 7 cell for each name**, which is what the instrument's own display
-/// would have room for and what would turn two columns of abbreviations into
-/// two columns of pictures: an LFO's wave, an envelope's corner, a wheel, a
-/// filter's knee. Those are the library's to publish for the same reason the
-/// effect families' marks were — a mark for `LFO 1` is a fact about the
-/// instrument and a drawing invented here would be this window making one up.
-/// Asked for in
-/// [deepmind-midi#40](https://github.com/MysteriousWolf/deepmind-midi/issues/40),
-/// recorded in [`docs/waiting.md`](https://github.com/MysteriousWolf/deepmind-control/blob/main/docs/waiting.md),
-/// and until it lands the cells are the names the display already prints.
+/// A 7 by 7 drawing stands against each name: an LFO's wave, a wheel, an
+/// envelope's corner on one side, and what the destination's parameter does on
+/// the other. 26.5 publishes the sources' as `ValueTable::cell_of` and the
+/// parameters' as [`ParamId::glyph`]
+/// ([deepmind-midi#40](https://github.com/MysteriousWolf/deepmind-midi/issues/40)),
+/// so a column of abbreviations is a column of pictures now — which is the
+/// thing a patch bay is for, because the shape of a matrix is something you
+/// read at a glance or not at all.
+///
+/// They are the library's for the reason the effect families' marks were: a
+/// mark for `LFO 1` is a fact about the instrument and one drawn here would be
+/// this window inventing it. The names stay beside them, because a picture and
+/// a name say different amounts to somebody who has not met either.
 fn bay<'a, Renderer>(
     patch: &Patch,
     firmware: Version,
@@ -627,11 +710,11 @@ fn drawn(wires: &[Wire], deep: i32, of: usize, run: &str) -> Screen {
     screen.write(from, MARGIN, run, Size::Small);
     screen.invert(Band::new(0, 0, BAY, MARGIN * 2 + LINE));
 
-    let ends = |pick: fn(&Wire) -> &'static str| -> Vec<&'static str> {
-        let mut ends: Vec<&'static str> = Vec::new();
-        for name in wires.iter().map(pick) {
-            if !ends.contains(&name) {
-                ends.push(name);
+    let ends = |pick: fn(&Wire) -> End| -> Vec<End> {
+        let mut ends: Vec<End> = Vec::new();
+        for end in wires.iter().map(pick) {
+            if !ends.contains(&end) {
+                ends.push(end);
             }
         }
         ends
@@ -639,31 +722,30 @@ fn drawn(wires: &[Wire], deep: i32, of: usize, run: &str) -> Screen {
     let (sources, destinations) = (ends(|wire| wire.from), ends(|wire| wire.to));
     // What leaves each source: its routings, in the order the matrix reads
     // them, and how much of it each one carries.
-    let leaving = |name: &'static str| -> Vec<String> {
+    let leaving = |end: End| -> Vec<String> {
         wires
             .iter()
-            .filter(|wire| wire.from == name)
+            .filter(|wire| wire.from == end)
             .map(|wire| format!("{} {}", wire.number, wire.depth).trim().to_owned())
             .collect()
     };
     let head = MARGIN * 2 + LINE;
     let depths: Vec<i32> = sources
         .iter()
-        .map(|name| cell_deep(leaving(name).len()))
+        .map(|end| cell_deep(leaving(*end).len()))
         .collect();
     let left = spread(head, deep, &depths);
     let right = spread(head, deep, &vec![cell_deep(0); destinations.len()]);
 
-    for ((index, name), top) in sources.iter().enumerate().zip(&left) {
-        node(&mut screen, MARGIN, *top, name, &leaving(name), Side::From);
-        let _ = index;
+    for (end, top) in sources.iter().zip(&left) {
+        node(&mut screen, MARGIN, *top, *end, &leaving(*end), Side::From);
     }
-    for (name, top) in destinations.iter().zip(&right) {
+    for (end, top) in destinations.iter().zip(&right) {
         node(
             &mut screen,
             BAY - MARGIN - CELL_ACROSS,
             *top,
-            name,
+            *end,
             &[],
             Side::To,
         );
@@ -673,8 +755,8 @@ fn drawn(wires: &[Wire], deep: i32, of: usize, run: &str) -> Screen {
     // same part of the glass have to be two wires and not one heavier one.
     for (lane, wire) in wires.iter().enumerate() {
         let (Some(source), Some(destination)) = (
-            sources.iter().position(|name| *name == wire.from),
-            destinations.iter().position(|name| *name == wire.to),
+            sources.iter().position(|end| *end == wire.from),
+            destinations.iter().position(|end| *end == wire.to),
         ) else {
             continue;
         };
@@ -755,19 +837,19 @@ enum Side {
 
 /// Draws one end of a routing on the glass: its frame, the box its picture will
 /// stand in, its name, whatever leaves it, and the knots the wires attach to.
-fn node(screen: &mut Screen, at: i32, top: i32, name: &'static str, lines: &[String], side: Side) {
+fn node(screen: &mut Screen, at: i32, top: i32, end: End, lines: &[String], side: Side) {
     let deep = cell_deep(lines.len());
     screen.frame(Band::new(at, top, CELL_ACROSS, deep), Ink::Solid);
-    // Where the library's own picture of this source or destination will go:
-    // seven dots by seven, which is the cell this display writes a character
-    // in. Empty, because a picture of `LFO 1` is a fact about the instrument
-    // and one invented here would be this window making it up — asked for in
-    // deepmind-midi#40, and the same empty box the row beside the glass draws
-    // against the same name.
-    screen.frame(
-        Band::new(at + GUTTER, top + 2, PICTURE, PICTURE),
-        Ink::Solid,
-    );
+    // The library's own picture of this source or destination, seven dots by
+    // seven, which is the cell this display writes a character in. An end
+    // nobody has drawn keeps the empty box it always had, so a column of
+    // pictures with one gap in it reads as one thing undrawn rather than as a
+    // column that has not been drawn.
+    let box_at = Band::new(at + GUTTER, top + 2, PICTURE, PICTURE);
+    match end.cell {
+        Some(cell) => screen.blit(cell, box_at.x, box_at.y),
+        None => screen.frame(box_at, Ink::Solid),
+    }
     // The name, in the field left over. A name too long for it scrolls rather
     // than losing its tail: `Pitch Bend` and `BreathCtrl` are ten characters in
     // a field cut for nine, and half a name is a name somebody has to already
@@ -777,7 +859,7 @@ fn node(screen: &mut Screen, at: i32, top: i32, name: &'static str, lines: &[Str
         field,
         top + 2,
         CELL_ACROSS - GUTTER - (field - at),
-        name,
+        end.name,
         Size::Small,
     );
     // What leaves it, one line per routing, against the edge the wires go out
@@ -853,7 +935,7 @@ const LETTERS: i32 = 9;
 /// How wide the box a name's picture will stand in is, and how deep.
 ///
 /// Seven by seven, which is the cell this display writes a character in and the
-/// size asked of the library in deepmind-midi#40.
+/// grid the library draws its own cells and glyphs on.
 const PICTURE: i32 = 7;
 
 /// How wide a cell is: its picture, its name's field, and the glass around
@@ -1034,13 +1116,15 @@ const SHIFT_APART: f32 = 2.0;
 ///
 /// # The picture
 ///
-/// A dotted box, seven dots square, with nothing in it: where the library's own
-/// mark for this source or destination will go when
-/// [deepmind-midi#40](https://github.com/MysteriousWolf/deepmind-midi/issues/40)
-/// lands. It is the same empty box the patch bay draws against the same name,
-/// so the row and the glass are waiting for the same picture — and a mark for
-/// `LFO 1` invented here would be this window making up a fact about the
-/// instrument.
+/// The library's own drawing of whatever this end is set to, seven dots square,
+/// beside the list it was chosen from — the same picture the patch bay puts
+/// against the same name, so a routing reads the same on the row and on the
+/// glass. A source's is `ValueTable::cell_of` and a destination's is the glyph
+/// of the parameter it moves, both published in 26.5
+/// ([deepmind-midi#40](https://github.com/MysteriousWolf/deepmind-midi/issues/40)).
+///
+/// An end that is `Off`, that nobody has read, or that nobody has drawn keeps
+/// the empty box, which is what this was before any of them landed.
 fn chosen<'a, Renderer>(
     patch: &Patch,
     parameter: ParamId,
@@ -1083,25 +1167,60 @@ where
         }
         _ => cell(patch, parameter, firmware, Room::listed(width), sent),
     };
-    row![picture(), listed]
+    let drawn = patch
+        .value(parameter)
+        .and_then(|value| cell_of(parameter, value, firmware));
+    row![picture(drawn), listed]
         .spacing(BESIDE_PICTURE)
         .align_y(Vertical::Center)
         .into()
 }
 
-/// Draws the box a source or destination's picture will stand in.
+/// Returns the library's picture of whatever `parameter` is set to.
+///
+/// A source and a destination are drawn from two different accessors — the
+/// sources carry cells of their own and a destination is a set of program
+/// parameters whose glyph is the picture — so which one answers is decided by
+/// which of the three parameters of a routing this is. A routing's own
+/// [`Routing::source`] is what says so, rather than the parameter's name.
+fn cell_of(parameter: ParamId, value: u8, firmware: Version) -> Option<&'static Pixels> {
+    if is_source(parameter) {
+        cell_from(parameter, value, firmware)
+    } else {
+        cell_to(parameter, value, firmware)
+    }
+}
+
+/// Returns whether `parameter` is the end a routing comes from.
+///
+/// Asked of the library's own tables rather than of the parameter's name: the
+/// eight routings are found the same way everything else in this file finds
+/// them, so a firmware that renamed them is still read correctly.
+fn is_source(parameter: ParamId) -> bool {
+    Group::ORDER
+        .iter()
+        .copied()
+        .filter_map(of)
+        .flatten()
+        .any(|routing| routing.source == parameter)
+}
+
+/// Draws a source or destination's picture, or the box it would stand in.
 ///
 /// Printed on the card rather than lit on glass, because it is a mark beside a
 /// control and not a display: the same call the numeral beside the row goes
-/// through. A box with nothing in it, dim, which is what waiting for a picture
-/// looks like — drawn as a frame rather than as a dotted one, because seven
-/// dots square is too small for a dotted line to read as anything but scatter.
-fn picture<'a, Renderer>() -> Element<'a, Renderer>
+/// through. An end nobody has drawn keeps the empty frame it always had —
+/// drawn as a frame rather than as a dotted one, because seven dots square is
+/// too small for a dotted line to read as anything but scatter.
+fn picture<'a, Renderer>(cell: Option<&'static Pixels>) -> Element<'a, Renderer>
 where
     Renderer: iced_core::Renderer + 'a,
 {
     let mut screen = Screen::new(PICTURE, PICTURE);
-    screen.frame(Band::new(0, 0, PICTURE, PICTURE), Ink::Solid);
+    match cell {
+        Some(cell) => screen.blit(cell, 0, 0),
+        None => screen.frame(Band::new(0, 0, PICTURE, PICTURE), Ink::Solid),
+    }
     lcd::stencil(screen, |theme: &Theme| {
         let material = materials(theme);
         style::mix(material.plate, material.metal_low, WAITING)
@@ -1117,17 +1236,26 @@ const WAITING: f32 = 0.55;
 
 /// Draws the press that sends a routing out into the window.
 ///
-/// A word stencilled on the card, the way every other mark in this window is: a
-/// press whose face is a drawing rather than a label needs no rim to say where
-/// the label stops and the button starts, and a row whose other controls are
-/// two recesses and a dial had a rounded rectangle sitting in the middle of it.
+/// A [reticle](crate::MAP) stencilled on the card, the way every other mark in
+/// this window is: a press whose face is a drawing rather than a label needs no
+/// rim to say where the label stops and the button starts, and a row whose
+/// other controls are two recesses and a dial had a rounded rectangle sitting
+/// in the middle of it.
+///
+/// It was the word `MAP`. What the press does is put the routing over the
+/// panel and wait for somebody to aim it at a control, which is a thing with a
+/// picture — so it has the picture, and the word it used to carry is in the
+/// footer as the sentence the pointer brings up, the same as every other press
+/// in this window. That is also what makes the press square: a press whose face
+/// is a word is as wide as the word, and one whose face is a mark is the size
+/// of the mark.
 ///
 /// What changes while the mode is up is the ink. It goes to the one saturated
 /// colour on the panel — the same cyan every control the routing can reach is
 /// lit in at that moment — because the press and the lit controls are one thing
-/// happening, so they are one colour. The word does not change: a press that
-/// said `MAP` and then `STOP` would be two presses of two widths, and the row
-/// would move under the hand that pressed it.
+/// happening, so they are one colour. The mark does not change: a press that
+/// showed a reticle and then a cross would be two marks to learn, and the
+/// colour already says which of the two states it is in.
 fn mapping_press<'a, Renderer>(routing: Routing, mapper: &Mapper) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1136,7 +1264,7 @@ where
     let mapping = mapper
         .mapped()
         .is_some_and(|mapped| mapped.destination() == destination);
-    let word = lcd::stencil(Screen::of(WORD, Size::Small), move |theme: &Theme| {
+    let mark = lcd::stencil(crate::MAP.screen(), move |theme: &Theme| {
         if mapping {
             style::MODULATION
         } else {
@@ -1145,7 +1273,7 @@ where
         }
     });
     let press = button(
-        container(word)
+        container(mark)
             .center_x(Length::Fill)
             .center_y(Length::Fill),
     )
@@ -1165,9 +1293,6 @@ where
         .on_exit(Message::Hinted(None))
         .into()
 }
-
-/// What that press says.
-const WORD: &str = "MAP";
 
 /// Says what mapping a routing at the window means while one is mapped.
 ///
@@ -1199,9 +1324,11 @@ where
 
 /// How much room the press that maps a routing onto the window takes.
 ///
-/// The word on it and the card either side of it, which is the same room every
-/// other mark in this window is given.
-const POINT: f32 = 44.0;
+/// The mark on it and the card either side of it, which is the same room every
+/// other mark in this window is given. It was the width of the word `MAP` set
+/// small; a reticle is square, so the press is the size of a press rather than
+/// the size of a label.
+const POINT: f32 = 28.0;
 
 /// How tall the list a destination is searched in opens.
 ///
@@ -1255,9 +1382,8 @@ where
     reason = "a failed expectation is the test failure"
 )]
 mod tests {
+    use super::{End, moved, of, routed};
     use deepmind_midi::param::{Group, Kind, ParamId};
-
-    use super::{moved, of, routed};
 
     use super::{BAY, CELL_ACROSS, Wire, deep, drawn};
     use crate::Confidence;
@@ -1292,8 +1418,14 @@ mod tests {
             .map(|(index, (from, to))| Wire {
                 number: NUMBERED.get(index).copied().unwrap_or("9"),
                 depth: format!("+{}", index * 8),
-                from,
-                to,
+                from: End {
+                    name: from,
+                    cell: None,
+                },
+                to: End {
+                    name: to,
+                    cell: None,
+                },
                 claim: Confidence::Confirmed,
             })
             .collect()
@@ -1303,6 +1435,44 @@ mod tests {
     /// glass, with the heading the table's own group would give it.
     fn shown(wires: &[Wire]) -> crate::Screen {
         drawn(wires, deep(8), 8, "93-116")
+    }
+
+    #[test]
+    fn both_ends_of_a_routing_carry_the_librarys_own_picture() {
+        use deepmind_midi::param::DEFAULT_FIRMWARE;
+        use deepmind_midi::pixels::Glyph;
+        use deepmind_midi::program::ModSource;
+
+        // A source's cell is the library's drawing of it, and a destination's
+        // is the glyph of the parameter it moves. Both landed in 26.5 and
+        // both are what the row and the glass now stand beside a name.
+        let lfo = super::cell_from(ParamId::Mod1Source, ModSource::Lfo1.raw(), DEFAULT_FIRMWARE)
+            .expect("the library draws LFO 1");
+        assert!(lfo.rows().iter().any(|row| *row != 0), "a blank cell");
+
+        // `Off` is the instrument saying an end is not wired, so it has none.
+        assert!(
+            super::cell_from(ParamId::Mod1Source, ModSource::Off.raw(), DEFAULT_FIRMWARE).is_none()
+        );
+
+        // And a destination that moves one parameter draws what that parameter
+        // does — the same picture the fader itself stands under.
+        let Kind::Enumerated(table) = ParamId::Mod1Destination.kind() else {
+            unreachable!("a destination is chosen from a table")
+        };
+        let narrowest = table
+            .table_for(DEFAULT_FIRMWARE)
+            .values_naming(ParamId::VcfFrequency)
+            .next()
+            .expect("the matrix reaches the filter");
+        let byte = u8::try_from(narrowest).expect("a byte");
+        let corner = super::cell_to(ParamId::Mod1Destination, byte, DEFAULT_FIRMWARE)
+            .expect("a filter corner is drawn");
+        assert_eq!(
+            Some(corner),
+            ParamId::VcfFrequency.glyph().map(Glyph::pixels),
+            "the destination drew something other than its parameter"
+        );
     }
 
     #[test]
