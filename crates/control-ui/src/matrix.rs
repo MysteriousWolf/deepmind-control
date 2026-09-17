@@ -66,7 +66,7 @@
 
 use deepmind_midi::param::{Group, Kind, ParamId};
 use deepmind_midi::sysex::inquiry::Version;
-use iced_core::alignment::{Horizontal, Vertical};
+use iced_core::alignment::Vertical;
 use iced_core::{Background, Font, Length, Theme, border, text::Renderer as TextRenderer};
 use iced_widget::{Space, button, column, combo_box, container, row, text};
 
@@ -77,29 +77,26 @@ use crate::panel::{Choice, Message, Room, choices, control, readout};
 use crate::style::{self, chrome, field, materials, shortlist};
 use crate::{Confidence, Element, Patch, tint};
 
-/// How far the numeral beside a row is carried from the plate towards the
-/// metal.
+/// How much room the two presses that move a routing are given.
 ///
-/// Quiet. It is a mark on a panel rather than a reading: the row says what the
-/// routing does and this says which of the eight is saying it, which is the one
-/// thing here that has to be read without reading.
-const NUMERAL: f32 = 0.55;
-
-/// How much room the number of a routing is given.
+/// This was the routing's own number, and before that its number over the three
+/// addresses it occupies. Neither needed to be there: the footer already names
+/// whatever is under the pointer, which for any control in this table is
+/// `Mod 4 Depth`, and a number printed eight times down the edge of a page is a
+/// number somebody reads once.
 ///
-/// A numeral and the glass around it. It was `Mod 1` over the three addresses
-/// the routing occupies, which is fifty points of row spent on a word the
-/// heading already says and a number nobody edits a program by.
-const LABEL: f32 = 22.0;
+/// What the room is spent on instead is the one thing a matrix of eight
+/// identical slots gives nobody a way to do.
+const LABEL: f32 = 20.0;
 
 /// How much room a source is chosen in.
-const SOURCE: f32 = 100.0;
+const SOURCE: f32 = 108.0;
 
 /// How much room a destination is chosen in.
 ///
 /// Wider than a source, because there are 133 of them and their names are the
 /// long ones: `VCF Envelope Attack` has to be readable to be chosen.
-const DESTINATION: f32 = 140.0;
+const DESTINATION: f32 = 158.0;
 
 /// How long the depth fader's travel is.
 ///
@@ -107,7 +104,7 @@ const DESTINATION: f32 = 140.0;
 /// wanted it more: a depth is one byte and ninety points of travel is already
 /// finer than a hand can be, where the patch bay is eight routings and cannot
 /// be read at all if the two columns of names meet in the middle.
-const DEPTH: f32 = 90.0;
+const DEPTH: f32 = 80.0;
 
 /// How much room the arrow between a source and its destination takes.
 const ARROW: f32 = 18.0;
@@ -366,39 +363,27 @@ where
     ]
     .spacing(10)
     .height(Length::Fixed(HEADING - DOWN));
-    let rows = routings.iter().copied().map(|routing| {
-        let reading = row![
-            // Which of the eight this is, printed in the display's own dots on
-            // the panel — the same numeral an effect engine's case carries, for
-            // the same reason: it is the one thing in the row that has to be
-            // read without reading.
-            //
-            // It read `Mod 1` over `93–95`. The `Mod` said what the heading
-            // over the table already says, and the addresses are where three
-            // bytes live in a program somebody is not editing by offset. Those
-            // are on the glass beside the rows now, once for the group, which
-            // is how many times a run of twenty-four addresses needs saying.
-            container(lcd::stencil(
-                Screen::of(routing.number(), Size::Small),
-                |theme: &Theme| {
-                    let material = materials(theme);
-                    style::mix(material.plate, material.metal, NUMERAL)
-                },
-            ))
-            .width(Length::Fixed(LABEL))
-            .align_x(Horizontal::Right),
-            cell(patch, routing.source, firmware, Room::listed(SOURCE), sent),
-            arrow(),
-            going(patch, routing, firmware, mapper, sent),
-            cell(patch, routing.depth, firmware, Room::across(DEPTH), sent),
-        ]
-        .spacing(10)
-        .align_y(Vertical::Bottom);
-        container(reading)
-            .height(Length::Fixed(ROW))
-            .align_y(Vertical::Bottom)
-            .into()
-    });
+    let rows = routings
+        .iter()
+        .copied()
+        .enumerate()
+        .map(|(index, routing)| {
+            let reading = row![
+                // Where a routing can be moved to, which is the one thing a
+                // matrix of eight identical slots gives nobody a way to do.
+                shifts(patch, &routings, index),
+                cell(patch, routing.source, firmware, Room::listed(SOURCE), sent),
+                arrow(),
+                going(patch, routing, firmware, mapper, sent),
+                cell(patch, routing.depth, firmware, Room::across(DEPTH), sent),
+            ]
+            .spacing(10)
+            .align_y(Vertical::Bottom);
+            container(reading)
+                .height(Length::Fixed(ROW))
+                .align_y(Vertical::Bottom)
+                .into()
+        });
     let read = column![header]
         .extend(rows)
         // What the mode is, while it is up. On the page the routing is on
@@ -833,6 +818,64 @@ const BAY: i32 = MARGIN * 2 + CELL_ACROSS * 2 + LINK;
 /// How much glass there is around the drawing.
 const MARGIN: i32 = 3;
 
+/// Draws the two presses that move a routing up or down the table.
+///
+/// The eight are read as a set and the instrument does not care which of them
+/// says what, so where a routing sits is entirely for whoever has to read the
+/// table next. A matrix filled in over a week is eight rows in the order they
+/// were thought of; the same eight grouped by what they move is the same sound
+/// and a page somebody can read.
+///
+/// Nothing about the sound changes. What moves is six bytes trading places, and
+/// both routings keep everything they had.
+///
+/// A press is dead where there is nothing to trade: the top row cannot go up,
+/// the bottom cannot go down, and a routing whose bytes nobody has read cannot
+/// be moved anywhere — there is nothing to move, and writing a value this window
+/// has not seen into a slot is the one thing it does not do.
+fn shifts<'a, Renderer>(patch: &Patch, routings: &[Routing], index: usize) -> Element<'a, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    let routing = routings.get(index).copied();
+    let press = |label: &'static str, towards: Option<usize>| {
+        let swap = routing.zip(towards.and_then(|at| routings.get(at).copied()));
+        let known = |routing: Routing| {
+            !matches!(
+                patch.claim_across(routing.parameters()),
+                Confidence::Unknown
+            )
+        };
+        button(text(label).size(9).center())
+            .width(Length::Fixed(LABEL))
+            .height(Length::Fixed(SHIFT))
+            .padding(0)
+            .style(chrome)
+            .on_press_maybe(
+                swap.filter(|(one, other)| known(*one) && known(*other))
+                    .map(|(one, other)| Message::Swap {
+                        one: one.parameters(),
+                        other: other.parameters(),
+                    }),
+            )
+    };
+    column![
+        press("\u{25b2}", index.checked_sub(1)),
+        press(
+            "\u{25bc}",
+            Some(index + 1).filter(|at| *at < routings.len())
+        ),
+    ]
+    .spacing(2)
+    .into()
+}
+
+/// How tall one of those presses stands.
+///
+/// Two of them and the glass between are a control's own height, so the pair
+/// stands in the row the way everything else in it does.
+const SHIFT: f32 = 15.0;
+
 /// Draws where a routing goes: the name, the search it is found in, and the/// Draws where a routing goes: the name, the search it is found in, and the
 /// press that asks the window instead.
 ///
@@ -1179,6 +1222,36 @@ mod tests {
                 printed(&screen)
             );
         }
+    }
+
+    #[test]
+    fn a_swap_trades_two_routings_parameter_for_parameter() {
+        // Six bytes and three pairs, and the pairs are the ones that mean the
+        // same thing: a source for a source, a destination for a destination,
+        // a depth for a depth. A swap that paired them by position in the
+        // program would be a swap that put a depth where a source goes.
+        let routings = of(Group::ModMatrix).expect("the matrix");
+        let [one, other] = [
+            routings.first().copied().expect("a first"),
+            routings.get(1).copied().expect("a second"),
+        ];
+
+        assert_eq!(
+            one.parameters(),
+            [
+                ParamId::Mod1Source,
+                ParamId::Mod1Destination,
+                ParamId::Mod1Depth
+            ]
+        );
+        assert_eq!(
+            other.parameters(),
+            [
+                ParamId::Mod2Source,
+                ParamId::Mod2Destination,
+                ParamId::Mod2Depth
+            ]
+        );
     }
 
     #[test]

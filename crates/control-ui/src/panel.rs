@@ -454,6 +454,24 @@ pub enum Message {
         /// That byte.
         by: u8,
     },
+    /// Two routings should trade places.
+    ///
+    /// Six parameters, three at a time, and the pairs are already worked out by
+    /// the view that knows which two rows are being swapped. It is one message
+    /// because it is one gesture, for the reason [`Reach`](Message::Reach) is:
+    /// somebody moving a routing up the table is moving a routing, not editing
+    /// six bytes.
+    ///
+    /// Nothing about the sound changes. The eight routings are read as a set
+    /// and the instrument does not care which of them says what, so this is a
+    /// rearrangement for whoever has to read the table next — which is the one
+    /// thing a matrix of eight identical slots gives somebody no way to do.
+    Swap {
+        /// One routing's source, destination and depth.
+        one: [ParamId; 3],
+        /// The other's, in the same order.
+        other: [ParamId; 3],
+    },
 }
 
 /// Draws one group of parameters.

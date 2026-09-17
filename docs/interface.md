@@ -741,11 +741,29 @@ where they stop, which is said once, on the glass, beside how many of the eight
 are wired: `4 OF 8` and `93-116`. Two facts that are true of the whole table and
 were a column of repetitions in it.
 
-**Which routing is which is a numeral, printed in dots.** The rows said `Mod 1`
-over `93–95`. `Mod` is what the heading over the table already says, and what is
-left is the one thing in a row that has to be read without reading — so it is
-the same numeral an effect engine's case carries, in the display's own cell, on
-the panel. The column went from fifty points to twenty-two.
+**Which routing is which is nobody's business until somebody asks.** The rows
+said `Mod 1` over `93–95`, then just the numeral, and neither needed to be
+there: the footer already names whatever is under the pointer, which for any
+control in this table is `Mod 4 Depth`, and a number printed eight times down
+the edge of a page is a number somebody reads once. Fifty points of every row
+were being spent on it.
+
+**What the room is spent on instead** is what a matrix of eight identical slots
+gives nobody a way to do: two presses that move a routing up or down the table.
+The eight are read as a set and the instrument does not care which of them says
+what, so where a routing sits is entirely for whoever has to read the table
+next — a matrix filled in over a week is eight rows in the order they were
+thought of, and the same eight grouped by what they move is the same sound and a
+page somebody can read.
+
+Nothing about the sound changes. What moves is six bytes trading places, three
+pairs that mean the same thing: a source for a source, a destination for a
+destination, a depth for a depth. A press is dead where there is nothing to
+trade — the top row cannot go up, the bottom cannot go down, and a routing whose
+bytes nobody has read cannot be moved anywhere, because writing a value this
+window has not seen into a slot is the one thing it does not do.
+
+The rest of what that column was is in the two lists, which are wider now.
 
 **Every cell says which routings use it.** A destination three of them are
 fighting over prints `1 4 7` against its far edge rather than making somebody

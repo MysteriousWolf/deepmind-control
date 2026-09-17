@@ -362,6 +362,23 @@ impl App {
                 self.moved(destination, at);
                 self.moved(depth, by);
             }
+            Message::Ui(control_ui::Message::Swap { one, other }) => {
+                // Read both sides before either moves, or the second pair is
+                // written from a parameter the first pair has already changed.
+                let held: Vec<(ParamId, Option<u8>, ParamId, Option<u8>)> = one
+                    .into_iter()
+                    .zip(other)
+                    .map(|(one, other)| {
+                        (one, self.patch.value(one), other, self.patch.value(other))
+                    })
+                    .collect();
+                for (one, was, other, is) in held {
+                    if let (Some(was), Some(is)) = (was, is) {
+                        self.moved(one, is);
+                        self.moved(other, was);
+                    }
+                }
+            }
             Message::Ui(control_ui::Message::Mapper(at)) => self.mapper.map(at),
             Message::Invert => self.negative = !self.negative,
             Message::Ui(control_ui::Message::Rename(name)) => self.rename(name),
