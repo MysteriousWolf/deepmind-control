@@ -163,7 +163,7 @@ pub use fader::{Axis, Fader, fader};
 pub use footer::footer;
 pub use home::{panel, panel_width, panelled, screen};
 pub use knob::{Knob, knob};
-pub use lcd::{Band, Ink, PITCH, Screen, Size, lcd};
+pub use lcd::{Band, Ink, PITCH, Screen, Size, lcd, stencil};
 pub use name::characters as name_characters;
 pub use panel::{Message, group};
 pub use patch::Patch;

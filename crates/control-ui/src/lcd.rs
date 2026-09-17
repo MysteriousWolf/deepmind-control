@@ -528,6 +528,18 @@ impl Screen {
         glyphs::HEIGHT * size.scale()
     }
 
+    /// A screen cut to one line of `words` and nothing else on it.
+    ///
+    /// What a caller wants when the dots are the writing rather than a drawing
+    /// with writing on it: the grid is as wide as the line measures and as deep
+    /// as the line stands, so the box the dots come in is the word itself.
+    #[must_use]
+    pub fn of(words: &str, size: Size) -> Self {
+        let mut screen = Self::new(Self::width_of(words, size), Self::height_of(size));
+        screen.write(0, 0, words, size);
+        screen
+    }
+
     /// Draws a curve across `band`, joined column to column.
     ///
     /// `height_at` is asked for a height between nothing and the top of the
@@ -595,6 +607,90 @@ where
     Renderer: iced_core::Renderer + 'a,
 {
     Element::new(Display { screen, claim })
+}
+
+/// Draws `screen` as dots stencilled on whatever is behind them, in `ink`.
+///
+/// The same grid, the same pitch and the same square dots as [`lcd`], with the
+/// glass, the moulding and the light on it all left out — so what is left is
+/// the printing rather than the display. A number stencilled on the case of a
+/// rack unit is a dot matrix too, and one set in a typeface beside a window
+/// full of screens is the one piece of writing on the page in a face nothing
+/// else uses.
+///
+/// The ink is the caller's because this is not a display and so has no claim to
+/// carry: [`lcd`] takes a [`Confidence`] and colours the whole screen with it,
+/// and a marking on a case is a fact about the case. It takes a theme rather
+/// than a colour for the same reason every other painted part of this window
+/// does — the panel can be turned over while the window is open.
+#[must_use]
+pub fn stencil<'a, Renderer, Ink>(screen: Screen, ink: Ink) -> crate::Element<'a, Renderer>
+where
+    Renderer: iced_core::Renderer + 'a,
+    Ink: Fn(&Theme) -> Color + 'a,
+{
+    Element::new(Stencil { screen, ink })
+}
+
+/// Dots, and nothing under them.
+#[derive(Debug)]
+struct Stencil<Ink> {
+    screen: Screen,
+    ink: Ink,
+}
+
+impl<Ink> Stencil<Ink> {
+    /// How much room the dots take.
+    ///
+    /// The grid itself, with no surround: there is no glass to hold a dead
+    /// border and no moulding to set it into, so the box is the printing and a
+    /// caller that wants room around it says so where it puts it.
+    fn area(&self) -> Area<Length> {
+        Area::new(
+            Length::Fixed(points(self.screen.columns()) * PITCH),
+            Length::Fixed(points(self.screen.rows()) * PITCH),
+        )
+    }
+}
+
+impl<Message, Renderer, Ink> Widget<Message, Theme, Renderer> for Stencil<Ink>
+where
+    Renderer: iced_core::Renderer,
+    Ink: Fn(&Theme) -> Color,
+{
+    fn size(&self) -> Area<Length> {
+        self.area()
+    }
+
+    fn layout(
+        &mut self,
+        _tree: &mut Tree,
+        _renderer: &Renderer,
+        limits: &layout::Limits,
+    ) -> layout::Node {
+        let area = self.area();
+        layout::atomic(limits, area.width, area.height)
+    }
+
+    fn draw(
+        &self,
+        _tree: &Tree,
+        renderer: &mut Renderer,
+        theme: &Theme,
+        _style: &renderer::Style,
+        layout: Layout<'_>,
+        _cursor: mouse::Cursor,
+        _viewport: &Rectangle,
+    ) {
+        let bounds = layout.bounds();
+        print_dots(
+            renderer,
+            &self.screen,
+            bounds.x,
+            bounds.y,
+            (self.ink)(theme),
+        );
+    }
 }
 
 /// The glass, and the dots on it.
@@ -715,27 +811,46 @@ where
             }),
         );
 
-        let colour = written(theme, self.claim);
-        let inset = (PITCH - LIT) / 2.0;
-        for row in 0..self.screen.rows() {
-            for column in 0..self.screen.columns() {
-                if !self.screen.is_inked(column, row) {
-                    continue;
-                }
-                renderer.fill_quad(
-                    renderer::Quad {
-                        bounds: Rectangle {
-                            x: bounds.x + SURROUND + points(column) * PITCH + inset,
-                            y: bounds.y + SURROUND + points(row) * PITCH + inset,
-                            width: LIT,
-                            height: LIT,
-                        },
-                        border: Border::default().rounded(0.5),
-                        ..renderer::Quad::default()
-                    },
-                    Background::Color(colour),
-                );
+        print_dots(
+            renderer,
+            &self.screen,
+            bounds.x + SURROUND,
+            bounds.y + SURROUND,
+            written(theme, self.claim),
+        );
+    }
+}
+
+/// Lays every printed dot of `screen` down, with its top left dot's cell at
+/// `x`, `y`.
+///
+/// The one place a dot's size and its place in the grid are decided, because a
+/// screen printed on the panel and a screen printed on glass are the same dots
+/// at the same pitch — the glass is what is not the same, and it is drawn
+/// before this is called or not at all.
+fn print_dots<Renderer>(renderer: &mut Renderer, screen: &Screen, x: f32, y: f32, colour: Color)
+where
+    Renderer: iced_core::Renderer,
+{
+    let inset = (PITCH - LIT) / 2.0;
+    for row in 0..screen.rows() {
+        for column in 0..screen.columns() {
+            if !screen.is_inked(column, row) {
+                continue;
             }
+            renderer.fill_quad(
+                renderer::Quad {
+                    bounds: Rectangle {
+                        x: x + points(column) * PITCH + inset,
+                        y: y + points(row) * PITCH + inset,
+                        width: LIT,
+                        height: LIT,
+                    },
+                    border: Border::default().rounded(0.5),
+                    ..renderer::Quad::default()
+                },
+                Background::Color(colour),
+            );
         }
     }
 }
@@ -866,6 +981,23 @@ mod tests {
         assert!(
             Band::new(0, 0, 40, 6).lanes(4, 2).is_empty(),
             "four lanes in six dots is four lanes nobody can read"
+        );
+    }
+
+    #[test]
+    fn a_screen_of_a_line_is_the_line_and_no_glass_around_it() {
+        // What a stencil is cut from: the grid is the writing, so a caller that
+        // centres one in a gutter is centring the digit rather than a box with
+        // a digit somewhere in it.
+        let screen = Screen::of("3", Size::Small);
+
+        assert_eq!(screen.columns(), Screen::width_of("3", Size::Small));
+        assert_eq!(screen.rows(), Screen::height_of(Size::Small));
+        assert!(screen.is_inked(0, 0), "the glyph starts in the corner");
+        assert_eq!(
+            Screen::of("3", Size::Large).rows(),
+            screen.rows() * 2,
+            "the other size is the same cell drawn twice as large"
         );
     }
 

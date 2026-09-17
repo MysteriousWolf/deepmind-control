@@ -165,10 +165,10 @@ use iced_widget::{Space, column, container, pick_list, row, stack, text};
 
 use crate::chain;
 use crate::fader;
-use crate::lcd::{self, Ink, Screen};
+use crate::lcd::{self, Ink, Screen, Size};
 use crate::mark;
 use crate::panel::{self, Message, Room, control, lit_rather_than_listed, modulated, shown};
-use crate::style::{self, materials, reading as reading_face, wordmark};
+use crate::style::{self, materials, reading as reading_face};
 use crate::{Confidence, Element, Patch, tint};
 
 /// How much room the ten topologies are laid out in.
@@ -360,20 +360,30 @@ const SPARE: f32 = 22.0;
 /// the names start in one place down a column of cases.
 const SLOT_NUMBER: f32 = 24.0;
 
-/// How large that numeral is set.
+/// How large that numeral is printed.
 ///
-/// As large as the strip is deep and no larger. It stands behind the line
-/// rather than in it, which is what makes it a ground; a numeral *taller* than
-/// the line is a numeral with its head and its feet cut off, and a digit shaved
-/// at both ends reads as a mistake rather than as a mark on a case.
-const SLOT_HERO: f32 = 24.0;
+/// A cell of the display's own grid, at the pitch every display in this window
+/// shares, which comes out seventeen and a half points tall: as large as the
+/// strip is deep and no larger. It stands behind the line rather than in it,
+/// which is what makes it a ground; a numeral *taller* than the line is a
+/// numeral with its head and its feet cut off, and a digit shaved at both ends
+/// reads as a mistake rather than as a mark on a case.
+///
+/// [`Size::Large`] is the other thing on offer and it is twice this, which is
+/// half as tall again as the strip — and a bigger dot is not on offer at all,
+/// here or anywhere: a display given more room gets more dots, and so does a
+/// case.
+const SLOT_SIZE: Size = Size::Small;
 
 /// How far it is carried from the case towards the case's own ink.
 ///
 /// Further than the family's mark, because it is one character where the mark
 /// is a drawing across a whole face, and a numeral at a watermark's strength is
-/// a numeral nobody can read.
-const SLOT_INK: f32 = 0.55;
+/// a numeral nobody can read. Further again now that it is printed in dots
+/// rather than drawn solid: a dot covers roughly half the cell it stands in and
+/// a glyph roughly half the cells of its box, so the same ink laid down the
+/// same way reads about half as hard as a solid one did.
+const SLOT_INK: f32 = 0.7;
 
 /// Draws the family's mark large and faint across an engine's face.
 ///
@@ -1476,18 +1486,16 @@ where
     // it from setting the height of a line it is only the ground of.
     stack![strip]
         .push_under(
-            container(
-                text(engine.number().to_string())
-                    .size(SLOT_HERO)
-                    .font(wordmark())
-                    .style(move |theme: &Theme| text::Style {
-                        color: Some(style::mix(
-                            chassis(theme, panel.map(|panel| (panel.chassis(), panel.accent()))),
-                            ink(theme, on),
-                            SLOT_INK,
-                        )),
-                    }),
-            )
+            container(lcd::stencil(
+                Screen::of(&engine.number().to_string(), SLOT_SIZE),
+                move |theme: &Theme| {
+                    style::mix(
+                        chassis(theme, panel.map(|panel| (panel.chassis(), panel.accent()))),
+                        ink(theme, on),
+                        SLOT_INK,
+                    )
+                },
+            ))
             .width(Length::Fixed(SLOT_NUMBER))
             // The height as well as the width. A stack lays its under-layers
             // out at its own size and puts them at its own origin, so a layer

@@ -694,18 +694,33 @@ out.
 read `FX 1`, which is two characters saying what the page it is on already says
 and a third competing with the name of an algorithm. What is left is the one
 thing on the strip that has to be read without reading — which of the four this
-is — so it is set the way the family's mark is set on the case: large, bold and
-faint, standing behind what the strip carries. The gutter it stands in is a
-fixed width, so four cases stacked two by two start their names in the same
-place down the page.
+is — so it is set the way the family's mark is set on the case: large and faint,
+standing behind what the strip carries. The gutter it stands in is a fixed
+width, so four cases stacked two by two start their names in the same place down
+the page.
 
-**It is as large as the strip is deep and no larger**, and its layer is given
-that depth rather than allowed to shrink to the numeral. A stack lays an
-under-layer out at its own size and puts it at its own origin, so a layer that
-shrinks to its contents is a layer aligned against nothing: the numeral came out
-four points below the name it stands beside, which is the sort of offset that
-reads as a mistake rather than as a mark on a case. Both are measured now — the
-digit's ink and the name's glyphs share a centre to the pixel.
+**It is printed in the display's own dots**, on the case rather than on any
+glass. The screen this window is a picture of writes its characters as a five by
+seven cell of square dots, and the same cell drawn straight onto a surface with
+no pane under it is what a number stencilled on a piece of equipment looks like —
+so the one digit on the strip is the one piece of writing on the page that is
+not set in a typeface. There is nothing behind it: no glass, no moulding, no
+light on it, which is the whole difference between this and a display.
+
+It is at the pitch every display in this window shares, so it is seventeen and a
+half points tall — as large as the strip is deep and no larger. A dot covers
+about half the cell it stands in and a glyph about half the cells of its box, so
+a quarter of the ink a solid numeral laid down lands on the case: it is carried
+further towards the case's own ink than the solid one was, and still reads
+quieter than the name beside it.
+
+Its layer is given the strip's depth rather than allowed to shrink to the
+numeral. A stack lays an under-layer out at its own size and puts it at its own
+origin, so a layer that shrinks to its contents is a layer aligned against
+nothing: the numeral came out four points below the name it stands beside, which
+is the sort of offset that reads as a mistake rather than as a mark on a case.
+Both are measured now — the digit's dots and the name's glyphs share a centre to
+the pixel.
 
 That is how a rack unit puts a channel number on a case, and it is the second
 thing on this page drawn as a ground rather than as an item in a row.
