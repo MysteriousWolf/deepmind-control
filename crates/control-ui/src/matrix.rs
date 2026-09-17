@@ -38,14 +38,14 @@
 //! — and where the library has no complete table, the row keeps whatever
 //! control the library says the parameter is, with nothing here to decide.
 //!
-//! **Pointing**, for somebody who knows the *control*. `point` sends the
+//! **Mapping**, for somebody who knows the *control*. `map` sends the
 //! routing out into the window: every control the matrix can reach lights up on
 //! all three surfaces, everything else is passed over, and taking hold of one
 //! is the answer — a click chooses it, and a drag sets the depth as well, from
-//! how far the drag would have moved it. See [`Aim`](crate::Aim), which is also
+//! how far the drag would have moved it. See [`Mapper`](crate::Mapper), which is also
 //! where the one assumption on this page is written down.
 //!
-//! Pointing is the one an editor has and a front panel does not, and it is the
+//! Mapping is the one an editor has and a front panel does not, and it is the
 //! answer to the real difficulty of this column: a destination is an
 //! abbreviation the instrument's display prints, and knowing which abbreviation
 //! stands over the fader you have in mind is harder than knowing the fader.
@@ -59,7 +59,7 @@
 //! `Source` in it — the oscillators have one — is not a matrix and is not
 //! drawn as one.
 //!
-//! The same rule covers where a routing may be pointed. Which controls light up
+//! The same rule covers where a routing may be mapped. Which controls light up
 //! is `ValueEntry::parameters` read backwards — the destinations that name the
 //! parameter under the pointer — so a firmware that moves a destination lights
 //! a different set of controls with nothing in this file to edit.
@@ -70,7 +70,7 @@ use iced_core::alignment::Vertical;
 use iced_core::{Background, Font, Length, Theme, border, text::Renderer as TextRenderer};
 use iced_widget::{Space, button, column, combo_box, container, row, text};
 
-use crate::aim::{Aim, Aimed};
+use crate::mapping::{Mapper, Mapping};
 use crate::panel::{Choice, Message, Room, choices, control, readout};
 use crate::style::{self, chrome, field, materials, reading, shortlist};
 use crate::{Confidence, Element, Patch, tint};
@@ -108,7 +108,7 @@ impl Routing {
     /// Returns the parameter that says where this routing goes.
     ///
     /// The one of the three anything outside this file asks about: it is what
-    /// a searchable list is built for and what a routing pointed at the window
+    /// a searchable list is built for and what a routing mapped onto the window
     /// writes into.
     pub(crate) const fn destination(self) -> ParamId {
         self.destination
@@ -178,7 +178,7 @@ pub(crate) fn routed(group: Group) -> Vec<ParamId> {
 }
 
 /// Draws the table `group` makes, when it is a matrix.
-/// Every parameter the matrix is currently pointed at, in `firmware`'s tables.
+/// Every parameter the matrix is currently mapped onto, in `firmware`'s tables.
 ///
 /// A destination is a value in a table of names the instrument's display prints
 /// abbreviated, and until `deepmind-midi` 26.2 nothing joined `VCF Freq` to
@@ -215,13 +215,13 @@ pub(crate) fn table<'a, Renderer>(
     patch: &'a Patch,
     group: Group,
     firmware: Version,
-    aim: &'a Aim,
+    mapper: &'a Mapper,
 ) -> Option<Element<'a, Renderer>>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
     let routings = of(group)?;
-    let aimed = aim.aimed();
+    let sent = mapper.mapped();
     let heading = |parameter: ParamId, width: f32| -> Element<'a, Renderer> {
         // The heading is the parameter's own name with what the row already
         // says taken off the front, which is the rule a slot's title follows
@@ -260,10 +260,10 @@ where
             .width(Length::Fixed(LABEL))
             .height(Length::Fill)
             .align_y(Vertical::Center),
-            cell(patch, routing.source, firmware, Room::listed(SOURCE), aimed),
+            cell(patch, routing.source, firmware, Room::listed(SOURCE), sent),
             arrow(),
-            going(patch, routing, firmware, aim),
-            cell(patch, routing.depth, firmware, Room::across(DEPTH), aimed),
+            going(patch, routing, firmware, mapper),
+            cell(patch, routing.depth, firmware, Room::across(DEPTH), sent),
         ]
         .spacing(10)
         .align_y(Vertical::Bottom)
@@ -276,7 +276,7 @@ where
             // rather than beside the control somebody is about to take hold of,
             // because the whole point of it is that they are about to go
             // somewhere else in the window.
-            .extend(aimed.map(pointing))
+            .extend(sent.map(mapping_note))
             .spacing(8)
             .into(),
     )
@@ -288,7 +288,7 @@ where
 /// Two ways to answer one question, side by side, because they are good at
 /// opposite things. Typing is how somebody who knows the name of the thing
 /// finds it among 133 — three letters and `VCF Envelope Attack` is the only one
-/// left. Pointing is how somebody who knows the *control* finds it: the name of
+/// left. Mapping is how somebody who knows the *control* finds it: the name of
 /// a destination is an abbreviation the instrument's display prints, and
 /// knowing which abbreviation stands over the fader you have in mind is the
 /// whole of what makes this column hard.
@@ -296,39 +296,35 @@ fn going<'a, Renderer>(
     patch: &Patch,
     routing: Routing,
     firmware: Version,
-    aim: &'a Aim,
+    mapper: &'a Mapper,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
     let destination = routing.destination;
-    let pointing = aim
-        .aimed()
-        .is_some_and(|aimed| aimed.destination() == destination);
-    let press = button(
-        text(if pointing { "stop" } else { "point" })
-            .size(10)
-            .center(),
-    )
-    .width(Length::Fixed(POINT))
-    .height(Length::Fixed(crate::panel::BUTTON))
-    .padding(0)
-    .style(move |theme: &Theme, status| {
-        if pointing {
-            aiming(theme)
-        } else {
-            chrome(theme, status)
-        }
-    })
-    .on_press(Message::Aim(
-        (!pointing).then(|| Aimed::new(routing.label, destination, routing.depth)),
-    ));
+    let mapping = mapper
+        .mapped()
+        .is_some_and(|mapped| mapped.destination() == destination);
+    let press = button(text(if mapping { "stop" } else { "map" }).size(10).center())
+        .width(Length::Fixed(POINT))
+        .height(Length::Fixed(crate::panel::BUTTON))
+        .padding(0)
+        .style(move |theme: &Theme, status| {
+            if mapping {
+                lamp(theme)
+            } else {
+                chrome(theme, status)
+            }
+        })
+        .on_press(Message::Mapper(
+            (!mapping).then(|| Mapping::new(routing.label, destination, routing.depth)),
+        ));
     // A searchable list where the library names every value the parameter
     // accepts, and whatever the library says the parameter is where it does
     // not. Which of the two it is, is not a decision this file makes: the list
-    // exists exactly where [`Aim`] could build one, which is where
+    // exists exactly where [`Mapper`] could build one, which is where
     // `ParamId::choices_for` answered.
-    let chosen: Element<'a, Renderer> = match aim.list(destination) {
+    let chosen: Element<'a, Renderer> = match mapper.list(destination) {
         Some(list) => {
             let value = patch.value(destination);
             let selected = choices(destination, firmware, value).and_then(|options| {
@@ -359,7 +355,7 @@ where
             destination,
             firmware,
             Room::listed(DESTINATION),
-            aim.aimed(),
+            mapper.mapped(),
         ),
     };
     column![
@@ -376,22 +372,22 @@ where
     .into()
 }
 
-/// Says what pointing a routing at the window means while one is pointed.
+/// Says what mapping a routing at the window means while one is mapped.
 ///
 /// One line, under the eight rows, and it is where the mode is explained
 /// because it is where the mode was asked for. It says the two things somebody
 /// needs and no more: that a click is the destination, and that a drag is the
 /// depth as well.
-fn pointing<'a, Renderer>(aimed: Aimed) -> Element<'a, Renderer>
+fn mapping_note<'a, Renderer>(mapped: Mapping) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
     container(
         text(format!(
-            "{} is pointed at the window. Take hold of any lit control to send it there \u{2014} \
+            "{} is mapped onto the window. Take hold of any lit control to send it there \u{2014} \
              a click chooses it, and a drag sets the depth from how far it went. \
              What full depth is worth is assumed; the manual does not print it.",
-            aimed.label()
+            mapped.label()
         ))
         .size(11),
     )
@@ -404,12 +400,12 @@ where
     .into()
 }
 
-/// The style the press wears while its own routing is the one being pointed.
+/// The style the press wears while its own routing is the one being mapped.
 ///
 /// The one saturated colour on the panel, which is what every control the
 /// routing can reach is outlined in at the same moment: the press and the lit
 /// controls are one thing happening, so they are one colour.
-fn aiming(theme: &Theme) -> button::Style {
+fn lamp(theme: &Theme) -> button::Style {
     button::Style {
         background: Some(Background::Color(style::MODULATION)),
         text_color: materials(theme).panel,
@@ -438,7 +434,7 @@ fn cell<'a, Renderer>(
     parameter: ParamId,
     firmware: Version,
     room: Room,
-    aim: Option<Aimed>,
+    mapper: Option<Mapping>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -446,7 +442,7 @@ where
     let claim = patch.claim(parameter);
     let value = patch.value(parameter);
     column![
-        control(parameter, value, claim, firmware, room, aim),
+        control(parameter, value, claim, firmware, room, mapper),
         readout(parameter, value, claim, firmware),
     ]
     .spacing(3)
@@ -602,7 +598,7 @@ mod tests {
         let Kind::Enumerated(table) = destination.kind() else {
             unreachable!("a destination is chosen from a table")
         };
-        // Whatever the first named destination moves, pointing a routing at it
+        // Whatever the first named destination moves, mapping a routing at it
         // is what puts that parameter in the answer.
         let entry = table
             .table_for(DEFAULT_FIRMWARE)

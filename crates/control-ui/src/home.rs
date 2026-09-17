@@ -66,9 +66,9 @@ use iced_core::alignment::{Horizontal, Vertical};
 use iced_core::{Background, Border, Font, Length, Theme, text::Renderer as TextRenderer};
 use iced_widget::{Space, button, column, container, responsive, row, text};
 
-use crate::aim::{Aim, Aimed};
 use crate::envelope;
 use crate::lcd::{self, Screen};
+use crate::mapping::{Mapper, Mapping};
 use crate::panel::{Message, Room, readout};
 use crate::scene;
 use crate::style::{materials, printed, reading};
@@ -770,13 +770,13 @@ fn addressed(control: &'static PanelControl, group: Group) -> Option<Control> {
 pub fn panel<'a, Renderer>(
     patch: &'a Patch,
     firmware: Version,
-    aim: &'a Aim,
+    mapper: &'a Mapper,
     paint: impl Fn(&mut Screen) + 'a,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
-    let aim = aim.aimed();
+    let mapper = mapper.mapped();
     responsive(move |room| {
         let scale = Scale::filling(room.width);
         // What every line of the panel is drawn out to.
@@ -800,9 +800,14 @@ where
                 let mut across = row![].spacing(scale.of(ACROSS)).align_y(Vertical::Top);
                 for item in line {
                     across = across.push(match item {
-                        Standing::Plate(plate) => {
-                            group(patch, plate, firmware, scale, share.width(item, scale), aim)
-                        }
+                        Standing::Plate(plate) => group(
+                            patch,
+                            plate,
+                            firmware,
+                            scale,
+                            share.width(item, scale),
+                            mapper,
+                        ),
                         Standing::Screen => display(patch, &paint, scale),
                     });
                 }
@@ -869,21 +874,21 @@ fn group<'a, Renderer>(
     firmware: Version,
     scale: Scale,
     width: f32,
-    aim: Option<Aimed>,
+    mapper: Option<Mapping>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
     let mut controls = row![].spacing(scale.of(2.0)).align_y(Vertical::Top);
     for control in plate.faders.iter().copied() {
-        controls = controls.push(lane(patch, control, firmware, scale, aim));
+        controls = controls.push(lane(patch, control, firmware, scale, mapper));
     }
     if let Some(control) = plate.lamps {
-        controls = controls.push(strip(patch, control, firmware, scale, aim));
+        controls = controls.push(strip(patch, control, firmware, scale, mapper));
     }
     let mut buttons = row![].spacing(scale.of(4.0)).align_y(Vertical::Top);
     for control in plate.switches.iter().copied() {
-        buttons = buttons.push(switch(patch, control, firmware, scale, aim));
+        buttons = buttons.push(switch(patch, control, firmware, scale, mapper));
     }
     // Every plate has a way in, and it is the press the hardware calls EDIT.
     buttons = buttons.push(way("EDIT", plate.opens, scale));
@@ -996,7 +1001,7 @@ fn lane<'a, Renderer>(
     control: Control,
     firmware: Version,
     scale: Scale,
-    aim: Option<Aimed>,
+    mapper: Option<Mapping>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1012,7 +1017,7 @@ where
             claim,
             firmware,
             Room::lane(scale.of(LANE), scale.of(TRAVEL)),
-            aim,
+            mapper,
         ),
         container(readout(parameter, value, claim, firmware))
             .height(Length::Fixed(READ))
@@ -1040,7 +1045,7 @@ fn strip<'a, Renderer>(
     control: Control,
     firmware: Version,
     scale: Scale,
-    aim: Option<Aimed>,
+    mapper: Option<Mapping>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1054,7 +1059,7 @@ where
             patch.claim(parameter),
             firmware,
             Room::lamps(scale.of(LAMPS), lit(scale, named(control, firmware))),
-            aim,
+            mapper,
         ),
     ]
     .spacing(scale.of(APART))
@@ -1099,7 +1104,7 @@ fn switch<'a, Renderer>(
     control: Control,
     firmware: Version,
     scale: Scale,
-    aim: Option<Aimed>,
+    mapper: Option<Mapping>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1112,7 +1117,7 @@ where
             patch.claim(parameter),
             firmware,
             Room::listed(scale.of(SWITCH)),
-            aim,
+            mapper,
         ),
         legend(control.legend, scale),
     ]

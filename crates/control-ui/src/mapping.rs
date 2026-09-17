@@ -1,4 +1,4 @@
-//! Pointing a routing at a control by taking hold of it.
+//! Mapping a routing onto a control by taking hold of it.
 //!
 //! The modulation matrix has two hard columns and they are hard for opposite
 //! reasons. A destination is one of 133 names in a list, and finding `VCF
@@ -7,18 +7,18 @@
 //! right amount means having already heard it.
 //!
 //! The answer to both is the same gesture, and it is the one an editor has that
-//! a front panel does not: point the routing at the window, go to the control
+//! a front panel does not: map the routing onto the window, go to the control
 //! you meant, and take hold of it. Where it lands is the destination. How far
 //! you dragged it is the depth.
 //!
-//! # What is aimed, and what that is not
+//! # What is mapped, and what that is not
 //!
-//! [`Aimed`] is one routing — the three parameters the matrix reads as a
+//! [`Mapping`] is one routing — the three parameters the matrix reads as a
 //! sentence — carried to every control in the window while somebody is
 //! choosing. It is small and it is [`Copy`], because it reaches every control
 //! the panel draws and a control is drawn a great many times.
 //!
-//! It is not an edit. Nothing about a routing being aimed changes what any
+//! It is not an edit. Nothing about a routing being mapped changes what any
 //! parameter holds: while it is up, a control lights if the matrix can reach it
 //! and is inert if it cannot, the sections still open, the panel still scrolls,
 //! and the one thing that does not happen is the sound changing. That is the
@@ -28,7 +28,7 @@
 //!
 //! Not a table here. A destination is a value of the parameter's own value
 //! table and `ValueEntry::parameters` is what that value moves, published by
-//! `deepmind-midi` 26.2 for exactly this — so [`Aimed::names`] reads the join
+//! `deepmind-midi` 26.2 for exactly this — so [`Mapping::names`] reads the join
 //! backwards: the entries whose parameters include the control somebody took
 //! hold of, narrowest first.
 //!
@@ -63,13 +63,13 @@ use iced_widget::combo_box;
 use crate::matrix;
 use crate::panel::{Choice, choices};
 
-/// A routing the modulation matrix has pointed at the window.
+/// A routing the modulation matrix has mapped onto the window.
 ///
 /// The three parameters of one row, carried to every control the window draws
 /// while somebody chooses where the routing goes. [`Copy`] and three words
 /// wide, because it reaches every control on a panel of forty.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Aimed {
+pub struct Mapping {
     /// What the library calls the routing, which is the row's own heading:
     /// `Mod 3`.
     label: &'static str,
@@ -79,8 +79,8 @@ pub struct Aimed {
     depth: ParamId,
 }
 
-impl Aimed {
-    /// A routing pointed at the window.
+impl Mapping {
+    /// A routing mapped onto the window.
     pub(crate) const fn new(label: &'static str, destination: ParamId, depth: ParamId) -> Self {
         Self {
             label,
@@ -191,17 +191,17 @@ impl Aimed {
 mod tests {
     use deepmind_midi::param::{DEFAULT_FIRMWARE, ParamId, Shape};
 
-    use super::Aimed;
+    use super::Mapping;
 
-    /// The first routing, which is the one every test here points.
-    fn first() -> Aimed {
-        Aimed::new("Mod 1", ParamId::Mod1Destination, ParamId::Mod1Depth)
+    /// The first routing, which is the one every test here maps.
+    fn first() -> Mapping {
+        Mapping::new("Mod 1", ParamId::Mod1Destination, ParamId::Mod1Depth)
     }
 
     #[test]
     fn a_control_the_matrix_can_reach_names_the_destination_that_reaches_it() {
-        let aimed = first();
-        let byte = aimed
+        let mapped = first();
+        let byte = mapped
             .names(ParamId::VcfFrequency, DEFAULT_FIRMWARE)
             .expect("the filter's corner is a modulation destination");
 
@@ -223,9 +223,9 @@ mod tests {
         // and somebody who took hold of the filter envelope's attack meant the
         // filter's. Asked of the table rather than of the two names: whichever
         // entries list the parameter, the narrowest is the answer.
-        let aimed = first();
+        let mapped = first();
         let at = ParamId::VcfEnvelopeAttackTime;
-        let byte = aimed
+        let byte = mapped
             .names(at, DEFAULT_FIRMWARE)
             .expect("the filter envelope's attack is a destination");
         let deepmind_midi::param::Kind::Enumerated(table) = ParamId::Mod1Destination.kind() else {
@@ -246,30 +246,30 @@ mod tests {
     #[test]
     fn what_a_routing_chooses_with_is_not_something_it_can_be_pointed_at() {
         // Where a routing goes and what it comes from are not values anything
-        // modulates, so neither lights while the matrix is pointing. How much
+        // modulates, so neither lights while the matrix is mapping. How much
         // arrives is: the instrument's own table has a destination for every
         // one of the eight depths, which is what makes a routing that moves
         // another routing's depth possible — so that one lights, and the table
         // is what says so rather than a rule written here.
-        let aimed = first();
+        let mapped = first();
 
-        assert!(!aimed.reaches(ParamId::Mod1Source, DEFAULT_FIRMWARE));
-        assert!(!aimed.reaches(ParamId::Mod1Destination, DEFAULT_FIRMWARE));
-        assert!(aimed.reaches(ParamId::Mod1Depth, DEFAULT_FIRMWARE));
+        assert!(!mapped.reaches(ParamId::Mod1Source, DEFAULT_FIRMWARE));
+        assert!(!mapped.reaches(ParamId::Mod1Destination, DEFAULT_FIRMWARE));
+        assert!(mapped.reaches(ParamId::Mod1Depth, DEFAULT_FIRMWARE));
     }
 
     #[test]
     fn every_routing_gets_a_list_of_its_own() {
         use deepmind_midi::param::Group;
 
-        use super::Aim;
+        use super::Mapper;
 
-        let aim = Aim::new(DEFAULT_FIRMWARE);
+        let mapper = Mapper::new(DEFAULT_FIRMWARE);
         let routings = crate::matrix::of(Group::ModMatrix).expect("the matrix is one");
 
         for routing in &routings {
             assert!(
-                aim.list(routing.destination()).is_some(),
+                mapper.list(routing.destination()).is_some(),
                 "{:?} has nothing to be searched in",
                 routing.destination()
             );
@@ -279,8 +279,8 @@ mod tests {
         // eight rows narrowing together.
         for pair in routings.windows(2) {
             let [first, second] = pair else { continue };
-            let one = aim.list(first.destination()).expect("a list");
-            let other = aim.list(second.destination()).expect("a list");
+            let one = mapper.list(first.destination()).expect("a list");
+            let other = mapper.list(second.destination()).expect("a list");
             assert!(
                 !std::ptr::eq(one, other),
                 "two routings are searched in the same list"
@@ -289,50 +289,50 @@ mod tests {
     }
 
     #[test]
-    fn nothing_is_pointed_until_something_is() {
-        use super::Aim;
+    fn nothing_is_mapped_until_something_is() {
+        use super::Mapper;
 
-        let mut aim = Aim::new(DEFAULT_FIRMWARE);
-        assert!(aim.aimed().is_none());
+        let mut mapper = Mapper::new(DEFAULT_FIRMWARE);
+        assert!(mapper.mapped().is_none());
 
-        aim.point(Some(first()));
-        assert_eq!(aim.aimed(), Some(first()));
+        mapper.map(Some(first()));
+        assert_eq!(mapper.mapped(), Some(first()));
 
-        aim.point(None);
-        assert!(aim.aimed().is_none());
+        mapper.map(None);
+        assert!(mapper.mapped().is_none());
     }
 
     #[test]
     fn a_drag_that_went_nowhere_asks_for_no_depth() {
-        let aimed = first();
+        let mapped = first();
         let Shape::Bipolar { centre } = ParamId::Mod1Depth.shape() else {
             unreachable!("a depth is read about its centre")
         };
         let centre = u8::try_from(centre).expect("a byte");
 
-        assert_eq!(aimed.depth_of(ParamId::VcfFrequency, 100, 100), centre);
+        assert_eq!(mapped.depth_of(ParamId::VcfFrequency, 100, 100), centre);
     }
 
     #[test]
     fn a_drag_to_the_top_of_a_control_asks_for_all_of_the_depth() {
-        let aimed = first();
+        let mapped = first();
         let at = ParamId::VcfFrequency;
         let low = u8::try_from(at.min()).expect("a byte");
         let high = u8::try_from(at.max()).expect("a byte");
 
         assert_eq!(
-            aimed.depth_of(at, low, high),
+            mapped.depth_of(at, low, high),
             u8::try_from(ParamId::Mod1Depth.max()).expect("a byte")
         );
         assert_eq!(
-            aimed.depth_of(at, high, low),
+            mapped.depth_of(at, high, low),
             u8::try_from(ParamId::Mod1Depth.min()).expect("a byte")
         );
     }
 
     #[test]
     fn half_a_range_asks_for_half_the_depth() {
-        let aimed = first();
+        let mapped = first();
         let at = ParamId::VcfFrequency;
         let Shape::Bipolar { centre } = ParamId::Mod1Depth.shape() else {
             unreachable!("a depth is read about its centre")
@@ -340,7 +340,7 @@ mod tests {
         let high = ParamId::Mod1Depth.max();
         let half = f32::from(high - centre) / 2.0;
 
-        let asked = aimed.depth_of(
+        let asked = mapped.depth_of(
             at,
             u8::try_from(at.min()).expect("a byte"),
             u8::try_from(at.min() + (at.max() - at.min()) / 2).expect("a byte"),
@@ -356,22 +356,22 @@ mod tests {
 /// What the modulation matrix is asking the window for, and what it asks with.
 ///
 /// The application owns one and hands it to every surface, because a routing
-/// pointed at the window is pointed at all of it: the front panel, the fourteen
+/// mapped onto the window is mapped onto all of it: the front panel, the fourteen
 /// racks and the effects page are one instrument and the matrix can reach
 /// controls on each of them.
 ///
 /// Two things, and they are the two ways of answering the same question. The
-/// [`Aimed`] routing is the one being pointed, if any. The lists are how a
-/// destination is chosen without pointing at anything — one searchable list per
+/// [`Mapping`] routing is the one being mapped, if any. The lists are how a
+/// destination is chosen without mapping onto anything — one searchable list per
 /// routing, so that eight rows can be typed into without sharing a caret.
 ///
 /// One per routing rather than one shared, because what a list of this kind
 /// remembers is what has been typed into it, and eight rows sharing that would
 /// be eight rows narrowing together.
 #[derive(Debug)]
-pub struct Aim {
-    /// The routing being pointed at the window, if one is.
-    aimed: Option<Aimed>,
+pub struct Mapper {
+    /// The routing being mapped onto the window, if one is.
+    mapped: Option<Mapping>,
     /// The firmware the lists were built for, so that an inquiry that changes
     /// it rebuilds them: firmware 1.1 renumbered the destinations, and a list
     /// built for the other one would offer the wrong names for the right bytes.
@@ -380,12 +380,12 @@ pub struct Aim {
     lists: Vec<(ParamId, combo_box::State<Choice>)>,
 }
 
-impl Aim {
+impl Mapper {
     /// The lists a window opens with, built for `firmware`'s own tables.
     #[must_use]
     pub fn new(firmware: Version) -> Self {
         Self {
-            aimed: None,
+            mapped: None,
             firmware,
             lists: built(firmware),
         }
@@ -403,15 +403,15 @@ impl Aim {
         }
     }
 
-    /// Returns the routing pointed at the window, if one is.
+    /// Returns the routing mapped onto the window, if one is.
     #[must_use]
-    pub const fn aimed(&self) -> Option<Aimed> {
-        self.aimed
+    pub const fn mapped(&self) -> Option<Mapping> {
+        self.mapped
     }
 
-    /// Points a routing at the window, or stops pointing.
-    pub const fn point(&mut self, at: Option<Aimed>) {
-        self.aimed = at;
+    /// Maps a routing onto the window, or stops mapping.
+    pub const fn map(&mut self, at: Option<Mapping>) {
+        self.mapped = at;
     }
 
     /// Returns the searchable list a routing's destination is chosen from.

@@ -138,7 +138,7 @@ fn view(app: &App) -> Element<'_, Message> {
                 // and a front panel with its lower row below the fold is a
                 // front panel with the whole voice missing.
                 View::Panel => scrollable(
-                    control_ui::panel(app.patch(), app.firmware(), app.aim(), |screen| {
+                    control_ui::panel(app.patch(), app.firmware(), app.mapper(), |screen| {
                         paint(screen, app);
                     })
                     .map(Message::Ui),
@@ -164,7 +164,7 @@ fn view(app: &App) -> Element<'_, Message> {
                     app.pointed(),
                     app.patch(),
                     app.firmware(),
-                    app.aim().aimed(),
+                    app.mapper().mapped(),
                 )
                 .map(Message::Ui),
             )
@@ -360,7 +360,8 @@ fn editor(app: &App) -> Element<'_, Message> {
         scrollable(
             column![
                 text(section.name()).size(18),
-                control_ui::group(app.patch(), section, app.firmware(), app.aim()).map(Message::Ui),
+                control_ui::group(app.patch(), section, app.firmware(), app.mapper())
+                    .map(Message::Ui),
             ]
             .spacing(12)
             .padding([0, 12]),

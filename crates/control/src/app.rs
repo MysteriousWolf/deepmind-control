@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use control_ui::{Aim, Patch, first_section};
+use control_ui::{Mapper, Patch, first_section};
 use deepmind_host::{Command, Event, Link, Outcome, PortRef, open, ports};
 use deepmind_midi::device::Event as DeviceEvent;
 use deepmind_midi::ids::{Bank, PROGRAMS_PER_BANK, ProgramNumber};
@@ -115,7 +115,7 @@ pub struct App {
     /// somebody is pointing at the window, if any, and the searchable list each
     /// of the eight destinations is chosen from — which is state because what a
     /// list of that kind remembers is what has been typed into it.
-    aim: Aim,
+    mapper: Mapper,
     /// The sounds that are kept rather than played.
     shelf: Shelf,
     /// The bank the picker is sitting on, which is the one a read would read.
@@ -153,7 +153,7 @@ impl App {
             patch: Patch::new(),
             section: first_section(),
             pointed: None,
-            aim: Aim::new(DEFAULT_FIRMWARE),
+            mapper: Mapper::new(DEFAULT_FIRMWARE),
             shelf: Shelf::new(),
             bank: Bank::A,
             view: View::Panel,
@@ -225,8 +225,8 @@ impl App {
     /// the eight destination pickers are drawn from, and a picker draws the one
     /// the application is holding rather than a copy of it.
     #[must_use]
-    pub const fn aim(&self) -> &Aim {
-        &self.aim
+    pub const fn mapper(&self) -> &Mapper {
+        &self.mapper
     }
 
     /// Makes sure the destination lists are the ones this firmware names.
@@ -237,7 +237,7 @@ impl App {
     /// offer the wrong names for the right bytes.
     fn settle(&mut self) {
         let firmware = self.firmware();
-        self.aim.reading(firmware);
+        self.mapper.reading(firmware);
     }
 
     /// Returns the channel edits go out on, once one is settled.
@@ -341,11 +341,11 @@ impl App {
                 // taken hold of somewhere else in the window — the question has
                 // been answered and the mode comes down.
                 if self
-                    .aim
-                    .aimed()
-                    .is_some_and(|aimed| aimed.destination() == parameter)
+                    .mapper
+                    .mapped()
+                    .is_some_and(|mapped| mapped.destination() == parameter)
                 {
-                    self.aim.point(None);
+                    self.mapper.map(None);
                 }
             }
             // The two halves of one gesture: a drag on a lit control while a
@@ -362,7 +362,7 @@ impl App {
                 self.moved(destination, at);
                 self.moved(depth, by);
             }
-            Message::Ui(control_ui::Message::Aim(at)) => self.aim.point(at),
+            Message::Ui(control_ui::Message::Mapper(at)) => self.mapper.map(at),
             Message::Invert => self.negative = !self.negative,
             Message::Ui(control_ui::Message::Rename(name)) => self.rename(name),
             Message::Ui(control_ui::Message::Pointed(parameter)) => self.pointed = parameter,

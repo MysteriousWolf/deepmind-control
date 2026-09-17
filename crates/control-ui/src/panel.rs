@@ -34,11 +34,11 @@ use iced_core::{
 };
 use iced_widget::{Space, button, column, container, mouse_area, pick_list, row, stack, text};
 
-use crate::aim::{Aim, Aimed};
 use crate::effect;
 use crate::envelope;
 use crate::fader::{self, Axis, fader};
 use crate::knob::{self, knob};
+use crate::mapping::{Mapper, Mapping};
 use crate::matrix;
 use crate::name;
 use crate::sequencer;
@@ -376,7 +376,7 @@ impl Room {
 /// Six things, and the last three never reach a wire: a parameter should move,
 /// the program should be called something, a section should be the one on the
 /// screen, the pointer has come to rest on a control, a routing is being
-/// pointed at the window, or a drag while it is pointed has said where and how
+/// mapped onto the window, or a drag while it is mapped has said where and how
 /// much. What an edit costs on a wire, when it goes out and what it goes out
 /// behind is the host crate's business.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -411,16 +411,16 @@ pub enum Message {
     ///
     /// It never reaches a wire. Looking at a control is not editing it.
     Pointed(Option<ParamId>),
-    /// This routing is being pointed at the window, or none is any more.
+    /// This routing is being mapped onto the window, or none is any more.
     ///
     /// While one is, every control the matrix can reach is lit across all three
     /// surfaces and none of them edits anything: the next one somebody takes
-    /// hold of is where the routing goes. See [`Aim`].
+    /// hold of is where the routing goes. See [`Mapper`].
     ///
     /// It never reaches a wire either. Choosing where to point something is not
     /// pointing it.
-    Aim(Option<Aimed>),
-    /// A drag on a control while a routing is pointed at the window.
+    Mapper(Option<Mapping>),
+    /// A drag on a control while a routing is mapped onto the window.
     ///
     /// Both bytes are already worked out, by the view that knows which control
     /// the drag is on and what it was holding before the drag began: the
@@ -451,7 +451,7 @@ pub fn group<'a, Renderer>(
     patch: &'a Patch,
     group: Group,
     firmware: Version,
-    aim: &'a Aim,
+    mapper: &'a Mapper,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -464,10 +464,10 @@ where
     // A panel drawn as a table takes its own parameters out of the rack, and
     // leaves anything it did not claim in it: a group that grows a parameter no
     // row knows about keeps it as a slot rather than losing it to a layout.
-    // The routing pointed at the window, if one is. Read once for the panel:
+    // The routing mapped onto the window, if one is. Read once for the panel:
     // it reaches every control drawn below and it is the same answer for all of
     // them.
-    let aimed = aim.aimed();
+    let sent = mapper.mapped();
     let routed = matrix::routed(group);
     let stepped = sequencer::stepped(group);
     let claimed = effect::claimed(group);
@@ -486,7 +486,7 @@ where
             if name::holds(parameter) {
                 return name::begins(parameter).then(|| name::field(patch));
             }
-            Some(slot(patch, parameter, firmware, &moved, aimed))
+            Some(slot(patch, parameter, firmware, &moved, sent))
         })
         .collect();
     // An envelope's meaning is a picture, so the picture goes above its rack,
@@ -497,13 +497,13 @@ where
     if let Some(shape) = envelope::shape(patch, group) {
         body = body.push(shape);
     }
-    if let Some(table) = matrix::table(patch, group, firmware, aim) {
+    if let Some(table) = matrix::table(patch, group, firmware, mapper) {
         body = body.push(table);
     }
-    if let Some(strip) = sequencer::strip(patch, group, firmware, aimed) {
+    if let Some(strip) = sequencer::strip(patch, group, firmware, sent) {
         body = body.push(strip);
     }
-    if let Some(engines) = effect::panels(patch, group, firmware, &moved, aimed) {
+    if let Some(engines) = effect::panels(patch, group, firmware, &moved, sent) {
         body = body.push(engines);
     }
     if !slots.is_empty() {
@@ -536,7 +536,7 @@ fn slot<'a, Renderer>(
     parameter: ParamId,
     firmware: Version,
     moved: &[ParamId],
-    aim: Option<Aimed>,
+    sent: Option<Mapping>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -550,7 +550,7 @@ where
             modulated(moved.contains(&parameter), true),
         ]
         .align_y(Vertical::Center),
-        control(parameter, value, claim, firmware, Room::SLOT, aim),
+        control(parameter, value, claim, firmware, Room::SLOT, sent),
         readout(parameter, value, claim, firmware),
         container(text(parameter.short_name()).size(11).center())
             .height(Length::Fixed(NAME))
@@ -610,7 +610,7 @@ pub(crate) fn control<'a, Renderer>(
     claim: Confidence,
     firmware: Version,
     room: Room,
-    aim: Option<Aimed>,
+    sent: Option<Mapping>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -619,12 +619,12 @@ where
     // panel, a slot of a rack, a step of the sequencer, a byte of an effect — so
     // this is the one place that has to notice a pointer for all of them to say
     // what they are. It is also the one place that has to answer the modulation
-    // matrix when a routing is pointed at the window, for the same reason: a
+    // matrix when a routing is mapped onto the window, for the same reason: a
     // mode that lit the controls of one panel would be a mode that stopped at
     // the edge of the panel somebody is looking at.
-    let asked = For::of(aim, parameter, firmware);
+    let asked = For::of(sent, parameter, firmware);
     let drawn = drawn(parameter, value, claim, firmware, room, asked);
-    let Some(aimed) = aim else {
+    let Some(mapping) = sent else {
         return mouse_area(drawn)
             .on_enter(Message::Pointed(Some(parameter)))
             .on_exit(Message::Pointed(None))
@@ -633,19 +633,19 @@ where
     // Over the control rather than around it. A border drawn in a container
     // would be two points of layout this panel does not have, and every control
     // in the window would move the moment a routing was pointed — which is a
-    // window that jumps when somebody is about to aim at something in it.
-    let reached = aimed.names(parameter, firmware);
-    let lit = stack![drawn, aiming(reached.is_some())];
+    // window that jumps when somebody is about to map onto something in it.
+    let reached = mapping.names(parameter, firmware);
+    let lit = stack![drawn, mapping_light(reached.is_some())];
     let area = mouse_area(lit)
         .on_enter(Message::Pointed(Some(parameter)))
         .on_exit(Message::Pointed(None));
     // A press is taken by the control under it, which is what makes a drag
     // possible; the release is what says *this one*. A control the matrix
     // cannot reach answers nothing at all, so a click on it neither points the
-    // routing nor loses what was already being aimed.
+    // routing nor loses what was already being mapped.
     match reached {
         Some(value) => area.on_release(Message::Edit {
-            parameter: aimed.destination(),
+            parameter: mapping.destination(),
             value,
         }),
         None => area,
@@ -653,7 +653,7 @@ where
     .into()
 }
 
-/// What is laid over a control while a routing is pointed at the window.
+/// What is laid over a control while a routing is mapped onto the window.
 ///
 /// Two states and they are the whole of the mode: a control the matrix can
 /// reach is outlined in the one saturated colour on the panel, which is the
@@ -665,7 +665,7 @@ where
 ///
 /// Neither of them takes an event. A stack hands what lands on it to what is
 /// under it, and what is under it is the control.
-fn aiming<'a, Renderer>(reached: bool) -> Element<'a, Renderer>
+fn mapping_light<'a, Renderer>(reached: bool) -> Element<'a, Renderer>
 where
     Renderer: iced_core::Renderer + 'a,
 {
@@ -761,10 +761,10 @@ where
 enum For {
     /// Editing the sound, which is every control almost all of the time.
     Editing,
-    /// Answering a routing that is pointed at the window, at a control the
+    /// Answering a routing that is mapped onto the window, at a control the
     /// matrix can reach: the routing, and the destination byte that names this
     /// control.
-    Pointing(Aimed, u8),
+    Mapping(Mapping, u8),
     /// The same, at a control it cannot reach. The control is drawn and does
     /// nothing, because it is not part of the question being asked.
     Passed,
@@ -772,18 +772,18 @@ enum For {
 
 impl For {
     /// What a control is being drawn for, given what the matrix is asking.
-    fn of(aim: Option<Aimed>, parameter: ParamId, firmware: Version) -> Self {
-        match aim {
+    fn of(sent: Option<Mapping>, parameter: ParamId, firmware: Version) -> Self {
+        match sent {
             None => Self::Editing,
-            Some(aimed) => aimed
+            Some(mapped) => mapped
                 .names(parameter, firmware)
-                .map_or(Self::Passed, |at| Self::Pointing(aimed, at)),
+                .map_or(Self::Passed, |at| Self::Mapping(mapped, at)),
         }
     }
 
     /// Returns whether a control drawn for this is one somebody can move.
     ///
-    /// Only while editing. A routing being pointed is a question about where it
+    /// Only while editing. A routing being mapped is a question about where it
     /// goes, and a control that answered it by also changing the sound would be
     /// answering a question nobody asked.
     const fn edits(self) -> bool {
@@ -806,18 +806,18 @@ where
     let low = *range.start();
     let high = *range.end();
     let held = value.clamp(low, high);
-    // The one gesture the two modes share. While the matrix is pointing, the
+    // The one gesture the two modes share. While the matrix is mapping, the
     // drag is the same drag over the same range with the same relative grab,
     // and what comes out of it is the depth that travel asks for rather than
     // the value it would have reached — so the number under the hand is still
     // "how far did I move it", which is the only question a hand can answer
     // about an amount it has not heard yet.
     let moved = move |to: u8| match asked {
-        For::Pointing(aimed, at) => Message::Reach {
-            destination: aimed.destination(),
+        For::Mapping(mapped, at) => Message::Reach {
+            destination: mapped.destination(),
             at,
-            depth: aimed.depth(),
-            by: aimed.depth_of(parameter, held, to),
+            depth: mapped.depth(),
+            by: mapped.depth_of(parameter, held, to),
         },
         // A control the matrix cannot reach never publishes, because it is
         // built inert below; this is the arm that says so.
@@ -995,7 +995,7 @@ where
     if !asked.edits() {
         // A list that opened while the matrix was pointing would be a list
         // whose choice nobody wanted made, over a menu covering the controls
-        // somebody is trying to aim at. So it is the name it is showing, in the
+        // somebody is trying to map onto. So it is the name it is showing, in the
         // recess the list was in, and the click goes to the control.
         return container(
             text(selected.map_or_else(|| "\u{2014}".to_owned(), |choice| choice.name.to_owned()))
@@ -1121,16 +1121,16 @@ fn capped(theme: &Theme, on: bool, claim: Confidence, status: button::Status) ->
     }
 }
 
-/// Draws the mark that says the modulation matrix is pointed at this parameter.
+/// Draws the mark that says the modulation matrix is mapped onto this parameter.
 ///
 /// The one saturated thing on the panel, and it means one thing: something
-/// other than a hand can move this control. A parameter nothing is pointed at
+/// other than a hand can move this control. A parameter nothing is mapped at
 /// keeps the space, so a rack does not jostle when a routing changes.
 ///
 /// `heeded` is whether the value arriving there does anything, which is a
 /// question only the effects can answer no to: the library says of a slot
 /// whether its engine acts on modulation reaching it, and every slot is
-/// addressable from the matrix regardless. A routing pointed somewhere the
+/// addressable from the matrix regardless. A routing mapped somewhere the
 /// engine ignores gets the mark as an outline, because the matrix really is
 /// pointed there and really is doing nothing, and an editor that drew that the
 /// same way as an effective routing would be hiding the reason a sound is not

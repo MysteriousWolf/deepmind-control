@@ -774,7 +774,7 @@ group and changes only the arrangement, never what a control is:
 | --- | --- |
 | Program | **Done.** The name is 17 parameters, one character each, and 17 faders is not a name, so the 17 slots are the one display the instrument shows them on |
 | VCF, VCA and Mod envelopes | **Done.** Four faders and the shape they make, drawn above the rack, which is the one group whose meaning is a picture |
-| Mod Matrix | **Done.** Eight rows of source, destination and depth, read across rather than down, because twenty-four slots in one wrapping line are eight sentences with their words in the wrong order. A destination is chosen from a list that can be typed into, or by pointing the routing at the window and taking hold of the control it should move — which sets the depth too, from how far the drag went |
+| Mod Matrix | **Done.** Eight rows of source, destination and depth, read across rather than down, because twenty-four slots in one wrapping line are eight sentences with their words in the wrong order. A destination is chosen from a list that can be typed into, or by mapping the routing onto the window and taking hold of the control it should move — which sets the depth too, from how far the drag went |
 | Control Sequencer | **Done.** 32 steps as one strip in the order they are played, with the six settings that are not steps left in the rack |
 | Effects | **Done.** Four plates, each an engine's own settings and its twelve bytes under the names the loaded algorithm gives them, read for the firmware that answered |
 
@@ -790,7 +790,7 @@ found by what the library calls them — a `Source` with a `Destination` and a
 `Depth` sharing its prefix — so a ninth routing draws a ninth row and a lone
 `Source` somewhere else is not a matrix.
 
-The rows can say where they point, since `deepmind-midi` 26.2:
+The rows can say where they go, since `deepmind-midi` 26.2:
 `ValueTable::parameters_of` joins `VCF Freq` to `ParamId::VcfFrequency` where
 the table lives, rather than by matching those names here, which is the second
 copy of a generated table this repository refuses to keep. A slot the eight
@@ -807,7 +807,7 @@ it from a list that can be typed into rather than scrolled — three letters and
 pick without having already heard it.
 
 The second answer covers both, and it is the one an editor has and a front panel
-does not: `point` sends the routing out into the window. Every control the matrix
+does not: `map` sends the routing out into the window. Every control the matrix
 can reach lights up, on the front panel and in all fourteen racks and on the four
 effect engines at once; everything else is passed over; the sections still open
 and the panel still scrolls and nothing edits the sound. Taking hold of a lit

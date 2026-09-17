@@ -37,7 +37,7 @@ like that does not become permanent.
 
 Five. Three from one pass over the section plates' own displays — 26.4 published
 the shapes, and these are what a shape still cannot say about itself — and two
-from the modulation matrix, which grew a way of pointing a routing at a control
+from the modulation matrix, which grew a way of mapping a routing onto a control
 by taking hold of it and found the one number nobody has published.
 
 | | | What the window does meanwhile |

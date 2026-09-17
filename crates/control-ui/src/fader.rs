@@ -175,7 +175,7 @@ impl<Message> Fader<'_, Message> {
     /// Says whether this one can be taken hold of at all.
     ///
     /// The claim already answers that for a value nobody has read, and this is
-    /// the other reason: the modulation matrix pointed at the window makes a
+    /// the other reason: the modulation matrix mapped onto the window makes a
     /// control the matrix cannot reach something to look past rather than
     /// something to move. The drawing is untouched — the cap is where the value
     /// is, in the colour the claim is worth — and what goes is the grab.

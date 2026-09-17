@@ -162,7 +162,7 @@
 //! five. The ones the algorithm has a name for are drawn as that name; the rest
 //! are drawn at the end of the plate under the library's own `Fx 1 Param 6`,
 //! marked as doing nothing, because a byte in the program that no panel reaches
-//! is a byte the modulation matrix can still be pointed at. An engine whose
+//! is a byte the modulation matrix can still be mapped onto. An engine whose
 //! algorithm this firmware's table does not name — or whose type nobody has read
 //! — draws all twelve that way, which is stage 3's rack for exactly as long as
 //! there is nothing better to say.
@@ -180,10 +180,10 @@ use iced_core::{
 };
 use iced_widget::{Space, column, container, pick_list, row, stack, text};
 
-use crate::aim::Aimed;
 use crate::chain;
 use crate::fader;
 use crate::lcd::{self, Ink, Screen, Size};
+use crate::mapping::Mapping;
 use crate::mark;
 use crate::panel::{self, Message, Room, control, lit_rather_than_listed, modulated, shown};
 use crate::style::{self, materials, reading as reading_face};
@@ -651,7 +651,7 @@ pub(crate) fn lanes(patch: &Patch, engine: Engine, firmware: Version) -> Vec<Lan
 /// bytes the loaded algorithm does not use — as many as seven of the twelve —
 /// and, if a later library ever measured a slot outside the grid it publishes,
 /// that slot as well. Either way nothing is dropped: a byte this panel does not
-/// draw is a byte the modulation matrix can still be pointed at.
+/// draw is a byte the modulation matrix can still be mapped onto.
 ///
 /// Everything with no place, where nothing is known about the algorithm. That
 /// is stage 3's rack: twelve bytes under the library's own names, and no page
@@ -825,7 +825,7 @@ pub(crate) fn panels<'a, Renderer>(
     group: Group,
     firmware: Version,
     moved: &[ParamId],
-    aim: Option<Aimed>,
+    mapper: Option<Mapping>,
 ) -> Option<Element<'a, Renderer>>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -850,7 +850,7 @@ where
             parameter.short_name(),
             moved,
             On::Recess,
-            aim,
+            mapper,
         )
     }))
     .spacing(14)
@@ -898,7 +898,7 @@ where
         body = body.push(
             row(pair
                 .iter()
-                .map(|engine| plate(patch, *engine, firmware, moved, aim)))
+                .map(|engine| plate(patch, *engine, firmware, moved, mapper)))
             .spacing(8),
         );
     }
@@ -919,13 +919,13 @@ fn line_of<'a, Renderer>(
     firmware: Version,
     moved: &[ParamId],
     figure: Figure,
-    aim: Option<Aimed>,
+    mapper: Option<Mapping>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
     let mut cells = line.iter().map(|cell| match cell {
-        Some(byte) => slot(patch, engine, *byte, firmware, moved, figure, aim),
+        Some(byte) => slot(patch, engine, *byte, firmware, moved, figure, mapper),
         // A column the grid has nothing in still stands the height of one, so
         // that a row of two slots is as deep as a row of six and a plate is as
         // deep as the grid rather than as deep as what happens to be on it.
@@ -1086,7 +1086,7 @@ fn slot<'a, Renderer>(
     firmware: Version,
     moved: &[ParamId],
     figure: Figure,
-    aim: Option<Aimed>,
+    mapper: Option<Mapping>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1112,7 +1112,7 @@ where
             patch.claim(lane.parameter),
             firmware,
             figure.room(false),
-            aim,
+            mapper,
         ))
         .height(Length::Fixed(CONTROL_ROW))
         .align_y(Vertical::Center),
@@ -1168,7 +1168,7 @@ fn spare<'a, Renderer>(
     firmware: Version,
     moved: &[ParamId],
     figure: Figure,
-    aim: Option<Aimed>,
+    mapper: Option<Mapping>,
 ) -> Option<Element<'a, Renderer>>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1191,7 +1191,7 @@ where
                 patch.claim(lane.parameter),
                 firmware,
                 figure.room(true),
-                aim,
+                mapper,
             ),
             printing(within(engine, lane.parameter).to_owned(), On::Recess).size(9),
         ]
@@ -1242,7 +1242,7 @@ fn plate<'a, Renderer>(
     engine: Engine,
     firmware: Version,
     moved: &[ParamId],
-    aim: Option<Aimed>,
+    mapper: Option<Mapping>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1253,7 +1253,9 @@ where
     let (grid, left) = placed(&lanes, panel);
     let mut drawn = column![].spacing(BETWEEN_ROWS);
     for line in &grid {
-        drawn = drawn.push(line_of(patch, engine, line, firmware, moved, figure, aim));
+        drawn = drawn.push(line_of(
+            patch, engine, line, firmware, moved, figure, mapper,
+        ));
     }
     // The family's mark, large and faint, under the grid rather than under the
     // case: the face plate the controls stand on is opaque, so a watermark
@@ -1273,7 +1275,7 @@ where
                 ..container::Style::default()
             }
         });
-    let body = column![header(patch, engine, firmware, moved, panel, aim)]
+    let body = column![header(patch, engine, firmware, moved, panel, mapper)]
         .push(drawn)
         // The twelve under the library's own names, for an engine running an
         // algorithm this firmware's table cannot name. That is the only case
@@ -1282,7 +1284,7 @@ where
         .extend(
             panel
                 .is_none()
-                .then(|| spare(patch, engine, &left, firmware, moved, figure, aim))
+                .then(|| spare(patch, engine, &left, firmware, moved, figure, mapper))
                 .flatten(),
         )
         .spacing(6);
@@ -1461,7 +1463,7 @@ fn header<'a, Renderer>(
     firmware: Version,
     moved: &[ParamId],
     panel: Option<&'static Panel>,
-    aim: Option<Aimed>,
+    mapper: Option<Mapping>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1490,7 +1492,7 @@ where
     // say it outright. On the strip, between the name and the level, which is
     // the room the gain gave up by turning into a knob.
     .extend(picture(patch, engine, firmware))
-    .push(output(patch, engine, firmware, moved, aim))
+    .push(output(patch, engine, firmware, moved, mapper))
     .spacing(10)
     .align_y(Vertical::Center);
     // Which slot this is, set the way the family's mark is set on the case:
@@ -1613,7 +1615,7 @@ fn output<'a, Renderer>(
     engine: Engine,
     firmware: Version,
     moved: &[ParamId],
-    aim: Option<Aimed>,
+    mapper: Option<Mapping>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1633,7 +1635,7 @@ where
                 patch.claim(gain),
                 firmware,
                 Room::SLOT.turned().sized(GAIN),
-                aim,
+                mapper,
             ),
             reading(
                 gain,
@@ -1679,7 +1681,7 @@ fn cell<'a, Renderer>(
     title: &'a str,
     moved: &[ParamId],
     on: On,
-    aim: Option<Aimed>,
+    mapper: Option<Mapping>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1702,7 +1704,7 @@ where
         ]
         .spacing(4)
         .align_y(Vertical::Center),
-        control(parameter, value, claim, firmware, room, aim),
+        control(parameter, value, claim, firmware, room, mapper),
     ]
     .spacing(3)
     .width(room.across_as())

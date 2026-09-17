@@ -41,7 +41,7 @@ use iced_core::alignment::Vertical;
 use iced_core::{Background, Border, Font, Length, Theme, border, text::Renderer as TextRenderer};
 use iced_widget::{button, container, row, text};
 
-use crate::aim::Aimed;
+use crate::mapping::Mapping;
 use crate::panel::{Message, sits_at};
 use crate::style::{self, materials, printed, reading};
 use crate::{Confidence, Element, Patch};
@@ -57,7 +57,7 @@ pub fn footer<'a, Renderer>(
     pointed: Option<ParamId>,
     patch: &Patch,
     firmware: Version,
-    aimed: Option<Aimed>,
+    mapped: Option<Mapping>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -69,13 +69,13 @@ where
         )],
     };
     let mut across = row![].spacing(10).align_y(Vertical::Center);
-    // A routing pointed at the window is a mode, and a mode with nothing on the
+    // A routing mapped onto the window is a mode, and a mode with nothing on the
     // screen saying it is up is a window that has stopped answering for reasons
     // nobody can see. The footer is where it is said, because the footer is the
     // one thing under all three surfaces — and somebody in this mode is by
     // definition somewhere other than the page they turned it on from.
-    if let Some(aimed) = aimed {
-        across = across.push(mode(aimed));
+    if let Some(mapped) = mapped {
+        across = across.push(mode(mapped));
     }
     for part in line {
         across = across.push(part.draw());
@@ -235,19 +235,19 @@ fn ends(parameter: ParamId) -> String {
     )
 }
 
-/// Says which routing is pointed at the window, and how to stop.
+/// Says which routing is mapped onto the window, and how to stop.
 ///
 /// The one saturated colour on the panel, which is the colour every control the
 /// routing can reach is outlined in at the same moment. It is a press as well
 /// as a statement: a mode somebody can leave only by going back to the page
 /// they started it on is a mode somebody gets stuck in.
-fn mode<'a, Renderer>(aimed: Aimed) -> Element<'a, Renderer>
+fn mode<'a, Renderer>(mapped: Mapping) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
     button(
         row![
-            text(format!("{} \u{2192}", aimed.label())).size(12),
+            text(format!("{} \u{2192}", mapped.label())).size(12),
             text("take hold of a lit control, or press to stop").size(11),
         ]
         .spacing(8)
@@ -260,6 +260,6 @@ where
         border: border::rounded(3).width(1.0).color(style::MODULATION),
         ..button::Style::default()
     })
-    .on_press(Message::Aim(None))
+    .on_press(Message::Mapper(None))
     .into()
 }

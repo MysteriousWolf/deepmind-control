@@ -646,7 +646,7 @@ the modulation comes from, an arrow, where it goes, and how much.
 ```
         Source              Destination                    Depth
 
-Mod 1   [ LFO 1        v]  ->  [ VCF Freq      ] [point]  [======|========]
+Mod 1   [ LFO 1        v]  ->  [ VCF Freq      ] [map]    [======|========]
 93-95   2                   44                            138
 ```
 
@@ -683,7 +683,7 @@ Mod 1   [ LFO 1        v]  ->  [ VCF Freq      ] [point]  [======|========]
   firmware that answered, and a destination the library has no complete table
   for keeps whatever control the library says the parameter is.
 - **Or the routing is pointed at the window, and you take hold of what it should
-  move.** `point` is the press. While it is down, every control the matrix can
+  move.** `map` is the press. While it is down, every control the matrix can
   reach is outlined in the modulation colour — on the front panel, in all
   fourteen racks, on all four effect engines — and everything it cannot reach is
   covered by the panel it stands on until it is barely there. Lit *and* dimmed,

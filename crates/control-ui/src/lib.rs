@@ -23,8 +23,8 @@
 //!
 //! # And one thing it is given back
 //!
-//! [`Aim`] is the modulation matrix asking the rest of the window a question.
-//! A routing pointed at the window lights every control the matrix can reach,
+//! [`Mapper`] is the modulation matrix asking the rest of the window a question.
+//! A routing mapped onto the window lights every control the matrix can reach,
 //! on all three surfaces at once, and the next one somebody takes hold of is
 //! where the routing goes — a click chooses it and a drag sets the depth as
 //! well. The application owns the state because the mode outlives the page it
@@ -147,7 +147,6 @@
 //! do not have to agree on one, and concrete in the theme, because
 //! [`iced_core::Theme`] is what both of them have.
 
-mod aim;
 mod chain;
 mod confidence;
 mod effect;
@@ -158,6 +157,7 @@ mod glyphs;
 mod home;
 mod knob;
 mod lcd;
+mod mapping;
 mod mark;
 mod matrix;
 mod name;
@@ -168,13 +168,13 @@ mod section;
 mod sequencer;
 mod style;
 
-pub use aim::{Aim, Aimed};
 pub use confidence::Confidence;
 pub use fader::{Axis, Fader, fader};
 pub use footer::footer;
 pub use home::{panel, panel_width, panelled, screen};
 pub use knob::{Knob, knob};
 pub use lcd::{Band, Ink, PITCH, Screen, Size, lcd, stencil};
+pub use mapping::{Mapper, Mapping};
 pub use name::characters as name_characters;
 pub use panel::{Message, group};
 pub use patch::Patch;
