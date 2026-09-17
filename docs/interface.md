@@ -782,9 +782,12 @@ second row readable down against the first.
   says what the two ends of the display read; the readout above it stays the
   byte, because a plausible `2.4 s` for a byte is wrong in a way nobody can see.
 - **A slot the display names is not a list.** The manual prints `Ambience`,
-  `Church`, `Gate` and never the bytes they sit at. The names are printed under
-  the plate as what the display will show, the fader stays, and nothing offers
-  to send one of them.
+  `Church`, `Gate` and never the bytes they sit at. The names are printed as
+  what the display will show, the fader stays, and nothing offers to send one of
+  them. Under the row that slot stands on, rather than at the foot of the case:
+  nine preset names are two lines long on a case a quarter of this page wide,
+  and printing them all together put the longest thing on the plate as far as it
+  could get from the control it is about.
 - **The grid is the instrument's own FX page.** Six columns and two rows,
   measured off the 35 screenshots in the manual, and every slot drawn in the
   column and row published for it — so a plate is the arrangement anybody who
@@ -955,28 +958,30 @@ second row readable down against the first.
   An engine whose algorithm nobody has read is the one case left: all twelve
   under the library's own `Param 9`, which is stage 3's rack for exactly as long
   as there is nothing better to say.
-- **Every case is the same depth, and gets there by being the same shape.** Not
-  by being stretched. A plate draws the grid's own two rows whether or not its
-  algorithm fills them; a column stands a column's height whether or not a slot
-  is in it; a run keeps the room a strip takes whether or not it has a name; a
-  control stands in a band of one depth whether the figure calls for a knob or a
-  fader; and the lines saying what a display shows are given the most any of the
-  35 needs. What fills the difference is the case, which is what the bottom of a
-  rack unit is.
+- **A case is as deep as what is in it, and a row is still the same shape.** The
+  reservation went the other way first: a plate drew the grid's own two rows
+  whether or not its algorithm filled them, and kept the deepest band of display
+  names any of the 35 needs, so that four rack units bolted onto one page were
+  four rack units of a height. What that bought was paid for by most of the 35 —
+  an algorithm using five of its twelve bytes fills one row of a two-row grid,
+  so more than half of that case was blank panel, and a rack unit with nothing
+  on its lower half is a rack unit somebody looks for the missing knobs on.
 
-  The argument this replaces was that a case should be as deep as the algorithm
-  in it needs, and that stretching the shallower of a pair would be a panel with
-  empty case at the bottom. Four rack units bolted onto one page are four rack
-  units of a height, and two depths side by side read as a layout that had not
-  finished rather than as an honest answer about how much room an algorithm
-  wanted.
+  So the grid is drawn as deep as the algorithm on it, and the lines saying what
+  a display shows stand under the row their own slot is on rather than at the
+  foot of the plate. What is still reserved is the shape of a row, which is what
+  makes the columns line up: a column stands a column's height whether or not a
+  slot is in it, a run keeps the room a strip takes whether or not it has a
+  name, and a control stands in a band of one depth whether the figure calls for
+  a knob or a fader. Two engines running algorithms of one shape still come out
+  level; two running a reverb and a delay do not, which is what they are.
 
-  Whether a line is kept for the response picture is the *page's* question
+  Whether a line is kept for the response picture is still the *page's* question
   rather than an engine's: two of the 35 publish one, so a page holding one of
-  them keeps that line on all four of its cases and a page holding none keeps it
-  on none. An engine reserving it for itself would be four cases of two depths
-  again; an engine not reserving it would be the page moving under the hand when
-  a type byte changed.
+  them keeps that line on all four of its strips and a page holding none keeps
+  it on none. That one is not about the depth of a case — it is the strip along
+  the top of every case, where an engine reserving the line for itself alone
+  would be the page moving under the hand the moment a type byte changed.
 - **Units land on one line.** A title is set in a box two lines tall whatever it
   needs, so a name that wraps pushes nothing down but itself and the readings
   across a row are read along one line rather than up and down a ragged one.

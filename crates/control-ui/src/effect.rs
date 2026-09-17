@@ -46,6 +46,18 @@
 //! are faders and one is a numeric display, and a slot on a knob panel is drawn
 //! as [a knob](crate::knob).
 //!
+//! # A case is as deep as what is in it
+//!
+//! Four plates on a page at four heights, rather than four at one. The grid is
+//! two rows and an algorithm as short as five slots fills one of them, and
+//! drawing the empty second row anyway — along with the deepest band of display
+//! names any of the 35 needs — made every case the same shape at the price of
+//! half of most of them being blank panel. A rack unit with nothing on its
+//! lower half is a rack unit somebody looks for the missing knobs on. What is
+//! still reserved is the shape of a row: every column of a row stands a
+//! column's height whether or not a slot is in it, so the columns line up down
+//! the plate and two engines running algorithms of one shape do come out level.
+//!
 //! # Four at once, and what that costs the livery
 //!
 //! All four engines are on the page together, in the two-by-two the four of
@@ -133,8 +145,15 @@
 //! For the same reason a slot whose display shows names — `Ambience`, `Church`,
 //! `Gate` — is not drawn as a list. The manual prints those names and never the
 //! bytes they sit at, [`FxSlot::values`] says so, and a list that sent one of
-//! them would be sending a guess. The names are printed under the plate as what
-//! the display will show, and the byte stays draggable.
+//! them would be sending a guess. The names are printed as what the display
+//! will show, and the byte stays draggable.
+//!
+//! Under the row the slot stands on, rather than under the whole plate. Nine
+//! reverb presets set at nine points are two lines long on a case a quarter of
+//! this page wide, so printing all of a plate's at its foot put the longest
+//! thing on the case as far as it could get from the control it is about, with
+//! the abbreviation at the head of the line the only thing saying which control
+//! that was.
 //!
 //! # Twelve bytes, however many the algorithm uses
 //!
@@ -147,8 +166,6 @@
 //! algorithm this firmware's table does not name — or whose type nobody has read
 //! — draws all twelve that way, which is stage 3's rack for exactly as long as
 //! there is nothing better to say.
-
-use std::sync::LazyLock;
 
 use deepmind_midi::effect::{
     self, Algorithm, Colour, Control, Engine, FxSlot, Panel, Quantity, grid,
@@ -249,39 +266,15 @@ const BAND: f32 = 13.0;
 /// Close, because it belongs to that row and stands in the same block.
 const UNDER_STRIP: f32 = 3.0;
 
-/// How tall a line saying what a slot's display shows is.
-const SHOWN_LINE: f32 = 11.0;
-
-/// How far apart two of them stand.
+/// How far apart two lines saying what a slot's display shows stand.
 const SHOWN_APART: f32 = 1.0;
 
-/// How much room those lines are given on every plate.
+/// How far one of them stands under the row it belongs to.
 ///
-/// The most any of the 35 algorithms needs, asked of the library rather than
-/// counted by hand: a plate that reserved what its own algorithm happens to use
-/// is a plate a byte deeper or shallower than the one beside it, and this is the
-/// last thing on a case whose height came from what was in it.
-fn shown_room() -> f32 {
-    static LINES: LazyLock<usize> = LazyLock::new(|| {
-        Algorithm::all()
-            .iter()
-            .map(|algorithm| {
-                Engine::One
-                    .slot_parameters()
-                    .iter()
-                    .filter_map(|parameter| algorithm.slot_of(Engine::One, *parameter))
-                    .filter(|slot| slot.is_selector())
-                    .count()
-            })
-            .max()
-            .unwrap_or(0)
-    });
-    let lines = u16::try_from(*LINES).unwrap_or(0);
-    if lines == 0 {
-        return 0.0;
-    }
-    f32::from(lines) * SHOWN_LINE + f32::from(lines - 1) * SHOWN_APART
-}
+/// Close: it is a line about a control on that row, and the row under it is
+/// [`BETWEEN_ROWS`] away, so the gap is what says which of the two it belongs
+/// to.
+const UNDER_ROW: f32 = 2.0;
 
 /// How tall one column of the grid stands.
 ///
@@ -667,12 +660,24 @@ fn placed(lanes: &[Lane], panel: Option<&'static Panel>) -> (Vec<Line>, Vec<Lane
     let Some(panel) = panel else {
         return (Vec::new(), lanes.to_vec());
     };
-    // The grid's own depth rather than this algorithm's. An algorithm using six
-    // bytes fills one row of the instrument's page and the second row is still
-    // there, empty — which is what a plate draws, so that four cases on one page
-    // are four cases of a depth rather than four different answers to how much
-    // room an algorithm happened to need.
-    let deep = usize::from(grid().rows()).max(panel.rows().len());
+    // This algorithm's own depth rather than the grid's. The grid has two rows
+    // and a five-slot algorithm fills one of them, and reserving the second
+    // anyway bought four cases of one height at the price of half of each case
+    // being nothing: a rack unit whose lower half is blank panel is a rack unit
+    // somebody would ask what is missing from. Four cases at four heights is
+    // what four engines running four algorithms are.
+    //
+    // Deep enough for what is measured, which is [`Panel::rows`] and is checked
+    // against the positions as well: a slot measured onto a row the panel does
+    // not list is drawn where it was measured rather than swept into the strip
+    // of bytes the algorithm does not use.
+    let measured = lanes
+        .iter()
+        .filter_map(|lane| lane.slot)
+        .map(|slot| usize::from(slot.position().row()) + 1)
+        .max()
+        .unwrap_or(0);
+    let deep = measured.max(panel.rows().len());
     let mut rows: Vec<Line> = vec![vec![None; columns]; deep];
     let mut spare = Vec::new();
     for lane in lanes.iter().copied() {
@@ -960,7 +965,22 @@ where
             }),
         )
     });
-    row(runs).spacing(BESIDE_BAND).into()
+    // What the display will show where one of this row's slots shows names
+    // rather than a number, printed under that row. It used to be printed
+    // under the whole grid, which put `PST Preset shows Ambience, Church, …`
+    // at the foot of the case with two rows of controls between it and the
+    // knob it is about — and the reference at the head of it was the only
+    // thing saying which knob that was.
+    let shown: Vec<Element<'a, Renderer>> = displays(line).map(Element::from).collect();
+    if shown.is_empty() {
+        return row(runs).spacing(BESIDE_BAND).into();
+    }
+    column![
+        row(runs).spacing(BESIDE_BAND),
+        column(shown).spacing(SHOWN_APART),
+    ]
+    .spacing(UNDER_ROW)
+    .into()
 }
 
 /// The pale strip a band's name is knocked out of.
@@ -1226,19 +1246,6 @@ where
     for line in &grid {
         drawn = drawn.push(line_of(patch, engine, line, firmware, moved, figure));
     }
-    // What the display will show where a slot shows names rather than a number,
-    // printed once under the grid: the manual gives the names and never the
-    // bytes they sit at, so this is a reading and not something to send.
-    let shown: Vec<Element<'a, Renderer>> = displays(&lanes).map(Element::from).collect();
-    // The same room on every plate, whether this algorithm has two of these
-    // lines or none. It is the last thing that made one case deeper than the
-    // one beside it, and it is the cheapest to make even: the number of lines
-    // reserved is the most any of the 35 needs rather than a number chosen.
-    drawn = drawn.push(
-        container(column(shown).spacing(SHOWN_APART))
-            .height(Length::Fixed(shown_room()))
-            .width(Length::Fill),
-    );
     // The family's mark, large and faint, under the grid rather than under the
     // case: the face plate the controls stand on is opaque, so a watermark
     // behind that is a watermark nobody sees. See [`mark::hero`].
@@ -1282,14 +1289,16 @@ where
         .padding(6)
         .width(Length::Fill)
         .clip(true)
-        // The same depth as the case beside it, and it gets there by being the
-        // same shape rather than by being stretched: every plate draws the
-        // grid's own two rows whether or not its algorithm fills them, every
-        // column stands a column's height whether or not a slot is in it, every
-        // run keeps the room a band's strip takes, and every control stands in a
-        // band of one depth whether the figure calls for a knob or a fader. What
-        // fills the difference is the case, which is what the bottom of a rack
-        // unit is.
+        // As deep as what is in it, which is not the same depth as the case
+        // beside it. A row is still a row of the grid — every column stands a
+        // column's height whether or not a slot is in it, every run keeps the
+        // room a band's strip takes, and every control stands in a band of one
+        // depth whether the figure calls for a knob or a fader — so two engines
+        // running algorithms of the same shape do come out level. What is no
+        // longer reserved is the shape an algorithm does not have: a five-slot
+        // reverb was drawing the grid's empty second row and the deepest band
+        // of display names any of the 35 needs, and half of that case was
+        // blank panel waiting for an algorithm that was not loaded.
         .style(move |theme: &Theme| {
             // Cut into the group's face plate rather than raised off it: the
             // plate is what the four engines are recessed into, which is the
@@ -1775,21 +1784,37 @@ fn quantity(what: Quantity) -> Option<&'static str> {
     })
 }
 
-/// The names a plate's slots show on the instrument's display.
+/// The names a row's slots show on the instrument's display.
 ///
 /// One line per slot that shows names instead of a number, printed under the
-/// grid rather than in the slot, because that is what they are: a reading and
+/// row rather than in the slot, because that is what they are: a reading and
 /// not something to send. The manual gives the names and never the bytes they
 /// sit at, so the control stays the byte and this says what the display will
 /// make of it.
+///
+/// Under its own row rather than under the whole grid. A line naming nine
+/// reverb presets is two lines long on a case this wide, and printing all of
+/// them at the foot of the plate put the longest thing on it furthest from the
+/// control it describes.
 fn displays<'a, Renderer>(
-    lanes: &[Lane],
+    line: &Line,
 ) -> impl Iterator<Item = iced_widget::Text<'a, Theme, Renderer>>
 where
     Renderer: TextRenderer<Font = Font>,
 {
-    let printed: Vec<String> = lanes
-        .iter()
+    shows(line)
+        .into_iter()
+        .map(|line| printing(line, On::Face).size(9).font(reading_face()))
+}
+
+/// What those lines say, as words.
+///
+/// Split out from the drawing so that a test can read them: which row a line
+/// belongs under is the whole of this change, and it is not a thing an
+/// `Element` will answer.
+fn shows(line: &Line) -> Vec<String> {
+    line.iter()
+        .flatten()
         .filter_map(|lane| lane.slot)
         .filter(|slot| slot.is_selector())
         .map(|slot| {
@@ -1800,10 +1825,7 @@ where
                 slot.values.join(", ")
             )
         })
-        .collect();
-    printed
-        .into_iter()
-        .map(|line| printing(line, On::Face).size(9).font(reading_face()))
+        .collect()
 }
 
 /// Returns a parameter's name with the engine's own taken off the front.
@@ -1837,7 +1859,7 @@ mod tests {
 
     use super::{
         FxSlot, Lane, On, claimed, engines, hint, ink, lanes, legend, placed, quantity, settings,
-        spans, switched_on, within,
+        shows, spans, switched_on, within,
     };
     use crate::style::{READABLE, contrast, deepmind, legible, tint};
     use crate::{Confidence, Patch};
@@ -1922,14 +1944,17 @@ mod tests {
             let lanes = under(algorithm, Engine::One);
             let (rows, _) = placed(&lanes, Some(algorithm.panel()));
 
+            // As deep as this algorithm is and no deeper. The grid has two rows
+            // and an algorithm that fills one of them used to draw both, which
+            // is half a case of blank panel on every reverb on the page.
             assert_eq!(
                 rows.len(),
-                usize::from(grid().rows()),
-                "{} does not draw the grid's own depth",
+                algorithm.panel().rows().len(),
+                "{} does not draw its own depth",
                 algorithm.full_name
             );
             assert!(
-                algorithm.panel().rows().len() <= rows.len(),
+                rows.len() <= usize::from(grid().rows()),
                 "{} has more rows than the grid holds",
                 algorithm.full_name
             );
@@ -1953,6 +1978,44 @@ mod tests {
                     );
                 }
             }
+        }
+    }
+
+    #[test]
+    fn a_display_name_line_stands_under_the_row_its_own_slot_is_on() {
+        // The line is a reading of one control, and it used to be printed at
+        // the foot of the case whatever row that control was on. Every one of
+        // them names a slot of the row it is under now, and every slot that
+        // shows names has a line somewhere.
+        for algorithm in Algorithm::all() {
+            let lanes = under(algorithm, Engine::One);
+            let (rows, _) = placed(&lanes, Some(algorithm.panel()));
+            let mut printed = 0;
+            for line in &rows {
+                for said in shows(line) {
+                    printed += 1;
+                    let named = line
+                        .iter()
+                        .flatten()
+                        .filter_map(|lane| lane.slot)
+                        .any(|slot| said.starts_with(slot.reference));
+                    assert!(
+                        named,
+                        "{} prints {said:?} under a row that slot is not on",
+                        algorithm.full_name
+                    );
+                }
+            }
+            let selectors = lanes
+                .iter()
+                .filter_map(|lane| lane.slot)
+                .filter(|slot| slot.is_selector())
+                .count();
+            assert_eq!(
+                printed, selectors,
+                "{} loses a display name between the grid and the rows",
+                algorithm.full_name
+            );
         }
     }
 

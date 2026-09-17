@@ -337,10 +337,22 @@ would mean inventing a mapping the manual does not give.
 That rule decides the two things this panel cannot do. A slot whose display
 shows names — `Ambience`, `Church`, `Gate` — is not a list, because the manual
 prints those names and never the bytes they sit at, and a list that sent one of
-them would be sending a guess; the names are printed under the plate as what the
-display will show and the byte stays draggable. And a slot's reading stays the
+them would be sending a guess; the names are printed under the row that slot
+stands on, as what the display will show, and the byte stays draggable. And a
+slot's reading stays the
 byte, with the two ends the manual prints written under the title, because
 `0.1` to `6.0 s` is a range and not a curve.
+
+**A case is as deep as what is in it.** The grid is two rows and most of the 35
+fill one, so a plate drawn at the grid's own depth was a rack unit with more
+blank panel under its knobs than knobs — and the band of display names at the
+foot of it was sized for the longest of the 35 whatever was loaded. Both
+reservations bought four cases of one height and were paid for by every
+algorithm that is not the deepest one. So a plate draws the rows its algorithm
+fills and a display name stands under the row its own slot is on. What is still
+reserved is the shape of a row, which is what the columns line up against: a
+column stands a column's height whether or not a slot is in it, and a control
+stands in a band of one depth whether the figure calls for a knob or a fader.
 
 **Twelve bytes, however many the algorithm uses.** An engine holds twelve
 whatever it is running and `Algorithm::slots` is as short as five. The ones the
