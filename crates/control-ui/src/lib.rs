@@ -21,6 +21,15 @@
 //! sent, and what it is sent behind is the host crate's problem: the views do
 //! not know that a wire has a speed.
 //!
+//! # And one thing it is given back
+//!
+//! [`Mapper`] is the modulation matrix asking the rest of the window a question.
+//! A routing mapped onto the window lights every control the matrix can reach,
+//! on all three surfaces at once, and the next one somebody takes hold of is
+//! where the routing goes — a click chooses it and a drag sets the depth as
+//! well. The application owns the state because the mode outlives the page it
+//! was started on, which is the whole point of it.
+//!
 //! # The panel, and then the fourteen behind it
 //!
 //! [`panel`] is the front of the instrument: two rows of section plates with a
@@ -124,8 +133,8 @@
 //! screen would be the one thing in this window pretending to be something
 //! else.
 //!
-//! The same file holds the three faces anything is set in — [`printed`],
-//! [`wordmark`] and [`reading`] — and what the parts of a window that are not
+//! The same file holds the two faces anything is set in — [`printed`] and
+//! [`reading`] — and what the parts of a window that are not
 //! parameters are drawn as: [`ground`] is the panel gradient the whole window
 //! stands on, and [`chrome`], [`selector`], [`shortlist`] and [`bay`] are a
 //! button, a picker, the list it opens and a panel of words in the instrument's
@@ -138,6 +147,8 @@
 //! do not have to agree on one, and concrete in the theme, because
 //! [`iced_core::Theme`] is what both of them have.
 
+mod badge;
+mod case;
 mod chain;
 mod confidence;
 mod effect;
@@ -148,6 +159,8 @@ mod glyphs;
 mod home;
 mod knob;
 mod lcd;
+mod logo;
+mod mapping;
 mod mark;
 mod matrix;
 mod name;
@@ -158,19 +171,23 @@ mod section;
 mod sequencer;
 mod style;
 
+pub use badge::{ABOUT, ARROW, Badge, DOWN, MAP, PLUGGED, PORT, READ, RESCAN, SIDE, UP, WHO};
 pub use confidence::Confidence;
+pub use effect::width as effects_width;
 pub use fader::{Axis, Fader, fader};
 pub use footer::footer;
 pub use home::{panel, panel_width, panelled, screen};
 pub use knob::{Knob, knob};
-pub use lcd::{Band, Ink, PITCH, Screen, Size, lcd, stencil};
+pub use lcd::{Band, Ink, PITCH, Screen, Size, lcd, stencil, swatch};
+pub use logo::logo;
+pub use mapping::{Mapper, Mapping, Reach};
 pub use name::characters as name_characters;
 pub use panel::{Message, group};
 pub use patch::Patch;
 pub use section::{first_section, section_bar, sections};
 pub use style::{
     Materials, READABLE, bay, chrome, contrast, deepmind, ground, ink_on, is_negative, legible,
-    materials, negative, printed, reading, selector, shortlist, tint, wordmark, written,
+    marked, materials, mix, negative, printed, reading, selector, shortlist, tint, written,
 };
 
 /// A piece of interface, produced by the views in this crate.

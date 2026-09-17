@@ -59,21 +59,50 @@ looks first, and the rack of a section is one press behind it exactly as it is
 on the hardware.
 
 ```
-┌ ARP / SEQ ┐ ┌── LFO 1 ──┐ ┌── LFO 2 ──┐ ┌─────────────┐ ┌ POLY ┐
-│ ┌───────┐ │ │ ┌───────┐ │ │ ┌───────┐ │ │▛PROGRAM Pad▜│ │┌────┐│
-│ │▔╷ ▔╷ ▔│ │ │ │╭─╮ ╭─╮│ │ │ │╶╴ ┌─┐ │ │ │             │ ││ ╷╷╷││
-│ └───────┘ │ │ │╯ ╰─╯ ╰│ │ │ │  ─┘ └─│ │ │ Modular Fun │ │└────┘│
-│  ▮     ▮  │ │ └───────┘ │ │ └───────┘ │ │ ▁▁▁▁▁▁▁▁▁▁▁ │ │  ▮   │
-│ RATE GATE │ │ ▮  ▮ ○Sine│ │ ▮  ▮ ○Sine│ │ this claim  │ │DETUNE│
-│ [on][off] │ │      ●Tri │ │      ●Ramp│ │ ▓▓▓▓▓░░░ 84 │ │      │
-│      EDIT │ │      EDIT │ │      EDIT │ │ Read it.    │ │MOD FX│
-└───────────┘ └───────────┘ └───────────┘ └─────────────┘ └──────┘
-┌─── DCO 1 & 2 ───┐ ┌─── VCF ───┐ ┌VCA┐ ┌HPF┐ ┌ ENVELOPES ┐
-│ ▮ ▮ ▮ ▮ ▮ ▮ ▮   │ │ ▮ ▮ ▮ ▮ ▮ │ │ ▮ │ │ ▮ │ │ ▮ ▮ ▮ ▮   │
-│      [on]  EDIT │ │ [2 Pole]  │ │   │ │   │ │ A D S R   │
-└─────────────────┘ └───────────┘ └───┘ └───┘ └───────────┘
+┌ ARP / SEQ ┐ ┌── LFO 1 ──┐ ┌── LFO 2 ──┐ ┌───────────────┐
+│ ┌───────┐ │ │ ┌───────┐ │ │ ┌───────┐ │ │▛PROGRAM   Pad▜│
+│ │▔╷ ▔╷ ▔│ │ │ │╭─╮ ╭─╮│ │ │ │╶╴ ┌─┐ │ │ │               │
+│ └───────┘ │ │ │╯ ╰─╯ ╰│ │ │ │  ─┘ └─│ │ │  Modular Fun  │
+│  ▮     ▮  │ │ └───────┘ │ │ └───────┘ │ │ ▁▁▁▁▁▁▁▁▁▁▁▁▁ │
+│ RATE GATE │ │ ▮  ▮ ○Sine│ │ ▮  ▮ ○Sine│ │  this claim   │
+│ [on][off] │ │      ●Tri │ │      ●Ramp│ │  Read it.     │
+│      EDIT │ │      EDIT │ │      EDIT │ │               │
+└───────────┘ └───────────┘ └───────────┘ └───────────────┘
+┌ OSC 1 ┐ ┌── OSC 2 ──┐ ┌─── VCF ───┐ ┌HPF┐ ┌ POLY ┐
+│ ▮  ▮  │ │ ▮ ▮ ▮ ▮ ▮ │ │ ▮ ▮ ▮ ▮ ▮ │ │ ▮ │ │  ▮   │
+│  EDIT │ │ [on] EDIT │ │ [2 Pole]  │ │   │ │DETUNE│
+└───────┘ └───────────┘ └───────────┘ └───┘ └──────┘
+┌VCA┐ ┌VCA ENVELOPE┐ ┌VCF ENVELOPE┐ ┌MOD ENVELOPE┐
+│ ▮ │ │ ▮ ▮ ▮ ▮    │ │ ▮ ▮ ▮ ▮    │ │ ▮ ▮ ▮ ▮    │
+│   │ │ A D S R    │ │ A D S R    │ │ A D S R    │
+└───┘ └────────────┘ └────────────┘ └────────────┘
 ```
 
+**Two plates stand somewhere other than where the instrument prints them**, and
+both are the same hand layout the oscillators and the envelopes already are —
+the arrangement changes and what a control *is* does not.
+
+- **The amplifier heads the envelope row.** `VCA` is one fader, how loud the
+  voice is, and the plate immediately after it is the envelope that moves that
+  fader while a note is held. The instrument has them two rows apart because its
+  envelopes are multiplexed onto four faders in the middle of the panel;
+  unfolded, the level and the three shapes that drive levels are one row.
+- **The voicing drops to the second row**, at the end of the signal path it is
+  about: how many voices a note takes and how far they are detuned is a fact
+  about the voice the row builds, not about the two modulators and the
+  arpeggiator it was printed beside. Taking it out of the top row is also what
+  lets the display stand at the end of that row rather than in the middle of it
+  — the display was cut in *before* the voicing on the hardware, and it still
+  is.
+
+- **What the library records about a plate is said in the footer.**
+  `front::Section::note` is the specification's own sentence about a section
+  beyond its controls — which fader of the instrument's is missing from this
+  plate and why, which of three envelopes the shared faders address when the
+  instrument is switched on. Three of the nine sections carry one. It is a
+  sentence about a *plate*, so it goes where this window already says what is
+  under the pointer rather than onto every plate that has one: the name bar is
+  what is pointed at, and the footer is where it answers.
 - **The screen is the application's, and the panel leaves a hole for it.** What a
   display says is which sound is on it, what backs that, and what last happened
   — none of which the view layer knows, and all of which a plugin answers
@@ -113,6 +142,12 @@ on the hardware.
   instrument prints `ARP / SEQ`, `VCF` and `ENVELOPES`: a pale strip across the
   top of each group with the name dark on it. It is what the eye follows across
   the panel before it reads a single legend.
+- **The window opens as wide as the widest surface it has to draw**, which is
+  the panel or the effects page — not whichever of them the window happens to
+  open on. The panel's width is its widest row at the instrument's own
+  proportions; the effects page's is its chain, which is a fixed count of dots
+  because every box on it has to be able to name what is running in it. A window
+  sized for one of the two draws the other past its own edge.
 - **The panel fills the window it is in.** Every dimension here is written at
   the instrument's own proportions and then drawn through one scale, measured
   from the widest row against the room there actually is — the lanes, the travel
@@ -466,6 +501,15 @@ along the bottom of a window.
   own name, the range and the controller are five questions put to
   `deepmind-midi`. The footer writes down nothing about a parameter, which is
   the rule the controls themselves are drawn under.
+- **And it opens with a picture.** `ParamId::glyph`, published in 26.5: seven
+  dots by seven before the name, on the same grid the effects' marks and the
+  modulation sources' cells are on — a decay as a tail, a mix as wet against
+  dry, a pedal as a treadle. It is first because a picture is read before a word
+  is, and because somebody who points at the same control twice should stop
+  needing the word. 177 of the 242 parameters carry one; the rest are the effect
+  slots, whose picture depends on the algorithm the engine is running and is on
+  the slot itself, and the seventeen characters of the program's name, which are
+  letters rather than a control.
 - **The claim is in words here, not in a colour.** A footer is a sentence, and a
   sentence that said what backs a value by being a different colour would be
   saying it only to the readers who see the colour.
@@ -539,6 +583,15 @@ any dot, which is what the dead border is for.
   window pretending to be something it is not. `Size::Large` is every dot drawn
   as four, which is what a display does when it has one thing to say and room to
   say it twice as loudly.
+- **A field too small for its name scrolls, and one that fits never moves.**
+  `Screen::marquee` holds at the beginning of the name, travels, holds at the
+  end and starts again — what an instrument with a two-line screen has always
+  done, and not a name running round and round with its tail chasing its head:
+  a name that wraps is two names on the glass at once, and the first thing
+  anybody wants from a label is its beginning. It is one clock for every display
+  in the window, because they are one screen as far as a reader is concerned,
+  and it advances with the window's own redraws. Cutting the tail off was the
+  alternative, and `Pitch Ben` is a name somebody has to already know to read.
 - **The claim is how hard the dots are printed.** Every other control puts it in
   the fill of the part that moves; a display has no part that moves. It is
   exactly the position the [name](#name) field is in, and the pale ground answers
@@ -564,7 +617,7 @@ are two plates of one group.
 | | |
 | --- | --- |
 | VCF | `generator::filter_response`, with the corner put where the byte sits in its own travel. The vertical is decibels from the library's floor to its ceiling with unity ruled across it, so the resonant peak has headroom to rise into rather than a passband chosen to leave room for it. A dotted rule along the top says how far the envelope's depth would move the corner, and which way the polarity points it |
-| HPF | The high-pass, on the same decibel vertical and across as many octaves as its own slope needs to reach the floor, and `BOOST` printed under the curve where a high-pass has nothing |
+| HPF | The high-pass, `generator::high_pass_response` on the same decibel vertical and the same octave span as the low-pass beside it, and `BOOST` printed under the curve where a high-pass has nothing |
 | DCO 1 & 2 | Two lanes. Whichever of `DCO 1`'s shapes are switched on, side by side; `DCO 2`'s square as tall as its own level, with the noise scattered over it at its |
 | ENVELOPES | One envelope a plate, from `generator::envelope`: the four times and levels, bent by the four curve bytes |
 | VCA | The amplifier's envelope under the level it is played at, with the level as a dotted ceiling |
@@ -596,34 +649,68 @@ under, because they are the library's:
   information. What each of those says is *where in its travel* a value is,
   which is exactly what the fader beside it says.
 
-  Ruling the rest is [#36](https://github.com/MysteriousWolf/deepmind-midi/issues/36):
-  the marks worth drawing on a `Normalised` shape are where its segments join,
-  and the library is the one that knows.
+  The rest is ruled from `Generator::marks`, which 26.5 publishes
+  ([#36](https://github.com/MysteriousWolf/deepmind-midi/issues/36)): where an
+  envelope's segments join, where a filter's corner sits, where each cycle ends,
+  where a pulse falls and how far modulation swings that edge. Every one is a
+  number the library computed to build the shape rather than a second derivation
+  from the same bytes. What is *drawn* at one is the screen's decision, which is
+  what the library says it should be — a division of the axis gets a tick along
+  the foot, and the two marks that are moments in a wave stand up the band.
+
+  The envelope plates take it furthest: `A`, `D`, `S` and `R` at the four
+  boundaries, which is the one thing four faders under a line could not say.
 - **Nothing is drawn from a value nobody has read.** A scene's claim is the
   weakest of everything it read, and a scene with anything unread is not drawn
   at all: a filter assembled from four values the synthesizer described and one
   this window invented is a picture of no filter.
 
-**A wave is drawn about the line it swings around.** Every shape in the
-library's table starts at the bottom of its range, so that the seven can be
-drawn side by side without one looking shifted — which means one turn of a sine
-is a hill. It leaves the floor, reaches the top and comes back, and a picture of
-that reads as a bump rather than as something going round. So an LFO gets at
-least two turns however slow its rate is, and a dotted rule across the middle of
-the band for the level it swings about. The two turns are this window's; the
-middle is an assumption, marked where it is made and asked for in
-[#35](https://github.com/MysteriousWolf/deepmind-midi/issues/35), because
-`LFO n Unipolar` is a byte and the generator is not reading it.
+**A letter on a drawing is knocked out of a block.** The four segment initials
+stand along the foot of an envelope's glass, which is the line its sustain runs
+along: written in the same dots as the curve, `A` and `D` are four dots of a
+dither. So each one is drawn in reverse — a solid block with the letter left
+unlit inside it, and a ring of dark glass around the block so that it has an
+edge where the curve is densest. It is the same thing this instrument's display
+does to say a line is a heading, and it is legible whatever the curve is doing
+behind it.
 
-Three things are left out by that rule rather than by oversight. The bass boost
-is printed as a word instead of drawn as a shelf, because what it lifts is not
+**A wave is drawn about the line it swings around**, and one turn of it is
+enough. The level is `Generator::rest`, which 26.5 publishes
+([#35](https://github.com/MysteriousWolf/deepmind-midi/issues/35)) — the middle
+for an LFO read as it swings and the floor for one read unipolar, and the
+library is what knows which. The same release put `Slew Rate` into the shape
+itself, so corners round and a square becomes a ramp between its levels with
+nothing here to do about it.
+
+An LFO used to get **two** turns however slow its rate was, for a reason that
+has gone with that release: the shape this window drew started at the bottom of
+its range, so one turn of a sine was a hill — it left the floor, reached the top
+and came back, which reads as a bump rather than as something going round — and
+the second turn was what said it repeated. Drawn across its rest line, one turn
+is a crest and a trough either side of it, which is the picture of a cycle at
+twice the size the same glass gave two of them. The rate still reads as more of
+them, because more of it is more of them.
+
+Where the left edge of a picture is a moment the instrument *has* is published
+too, as `Generator::anchored`. An LFO whose `Key Sync` is on restarts with each
+note, so phase 0 is where that note finds it, and the glass rules it. A free
+running one is caught wherever it had got to, so the glass leaves it alone: a
+picture has to start somewhere and the instrument does not.
+
+One thing is left out by that rule rather than by oversight: the bass boost is
+printed as a word instead of drawn as a shelf, because what it lifts is not
 published and a shelf would be this window choosing a height and then drawing it
-as confidently as the corner beside it. The LFO's `Delay / Fade` is not drawn,
-because it is one parameter doing two things and the manual does not say where
-the byte stops doing one and starts the other. And pulse width modulation is two
-dotted marks either side of the pulse's edge — the depth's own travel, drawn
-where the edge is — because what a byte of it does to a duty cycle is nowhere in
-the manual.
+as confidently as the corner beside it. The library declines it for the same
+reason and says so.
+
+Two things that used to be on that list are not any more. The LFO's
+`Delay / Fade` is `generator::lfo_fade`, drawn as its own dotted line under the
+wave — as two readings rather than multiplied together, because the library
+publishes them as two shapes and their product is not a third thing it
+published. And pulse width modulation is a `Width` mark with two `Sweep` marks
+either side of it, which is the library saying where the edge falls and how far
+the modulation moves it rather than this window drawing the depth's travel next
+to a guess.
 
 The arpeggiator's rate is out of the picture for the same reason. The gate time
 is published against a step — 0 is no note, 255 a full one and 128 half of one,
@@ -631,12 +718,25 @@ which the manual states outright — and what a step is worth in seconds is
 exactly what it does not print, so a rate byte stretched across the glass was
 this window drawing an axis nobody published. The fader says what the rate is.
 
-One number about a filter is still here, marked where it is used: the high-pass
-slope. The library draws the low-pass alone, because putting both corners on one
-axis needs the spacing between two bytes whose curves are both unpublished, and
-a plate with one filter on it is not asking for that. How far past its own fall
-the axis reaches is read back out of the span the library publishes rather than
-chosen, and a test holds the two together.
+**No number about the instrument is written down in this repository.** There was
+one — the high-pass's 6 dB per octave, transcribed out of a doc comment in the
+library — and 26.5 published the curve it belonged to as
+`generator::high_pass_response`
+([#37](https://github.com/MysteriousWolf/deepmind-midi/issues/37)). The two
+filter plates now agree because they are two calls to one library on one span
+and one vertical, rather than because this window arranged for them to.
+
+The refusal under it stands, and it is the library's: the two corners are not
+put on one axis, because doing that needs the spacing between two bytes whose
+curves are both unpublished. A plate with one filter on it is not asking for
+that.
+
+The same release published what the oscillators are making. `OSC 1`'s saw and
+pulse used to be drawn side by side — two shapes in one lane — because how they
+sum is not something the manual gives and this window would not invent a mixing
+law. `generator::oscillator` sums them at equal weight and states in its own
+documentation that the equal weight is the library's reading, which is the
+difference between a guess and a published one.
 
 ### Matrix
 
@@ -644,38 +744,339 @@ Eight modulation routings, one to a row, read across: the routing's name, where
 the modulation comes from, an arrow, where it goes, and how much.
 
 ```
-        Source              Destination          Depth
+         Source                Destination                 Depth
 
-Mod 1   [ LFO 1        v]  ->  [ VCF Freq    v]  [======|========]
-93-95   2                   44                   138
+   ^
+   1   [~][ Pitch Bend  ]  ->  [/][ VCF Freq        ]  (+)     (o)
+   v
 ```
 
 
 - **A rack is the wrong drawing for it.** Three parameters are one sentence, and
   twenty-four slots in one wrapping line put the words of a sentence in three
   places with the next sentence between them.
+- **The table takes the room the window has.** The two lists are shares rather
+  than widths — a source gets the smaller of them because `LFO 1` is five
+  characters and `VCF Envelope Attack` is nineteen — so a wider window is a
+  wider pair of lists rather than a wider everything, and the eight rows stop
+  two thirds of the way across a page they could have filled. The glass beside
+  them is a fixed count of dots and stays one: a display given more room gets
+  more dots, and a display *stretched* is a magnified screen rather than a
+  bigger one.
 - **Each cell is a slot with what the row already says taken out of it**: the
-  control and the reading under it. The title is gone because the column
-  heading says `Source`, `Destination` and `Depth` once rather than eight times,
-  which is the rule that takes a group's own name off the front of a slot's
-  title.
-- **The addresses are the row's**, printed under its name as the run they are —
-  `93-95` — the way the name field prints the seventeen it occupies. Three
-  addresses above three controls in a row is three numbers where the row needs
-  one; a library that scattered the three would print all three instead.
-- **The controls are the rack's own.** A list where the library names every
-  value the parameter accepts, a fader where it does not, and the same claim
-  drawn the same way under both. A depth a later library gives a value table
-  arrives here as a list with nothing in the layout to change.
-- **The depth fader runs across.** Eight rows cannot each be 128 points tall,
-  and eight depths in a column of bars can be compared at a glance where eight
-  numbers cannot.
+  control alone. The title is gone because the column heading says `Source`,
+  `Destination` and `Depth` once rather than eight times, which is the rule that
+  takes a group's own name off the front of a slot's title, and the addresses
+  are on the glass beside the table.
+- **Both ends are the same control.** A source is one of 24 names and a
+  destination one of 133, which is a difference in how far somebody scrolls and
+  in nothing else — and the row wore two controls for it: a picker with a handle
+  beside a field with a caret, four points apart. Both are the searchable list
+  now, because the end that is hard to scroll decides: three letters and `VCF
+  Envelope Attack` is the only one left, and the same three letters cost a
+  source nothing. Where the library has no complete table for an end, that end
+  keeps whatever control the library says the parameter is, which is not a
+  decision this page makes.
+- **Each of them has its picture beside it.** Seven dots square, stencilled on
+  the card: an LFO's wave, a wheel, a filter's corner. A source's is the
+  library's own cell for it and a destination's is the glyph of the parameter it
+  moves, both published in 26.5
+  ([deepmind-midi#40](https://github.com/MysteriousWolf/deepmind-midi/issues/40)),
+  and both the same picture the patch bay draws against the same name. An end
+  that is `Off` or that nobody has drawn keeps the empty box, which is what all
+  of them were before.
+- **The depth is a dial.** A depth is read about its centre — `-128` at one end,
+  `+127` at the other and no modulation in the middle — and a dial is the
+  control that shows a middle by pointing at it. Eight faders at four places
+  along four tracks are eight positions to compare; eight dials are eight hands
+  on eight clocks, and the one pointing straight up is the one doing nothing.
+  How far a drag on it runs is the rack fader's travel, because every control in
+  this window moves at one rate under one hand.
+- **A control nobody has read stands where its range is read from.** The floor
+  for a value that counts up from one, and the centre for a value read about
+  one. Both are drawn with nothing to take hold of; only one of them is a
+  picture of full negative modulation on a page whose whole subject is how much
+  of something arrives.
 - **The rows are the library's.** A parameter whose name ends in `Source`, with
   a `Destination` and a `Depth` sharing its prefix, is a routing: a ninth
   routing draws a ninth row, and a lone source somewhere else — the oscillators
   have one — is not a matrix and is not drawn as one.
 - **A parameter no row claimed stays in the rack**, under the table, so a group
   that grows one keeps it rather than losing it to a layout.
+- **An end is typed into rather than scrolled.** 133 names in a drop-down is a
+  drop-down somebody scrolls past what they wanted; the same names in a list
+  that filters as you type are three letters and one answer. It is still the
+  parameter's own value table, asked of the library for the firmware that
+  answered.
+- **Or the routing is mapped onto the window, and you take hold of what it
+  should move.** The press is a **reticle** stencilled on the card in the
+  display's own dots — a ring with a crosshair through it and a dot in the
+  middle — with no rim, like every other press in this window whose face is a
+  drawing rather than a label. It was the word `MAP`. What the press does is put
+  the routing over the panel and wait for somebody to aim it at a control, and
+  that is a thing with a picture; the word has gone to the footer, as the
+  sentence the pointer brings up, the same as every other mark-faced press here.
+  That is also what makes the press square rather than as wide as a word.
+
+  What changes while the mode is up is the ink: it goes to the one saturated
+  colour on the panel, which is the same cyan every control the routing can
+  reach is lit in at that moment, because the press and the lit controls are one
+  thing happening. The mark does not change — a press that showed a reticle and
+  then a cross would be two marks to learn, and the colour has already said
+  which of the two states it is in. While it is
+  down, every control the matrix
+  can reach is lit — on the front panel, in all fourteen racks, on all four
+  effect engines — and everything it cannot reach is covered by the panel it
+  stands on until it is barely there. Lit *and* dimmed, because forty faders
+  with six outlined is a page somebody searches and the same page with
+  thirty-four faded is a page with six faders on it.
+
+  **Lit means lit, not outlined.** It was a hairline rectangle around the
+  control, which is a focus ring on a web page and is nothing at all on a piece
+  of equipment. A `DeepMind` says a press is on by lighting it from behind, so
+  that is what this does: the instrument's own cyan coming up through the panel,
+  brightest at the foot of the control where the light enters and falling away
+  across it, with the wall it comes past catching it hardest of all. That is the
+  same rule the display's glass is drawn under and the same rule a fader's track
+  is — every cut surface in this window is lit along the edge the light reaches.
+
+  **What is already there is drawn on the thing it is already on.** A control
+  another routing lands on carries a band up its own travel for each one, from
+  where the control sits to as far as that routing's depth can push it, and the
+  footer names them: `Mod 3 and Mod 5 already → here`. Somebody choosing where a
+  routing goes is choosing against the other seven, and a second routing onto
+  the same filter corner is a thing people do on purpose and a thing people do
+  by accident — the difference is whether they could see the first one. Which
+  routing a band belongs to is the footer's to say, because a bar on a fader
+  cannot carry a name.
+
+  Which way a band swings is the source's, published in 26.5 as `Swing`
+  ([deepmind-midi#41](https://github.com/MysteriousWolf/deepmind-midi/issues/41)).
+  A `Centred` source — an LFO, the pitch bender — gets a band either side of
+  where the control sits, and a `Rising` one — an envelope, a wheel, a pressure
+  — gets a band from it. This window used to take the depth's own sign as the
+  whole answer, which is right for the second and wrong for the first: a band
+  drawn one way from a filter's corner said the filter could only ever open.
+
+  How far a band reaches is still **assumed**: full depth is taken to move a
+  control over the whole of its range. 26.5 published the accessor for it and
+  not the number — nobody has measured what a depth byte does at the other end
+  of a routing — so the assumption is a fallback behind a question now, in one
+  function, and it is the one row left in the open list.
+
+### The patch bay
+
+Beside the eight rows, on the instrument's own glass: the sources down one side,
+the destinations down the other, and a wire for every routing between them.
+
+```
+  4 OF 8                                            93-116
+
+  +-------------+
+  |[#]Pitch Bend|
+  |       1  +72|---------+   +----------------+
+  |       2  -68|-------+ +---|[#]VCF Freq     |
+  +-------------+       |     +----------------+
+  +-------------+       |
+  |[#]BreathCtrl|       +-----+----------------+
+  |       4 +122|-------------|[#]VCF Res      |
+  +-------------+             +----------------+
+```
+
+It is the one thing the table cannot show. Eight rows read one sentence each,
+and what somebody wants to know about a modulation matrix is the *shape* of it —
+that one LFO is driving three things, that two routings are fighting over the
+filter corner, that the aftertouch goes nowhere. Reading that off eight rows
+means holding eight sentences in your head at once; the glass is the same eight
+facts arranged so that the shape is the picture.
+
+**The glass is as deep as the rows it stands beside**, and the two are locked
+together by one number rather than by two somebody has to keep in step: a
+routing's row is a fixed height whatever is in it, and the glass is that height
+eight times over with the heading on top. A patch bay that stopped two rows
+short of the table it is a picture of would be a picture of something else.
+
+**It has a heading, and the heading is where the addresses went.** Every row
+printed the three offsets its parameters occupy — twenty-four numbers down the
+left-hand edge of a page, in a window where nobody edits a program by offset.
+The one thing worth saying about where these bytes are is where they start and
+where they stop, which is said once, on the glass, beside how many of the eight
+are wired: `4 OF 8` and `93-116`. Two facts that are true of the whole table and
+were a column of repetitions in it.
+
+**Which routing is which is a numeral, and the presses that move it are either
+side of it.** The row said `Mod 1` over `93–95`: `Mod` is what the heading over
+the table already says, and three offsets is where bytes live in a program
+nobody edits by offset. What is left is the number, printed in the display's own
+dots — the numeral an effect engine's case already carries, and the numeral the
+glass beside these rows prints on every wire the routing draws, so the table and
+the picture say the same thing in the same hand.
+
+Above and below it are the two presses that **move a routing up or down the
+table**, which is the one thing a matrix of eight identical slots gives nobody a
+way to do. The number is between them because the number is what moves: sending
+a routing up is `3` becoming `2`.
+
+Each of them is a **solid triangle seven dots across and four deep**, drawn in
+the same dots as the numeral between them and stencilled on the card the way a
+number is stencilled on a rack unit's case. They were `▲` and `▼` set at nine
+points, which is a glyph whose size and weight are the face's business: two of
+them above and below a dot-matrix numeral were three marks at three sizes in a
+column twenty points wide. A triangle and no shaft, because at this size a
+three-dot head on a one-dot stem reads as a cross rather than as a direction —
+the head has to be most of the mark before anybody sees which way it points. A
+press with nothing to trade keeps its mark and loses the metal in it, which is
+how a panel says a control is not wired to anything.
+
+The eight are read as a set and the instrument does not care which of them says
+what, so where a routing sits is entirely for whoever has to read the table
+next. A matrix filled in over a week is eight rows in the order they were
+thought of; the same eight grouped by what they move is the same sound and a
+page somebody can read.
+
+Nothing about the sound changes. What moves is six bytes trading places, three
+pairs that mean the same thing: a source for a source, a destination for a
+destination, a depth for a depth. A press is dead where there is nothing to
+trade — the top row cannot go up, the bottom cannot go down, and a routing whose
+bytes nobody has read cannot be moved anywhere, because writing a value this
+window has not seen into a slot is the one thing it does not do.
+
+**A row is a card, and everything on it is on one line.** Eight rows of controls
+at four heights, floating on the plate the rack stands on, are eight rows
+nothing lines up against — every one of them looked a little out, because there
+was nothing for them to be in. A routing is one sentence and the card is the
+paper it is written on: the same face plate a rack's slots already stand on,
+with the seam and the lit lip every cut surface here presents.
+
+**No row prints a value.** Every control in this window prints its reading
+underneath, and in this table that was two lies and a repetition. A list's
+reading is the name of a value over the byte that name stands for — `Pitch Bend`
+over `1` — which says nothing the control above it does not. A depth's reading
+is a number nobody needs to the byte: the dial is already the picture of it, the
+glass beside the table prints the exact amount on the wire it arrives through,
+and the footer prints it with the name and the range whenever somebody points at
+one. So the readings went, and the row came down from a line and a half to one
+line.
+
+**What backs a routing is the colour of its number.** It was two dots floating
+under the two lists, which is a mark that has to be asked about before it says
+anything. The numeral is already about the routing rather than about any one of
+its three parameters, and it is already being read, so it carries the claim:
+green for what the synthesizer reported, copper for what this window claims,
+washed grey for what nobody has read. The same three-way answer, on something
+somebody is looking at anyway.
+
+**A name is drawn once, and what leaves it is a list.** One LFO driving three
+things is one cell with three wires out of it — that is the picture, and the
+same thing drawn as three cells reading `LFO 1` is a table with lines on it. So
+both columns are the names, once each.
+
+**What each of those wires carries is written at the end it leaves from**: the
+routing's number and its depth, one line each, down the source's own cell, with
+a knot on the edge beside every one of them. `1 +72` and `2 -68` under
+`Pitch Bend` are the two routings that leave it, and the two wires leave from
+those two lines. The eight depths were a block along the foot of the glass when
+a cell was a name and there was nowhere else for them to go — a list beside a
+drawing, each saying half of eight sentences.
+
+**A source or a destination is a cell, and every cell is the same cell.** A thin
+frame, a seven-by-seven box for its picture, its name in the field beside it,
+and the routings that leave it underneath — so that the two columns read as two
+columns of the same thing rather than as words at different lengths in roughly
+the right places. A destination has no readings under it: what arrives there is
+written where it left from, and printing it twice would be printing it twice.
+
+**A name too long for its field scrolls rather than losing its tail.** `Pitch
+Bend` and `BreathCtrl` are ten characters in a field cut for nine, and
+`Pitch Ben` is a name somebody has to already know to read. The field holds
+still at the beginning of the name, travels, holds at the end and starts again,
+which is what an instrument with a two-line screen has always done — and what it
+does not do is run round and round with the tail chasing the head, because a
+name that wraps is two names on the glass at once and the first thing anybody
+wants from a label is its beginning. Nothing that fits ever moves: a page of
+short names is a still page. It is one clock for every display in the window,
+and it advances with the window's own redraws.
+
+**A wire leaves flat, turns down a track of its own, and arrives flat.** Not a
+line between two points: the glass is as deep as eight rows of controls and the
+gap the wires cross is a fifth of that across, so anything drawn as a single
+sweep between two distant nodes comes out as a near-vertical scratch that could
+have started anywhere. A track each, because two wires down the same part of the
+glass have to be two wires and not one heavier one. The corners are taken off by
+three dots, which at this pitch is the most a dot matrix can say about a radius.
+
+The cells are spread down the glass as far as it allows, **up to a limit** of
+three lines of glass between them, and the group is centred: three of them are a
+group in the middle of the glass rather than three cells in its corners.
+
+Only the routings the patch has actually wired are drawn. The instrument ships
+with all eight sitting on `Off`, and eight wires from `Off` to `Off` is a
+picture of nothing drawn eight times. The names are cut to what a cell holds,
+which is what a display does and what this one is a picture of; ten characters
+is what the instrument's own screen prints for all but a handful.
+
+Every wire is solid. The ink a line is laid down in distinguishes one line from
+the next and never says how much of anything there is — that rule is written
+down in `lcd.rs` and this is the first drawing that had a reason to want to
+break it. How much is the depth, and the depth is the fader beside the glass.
+
+**The picture in each cell is a picture.** Seven dots by seven, which is the
+cell this display writes a character in: an LFO's wave, a wheel, an envelope's
+corner on one side, and what the destination's parameter does on the other. 26.5
+publishes the sources' as `ValueTable::cell_of` and the parameters' as
+`ParamId::glyph`
+([deepmind-midi#40](https://github.com/MysteriousWolf/deepmind-midi/issues/40)),
+so two columns of abbreviations are two columns of pictures — which is what a
+patch bay is *for*, because the shape of a matrix is something you read at a
+glance or not at all.
+
+They are the library's for the same reason the effect families' marks were: a
+picture of `LFO 1` is a fact about the instrument and one drawn here would be
+this window inventing it. The names stay beside them, because a picture and a
+name say different amounts to somebody who has not met either — and an end
+nobody has drawn keeps the empty box, so one gap in a column reads as one thing
+undrawn rather than as a column that has not been drawn.
+
+  Nothing edits the sound while it is up. The sections still open, the panel
+  still scrolls, the lists still say what they are showing, and the one thing a
+  control no longer does is send anything. Taking hold of a lit one answers the
+  question: a click chooses it, and a drag sets the depth as well.
+
+  It is the answer to what actually makes that column hard. A destination is an
+  abbreviation the instrument's display prints, and knowing which abbreviation
+  stands over the fader you have in mind is harder than knowing the fader.
+- **The drag is the same drag.** The same relative grab over the same range at
+  the same rate, and what comes out of it is the fraction of the control's own
+  travel rather than the value it would have reached — laid onto the depth's own
+  range about its own centre, so dragging a control a third of the way up asks
+  for a third of the depth and dragging it down asks for the same the other way.
+
+  **What full depth is worth is assumed**, and it is the last assumption on this
+  page. The manual prints no law relating a depth byte to its destination's
+  range, so the window assumes full depth moves the control over all of it. 26.5
+  published `ParamId::modulation_reach`, which is where to ask
+  ([deepmind-midi#38](https://github.com/MysteriousWolf/deepmind-midi/issues/38))
+  and not the answer — it returns nothing for every pair, because nobody has
+  measured it. So the guess is a fallback behind a question now, written once and
+  reached by both the drag and the bands, and the day a measurement lands in the
+  library it stops being reached with no diff here. Until then the gesture is a
+  way of *saying* an amount into the byte the depth fader already held, and the
+  fader is unchanged.
+- **Which controls light is the library's own join, read backwards.**
+  `ValueTable::values_naming`, published in 26.5
+  ([deepmind-midi#39](https://github.com/MysteriousWolf/deepmind-midi/issues/39)):
+  the destinations that reach a control, narrowest first, and `next` is the one
+  to take. `VCF Attack` beats `All Attack`, because somebody who took hold of
+  the filter envelope's attack meant the filter's — and that ranking used to be
+  made here, which is a judgement about the instrument being made in a window
+  however honest the slices under it were. It is on the other side of the split
+  now, down to what happens when two destinations move the same number of
+  parameters: the library puts them in value order and says outright that
+  nothing makes one of them the narrower.
+- **A mode says so where somebody can see it.** The footer carries the routing's
+  name while it is pointed, on all three surfaces, and pressing it stops. A mode
+  that could only be left from the page it was started on is a mode somebody
+  gets stuck in, and somebody in this one is by definition somewhere else.
 
 ### Effects
 
@@ -771,6 +1172,22 @@ Six columns, every one of them there whether or not a slot stands in it, spread
 across the whole of this engine's half of the page. That is what makes the
 second row readable down against the first.
 
+- **A slot wears the picture of what it does.** `FxSlot::glyph`, published in
+  26.5: seven dots by seven beside the title, and every slot has one, because
+  what a slot does is the one thing the algorithm always knows about it. It is
+  finer than the `Quantity` the line under it is drawn from and it is for a
+  different job — a pre-delay and a decay are both a time, and a plate with
+  twelve of these on it wants the gap drawn on one and the tail on the other.
+  The same glyph serves every slot doing the same job, so a `Low Cut` on a
+  reverb and one on a delay are one picture, and it is the same picture the
+  footer puts beside a program parameter doing that job.
+- **An engine says what kind of thing it is.** `Algorithm::characters`, also
+  26.5: one or two quiet words after the name — *vintage*, *modelled*, *stereo*,
+  *dual*, *multiband*, *two in one*, *lo-fi*, *modulated*, *dynamic* — and
+  nothing at all for the plain reverbs and the noise gate, whose family says
+  everything a word can. Read rather than derived: the library carries a reason
+  per membership, and a window matching on `Vintage` in a name would be right
+  until the day it was not.
 - **A slot is named by the algorithm, and drawn by the parameter table.** Those
   are two different claims and only one of them is published: `Freeze` is two
   states on the display and a parameter that accepts 256 values on the wire, and
@@ -782,9 +1199,12 @@ second row readable down against the first.
   says what the two ends of the display read; the readout above it stays the
   byte, because a plausible `2.4 s` for a byte is wrong in a way nobody can see.
 - **A slot the display names is not a list.** The manual prints `Ambience`,
-  `Church`, `Gate` and never the bytes they sit at. The names are printed under
-  the plate as what the display will show, the fader stays, and nothing offers
-  to send one of them.
+  `Church`, `Gate` and never the bytes they sit at. The names are printed as
+  what the display will show, the fader stays, and nothing offers to send one of
+  them. Under the row that slot stands on, rather than at the foot of the case:
+  nine preset names are two lines long on a case a quarter of this page wide,
+  and printing them all together put the longest thing on the plate as far as it
+  could get from the control it is about.
 - **The grid is the instrument's own FX page.** Six columns and two rows,
   measured off the 35 screenshots in the manual, and every slot drawn in the
   column and row published for it — so a plate is the arrangement anybody who
@@ -821,8 +1241,16 @@ second row readable down against the first.
   Two columns the library labelled nothing are two columns and not a pair, and a
   row it grouped nothing on has no strip on it — but it keeps the room one
   takes, so every row of the grid is one depth.
-- **The mark is the library's strokes and this window's layout.** Nine of them
-  across the 35, one per family, published as a polyline, an arc, a sine and a
+- **The mark is the library's strokes and this window's layout.** Nine families
+  across the 35, and, since 26.5, a finer mark where an effect's kind is
+  something a symbol can carry: a plate reverb as a plate with wavefronts
+  leaving it, a hall as wavefronts far from their source, an ambient reverb —
+  which is a reverb and nothing a symbol can add to — as the family's own. The
+  window asks `Algorithm::mark` and gets whichever applies, so the better marks
+  arrived with nothing here to change, and they are the same language either
+  way, which is what keeps the four engines reading as one set.
+
+  They are published as a polyline, an arc, a sine and a
   filled disc in a unit box — not as a picture, for the same reason the panels
   are data: this window and the plugin want the same mark at two sizes and in
   two inks, and neither can theme an image it did not draw. `mark.rs` lays a
@@ -832,7 +1260,7 @@ second row readable down against the first.
   which of them are lit is the whole of the design.
 
   **The window places what the strokes reach, not the box they arrived in.**
-  None of the nine fills that box and no two of them leave it the same way: the
+  None of them fills that box and no two leave it the same way: the
   reverb's wavefronts leave a third of the width empty on one side, the imaging
   mark uses less than half the height, the delay's bars use nearly all of it.
   Drawn straight onto the room they are given, a row of engine strips has the
@@ -847,7 +1275,7 @@ second row readable down against the first.
   made to sit against each other, and three attempts at placing them all looked
   like a drawing that had slipped. The same nine strokes at ten times the area
   have no such problem. It is drawn across the face the controls stand on, in
-  that surface's own ink carried a thirteenth of the way towards it, anchored
+  that surface's own ink carried a twenty-sixth of the way towards it, anchored
   into the bottom right and running a third of itself off the corner, clipped to
   the case.
 
@@ -862,6 +1290,67 @@ second row readable down against the first.
   It says which family without being read, which is what a mark is for, and it
   never competes with a word because it is barely there. It also lands exactly
   where a case that is deeper than its algorithm needs has nothing on it.
+
+  Barely there is a number and the number was wrong once: at a thirteenth of the
+  way towards the plate's ink the flat ones came out as solid grey slabs behind
+  the lower rows of a deep case, hard-edged and crossing two legends, which is a
+  stray structural element rather than a watermark. It is half that now, and the
+  light and shadow a relief catches with it.
+
+  **And it meets the case the way the case's own material would let it.** A mark
+  on a worn panel is *stamped into* it, one on a modern face is *raised off* it,
+  and one on a case that is neither is printed flat — which is three passes of
+  the same nine strokes a few dots apart, the light edge and the shadow either
+  side of the ink, in the order the relief calls for. A boss is lit along its
+  top-left edge and casts below-right, because that is the light every cap,
+  plate and display in this window is already drawn under; an indent is the same
+  two edges the other way round.
+- **A case is finished the way the unit it is a picture of would be.**
+  `Algorithm::characters` says what kind of thing an effect is beside what it
+  does — vintage, modelled, stereo, dual, multiband, combined, lo-fi, modulated,
+  dynamic — read off the specification rather than matched on a name. Two of
+  those are facts about the *box* rather than about the signal, and they are the
+  two a surface can carry:
+
+  - **vintage** is *worn*: broad soft blotches where the light has not fallen
+    evenly for thirty years, short scratches scattered over them where things
+    have gone past, a few long rubs where a hand goes, and corners darker than
+    the middle the way a handled panel is;
+  - **lo-fi** is *gritty*: a fine broken diagonal grain with blocks missing out
+    of it, which is a converter running out of bits;
+  - everything else is *brushed*, which is still not flat — a few dozen
+    hairlines the long way, because four large blocks of one colour on a page is
+    the one way a case measured off a photograph gives itself away.
+
+  **None of the three is on a lattice**, and two of them were. A grid of
+  jittered cells is the obvious way to draw a texture out of quads and it is the
+  wrong one: however hard the cells are shaken, the eye finds the row and the
+  column, and then a plate whose controls are supposed to be the loudest thing
+  on it is a plate with a screen door over it. So the worn face is scattered —
+  blotches and scratches at free positions, counted by *density* so that a wide
+  case and a narrow one are the same material rather than the same number of
+  marks stretched differently — and the gritty one runs diagonally, which is the
+  one direction nothing standing on the page runs in. A blotch is laid down as
+  three rectangles inside each other at a third of the weight each, because a
+  quad has an edge and a patch of uneven light does not.
+
+  A Tel-Ray delay is both vintage and lo-fi, and the box is the older fact, so
+  vintage decides. The rest of the characters leave the face alone: a stereo
+  chorus is a rack unit like any other, and a surface that changed for every tag
+  would be a page of materials that mean nothing.
+
+  Every mark on a face is laid down from a counter run through a hash seeded by
+  the algorithm's *name* — so the same algorithm is the same unit on every
+  frame, two engines running it are two of the same unit, and a firmware that
+  renumbers the 35 does not re-scuff anything. And it is light and shadow rather
+  than ink: a scuff is what a room does to a surface, and it does the same thing
+  to a cream panel as to a black one.
+
+  What this does **not** do is wear the unit's own paint. The library publishes
+  `Panel::face` and `Panel::cap` as well as the chassis and the accent, and
+  those two are the ones this page declines: four measured liveries side by side
+  are the collage it has always refused to be, and a surface can say what kind
+  of unit it is without it.
 - **An effect that is out of circuit says so, and 32 of the 35 cannot.**
   `FX n Type` is 35 effects with no `Off` in the table, and what takes effects
   out is the `Bypass` mode, which is the whole block of four. Three algorithms
@@ -928,6 +1417,81 @@ second row readable down against the first.
   The graph is centred in what is left: the glass is cut for the deepest of the
   ten topologies and four in a line is the shallowest, so the difference used to
   be a third of the screen blank under a row of boxes.
+
+  **Every box carries the mark of what is in it, and the ones that stack carry
+  it beside the name.** The mark goes over the name where there is a line to
+  spare over it, which is what four engines in a line have. The topologies that
+  stack three engines in a column have the opposite shape — each box is as wide
+  as the graph and a third of it deep — so those boxes showed no mark at all,
+  with half the glass standing empty beside the one line they were carrying. The
+  mark and the name are centred together there, as one thing.
+
+  **A merge is one junction and not one wire per engine.** Three engines feeding
+  a fourth drew three lanes two dots apart across the gutter, each ending in its
+  own arrowhead on the same dot of the same frame — three heads over each other,
+  which on a dot matrix is a blot. The gutter is shared out by where the wires
+  *arrive* rather than by how many there are: wires into different boxes never
+  share a lane, because that is what tells two paths apart, and wires into one
+  box always do, because they are one junction.
+
+  **An arrowhead is a solid triangle.** It was an open chevron, and the matrix's
+  two presses had already found out what that is worth at this pitch: an outline
+  is not a shape, it is a handful of specks arranged near one. In a nine-dot
+  gutter between two frames that a bypassed chain draws dotted, it read as an
+  asterisk. The run stops where the head starts, so the line is not drawn
+  underneath it.
+
+  **Nothing is drawn through a box.** Two of the ten take the block's output
+  from an engine that has others after it, and a rule from that box to the rail
+  ran through every box in between — in and out the other side, which is a wire
+  nobody can follow. It goes under them now, and it leaves through the *bottom*
+  rather than the side: beside the box it ran the depth of the frame a dot away
+  from it, which is not a wire leaving a box, it is a box with one edge drawn
+  twice. Three quarters of the way across, which is the side it is headed for,
+  and not the middle, where a loop returning into that same box puts its own
+  head.
+
+  The loops already went under for the same reason, and they now keep a dot clear
+  of the frames at both ends: a line that starts on the bottom rule of a box has
+  no visible beginning, and a head whose tip lands on one is a thickening of the
+  rule rather than an arrow. Their lane is deeper than it was, too. It sat at
+  half the band, which left one dash between the head and the rule it runs along
+  — and a head sitting on a rule with one dot of daylight is not an arrow
+  arriving along a wire, it is a cross.
+
+  **Every box has a dot of glass inside its own frame**, and the glass is as
+  deep as that makes it. It was 64 dots — the instrument's own display — and 64
+  is not a measurement of anything this picture has to fit: four stacked boxes
+  that each keep a dot inside their rules, with a heading over them and the
+  analog path's foot under them, come to more than that. What the number was
+  doing instead was taking the dot back off the boxes, so the four stacked ones
+  had their names printed against their own rules and the rule and the tops of
+  the letters read as one stroke. The height is derived now, the way the width
+  already was.
+
+  **And the two long wires under the graph say which way they run.** A loop goes
+  back and an output taken from the middle of the chain goes on; both leave a box
+  downwards, cross the width of the graph and rise at the far end, and dashes
+  against solid does not say which of those is which. So each carries a head half
+  way along it — the rule running into its back, and clear glass in front of its
+  point. The clear glass is the whole of it: a head with the line drawn on both
+  sides is a thickening of the line, and what is left standing above and below it
+  is the head's own back column, which reads as a tick. That head is longer than
+  the one a wire arrives with, five dots along against three, because an
+  arrival's head has a frame standing right behind it to say what has been
+  arrived at and this one is alone in open glass.
+
+  **The lane under the graph and the foot the analog path stands on are two
+  measurements**, and they were one constant. Every dot the loops were given was
+  therefore taken off the graph a second time at the bottom, and on the topology
+  that stacks four engines with the voices routed round the block that left each
+  box eight dots deep where nine is the least a box can be read at — which is
+  also the least `plate` will draw, so the picture came out empty. A test now
+  measures every box on every topology in every mode against that floor.
+
+  The rule is a test rather than a promise. Every box's interior is compared,
+  on all ten topologies, against the same box drawn on a screen of its own: what
+  is inside a frame has to be something the box itself put there.
 - **The settings are under the display, not beside it.** That is what the wider
   glass cost, and it bought the better half of the trade: the ten topologies are
   laid out as three columns of lit legends rather than hidden in a drop-down. A
@@ -955,31 +1519,42 @@ second row readable down against the first.
   An engine whose algorithm nobody has read is the one case left: all twelve
   under the library's own `Param 9`, which is stage 3's rack for exactly as long
   as there is nothing better to say.
-- **Every case is the same depth, and gets there by being the same shape.** Not
-  by being stretched. A plate draws the grid's own two rows whether or not its
-  algorithm fills them; a column stands a column's height whether or not a slot
-  is in it; a run keeps the room a strip takes whether or not it has a name; a
-  control stands in a band of one depth whether the figure calls for a knob or a
-  fader; and the lines saying what a display shows are given the most any of the
-  35 needs. What fills the difference is the case, which is what the bottom of a
-  rack unit is.
+- **A case is as deep as what is in it, and a row is still the same shape.** The
+  reservation went the other way first: a plate drew the grid's own two rows
+  whether or not its algorithm filled them, and kept the deepest band of display
+  names any of the 35 needs, so that four rack units bolted onto one page were
+  four rack units of a height. What that bought was paid for by most of the 35 —
+  an algorithm using five of its twelve bytes fills one row of a two-row grid,
+  so more than half of that case was blank panel, and a rack unit with nothing
+  on its lower half is a rack unit somebody looks for the missing knobs on.
 
-  The argument this replaces was that a case should be as deep as the algorithm
-  in it needs, and that stretching the shallower of a pair would be a panel with
-  empty case at the bottom. Four rack units bolted onto one page are four rack
-  units of a height, and two depths side by side read as a layout that had not
-  finished rather than as an honest answer about how much room an algorithm
-  wanted.
+  So the grid is drawn as deep as the algorithm on it. What is still reserved is
+  the shape of a row, which is what
+  makes the columns line up: a column stands a column's height whether or not a
+  slot is in it, a run keeps the room a strip takes whether or not it has a
+  name, and a control stands in a band of one depth whether the figure calls for
+  a knob or a fader. Two engines running algorithms of one shape still come out
+  level; two running a reverb and a delay do not, which is what they are.
 
-  Whether a line is kept for the response picture is the *page's* question
+  Whether a line is kept for the response picture is still the *page's* question
   rather than an engine's: two of the 35 publish one, so a page holding one of
-  them keeps that line on all four of its cases and a page holding none keeps it
-  on none. An engine reserving it for itself would be four cases of two depths
-  again; an engine not reserving it would be the page moving under the hand when
-  a type byte changed.
+  them keeps that line on all four of its strips and a page holding none keeps
+  it on none. That one is not about the depth of a case — it is the strip along
+  the top of every case, where an engine reserving the line for itself alone
+  would be the page moving under the hand the moment a type byte changed.
 - **Units land on one line.** A title is set in a box two lines tall whatever it
   needs, so a name that wraps pushes nothing down but itself and the readings
   across a row are read along one line rather than up and down a ragged one.
+- **A plate does not print the value table.** Every slot whose display shows
+  names rather than a number used to print all of them under its row: `FCL Delay
+  Factor, left shows 1/4, 1/3, 1/2, 2/3, 3/4, 1, 4/3, 3/2, 2, 3`, two of those
+  under one row of a delay, nine reverb presets wrapped onto two lines under
+  another. It is the instrument's own table set out in full beneath a control
+  that is already sitting on one of its entries — and the entry it is sitting on
+  is the one thing the line did not say. What somebody playing needs from a knob
+  is what it is *on*, which the reading under it gives, and how many places it
+  stops at, which the line under that still says: `10 settings`. Where the name
+  of a setting matters, the control is a list and the list has the names in it.
 - **The modulation dot has a second state here.** Every slot is addressable from
   the matrix as `Fx n Param m`, and the library says which ones the engine acts
   on. A routing pointed somewhere the engine ignores draws the mark as an
@@ -1153,10 +1728,11 @@ plugin bundle rather than a line of code. Until it is taken, the family is named
 in one place — `control-ui/src/style.rs`, beside the palette — and asked for
 there by both builds.
 
-**The name is set as the mark sets it**: bold, in the metal of a fader cap, over
-the panel. Without the wordmark's slices through it, which at 22 points are a
-smudge rather than a slice — the mark is not improved by being approximated at a
-tenth of its size.
+**The name is not set at all**: it is `docs/wordmark.svg`, the banner's own
+outlined letters in the metal of a fader cap, with the banner's own five slices
+through them. Nothing about it depends on which bold sans a machine has, and the
+slices are in the path's coordinates rather than in points, so they are cuts at
+whatever height the window gives the file.
 
 ## The window is a panel, and so is its chrome
 
@@ -1166,10 +1742,12 @@ are still on the instrument:
 - **The ground is the panel's gradient**, `#282c36` falling to `#15181e`, which
   is what `logo.svg` fills its case with. A flat dark window is the bottom of
   the panel stretched over all of it, which is the one part that is not lit.
-- **A button is the panel with a metal rim**, not a filled slab. A row of filled
-  slabs is the brightest thing on a dark window, and the brightest thing here
-  has to be a fader cap. Pressing lights the rim, the way a section button
-  lights.
+- **A button with a word in it is the panel with a metal rim**, not a filled
+  slab. A row of filled slabs is the brightest thing on a dark window, and the
+  brightest thing here has to be a fader cap. Pressing lights the rim, the way a
+  section button lights. **A button whose whole face is a mark has no rim at
+  all**: the mark is already a shape on the panel, and what a hand gets back is
+  the panel lifting under the pointer.
 - **Anything chosen from a list is a recess**, closed and open alike: the track
   of a fader, the field a name is typed in, and the picker a port is chosen
   from are the same cut into the same panel.
@@ -1178,6 +1756,124 @@ are still on the instrument:
 
 All of it comes from `materials()`, which means restyling the chrome is the same
 one file as restyling a fader.
+
+### The foot of the window is the status bar
+
+Three things are true of the window rather than of the page in it: what is under
+the pointer, what can be asked of the instrument, and which way up the displays
+are. They were on three separate rows under the header — the most expensive room
+on the screen, spent on two presses somebody uses twice a session and a sentence
+the instrument's own display was already printing.
+
+They are along the foot now, with the presses at the right-hand end. `Who` asks
+the instrument what it is, which is what settles the firmware every value table
+in the window is read from. `Read` asks it for its edit buffer, which is what
+turns this window's claims into the synthesizer's facts. And the third is the
+display.
+
+**The display press is a display.** `Negative display` said which way up they
+would be, in a sentence, on a row of sentences. A screen the size of a character
+showing itself the way it is about to be says the same thing without being read,
+and says it in the one material the press is about. It is the only display in
+the window that does not take its glass from the theme, because the whole point
+of it is that it is the other way round.
+
+**Every press in the chrome is a mark, and nothing else.** Ask who is there is a
+question mark; read the edit buffer is an arrow coming down into a tray; look
+for ports again is a magnifier; open one is an empty `DIN` socket and put it
+down is the same socket with a plug in it, which is the connector this whole
+application arrives through. They are dots, because everything small in this
+window is dots — a
+display's characters, an effect engine's number, a routing's number, the patch
+bay's names — and a press with a line-drawn icon on it would be the only small
+drawing here made of anything else. They are stencilled on the panel rather than
+lit on glass, which is the same call the numbers go through; the one press that
+is a *display* is the one whose subject is the display.
+
+Nine dots square and not seven: seven is the cell a character stands in, and
+these are not characters. Nine is the smallest odd grid with a middle dot, a dot
+either side of it and a dot either side of those, which is what a circle, an
+arrow and a plug all need before they stop being suggestions.
+
+**Two presses that do the same thing to the same port differ by their mark.**
+They differed by the word beside them, and the words are in the footer now — so
+an open port is a socket with a plug seated in it and a closed one is a socket
+with nothing in it, which is a fact about the cable rather than an instruction
+and reads at a glance the way a lit lamp does. Rescan stopped being a circular
+arrow for the same reason a five-dot arrow stopped being an arrow: three
+quarters of a ring with a stub on the end of it is, at nine dots, a broken
+circle with specks round it. What the press does is go and *look*, and a
+magnifier is a shape with two parts rather than a shape with a gap in it.
+
+**A mark wears no rim, and what it does is said in the footer.** It was a mark
+and a word inside a rounded rectangle with a metal rim, three along the header
+and two along the foot — five rims on a panel whose own controls have none. And
+the rim was drawn to the height of the *words*, so a nine-dot mark stood in the
+middle of it with four points of panel above and below: a mark scaled to a box
+built for type is a mark that is never the size it was drawn at.
+
+So the presses are the size of what is drawn on them, and what a hand gets back
+is light rather than a frame — the panel lifts to the plate under the pointer
+and dips to the recess while it is held, which is the pair of surfaces every
+other press here moves between. The word goes to the footer, which is already
+where this window says what is under the pointer, and it is a whole sentence
+there rather than the one word a rim had room for: `Ask the synthesizer what it
+is: device, firmware, voices and channel.` The same answer is what the two
+presses beside a matrix row give, for the same reason.
+
+### What is known about the instrument is behind one press
+
+Who answered, what firmware, what voice version, what channel, what the last
+thing to happen was, and whatever went wrong. Two rows of sentences under the
+header, on every page, whether or not anybody was asking — four facts about a
+cable that change perhaps twice a session.
+
+It is one `i` beside the port picker now, and what it says opens under the
+pointer: a name, a number, a number and a number lined up down a column, which
+is what somebody comparing them against the back of an instrument is doing.
+Where nobody has answered it says so, and says what this window is assuming
+meanwhile — because the firmware is never *not* an answer, it is either the
+instrument's or this window's, and which of those it is is the whole distinction
+this editor turns on.
+
+### The header is the name and the port
+
+One line: the project's name, and what a port can be done with. The name is the
+only thing on it that is not a control.
+
+It was the whole of `docs/banner.svg` reproduced — the mark, a subtitle, and a
+dark panel between two wooden end cheeks. But the banner is the picture that
+introduces this project to somebody who has never seen it, and that is not the
+job of the top of a window somebody has open all afternoon: it is a heading, and
+it was three ornaments deep. The mark is the application's icon, where an icon
+belongs. `editor and librarian` is what a banner says and what a window does not
+have to, because a window says it by being one.
+
+**What is left is the banner's own name, as a file.** `docs/wordmark.svg` is
+cut out of `docs/banner.svg`: the same outlined path, the same metal gradient
+down it, and the same five horizontal slices, carried across as the mask they
+already were and cropped to the box the path measures. The window renders it.
+
+It was drawn instead, for a while, and it is drawn no longer. The name was set
+in a bold sans with five thin quads laid over it, placed in ems of the face so
+that any size got the mark's proportions — and what came out on a screen was
+five hairlines landing where the renderer rounded them to, across letters whose
+own shapes were whichever bold sans the machine had. Two approximations, one
+over the other. The result read as a striped word rather than a sliced one,
+which is the failure the ems were supposed to prevent.
+
+A vector file has neither problem. The letterforms are the banner's, not a
+lookalike the machine happened to ship; the slices are in the path's own
+coordinates, so the renderer scales them with everything else and a cut stays a
+cut at any height. This is the one drawing in the window that is loaded rather
+than drawn, and the reason is the reason the rest are drawn: a mark should be
+*the* mark. The application's icon stays drawn, because it is a
+case with faders in it and it has to be able to turn over with the theme; a
+wordmark is a shape and has no surfaces in it to light.
+
+The press and the picker beside it sit on the name's **baseline** rather than in
+the middle of the line it stands in. A word this size beside a twenty-four point
+press, centred, is a press floating in the middle of a word.
 
 ## Movement
 

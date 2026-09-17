@@ -46,6 +46,18 @@
 //! are faders and one is a numeric display, and a slot on a knob panel is drawn
 //! as [a knob](crate::knob).
 //!
+//! # A case is as deep as what is in it
+//!
+//! Four plates on a page at four heights, rather than four at one. The grid is
+//! two rows and an algorithm as short as five slots fills one of them, and
+//! drawing the empty second row anyway — along with the deepest band of display
+//! names any of the 35 needs — made every case the same shape at the price of
+//! half of most of them being blank panel. A rack unit with nothing on its
+//! lower half is a rack unit somebody looks for the missing knobs on. What is
+//! still reserved is the shape of a row: every column of a row stands a
+//! column's height whether or not a slot is in it, so the columns line up down
+//! the plate and two engines running algorithms of one shape do come out level.
+//!
 //! # Four at once, and what that costs the livery
 //!
 //! All four engines are on the page together, in the two-by-two the four of
@@ -133,8 +145,15 @@
 //! For the same reason a slot whose display shows names — `Ambience`, `Church`,
 //! `Gate` — is not drawn as a list. The manual prints those names and never the
 //! bytes they sit at, [`FxSlot::values`] says so, and a list that sent one of
-//! them would be sending a guess. The names are printed under the plate as what
-//! the display will show, and the byte stays draggable.
+//! them would be sending a guess. The names are printed as what the display
+//! will show, and the byte stays draggable.
+//!
+//! Under the row the slot stands on, rather than under the whole plate. Nine
+//! reverb presets set at nine points are two lines long on a case a quarter of
+//! this page wide, so printing all of a plate's at its foot put the longest
+//! thing on the case as far as it could get from the control it is about, with
+//! the abbreviation at the head of the line the only thing saying which control
+//! that was.
 //!
 //! # Twelve bytes, however many the algorithm uses
 //!
@@ -143,30 +162,27 @@
 //! five. The ones the algorithm has a name for are drawn as that name; the rest
 //! are drawn at the end of the plate under the library's own `Fx 1 Param 6`,
 //! marked as doing nothing, because a byte in the program that no panel reaches
-//! is a byte the modulation matrix can still be pointed at. An engine whose
+//! is a byte the modulation matrix can still be mapped onto. An engine whose
 //! algorithm this firmware's table does not name — or whose type nobody has read
 //! — draws all twelve that way, which is stage 3's rack for exactly as long as
 //! there is nothing better to say.
 
-use std::sync::LazyLock;
-
 use deepmind_midi::effect::{
-    self, Algorithm, Colour, Control, Engine, FxSlot, Panel, Quantity, grid,
+    self, Algorithm, Character, Colour, Control, Engine, FxSlot, Panel, Quantity, grid,
 };
 use deepmind_midi::param::{DEFAULT_FIRMWARE, Group, ParamId};
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::alignment::{Horizontal, Vertical};
-use iced_core::gradient::Linear;
-use iced_core::{
-    Background, Border, Color, Font, Gradient, Length, Radians, Theme,
-    text::Renderer as TextRenderer,
-};
+use iced_core::{Background, Border, Color, Font, Length, Theme, text::Renderer as TextRenderer};
 use iced_widget::{Space, column, container, pick_list, row, stack, text};
 
+use crate::case::{self, Finish};
 use crate::chain;
 use crate::fader;
 use crate::lcd::{self, Ink, Screen, Size};
+use crate::mapping::Sent;
 use crate::mark;
+use crate::mark::Relief;
 use crate::panel::{self, Message, Room, control, lit_rather_than_listed, modulated, shown};
 use crate::style::{self, materials, reading as reading_face};
 use crate::{Confidence, Element, Patch, tint};
@@ -248,40 +264,6 @@ const BAND: f32 = 13.0;
 ///
 /// Close, because it belongs to that row and stands in the same block.
 const UNDER_STRIP: f32 = 3.0;
-
-/// How tall a line saying what a slot's display shows is.
-const SHOWN_LINE: f32 = 11.0;
-
-/// How far apart two of them stand.
-const SHOWN_APART: f32 = 1.0;
-
-/// How much room those lines are given on every plate.
-///
-/// The most any of the 35 algorithms needs, asked of the library rather than
-/// counted by hand: a plate that reserved what its own algorithm happens to use
-/// is a plate a byte deeper or shallower than the one beside it, and this is the
-/// last thing on a case whose height came from what was in it.
-fn shown_room() -> f32 {
-    static LINES: LazyLock<usize> = LazyLock::new(|| {
-        Algorithm::all()
-            .iter()
-            .map(|algorithm| {
-                Engine::One
-                    .slot_parameters()
-                    .iter()
-                    .filter_map(|parameter| algorithm.slot_of(Engine::One, *parameter))
-                    .filter(|slot| slot.is_selector())
-                    .count()
-            })
-            .max()
-            .unwrap_or(0)
-    });
-    let lines = u16::try_from(*LINES).unwrap_or(0);
-    if lines == 0 {
-        return 0.0;
-    }
-    f32::from(lines) * SHOWN_LINE + f32::from(lines - 1) * SHOWN_APART
-}
 
 /// How tall one column of the grid stands.
 ///
@@ -397,41 +379,65 @@ where
     let Some(algorithm) = algorithm(patch, engine, firmware) else {
         return Space::new().into();
     };
-    mark::hero(algorithm.mark(), |theme: &Theme| {
+    // Stamped into the face of an old unit, raised off a modern one, and left
+    // flat where the case is neither — see [`Relief`](crate::mark::Relief). The
+    // two inks are the light and the shadow a stamping catches, which is what
+    // makes an indent an indent rather than a second colour.
+    let relief = match Finish::of(algorithm) {
+        Finish::Worn => Relief::Sunk,
+        Finish::Gritty => Relief::Flat,
+        Finish::Brushed => Relief::Raised,
+    };
+    mark::hero(algorithm.mark(), relief, |theme: &Theme| {
         let material = materials(theme);
-        style::mix(material.plate, ink(theme, On::Face), HERO_INK)
+        (
+            style::mix(material.plate, Color::WHITE, HERO_RELIEF),
+            style::mix(material.plate, Color::BLACK, HERO_RELIEF),
+            style::mix(material.plate, ink(theme, On::Face), HERO_INK),
+        )
     })
 }
 
-/// Draws the grain of the case an engine is in.
+/// Draws the finish of the plate an engine's controls stand on.
 ///
-/// A rack unit's face is brushed rather than painted flat, and the one thing a
-/// window can do about that at this size is put a few lines of light across it.
-/// Faint enough that it reads as a surface rather than as stripes: it is there
-/// to stop four large blocks of flat colour looking like four large blocks of
-/// flat colour, which is the one way a case measured off a photograph still
-/// gives itself away.
-fn grain<'a, Renderer>(figure: Option<(Colour, Colour)>) -> Element<'a, Renderer>
+/// The same material as the case around it, in the window's own plate colour
+/// rather than in a fourth measured one: what an engine wears is its case and a
+/// hairline of its accent, because four measured liveries side by side are the
+/// collage this page has always refused to be. The library publishes
+/// `Panel::face` and `Panel::cap` as well, and those are the two this window
+/// declines — a surface can carry what kind of unit it is without wearing its
+/// paint.
+fn face<'a, Renderer>(algorithm: Option<&'static Algorithm>) -> Element<'a, Renderer>
 where
     Renderer: iced_core::Renderer + 'a,
 {
-    container(Space::new().width(Length::Fill).height(Length::Fill))
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .style(move |theme: &Theme| {
-            let case = chassis(theme, figure);
-            let lit = style::mix(case, ink(theme, On::Case(figure)), GRAIN_INK);
-            container::Style {
-                background: Some(Background::Gradient(Gradient::Linear(
-                    Linear::new(Radians(std::f32::consts::PI))
-                        .add_stop(0.0, lit)
-                        .add_stop(0.45, case)
-                        .add_stop(1.0, style::mix(case, lit, 0.6)),
-                ))),
-                ..container::Style::default()
-            }
-        })
-        .into()
+    let finish = algorithm.map(Finish::of).unwrap_or_default();
+    let seed = algorithm.map_or(0, |algorithm| case::seed_of(algorithm.name));
+    case::surface(finish, seed, |theme: &Theme| materials(theme).plate)
+}
+
+/// Draws the face of the case an engine is in.
+///
+/// A rack unit's face is brushed rather than painted flat, and what kind of
+/// unit it is decides how: `Algorithm::characters` says which of the 35 came in
+/// a box from before effects were digital and which one degrades what goes
+/// through it, and [`case`](crate::case) is the material that follows from
+/// that. The colour under it is the library's measurement; the finish is this
+/// window's, the same way the weight of a stroke and the pitch of a display's
+/// dots are.
+///
+/// `seed` is the algorithm's own number, so two engines running the same
+/// algorithm are two of the same unit rather than two differently scuffed ones.
+fn grain<'a, Renderer>(
+    algorithm: Option<&'static Algorithm>,
+    figure: Option<(Colour, Colour)>,
+) -> Element<'a, Renderer>
+where
+    Renderer: iced_core::Renderer + 'a,
+{
+    let finish = algorithm.map(Finish::of).unwrap_or_default();
+    let seed = algorithm.map_or(0, |algorithm| case::seed_of(algorithm.name));
+    case::surface(finish, seed, move |theme: &Theme| chassis(theme, figure))
 }
 
 /// How far the hero mark is carried from the case towards the case's own ink.
@@ -439,10 +445,16 @@ where
 /// Barely. It is a watermark: enough that the eye finds it without looking and
 /// never enough that a word standing over it is harder to read, which is the
 /// whole difference between a mark under a panel and a picture behind one.
-const HERO_INK: f32 = 0.075;
+const HERO_INK: f32 = 0.038;
 
-/// How far the grain is carried the same way, and how far apart its lines run.
-const GRAIN_INK: f32 = 0.05;
+/// How far the light and the shadow of a relieved hero are carried from the
+/// face.
+///
+/// Further than the flat ink, because a stamping is read from two edges that
+/// have to be told apart and a watermark is read as one shape. Still barely
+/// there: the test of a hero is that a word standing over it is no harder to
+/// read.
+const HERO_RELIEF: f32 = 0.085;
 
 /// How many dots across the picture of what an engine is doing is drawn.
 ///
@@ -657,7 +669,7 @@ pub(crate) fn lanes(patch: &Patch, engine: Engine, firmware: Version) -> Vec<Lan
 /// bytes the loaded algorithm does not use — as many as seven of the twelve —
 /// and, if a later library ever measured a slot outside the grid it publishes,
 /// that slot as well. Either way nothing is dropped: a byte this panel does not
-/// draw is a byte the modulation matrix can still be pointed at.
+/// draw is a byte the modulation matrix can still be mapped onto.
 ///
 /// Everything with no place, where nothing is known about the algorithm. That
 /// is stage 3's rack: twelve bytes under the library's own names, and no page
@@ -667,12 +679,24 @@ fn placed(lanes: &[Lane], panel: Option<&'static Panel>) -> (Vec<Line>, Vec<Lane
     let Some(panel) = panel else {
         return (Vec::new(), lanes.to_vec());
     };
-    // The grid's own depth rather than this algorithm's. An algorithm using six
-    // bytes fills one row of the instrument's page and the second row is still
-    // there, empty — which is what a plate draws, so that four cases on one page
-    // are four cases of a depth rather than four different answers to how much
-    // room an algorithm happened to need.
-    let deep = usize::from(grid().rows()).max(panel.rows().len());
+    // This algorithm's own depth rather than the grid's. The grid has two rows
+    // and a five-slot algorithm fills one of them, and reserving the second
+    // anyway bought four cases of one height at the price of half of each case
+    // being nothing: a rack unit whose lower half is blank panel is a rack unit
+    // somebody would ask what is missing from. Four cases at four heights is
+    // what four engines running four algorithms are.
+    //
+    // Deep enough for what is measured, which is [`Panel::rows`] and is checked
+    // against the positions as well: a slot measured onto a row the panel does
+    // not list is drawn where it was measured rather than swept into the strip
+    // of bytes the algorithm does not use.
+    let measured = lanes
+        .iter()
+        .filter_map(|lane| lane.slot)
+        .map(|slot| usize::from(slot.position().row()) + 1)
+        .max()
+        .unwrap_or(0);
+    let deep = measured.max(panel.rows().len());
     let mut rows: Vec<Line> = vec![vec![None; columns]; deep];
     let mut spare = Vec::new();
     for lane in lanes.iter().copied() {
@@ -819,6 +843,7 @@ pub(crate) fn panels<'a, Renderer>(
     group: Group,
     firmware: Version,
     moved: &[ParamId],
+    sent: Option<Sent<'_>>,
 ) -> Option<Element<'a, Renderer>>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -843,6 +868,7 @@ where
             parameter.short_name(),
             moved,
             On::Recess,
+            sent,
         )
     }))
     .spacing(14)
@@ -890,12 +916,35 @@ where
         body = body.push(
             row(pair
                 .iter()
-                .map(|engine| plate(patch, *engine, firmware, moved)))
+                .map(|engine| plate(patch, *engine, firmware, moved, sent)))
             .spacing(8),
         );
     }
     Some(body.into())
 }
+
+/// How wide this surface has to be before the chain stops fitting in it.
+///
+/// The one page in this window whose width is decided by a *display* rather
+/// than by its controls: the chain's glass is a fixed count of dots — enough
+/// that every box can name what is running in it, which is the longest
+/// abbreviation in the library's own table, four times over — and a window
+/// narrower than that is a window drawing a picture past the edge of its own
+/// glass.
+///
+/// Read by the application when it decides how wide to open, beside
+/// [`panel_width`](crate::panel_width). A window opens as wide as the widest
+/// thing it has to draw and not as wide as one of them.
+#[must_use]
+pub fn width() -> f32 {
+    lcd::room(chain::columns()) + (WIRING + PLATE) * 2.0
+}
+
+/// How much panel the block the chain stands in keeps around it.
+const WIRING: f32 = 8.0;
+
+/// And how much the surface keeps around that.
+const PLATE: f32 = 12.0;
 
 /// Draws one row of a plate's grid: six columns, each of them a slot or empty.
 ///
@@ -911,12 +960,13 @@ fn line_of<'a, Renderer>(
     firmware: Version,
     moved: &[ParamId],
     figure: Figure,
+    sent: Option<Sent<'_>>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
     let mut cells = line.iter().map(|cell| match cell {
-        Some(byte) => slot(patch, engine, *byte, firmware, moved, figure),
+        Some(byte) => slot(patch, engine, *byte, firmware, moved, figure, sent),
         // A column the grid has nothing in still stands the height of one, so
         // that a row of two slots is as deep as a row of six and a plate is as
         // deep as the grid rather than as deep as what happens to be on it.
@@ -962,6 +1012,22 @@ where
     });
     row(runs).spacing(BESIDE_BAND).into()
 }
+
+/// What is no longer printed under a row, and why.
+///
+/// Every slot whose display shows names rather than a number used to print them
+/// all: `FCL Delay Factor, left shows 1/4, 1/3, 1/2, 2/3, 3/4, 1, 4/3, 3/2, 2,
+/// 3`, two of those under one row of a delay, and nine reverb presets wrapped
+/// onto two lines under another. It is the instrument's own value table, set
+/// out in full, under a control that is already sitting on one of those values
+/// — and the byte it is sitting on is the one thing the line did not say.
+///
+/// For somebody playing the instrument that is a specification printed on the
+/// panel. What they need from a knob is what it is *on*, which the reading
+/// under it gives, and how many places it stops at, which the line under that
+/// still says: `10 settings`. Where the exact name of a setting matters, the
+/// control is a list and the list has the names in it.
+const fn _the_names_a_display_shows() {}
 
 /// The pale strip a band's name is knocked out of.
 ///
@@ -1062,6 +1128,7 @@ fn slot<'a, Renderer>(
     firmware: Version,
     moved: &[ParamId],
     figure: Figure,
+    sent: Option<Sent<'_>>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1087,6 +1154,7 @@ where
             patch.claim(lane.parameter),
             firmware,
             figure.room(false),
+            sent,
         ))
         .height(Length::Fixed(CONTROL_ROW))
         .align_y(Vertical::Center),
@@ -1098,12 +1166,17 @@ where
             On::Face,
         ),
         container(
-            text(title)
-                .size(10)
-                .center()
-                .style(move |theme: &Theme| text::Style {
-                    color: Some(ink(theme, On::Face)),
-                })
+            row![
+                pictured(lane.slot),
+                text(title)
+                    .size(10)
+                    .center()
+                    .style(move |theme: &Theme| text::Style {
+                        color: Some(ink(theme, On::Face)),
+                    })
+            ]
+            .spacing(3)
+            .align_y(Vertical::Center)
         )
         .height(Length::Fixed(TITLE))
         .width(Length::Fill)
@@ -1142,6 +1215,7 @@ fn spare<'a, Renderer>(
     firmware: Version,
     moved: &[ParamId],
     figure: Figure,
+    sent: Option<Sent<'_>>,
 ) -> Option<Element<'a, Renderer>>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1164,6 +1238,7 @@ where
                 patch.claim(lane.parameter),
                 firmware,
                 figure.room(true),
+                sent,
             ),
             printing(within(engine, lane.parameter).to_owned(), On::Recess).size(9),
         ]
@@ -1214,6 +1289,7 @@ fn plate<'a, Renderer>(
     engine: Engine,
     firmware: Version,
     moved: &[ParamId],
+    sent: Option<Sent<'_>>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1224,40 +1300,34 @@ where
     let (grid, left) = placed(&lanes, panel);
     let mut drawn = column![].spacing(BETWEEN_ROWS);
     for line in &grid {
-        drawn = drawn.push(line_of(patch, engine, line, firmware, moved, figure));
+        drawn = drawn.push(line_of(patch, engine, line, firmware, moved, figure, sent));
     }
-    // What the display will show where a slot shows names rather than a number,
-    // printed once under the grid: the manual gives the names and never the
-    // bytes they sit at, so this is a reading and not something to send.
-    let shown: Vec<Element<'a, Renderer>> = displays(&lanes).map(Element::from).collect();
-    // The same room on every plate, whether this algorithm has two of these
-    // lines or none. It is the last thing that made one case deeper than the
-    // one beside it, and it is the cheapest to make even: the number of lines
-    // reserved is the most any of the 35 needs rather than a number chosen.
-    drawn = drawn.push(
-        container(column(shown).spacing(SHOWN_APART))
-            .height(Length::Fixed(shown_room()))
-            .width(Length::Fill),
-    );
     // The family's mark, large and faint, under the grid rather than under the
     // case: the face plate the controls stand on is opaque, so a watermark
-    // behind that is a watermark nobody sees. See [`mark::hero`].
-    let drawn = container(stack![drawn].push_under(hero(patch, engine, firmware)))
-        .width(Length::Fill)
-        .padding(7)
-        .style(|theme: &Theme| {
-            let material = materials(theme);
-            container::Style {
-                background: Some(Background::Color(material.plate)),
-                border: Border {
-                    color: material.recess_edge,
-                    width: 1.0,
-                    radius: 2.into(),
-                },
-                ..container::Style::default()
-            }
-        });
-    let body = column![header(patch, engine, firmware, moved, panel)]
+    // behind that is a watermark nobody sees. See [`mark::hero`]. And under the
+    // mark, the face's own finish — which is where most of a case's surface
+    // actually is, so a texture only on the frame round it is a texture nobody
+    // sees either.
+    let drawn = container(
+        stack![drawn]
+            .push_under(hero(patch, engine, firmware))
+            .push_under(face(algorithm(patch, engine, firmware))),
+    )
+    .width(Length::Fill)
+    .padding(7)
+    .style(|theme: &Theme| {
+        let material = materials(theme);
+        container::Style {
+            background: Some(Background::Color(material.plate)),
+            border: Border {
+                color: material.recess_edge,
+                width: 1.0,
+                radius: 2.into(),
+            },
+            ..container::Style::default()
+        }
+    });
+    let body = column![header(patch, engine, firmware, moved, panel, sent)]
         .push(drawn)
         // The twelve under the library's own names, for an engine running an
         // algorithm this firmware's table cannot name. That is the only case
@@ -1266,7 +1336,7 @@ where
         .extend(
             panel
                 .is_none()
-                .then(|| spare(patch, engine, &left, firmware, moved, figure))
+                .then(|| spare(patch, engine, &left, firmware, moved, figure, sent))
                 .flatten(),
         )
         .spacing(6);
@@ -1278,18 +1348,20 @@ where
     // size from its base and the base has to be what is actually on the case: a
     // grain is as tall as whatever it is behind, and a stack sized from one is
     // a case with no height at all.
-    container(stack![body].push_under(grain(figure_colours)))
+    container(stack![body].push_under(grain(algorithm(patch, engine, firmware), figure_colours)))
         .padding(6)
         .width(Length::Fill)
         .clip(true)
-        // The same depth as the case beside it, and it gets there by being the
-        // same shape rather than by being stretched: every plate draws the
-        // grid's own two rows whether or not its algorithm fills them, every
-        // column stands a column's height whether or not a slot is in it, every
-        // run keeps the room a band's strip takes, and every control stands in a
-        // band of one depth whether the figure calls for a knob or a fader. What
-        // fills the difference is the case, which is what the bottom of a rack
-        // unit is.
+        // As deep as what is in it, which is not the same depth as the case
+        // beside it. A row is still a row of the grid — every column stands a
+        // column's height whether or not a slot is in it, every run keeps the
+        // room a band's strip takes, and every control stands in a band of one
+        // depth whether the figure calls for a knob or a fader — so two engines
+        // running algorithms of the same shape do come out level. What is no
+        // longer reserved is the shape an algorithm does not have: a five-slot
+        // reverb was drawing the grid's empty second row and the deepest band
+        // of display names any of the 35 needs, and half of that case was
+        // blank panel waiting for an algorithm that was not loaded.
         .style(move |theme: &Theme| {
             // Cut into the group's face plate rather than raised off it: the
             // plate is what the four engines are recessed into, which is the
@@ -1443,6 +1515,7 @@ fn header<'a, Renderer>(
     firmware: Version,
     moved: &[ParamId],
     panel: Option<&'static Panel>,
+    sent: Option<Sent<'_>>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1460,6 +1533,10 @@ where
         // anywhere — it is what the chain's own glass prints in every box, and
         // what the footer says about the byte.
         container(named(patch, engine, firmware, on)).width(Length::Fill),
+        // What kind of thing it is, beside what it does. One or two quiet
+        // words, and nothing at all for the plain reverbs and the noise gate,
+        // whose family says everything there is to say about them.
+        kind(patch, engine, firmware, on),
         // Where an engine carries its own switch and that switch is off, that
         // it is out of circuit. Three of the 35 can say it and the other 32
         // cannot, which is the instrument's answer rather than this window's.
@@ -1471,7 +1548,7 @@ where
     // say it outright. On the strip, between the name and the level, which is
     // the room the gain gave up by turning into a knob.
     .extend(picture(patch, engine, firmware))
-    .push(output(patch, engine, firmware, moved))
+    .push(output(patch, engine, firmware, moved, sent))
     .spacing(10)
     .align_y(Vertical::Center);
     // Which slot this is, set the way the family's mark is set on the case:
@@ -1568,6 +1645,82 @@ where
     }
 }
 
+/// Draws what kind of thing an engine is, beside its name.
+///
+/// [`Algorithm::characters`], published in 26.5: any number of them, in the
+/// order the specification declares them, and empty for an algorithm with
+/// nothing to say beyond its family. A Tel-Ray Delay is a vintage unit and a
+/// lo-fi one; a Stereo Chorus is two channels and something moving inside it;
+/// a Hall Reverb is a reverb and nothing else a word can add.
+///
+/// They are read here rather than matched on. `Vintage` is not "the name
+/// contains the word vintage" — the library's own file carries a reason per
+/// membership, and the reasons are the manual's name for the effect, the slots
+/// it gives it, or the unit a name refers to. A window deriving that from
+/// `full_name` would be right until the day it was not.
+///
+/// Quiet, and after the name: it is a caption on a thing that already has a
+/// mark across its case and a title along its strip, and a third loud thing on
+/// one row is a row with no first thing.
+fn kind<'a, Renderer>(
+    patch: &Patch,
+    engine: Engine,
+    firmware: Version,
+    on: On,
+) -> Element<'a, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    let said: Vec<&'static str> = algorithm(patch, engine, firmware)
+        .map(|algorithm| {
+            algorithm
+                .characters()
+                .iter()
+                .filter_map(|character| word(*character))
+                .collect()
+        })
+        .unwrap_or_default();
+    if said.is_empty() {
+        return Space::new().width(Length::Fixed(0.0)).into();
+    }
+    text(said.join(" \u{00b7} "))
+        .size(10)
+        .style(move |theme: &Theme| text::Style {
+            color: Some(style::mix(
+                chassis(theme, None),
+                ink(theme, on),
+                CHARACTER_INK,
+            )),
+        })
+        .into()
+}
+
+/// How far a character's word is carried from the case towards its ink.
+///
+/// Not far. It is a caption, and a caption as loud as the name it captions is
+/// a second title.
+const CHARACTER_INK: f32 = 0.55;
+
+/// Returns the word for one of the kinds an effect can be.
+///
+/// [`Character`] is marked as a set that can grow, and one this window has no
+/// word for prints nothing rather than a guess — the same rule
+/// [`quantity`] is read under.
+fn word(character: Character) -> Option<&'static str> {
+    Some(match character {
+        Character::Vintage => "vintage",
+        Character::Modelled => "modelled",
+        Character::Stereo => "stereo",
+        Character::Dual => "dual",
+        Character::Multiband => "multiband",
+        Character::Combined => "two in one",
+        Character::LoFi => "lo-fi",
+        Character::Modulated => "modulated",
+        Character::Dynamic => "dynamic",
+        _ => return None,
+    })
+}
+
 /// An algorithm, named the way the list names it.
 ///
 /// A wrapper because the list needs `Display`, and what it displays is the
@@ -1594,6 +1747,7 @@ fn output<'a, Renderer>(
     engine: Engine,
     firmware: Version,
     moved: &[ParamId],
+    sent: Option<Sent<'_>>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1613,6 +1767,7 @@ where
                 patch.claim(gain),
                 firmware,
                 Room::SLOT.turned().sized(GAIN),
+                sent,
             ),
             reading(
                 gain,
@@ -1646,6 +1801,10 @@ where
 /// A slot of the rack with its title moved off the bottom, because what these
 /// stand in is a row and not a column: the address and the modulation mark
 /// above, the control, and the reading under it.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "a control, what it is called, what it stands on, and what is pointed at it"
+)]
 fn cell<'a, Renderer>(
     patch: &Patch,
     parameter: ParamId,
@@ -1654,6 +1813,7 @@ fn cell<'a, Renderer>(
     title: &'a str,
     moved: &[ParamId],
     on: On,
+    sent: Option<Sent<'_>>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1676,7 +1836,7 @@ where
         ]
         .spacing(4)
         .align_y(Vertical::Center),
-        control(parameter, value, claim, firmware, room),
+        control(parameter, value, claim, firmware, room, sent),
     ]
     .spacing(3)
     .width(room.across_as())
@@ -1715,6 +1875,33 @@ where
         .size(9)
         .font(reading_face())
         .into()
+}
+
+/// Draws the picture of what a slot does, beside its title.
+///
+/// [`FxSlot::glyph`], published in 26.5: every slot has one, because what a
+/// slot does is the one thing the algorithm always knows about it. It is finer
+/// than the [`Quantity`] the line under it is drawn from and it is for a
+/// different job — a pre-delay and a decay are both a time, and a plate with
+/// twelve of these on it wants the gap drawn on one and the tail on the other.
+///
+/// The same glyph serves every slot doing the same thing, so a `Low Cut` on a
+/// reverb and one on a delay are one picture; and it is the same picture the
+/// footer puts beside a program parameter doing that job, which is the whole
+/// value of the glyphs being the library's.
+///
+/// A byte the algorithm does not use has no slot and so no picture: there is
+/// nothing to draw a picture *of*.
+fn pictured<'a, Renderer>(slot: Option<&'static FxSlot>) -> Element<'a, Renderer>
+where
+    Renderer: iced_core::Renderer + 'a,
+{
+    let Some(slot) = slot else {
+        return Space::new().width(Length::Fixed(0.0)).into();
+    };
+    let mut screen = Screen::new(lcd::CELL, lcd::CELL);
+    screen.blit(slot.glyph().pixels(), 0, 0);
+    lcd::stencil(screen, |theme: &Theme| ink(theme, On::Face))
 }
 
 /// The line under a slot's title: what the instrument's display reads there.
@@ -1775,37 +1962,6 @@ fn quantity(what: Quantity) -> Option<&'static str> {
     })
 }
 
-/// The names a plate's slots show on the instrument's display.
-///
-/// One line per slot that shows names instead of a number, printed under the
-/// grid rather than in the slot, because that is what they are: a reading and
-/// not something to send. The manual gives the names and never the bytes they
-/// sit at, so the control stays the byte and this says what the display will
-/// make of it.
-fn displays<'a, Renderer>(
-    lanes: &[Lane],
-) -> impl Iterator<Item = iced_widget::Text<'a, Theme, Renderer>>
-where
-    Renderer: TextRenderer<Font = Font>,
-{
-    let printed: Vec<String> = lanes
-        .iter()
-        .filter_map(|lane| lane.slot)
-        .filter(|slot| slot.is_selector())
-        .map(|slot| {
-            format!(
-                "{} {} shows {}",
-                slot.reference,
-                slot.title,
-                slot.values.join(", ")
-            )
-        })
-        .collect();
-    printed
-        .into_iter()
-        .map(|line| printing(line, On::Face).size(9).font(reading_face()))
-}
-
 /// Returns a parameter's name with the engine's own taken off the front.
 ///
 /// The rule a slot's title follows against its group, one level down: the plate
@@ -1829,7 +1985,7 @@ fn within(engine: Engine, parameter: ParamId) -> &'static str {
     reason = "a failed expectation is the test failure"
 )]
 mod tests {
-    use deepmind_midi::effect::{Algorithm, Engine, SLOTS_PER_ENGINE, grid};
+    use deepmind_midi::effect::{Algorithm, Character, Engine, SLOTS_PER_ENGINE, grid};
     use deepmind_midi::ids::ProtocolVersion;
     use deepmind_midi::param::{DEFAULT_FIRMWARE, Group, ParamId};
     use deepmind_midi::program::Program;
@@ -1922,14 +2078,17 @@ mod tests {
             let lanes = under(algorithm, Engine::One);
             let (rows, _) = placed(&lanes, Some(algorithm.panel()));
 
+            // As deep as this algorithm is and no deeper. The grid has two rows
+            // and an algorithm that fills one of them used to draw both, which
+            // is half a case of blank panel on every reverb on the page.
             assert_eq!(
                 rows.len(),
-                usize::from(grid().rows()),
-                "{} does not draw the grid's own depth",
+                algorithm.panel().rows().len(),
+                "{} does not draw its own depth",
                 algorithm.full_name
             );
             assert!(
-                algorithm.panel().rows().len() <= rows.len(),
+                rows.len() <= usize::from(grid().rows()),
                 "{} has more rows than the grid holds",
                 algorithm.full_name
             );
@@ -2384,6 +2543,77 @@ mod tests {
         // And a byte the algorithm does not use still says nothing, because the
         // strip it stands on has said it already.
         assert!(hint(None).is_empty());
+    }
+
+    #[test]
+    fn every_character_the_library_publishes_has_a_word() {
+        // The same rule the quantities are read under: the set is marked as one
+        // that can grow, so a kind this window has no word for prints nothing —
+        // and a kind it *does* have is one it prints rather than derives from
+        // the algorithm's name.
+        for character in Character::ALL {
+            assert!(
+                super::word(character).is_some(),
+                "{character:?} has no word"
+            );
+        }
+    }
+
+    #[test]
+    fn an_effect_says_what_kind_of_thing_it_is_from_the_library() {
+        let tel_ray = Algorithm::by_name("T-RayDelay").expect("a Tel-Ray Delay");
+        assert!(
+            tel_ray.has(Character::Vintage),
+            "not read as a vintage unit"
+        );
+        assert!(tel_ray.has(Character::LoFi));
+
+        // And the ones with nothing to add print nothing rather than a blank
+        // caption: the family's mark on the case has already said it.
+        let hall = Algorithm::by_name("HallRev").expect("a Hall Reverb");
+        assert!(!hall.has(Character::Vintage));
+    }
+
+    #[test]
+    fn an_effect_wears_its_own_mark_where_the_library_draws_one() {
+        // 26.5 tells a plate from a hall, which 26.4 declined to: the window
+        // asks for a mark and gets the finer one where there is one, so this
+        // is the library's answer arriving rather than anything drawn here.
+        let plate = Algorithm::by_name("PlateRev").expect("a Plate Reverb");
+        let ambient = Algorithm::by_name("AmbVerb").expect("an Ambient Reverb");
+
+        assert!(plate.own_mark().is_some(), "a plate has no mark of its own");
+        assert!(ambient.own_mark().is_none());
+        assert_ne!(
+            plate.mark().pixels(),
+            ambient.mark().pixels(),
+            "two reverbs drew one picture"
+        );
+    }
+
+    #[test]
+    fn every_slot_carries_the_picture_of_what_it_does() {
+        // Every slot has one, which is what the library says: what a slot does
+        // is the one thing the algorithm always knows about it. And the same
+        // job is the same picture wherever it is met.
+        for algorithm in Algorithm::all() {
+            for slot in algorithm.slots {
+                let drawn = slot.glyph().pixels();
+                assert!(
+                    drawn.rows().iter().any(|row| *row != 0),
+                    "{}'s {} is a blank picture",
+                    algorithm.name,
+                    slot.title
+                );
+            }
+        }
+        let room = Algorithm::by_name("RoomRev").expect("a Room Reverb");
+        let decay = room.slot(2).expect("a Decay slot").glyph();
+        assert_eq!(
+            Some(decay),
+            ParamId::VcfEnvelopeDecayTime.glyph(),
+            "a decay on a reverb and a decay on an envelope drew two pictures"
+        );
     }
 
     #[test]

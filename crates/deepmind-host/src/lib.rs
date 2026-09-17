@@ -85,6 +85,9 @@ pub use ports::{PortRef, ports};
 #[cfg(feature = "sim")]
 pub use simulator::{Pack, Panel};
 
+#[cfg(feature = "sim")]
+use deepmind_midi::program::Program;
+
 use backend::Backend;
 use ports::MidiPort;
 
@@ -177,6 +180,25 @@ pub fn open_with(port: &PortRef, options: Options) -> Result<Link, OpenError> {
 #[must_use]
 pub fn open_simulator(memory: Pack, options: Options) -> (Link, Panel) {
     let (port, panel) = simulator::SimPort::new(memory);
+    spawn_simulator(port, panel, options)
+}
+
+/// The same, on a unit that powers up with `sound` in its edit buffer.
+///
+/// The sound is *in* the unit rather than played into it: the same program
+/// arrives through [`Panel`] as two hundred and forty-two knobs turned one at a
+/// time, and a caller that wants the instrument to be holding something has no
+/// reason to pay for that.
+#[cfg(feature = "sim")]
+#[must_use]
+pub fn open_simulator_holding(memory: Pack, sound: Program, options: Options) -> (Link, Panel) {
+    let (port, panel) = simulator::SimPort::holding(memory, sound);
+    spawn_simulator(port, panel, options)
+}
+
+/// Starts the device thread on a simulated unit that has been built.
+#[cfg(feature = "sim")]
+fn spawn_simulator(port: simulator::SimPort, panel: Panel, options: Options) -> (Link, Panel) {
     let link = Link::spawn(
         PortRef::simulator().name().to_owned(),
         Backend::Simulated(Box::new(port)),

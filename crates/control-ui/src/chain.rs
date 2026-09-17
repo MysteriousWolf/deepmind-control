@@ -62,9 +62,7 @@
 
 use std::sync::LazyLock;
 
-use deepmind_midi::effect::{
-    Algorithm, ENGINE_COUNT, Engine, MARK_PIXEL_SIDE, Mode, Pixels, Routing, Source,
-};
+use deepmind_midi::effect::{Algorithm, ENGINE_COUNT, Engine, Mode, Routing, Source};
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::Length;
 use iced_widget::{container, responsive};
@@ -134,10 +132,26 @@ fn writing(number: &str, name: Option<&str>, room: i32, height: i32) -> Vec<Stri
 
 /// How many dots down it is.
 ///
-/// Enough for the deepest of the ten topologies — four engines stacked, with a
-/// heading over them and the loop's lane under them — which is what makes the
-/// same number do for all ten.
-pub(crate) const ROWS: i32 = 64;
+/// Derived the way the width is, and for the same reason. It was 64 — the
+/// instrument's own display — and 64 is not a measurement of anything this
+/// picture has to fit: the deepest of the ten topologies stacks four boxes, and
+/// four boxes that each have a dot of glass inside their own frame, with a
+/// heading over them and the analog path's foot under them, come to more than
+/// that. What the number was doing instead was taking the dot back off the
+/// boxes, so the four stacked ones had their names printed against their own
+/// rules.
+///
+/// So it is what the deepest topology needs, worked out here rather than
+/// chosen. The two that draw a loop are one box deep and need far less; this
+/// covers them the way one width covers all ten.
+pub(crate) const ROWS: i32 = HEADING + ENGINES * LEGIBLE + (ENGINES - 1) * APART + SPARE + FOOT;
+
+/// How many engines there are, as the arithmetic above counts them.
+///
+/// The library's own count, which is a `usize` because it counts a slice. A
+/// const cannot go through [`i32`], so this is the one place the number is
+/// written twice — and the test below is what stops the two from drifting.
+const ENGINES: i32 = 4;
 
 /// How tall one engine's plate is drawn, at most.
 ///
@@ -153,30 +167,45 @@ const LINE: i32 = Screen::height_of(Size::Small);
 
 /// How many dots a family's mark is, across and down.
 ///
-/// The library draws one at [`MARK_PIXEL_SIDE`] a side for exactly this: a
+/// The library draws one at `MARK_PIXEL_SIDE` a side for exactly this: a
 /// display with no room to stroke anything, which is what a box fifteen dots
-/// wide is.
-#[expect(
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    reason = "a side of the library's own mark, which is seven pixels"
-)]
-const MARK: i32 = MARK_PIXEL_SIDE as i32;
+/// wide is. It is the same grid the modulation sources' cells and the
+/// parameters' glyphs are on, which is why the walk over it lives on the
+/// screen as [`Screen::blit`] rather than in this file.
+const MARK: i32 = lcd::CELL;
 
 /// The least room a box needs before anything is written in it.
-const LEGIBLE: i32 = LINE + 2;
+///
+/// Its two rules, a dot of glass inside each of them, and the line between. The
+/// dot is the whole of the difference from what this was: a name printed hard
+/// against the rule over it is a name in a box that is too small for it, and at
+/// this pitch the rule and the tops of the letters read as one stroke.
+const LEGIBLE: i32 = LINE + 4;
 
 /// How many dots the line at the top of the glass takes, gap and all.
 const HEADING: i32 = Screen::height_of(Size::Small) + 4;
 
 /// How many dots the lane under the graph takes, where there is something in it.
 ///
-/// The loop and the analog path are both drawn there, which is the one thing
-/// they have in common: they are the two ways a signal goes somewhere other
-/// than along the chain. A topology with neither does not pay for the lane —
-/// see [`Chain::under`] — because a picture with a band of empty glass under it
-/// is a display saying there is something to look at.
-const UNDER: i32 = 11;
+/// The loops are drawn there, and so is an output taken from an engine with
+/// others after it: the two ways a signal goes somewhere other than along the
+/// chain, which are the two that cannot be drawn between the boxes. A topology
+/// with neither does not pay for the lane — see [`Chain::under`] — because a
+/// picture with a band of empty glass under it is a display saying there is
+/// something to look at.
+const UNDER: i32 = 14;
+
+/// How much glass the analog path takes off the foot of the display.
+///
+/// Its own number rather than [`UNDER`] again. The two were one constant and
+/// they are not one measurement: the lane under the graph holds wires that have
+/// to clear the boxes they leave and the heads they end in, and the foot holds
+/// a word with a rule beside it. Sharing the number meant every dot the loops
+/// were given was taken off the graph a second time at the bottom — which, on
+/// the topology that stacks four engines with the voices routed round the
+/// block, left each box eight dots deep where nine is the least `plate` will
+/// draw, and the picture came out empty.
+const FOOT: i32 = Screen::height_of(Size::Small) + 2;
 
 /// How much glass is left under a graph with nothing in that lane.
 const SPARE: i32 = 2;
@@ -194,6 +223,9 @@ const BETWEEN: i32 = 9;
 
 /// How many dots of glass stand between two engines of one column.
 const APART: i32 = 2;
+
+/// How much glass stands between a mark and the name beside it.
+const BESIDE: i32 = 5;
 
 /// What the effects block is doing, as far as anything has been read.
 ///
@@ -333,11 +365,31 @@ impl Chain {
 
     /// Returns how much room the lane under the graph is given.
     fn under(self) -> i32 {
-        if self.routing.is_feedback() {
+        if self.routing.is_feedback() || self.detours() {
             UNDER
         } else {
             SPARE
         }
+    }
+
+    /// Returns whether the block takes its output from an engine that has
+    /// others after it.
+    ///
+    /// Two of the ten do, and it is the one wire in the picture that cannot be
+    /// drawn straight: a rule from that box to the rail runs through every box
+    /// between them, and a rule that goes behind a box and comes out the other
+    /// side is a rule nobody can follow. It goes under instead, which is what
+    /// the loops already do and for the same reason.
+    fn detours(self) -> bool {
+        let columns = self.columns();
+        let last = columns.iter().copied().max().unwrap_or(0);
+        self.routing.output().iter().any(|engine| {
+            columns
+                .get(usize::from(engine.index()))
+                .copied()
+                .unwrap_or(0)
+                < last
+        })
     }
 
     /// Returns the most engines any one column of the picture holds.
@@ -473,7 +525,7 @@ fn shape(chain: Chain, glass: Band, listed: usize) -> (Band, Band) {
     // What the analog path takes off the foot of the glass, where the voices
     // take one: it is drawn along the bottom, and a list written over it would
     // be two pictures in one place.
-    let foot = if chain.analog() { UNDER } else { 0 };
+    let foot = if chain.analog() { FOOT } else { 0 };
     let room = glass.height - chain.under() - foot;
     let wanted = i32(listed) * (LINE + 1);
     let tall = (room - wanted)
@@ -680,45 +732,79 @@ fn plate(screen: &mut Screen, engine: Engine, chain: Chain, band: Band, ink: Ink
         band.height,
     );
     let written = i32(lines.len()) * LINE + i32(lines.len().saturating_sub(1));
-    // The mark over the writing, where the box has a line to spare for it and
-    // the algorithm is one this firmware's table names.
-    let marked = running
-        .filter(|_| band.height >= written + MARK + 4 && band.width >= MARK + PADDING)
-        .map(Algorithm::mark);
-    let stack = written + marked.map_or(0, |_| MARK + 2);
-    let top = band.y + (band.height - stack) / 2;
-    if let Some(mark) = marked {
-        blit(
+    let widest = lines
+        .iter()
+        .map(|line| Screen::width_of(line, Size::Small))
+        .max()
+        .unwrap_or(0);
+    let mark = running.map(Algorithm::mark);
+    match (mark, placing(band, written, widest)) {
+        (Some(mark), Placing::Above) => {
+            let stack = written + MARK + 2;
+            let top = band.y + (band.height - stack) / 2;
+            screen.blit(mark.pixels(), band.x + (band.width - MARK) / 2, top);
+            words(screen, &lines, band.x, band.width, top + MARK + 2);
+        }
+        (Some(mark), Placing::Beside) => {
+            // The mark and the name as one thing, centred together: a mark held
+            // against the left frame of a box the name is centred in is two
+            // arrangements in one box.
+            let group = MARK + BESIDE + widest;
+            let left = band.x + (band.width - group) / 2;
+            screen.blit(mark.pixels(), left, band.y + (band.height - MARK) / 2);
+            words(
+                screen,
+                &lines,
+                left + MARK + BESIDE,
+                widest,
+                band.y + (band.height - written) / 2,
+            );
+        }
+        _ => words(
             screen,
-            *mark.pixels(),
-            band.x + (band.width - MARK) / 2,
-            top,
-        );
-    }
-    let mut y = top + stack - written;
-    for line in &lines {
-        let x = band.x + (band.width - Screen::width_of(line, Size::Small)) / 2;
-        screen.write(x.max(band.x + 1), y, line, Size::Small);
-        y += LINE + 1;
+            &lines,
+            band.x,
+            band.width,
+            band.y + (band.height - written) / 2,
+        ),
     }
 }
 
-/// Blits a family's mark, a lit pixel to a printed dot.
+/// Where the mark of what an engine is running goes, in a box of this shape.
 ///
-/// The library's own grid, walked as it documents: the origin is the top left,
-/// the same way up as its strokes, and a pixel outside the grid answers unlit
-/// so nothing here has to bound-check it.
-fn blit(screen: &mut Screen, pixels: Pixels, x: i32, y: i32) {
-    for down in 0..MARK {
-        for across in 0..MARK {
-            let (column, row) = (
-                u8::try_from(across).unwrap_or(0),
-                u8::try_from(down).unwrap_or(0),
-            );
-            if pixels.is_lit(column, row) {
-                screen.dot(x + across, y + down);
-            }
-        }
+/// Over the name where there is a line to spare over it, and beside the name
+/// where there is not. The second is what the topologies that stack their
+/// engines need: three boxes in a column are as wide as the graph and a third of
+/// it deep, so a box that would have shown no mark at all has half the glass
+/// standing empty beside the one line it is carrying.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Placing {
+    /// Neither, which is a box that is short *and* narrow.
+    Nowhere,
+    /// Over the writing, centred on it.
+    Above,
+    /// Beside the writing, the two centred together.
+    Beside,
+}
+
+/// Which of the three a box of this shape has the room for.
+fn placing(band: Band, written: i32, widest: i32) -> Placing {
+    if band.height >= written + MARK + 4 && band.width >= MARK + PADDING {
+        Placing::Above
+    } else if band.height >= MARK + 2 && band.width >= widest + BESIDE + MARK + PADDING {
+        Placing::Beside
+    } else {
+        Placing::Nowhere
+    }
+}
+
+/// Writes a box's lines, centred in the room they were given.
+fn words(screen: &mut Screen, lines: &[String], x: i32, room: i32, top: i32) {
+    let mut y = top;
+    for line in lines {
+        let at = x + (room - Screen::width_of(line, Size::Small)) / 2;
+        screen.write(at.max(x), y, line, Size::Small);
+        y += LINE + 1;
     }
 }
 
@@ -731,7 +817,7 @@ fn rails(screen: &mut Screen, chain: Chain, boxes: &[Band; ENGINE_COUNT], graph:
         "IN",
         Size::Small,
     );
-    let entry = graph.x + IN - 4;
+    let entry = graph.x + IN - APPROACH;
     for engine in Engine::ALL {
         if !chain.feeds(engine).contains(&Source::Input) {
             continue;
@@ -741,21 +827,36 @@ fn rails(screen: &mut Screen, chain: Chain, boxes: &[Band; ENGINE_COUNT], graph:
         };
         let into = band.y + band.height / 2;
         screen.down(entry, middle.min(into), (middle - into).abs() + 1, ink);
-        screen.across(entry, into, band.x - entry, ink);
-        arrow(screen, band.x - 1, into);
+        points(screen, entry, into, band.x - CLEAR, ink);
     }
-    screen.across(
-        Screen::width_of("IN", Size::Small) + 2,
-        middle,
-        entry - Screen::width_of("IN", Size::Small) - 1,
-        ink,
-    );
+    let said = Screen::width_of("IN", Size::Small) + 1;
+    screen.across(said, middle, (entry - said + 1).max(0), ink);
     let leaving = graph.x + graph.width - OUT + 4;
+    let last = boxes.iter().map(|band| band.x).max().unwrap_or(0);
     for engine in chain.routing.output() {
         let Some(band) = boxes.get(usize::from(engine.index())) else {
             continue;
         };
         let out = band.y + band.height / 2;
+        if band.x < last {
+            // Something stands between this box and the rail, so the wire goes
+            // under everything rather than through it — and it leaves through
+            // the bottom rather than the side. Beside the box it ran the depth
+            // of the frame a dot away from it, which is not a wire leaving a
+            // box: it is a box with one edge drawn twice.
+            //
+            // Three quarters of the way across, which is the side it is headed
+            // for, and not the middle, where a loop returning into this same box
+            // puts its own head.
+            let below = graph.y + graph.height + UNDER - 1;
+            let under = band.y + band.height + CLEAR;
+            let aside = band.x + band.width * 3 / 4;
+            screen.down(aside, under, below - under + 1, ink);
+            screen.across(aside, below, leaving - aside + 1, ink);
+            along(screen, aside, leaving, below);
+            screen.down(leaving, middle, below - middle + 1, ink);
+            continue;
+        }
         screen.across(
             band.x + band.width,
             out,
@@ -765,8 +866,7 @@ fn rails(screen: &mut Screen, chain: Chain, boxes: &[Band; ENGINE_COUNT], graph:
         screen.down(leaving, middle.min(out), (middle - out).abs() + 1, ink);
     }
     let word = graph.x + graph.width - Screen::width_of("OUT", Size::Small) - 1;
-    screen.across(leaving, middle, word - leaving - 2, ink);
-    arrow(screen, word - 3, middle);
+    points(screen, leaving, middle, word - HEAD, ink);
     screen.write(
         word,
         middle - Screen::height_of(Size::Small) / 2,
@@ -837,7 +937,7 @@ impl Wire {
     }
 }
 
-/// Draws the edges that run forwards, each in a lane of its own.
+/// Draws the edges that run forwards, each arrival in a lane of its own.
 ///
 /// Every forward edge on this instrument joins one column to the next, so each
 /// one turns in the gutter between them. The turn used to be at the midpoint of
@@ -846,10 +946,13 @@ impl Wire {
 /// engines fed by one drew two, and what a reader saw was a single bar with
 /// stubs rather than three wires and a junction.
 ///
-/// So the edges crossing a gutter are counted first and shared out across it,
-/// in the order they leave. Two wires never stand on the same column, which
-/// means no two of them can overlap: a merge is several lines arriving at one
-/// box and a fan-out is several leaving one, and both are countable.
+/// So the gutter is shared out — by where the wires *arrive* rather than by how
+/// many there are. Wires into different boxes never stand on the same column,
+/// which is what tells two paths apart; wires into the *same* box share one,
+/// because they are one junction and drawing them as three columns two dots
+/// apart, each with its own head landing on the same dot of the same frame, is
+/// three wires where the instrument has one merge. One column, one head, and
+/// the lines that feed it running into it from the side.
 fn lanes(screen: &mut Screen, wires: &[Wire], ink: Ink) {
     let mut gutters: Vec<(i32, i32, Vec<Wire>)> = Vec::new();
     for wire in wires {
@@ -863,20 +966,28 @@ fn lanes(screen: &mut Screen, wires: &[Wire], ink: Ink) {
             None => gutters.push((from, to, vec![*wire])),
         }
     }
-    for (from, to, mut sharing) in gutters {
-        // In the order they leave, so wires crossing one gutter keep the order
-        // of the boxes they come from and cross each other as little as the
-        // graph allows.
-        sharing.sort_by_key(|wire| wire.leaves().1);
-        let count = sharing.len();
-        for (index, wire) in sharing.into_iter().enumerate() {
-            let (start_x, start_y) = wire.leaves();
-            let (end_x, end_y) = wire.enters();
+    for (from, to, sharing) in gutters {
+        // Grouped by where they land and then in the order they land, so the
+        // lanes across a gutter keep the order of the boxes they feed and cross
+        // each other as little as the graph allows.
+        let mut arrivals: Vec<((i32, i32), Vec<Wire>)> = Vec::new();
+        for wire in sharing {
+            let at = wire.enters();
+            match arrivals.iter_mut().find(|(landing, _)| *landing == at) {
+                Some((_, merging)) => merging.push(wire),
+                None => arrivals.push((at, vec![wire])),
+            }
+        }
+        arrivals.sort_by_key(|((_, row), _)| *row);
+        let count = arrivals.len();
+        for (index, ((end_x, end_y), merging)) in arrivals.into_iter().enumerate() {
             let turn = turn(from, to, index, count);
-            screen.across(start_x, start_y, turn - start_x + 1, ink);
-            screen.down(turn, start_y.min(end_y), (start_y - end_y).abs() + 1, ink);
-            screen.across(turn, end_y, end_x - turn, ink);
-            arrow(screen, end_x, end_y);
+            for wire in merging {
+                let (start_x, start_y) = wire.leaves();
+                screen.across(start_x, start_y, turn - start_x + 1, ink);
+                screen.down(turn, start_y.min(end_y), (start_y - end_y).abs() + 1, ink);
+            }
+            points(screen, turn, end_y, end_x, ink);
         }
     }
 }
@@ -899,30 +1010,54 @@ fn turn(from: i32, to: i32, index: usize, count: usize) -> i32 {
 /// reason the forward edges get a lane each.
 fn returns(screen: &mut Screen, wires: &[Wire], graph: Band) {
     for (index, wire) in wires.iter().enumerate() {
-        let below = graph.y + graph.height + UNDER / 2 + i32(index) * APART;
+        let below = graph.y + graph.height + LOOP + i32(index) * APART;
         let leave = wire.from.x + wire.from.width / 2;
         let enter = wire.into.x + wire.into.width / 2;
-        screen.down(
-            leave,
-            wire.from.y + wire.from.height,
-            below - wire.from.y - wire.from.height + 1,
-            Ink::Dashed,
-        );
+        // A dot clear of the frames at both ends. A line that starts on the
+        // bottom rule of a box has no visible beginning, and a head whose tip
+        // lands on one is a thickening of the rule rather than an arrow.
+        let out = wire.from.y + wire.from.height + CLEAR;
+        let tip = wire.into.y + wire.into.height + CLEAR;
+        screen.down(leave, out, (below - out + 1).max(0), Ink::Dashed);
         screen.across(
             enter.min(leave),
             below,
             (leave - enter).abs() + 1,
             Ink::Dashed,
         );
-        screen.down(
-            enter,
-            wire.into.y + wire.into.height,
-            below - wire.into.y - wire.into.height,
-            Ink::Dashed,
-        );
-        up(screen, enter, wire.into.y + wire.into.height);
+        along(screen, leave, enter, below);
+        // From under the head rather than from the box, so the dashes do not
+        // run up through the arrow that is pointing at it.
+        let head = tip + HEAD;
+        screen.down(enter, head, (below - head).max(0), Ink::Dashed);
+        up(screen, enter, tip);
     }
 }
+
+/// How much glass a wire keeps between itself and the frame it is pointing at.
+///
+/// One dot. Enough that an arrow is an arrow and a rule is a rule, and not so
+/// much that the two look unconnected.
+const CLEAR: i32 = 1;
+
+/// How many dots deep the head of an arrow is, back from its tip.
+const HEAD: i32 = 3;
+
+/// How far under the graph the first loop's lane runs.
+///
+/// The head that points back up into the box, and enough dashes under it to be
+/// a line rather than a gap. It was half the lane, which left one dash between
+/// the two — and a head sitting on a rule with one dot of daylight is not an
+/// arrow arriving along a wire, it is a cross.
+const LOOP: i32 = HEAD + 4;
+
+/// How much glass stands between the rail the input runs down and the boxes it
+/// feeds.
+///
+/// The head of an arrow, a dot of clear glass behind it, and the rail itself. A
+/// head whose arms touch the rail its own wire came down is not an arrow with a
+/// rail behind it: it is a corner, and a corner is what a reader sees.
+const APPROACH: i32 = HEAD + CLEAR + 1;
 
 /// Draws the path the voices take around the block, where they take one.
 ///
@@ -946,23 +1081,99 @@ fn analog(screen: &mut Screen, chain: Chain, glass: Band) {
     screen.down(glass.width - 1, y - 3, 4, Ink::Dashed);
 }
 
+/// Draws a wire's last run into whatever it points at, with the head on the end.
+///
+/// The run stops where the head starts. A line drawn under an arrow is not a
+/// longer arrow: it fills the notch the head is made of, and what lands on the
+/// glass is a solid wedge. On a bypassed chain, where the run is dotted and the
+/// head is not, the two together were reading as an asterisk in every gutter.
+fn points(screen: &mut Screen, from: i32, y: i32, at: i32, ink: Ink) {
+    screen.across(from, y, (at - HEAD - from + 1).max(0), ink);
+    arrow(screen, at, y);
+}
+
 /// Draws the head of an arrow pointing right, at the dot it lands on.
+///
+/// Solid, and not the open chevron it was. The same thing the matrix's two
+/// presses found out about a nine-dot glyph: at this pitch an outline is not a
+/// shape, it is a handful of specks arranged near one. A chevron in a nine-dot
+/// gutter, between two frames the bypassed chain draws dotted, read as an
+/// asterisk — which is a mark this display uses for something else.
 fn arrow(screen: &mut Screen, x: i32, y: i32) {
-    screen.dot(x, y);
-    screen.dot(x - 1, y - 1);
-    screen.dot(x - 1, y + 1);
-    screen.dot(x - 2, y - 2);
-    screen.dot(x - 2, y + 2);
+    for back in 0..HEAD {
+        for step in -back..=back {
+            screen.dot(x - back, y + step);
+        }
+    }
 }
 
 /// The same, pointing up.
 fn up(screen: &mut Screen, x: i32, y: i32) {
-    screen.dot(x, y);
-    screen.dot(x - 1, y + 1);
-    screen.dot(x + 1, y + 1);
-    screen.dot(x - 2, y + 2);
-    screen.dot(x + 2, y + 2);
+    for down in 0..HEAD {
+        for step in -down..=down {
+            screen.dot(x + step, y + down);
+        }
+    }
 }
+
+/// Puts a head in the middle of a run, pointing the way the run travels.
+///
+/// The two long wires under the graph are the two whose direction the picture
+/// cannot otherwise show. Both leave a box downwards, run the width of the
+/// graph and rise at the far end, and the ends alone do not say which way round
+/// that is: a loop goes back and an output taken from the middle of the chain
+/// goes on, and told apart only by dashes against solid they are two lines under
+/// the same boxes.
+///
+/// So each carries a head half way along it, pointing where it is going, with
+/// the rule running into its back and clear glass in front of its point.
+///
+/// The clear glass is the whole of it. A head with the line drawn on both sides
+/// is a thickening of the line: the point is buried in the rule running on past
+/// it, and at this pitch what is left standing above and below is the head's own
+/// back column, which reads as a tick. A head the line runs *into*, with nothing
+/// in front of it, is the shape every other wire on this glass already arrives
+/// with.
+fn along(screen: &mut Screen, from: i32, to: i32, y: i32) {
+    if (to - from).abs() < HEAD * 6 {
+        return;
+    }
+    let onward = to > from;
+    let tip = i32::midpoint(from, to);
+    screen.wipe(Band::new(
+        if onward { tip + 1 } else { tip - CLEARING },
+        y - HEAD + 1,
+        CLEARING,
+        HEAD * 2 - 1,
+    ));
+    nose(screen, tip, y, onward);
+}
+
+/// The head a wire wears in the middle of a run, pointing `onward` or back.
+///
+/// Longer than the one it arrives with: five dots along and five across,
+/// tapering every other column rather than every one. An arrival's head is three
+/// along and five across, which is the right shape when a frame is standing
+/// directly behind it to say what has been arrived at — and the wrong one in
+/// open glass, where a wedge that steep is a column of five dots with a couple
+/// of specks in front of it, and what the eye reads is a tick on the line.
+fn nose(screen: &mut Screen, x: i32, y: i32, onward: bool) {
+    for step in 0..REACH {
+        let half = step / 2;
+        for row in -half..=half {
+            screen.dot(if onward { x - step } else { x + step }, y + row);
+        }
+    }
+}
+
+/// How many dots along a mid-run head reaches back from its point.
+const REACH: i32 = 5;
+
+/// How much glass a head in the middle of a run keeps in front of its point.
+///
+/// Enough that the rule beyond is a rule the wire is still travelling along
+/// rather than more of the stroke the head is part of.
+const CLEARING: i32 = 4;
 
 #[cfg(test)]
 #[expect(
@@ -985,12 +1196,13 @@ mod tests {
     }
 
     #[test]
-    fn no_two_wires_crossing_a_gutter_stand_on_the_same_column() {
+    fn no_two_arrivals_crossing_a_gutter_stand_on_the_same_column() {
         // What the picture was getting wrong. Every forward edge on this
         // instrument joins one column to the next, so they all turn in the same
-        // gap; turning at the midpoint put three engines feeding a fourth on one
-        // column, and three wires drawn down one column are one wire as far as
-        // anybody reading it is concerned.
+        // gap; turning at the midpoint put everything crossing it on one column,
+        // and two wires drawn down one column are one wire as far as anybody
+        // reading it is concerned — unless they really are one, which is what
+        // `wires_into_one_box_share_a_lane_and_wires_into_two_do_not` holds.
         for count in 1..=super::ENGINE_COUNT {
             let turns: Vec<i32> = (0..count)
                 .map(|at| super::turn(30, 40, at, count))
@@ -1002,7 +1214,7 @@ mod tests {
             assert_eq!(
                 apart.len(),
                 count,
-                "{count} wires share a column: {turns:?}"
+                "{count} arrivals share a column: {turns:?}"
             );
             for turn in turns {
                 assert!(turn > 30 && turn < 40, "{turn} turns outside the gutter");
@@ -1070,6 +1282,170 @@ mod tests {
                 "{routing} is drawn with {} backwards edge",
                 if backwards { "a" } else { "no" }
             );
+        }
+    }
+
+    /// The whole picture, and the same picture with nothing but its boxes.
+    fn drawn(chain: Chain) -> (Screen, Screen) {
+        let mut whole = Screen::new(super::columns(), super::ROWS);
+        draw(&mut whole, chain);
+        let mut boxes = Screen::new(super::columns(), super::ROWS);
+        let glass = Band::new(
+            1,
+            super::HEADING,
+            boxes.columns() - 2,
+            boxes.rows() - super::HEADING,
+        );
+        let listed = super::listing(chain, glass);
+        let (graph, _) = super::shape(chain, glass, listed.len());
+        for (engine, band) in Engine::ALL.into_iter().zip(super::plates(chain, graph)) {
+            super::plate(&mut boxes, engine, chain, band, super::Ink::Solid);
+        }
+        (whole, boxes)
+    }
+
+    #[test]
+    fn nothing_is_drawn_through_the_inside_of_a_box() {
+        // What "underlapping" looks like on a dot matrix: a wire that runs
+        // behind a box comes out the other side, and the dots in between are
+        // the box's. The test is the box's own interior — everything inside its
+        // frame must be something the box itself put there, which is its mark
+        // and its name and nothing else.
+        for routing in Routing::all() {
+            let chain = wired(routing.value());
+            let (whole, boxes) = drawn(chain);
+            let glass = Band::new(
+                1,
+                super::HEADING,
+                whole.columns() - 2,
+                whole.rows() - super::HEADING,
+            );
+            let listed = super::listing(chain, glass);
+            let (graph, _) = super::shape(chain, glass, listed.len());
+
+            for band in super::plates(chain, graph) {
+                for row in (band.y + 1)..(band.y + band.height - 1) {
+                    for column in (band.x + 1)..(band.x + band.width - 1) {
+                        assert!(
+                            !whole.is_inked(column, row) || boxes.is_inked(column, row),
+                            "{} draws something through {band:?} at {column},{row}",
+                            routing.label()
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// How many columns between `from` and `to` a wire turns down.
+    ///
+    /// Counted as columns carrying a run taller than an arrowhead is, since the
+    /// head is five dots deep in its own back column and would otherwise be
+    /// counted as a lane of its own.
+    fn turning(screen: &Screen, from: i32, to: i32) -> usize {
+        (from..to)
+            .filter(|column| {
+                (0..screen.rows())
+                    .filter(|row| screen.is_inked(*column, *row))
+                    .count()
+                    > super::HEAD as usize * 2
+            })
+            .count()
+    }
+
+    #[test]
+    fn wires_into_one_box_share_a_lane_and_wires_into_two_do_not() {
+        // Three engines feeding a fourth drew three lanes two dots apart, each
+        // with its own head landing on the same dot of the same frame. They are
+        // one junction and they get one lane; two boxes fed out of the same
+        // gutter are two paths and still get two.
+        let into = Band::new(60, 20, 20, 8);
+        let other = Band::new(60, 40, 20, 8);
+        let sources = [
+            Band::new(10, 8, 40, 8),
+            Band::new(10, 22, 40, 8),
+            Band::new(10, 36, 40, 8),
+        ];
+        let [first, second, _] = sources;
+
+        let mut merging = Screen::new(100, 60);
+        let merge: Vec<super::Wire> = sources
+            .iter()
+            .map(|from| super::Wire { from: *from, into })
+            .collect();
+        super::lanes(&mut merging, &merge, super::Ink::Solid);
+
+        let mut splitting = Screen::new(100, 60);
+        let split = vec![
+            super::Wire { from: first, into },
+            super::Wire {
+                from: second,
+                into: other,
+            },
+        ];
+        super::lanes(&mut splitting, &split, super::Ink::Solid);
+
+        assert_eq!(turning(&merging, 51, 57), 1, "a merge is drawn as three");
+        assert_eq!(turning(&splitting, 51, 57), 2, "two paths are drawn as one");
+    }
+
+    #[test]
+    fn a_short_box_carries_its_mark_beside_the_name_it_cannot_stack_it_over() {
+        // The topologies that stack their engines are the ones that had no mark
+        // at all: three boxes in a column are as wide as the graph and a third
+        // of it deep, so there is no line to spare over the name and half the
+        // box standing empty beside it.
+        let tall = Band::new(0, 0, 60, 30);
+        let wide = Band::new(0, 0, 200, 12);
+        let small = Band::new(0, 0, 14, 10);
+
+        assert_eq!(super::placing(tall, 7, 40), super::Placing::Above);
+        assert_eq!(super::placing(wide, 7, 40), super::Placing::Beside);
+        assert_eq!(super::placing(small, 7, 40), super::Placing::Nowhere);
+    }
+
+    #[test]
+    fn the_glass_is_cut_for_the_engines_the_library_has() {
+        // `ROWS` counts the engines in a const, where the library's own count
+        // cannot go. A firmware with a fifth engine would make the glass one box
+        // too short and nothing else would say so.
+        assert_eq!(usize::try_from(super::ENGINES), Ok(super::ENGINE_COUNT));
+    }
+
+    #[test]
+    fn every_box_is_big_enough_to_read_on_every_topology_and_mode() {
+        // What the glass is cut for. A box shorter than a line of type is a box
+        // `plate` declines to draw at all, so a topology that squeezed one out
+        // would be a picture of a three-engine synthesizer — and the squeeze
+        // comes from the two bands under the graph, which are paid for by the
+        // graph itself.
+        for routing in Routing::all() {
+            for value in 0..3u8 {
+                let chain = Chain {
+                    routing,
+                    mode: Mode::for_value(value),
+                    running: [None; 4],
+                    wired: [true; 4],
+                };
+                let glass = Band::new(
+                    1,
+                    super::HEADING,
+                    super::columns() - 2,
+                    super::ROWS - super::HEADING,
+                );
+                let listed = super::listing(chain, glass);
+                let (graph, _) = super::shape(chain, glass, listed.len());
+
+                for band in super::plates(chain, graph) {
+                    assert!(
+                        band.height >= super::LEGIBLE,
+                        "{} in mode {value} draws a box {} deep, and {} is the least that can be read",
+                        routing.label(),
+                        band.height,
+                        super::LEGIBLE
+                    );
+                }
+            }
         }
     }
 

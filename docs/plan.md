@@ -337,10 +337,22 @@ would mean inventing a mapping the manual does not give.
 That rule decides the two things this panel cannot do. A slot whose display
 shows names — `Ambience`, `Church`, `Gate` — is not a list, because the manual
 prints those names and never the bytes they sit at, and a list that sent one of
-them would be sending a guess; the names are printed under the plate as what the
-display will show and the byte stays draggable. And a slot's reading stays the
+them would be sending a guess; the names are printed under the row that slot
+stands on, as what the display will show, and the byte stays draggable. And a
+slot's reading stays the
 byte, with the two ends the manual prints written under the title, because
 `0.1` to `6.0 s` is a range and not a curve.
+
+**A case is as deep as what is in it.** The grid is two rows and most of the 35
+fill one, so a plate drawn at the grid's own depth was a rack unit with more
+blank panel under its knobs than knobs — and the band of display names at the
+foot of it was sized for the longest of the 35 whatever was loaded. Both
+reservations bought four cases of one height and were paid for by every
+algorithm that is not the deepest one. So a plate draws the rows its algorithm
+fills and a display name stands under the row its own slot is on. What is still
+reserved is the shape of a row, which is what the columns line up against: a
+column stands a column's height whether or not a slot is in it, and a control
+stands in a band of one depth whether the figure calls for a knob or a fader.
 
 **Twelve bytes, however many the algorithm uses.** An engine holds twelve
 whatever it is running and `Algorithm::slots` is as short as five. The ones the
@@ -762,7 +774,7 @@ group and changes only the arrangement, never what a control is:
 | --- | --- |
 | Program | **Done.** The name is 17 parameters, one character each, and 17 faders is not a name, so the 17 slots are the one display the instrument shows them on |
 | VCF, VCA and Mod envelopes | **Done.** Four faders and the shape they make, drawn above the rack, which is the one group whose meaning is a picture |
-| Mod Matrix | **Done.** Eight rows of source, destination and depth, read across rather than down, because twenty-four slots in one wrapping line are eight sentences with their words in the wrong order |
+| Mod Matrix | **Done.** Eight rows of source, destination and depth, read across rather than down, because twenty-four slots in one wrapping line are eight sentences with their words in the wrong order. A destination is chosen from a list that can be typed into, or by mapping the routing onto the window and taking hold of the control it should move — which sets the depth too, from how far the drag went |
 | Control Sequencer | **Done.** 32 steps as one strip in the order they are played, with the six settings that are not steps left in the rack |
 | Effects | **Done.** Four plates, each an engine's own settings and its twelve bytes under the names the loaded algorithm gives them, read for the firmware that answered |
 
@@ -778,7 +790,7 @@ found by what the library calls them — a `Source` with a `Destination` and a
 `Depth` sharing its prefix — so a ninth routing draws a ninth row and a lone
 `Source` somewhere else is not a matrix.
 
-The rows can say where they point, since `deepmind-midi` 26.2:
+The rows can say where they go, since `deepmind-midi` 26.2:
 `ValueTable::parameters_of` joins `VCF Freq` to `ParamId::VcfFrequency` where
 the table lives, rather than by matching those names here, which is the second
 copy of a generated table this repository refuses to keep. A slot the eight
@@ -786,6 +798,34 @@ routings are pointed at carries the one saturated mark on the panel, read once
 per panel from the destinations the patch holds. A destination nobody has read
 moves nothing: a mark drawn from a value this window has not seen says the
 instrument is doing something it may not be.
+
+**A routing is pointed as well as chosen.** The two columns of that table are
+hard for opposite reasons, and both of them are answered now. A destination is
+one of 133 names the instrument's display prints abbreviated, so the row chooses
+it from a list that can be typed into rather than scrolled — three letters and
+`VCF Envelope Attack` is the only one left. And a depth is a number nobody can
+pick without having already heard it.
+
+The second answer covers both, and it is the one an editor has and a front panel
+does not: `map` sends the routing out into the window. Every control the matrix
+can reach lights up, on the front panel and in all fourteen racks and on the four
+effect engines at once; everything else is passed over; the sections still open
+and the panel still scrolls and nothing edits the sound. Taking hold of a lit
+control is the answer — a click chooses it, and a drag sets the depth as well,
+from how far the drag would have moved it. It is the answer to what actually
+makes that column hard, which is that knowing which abbreviation stands over the
+fader you have in mind is harder than knowing the fader.
+
+Which controls light is the same join the mark is drawn from, read backwards, so
+nothing is written down for it either. What *is* assumed is one number: the drag
+is read as if a full depth moved the control over its whole range, because the
+manual prints no law relating a depth byte to its destination's range. It is
+marked in `control-ui/src/aim.rs`, printed on the page, asked for in
+[deepmind-midi#38](https://github.com/MysteriousWolf/deepmind-midi/issues/38) and
+listed in [waiting.md](waiting.md). The ranking that picks `VCF Attack` over `All
+Attack` when both reach a control is the other judgement this page is making that
+the library would make better, and it is
+[#39](https://github.com/MysteriousWolf/deepmind-midi/issues/39).
 
 That is also where hand layout stops being only an arrangement of whole
 controls. A row gives a list the width its names need and turns the depth fader

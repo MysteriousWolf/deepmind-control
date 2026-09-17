@@ -4,8 +4,8 @@
 //! [`tint`] a claim is drawn in. Nothing else in this repository writes down a
 //! colour, so restyling the editor is editing this file and nothing near it.
 //!
-//! The same rule now covers type and the chrome. [`printed`], [`wordmark`] and
-//! [`reading`] are the three faces anything in either build is set in, and
+//! The same rule now covers type and the chrome. [`printed`] and [`reading`]
+//! are the two faces anything in either build is set in, and
 //! [`ground`], [`chrome`], [`selector`], [`shortlist`] and [`bay`] are what the parts of the
 //! window that are not parameters are drawn as: a port picker cut into the
 //! panel like a fader's track, and a button with a metal rim rather than a
@@ -18,7 +18,7 @@ use iced_core::gradient::Linear;
 use iced_core::theme::{Base, Palette};
 use iced_core::{Background, Border, Color, Font, Gradient, Radians, Shadow, Theme, border, color};
 use iced_widget::overlay::menu;
-use iced_widget::{button, container, pick_list};
+use iced_widget::{button, container, pick_list, text_input};
 
 use crate::Confidence;
 
@@ -51,15 +51,6 @@ const FAMILY: &str = if cfg!(target_os = "linux") {
 #[must_use]
 pub const fn printed() -> Font {
     Font::with_name(FAMILY)
-}
-
-/// The same face, bold, which is what the mark sets the name in.
-#[must_use]
-pub const fn wordmark() -> Font {
-    Font {
-        weight: iced_core::font::Weight::Bold,
-        ..printed()
-    }
 }
 
 /// The face anything the synthesizer's own display would show is set in.
@@ -176,12 +167,47 @@ pub struct Materials {
     pub lit: Color,
     /// A scale printed on the panel.
     pub scale: Color,
+    /// The end cheek the panel is bolted between.
+    ///
+    /// A `DeepMind` is a panel between two pieces of wood, and it is the one
+    /// material on the instrument that is not metal, ink or the panel itself.
+    /// The mark and the banner are both built out of it — see `docs/logo.svg`
+    /// — so the window that carries the same mark carries the same two colours
+    /// rather than a third pair chosen to look like them.
+    pub wood: Color,
+    /// The far side of it, which is where the light has stopped reaching.
+    pub wood_low: Color,
+    /// A line of grain along it, lighter than the cheek.
+    pub grain: Color,
     /// The face of a metal part.
     pub metal: Color,
     /// Its lit edge.
     pub metal_high: Color,
     /// Its shaded edge.
     pub metal_low: Color,
+}
+
+/// Returns the glass, the far end of its backlight, and the ink on it, for a
+/// display of the polarity `negative` asks for.
+///
+/// The same two greens either way round: the lit one is what a backlight puts
+/// through the panel and the dark one is the panel with nothing driving it, so
+/// turning them over is the display turned over rather than a second palette.
+///
+/// Apart from [`materials`] because of the press that turns them over: that
+/// press shows a display of the polarity it is about to give you, which is the
+/// one place in this window that has to draw a display the theme is not wearing.
+#[must_use]
+#[expect(
+    clippy::unreadable_literal,
+    reason = "a colour is read as a colour, and `0x00d6_e7cd` is not one"
+)]
+pub fn glazing(negative: bool) -> (Color, Color, Color) {
+    if negative {
+        (color!(0x101a12), color!(0x18231b), color!(0xd6e7cd))
+    } else {
+        (color!(0xd6e7cd), color!(0xbfd3b6), color!(0x101a12))
+    }
 }
 
 /// Returns the materials a drawn control is made of, in `theme`.
@@ -196,11 +222,7 @@ pub fn materials(theme: &Theme) -> Materials {
     // The same two greens: the lit one is what a backlight puts through the
     // panel and the dark one is the panel with nothing driving it, so turning
     // them over is the display turned over rather than a second palette.
-    let (glass, glass_low, ink) = if is_negative(theme) {
-        (color!(0x101a12), color!(0x18231b), color!(0xd6e7cd))
-    } else {
-        (color!(0xd6e7cd), color!(0xbfd3b6), color!(0x101a12))
-    };
+    let (glass, glass_low, ink) = glazing(is_negative(theme));
     Materials {
         panel: palette.background.base.color,
         plate: color!(0x1b1f26),
@@ -211,6 +233,9 @@ pub fn materials(theme: &Theme) -> Materials {
         recess_edge: color!(0x242932),
         lit: color!(0x7d838f),
         scale: palette.background.strong.color,
+        wood: color!(0xa9552c),
+        wood_low: color!(0x8a3f1f),
+        grain: color!(0xc26436),
         metal: color!(0xc9cdd6),
         metal_high: color!(0xf4f5f8),
         metal_low: color!(0x8e939f),
@@ -549,6 +574,37 @@ pub fn chrome(theme: &Theme, status: button::Status) -> button::Style {
     }
 }
 
+/// What a press whose whole face is a mark is drawn as.
+///
+/// Nothing at all, until a hand comes near it. A press with a word in it needs
+/// a rim to say where the word stops being a label and starts being a button;
+/// a press whose face is a nine-dot mark does not, because the mark is already
+/// a shape on the panel and a rounded rectangle round it is a second shape
+/// saying the same thing — and one drawn to the height of the *words* beside
+/// it, so a twenty-two point mark ends up floating in a twenty-nine point box
+/// with four points of panel above and below it.
+///
+/// So the mark stands on the panel the way the numbers on a rack unit's case
+/// stand on the case, and what a hand gets back is light rather than a frame:
+/// the panel lifts to the plate under the pointer and to the recess while it
+/// is held, which is the same pair of surfaces every other press here moves
+/// between. What the press *does* is said in the footer while the pointer is
+/// on it, where this window already says what is under the pointer.
+#[must_use]
+pub fn marked(theme: &Theme, status: button::Status) -> button::Style {
+    let material = materials(theme);
+    button::Style {
+        background: match status {
+            button::Status::Hovered => Some(Background::Color(material.plate)),
+            button::Status::Pressed => Some(Background::Color(material.recess)),
+            button::Status::Active | button::Status::Disabled => None,
+        },
+        text_color: material.metal,
+        border: border::rounded(3),
+        ..button::Style::default()
+    }
+}
+
 /// What a press that opens a section is drawn as: a lamp behind a cap.
 ///
 /// The hardware's `EDIT` is not a word on the panel. It is a rubber button that
@@ -651,6 +707,40 @@ pub fn shortlist(theme: &Theme) -> menu::Style {
         selected_text_color: material.metal_high,
         selected_background: Background::Color(material.plate),
         shadow: Shadow::default(),
+    }
+}
+
+/// What a field somebody types into is drawn as.
+///
+/// The same recess a [`selector`] is cut into, because it is the same control
+/// wearing a caret: the modulation matrix's destinations are a list of 133 and
+/// the only way through them at speed is to type, so the picker on that row is
+/// a list that can be typed into rather than a list beside a search box.
+///
+/// What is typed is metal and what has not been typed yet is the dim metal a
+/// legend is printed in, which is the same pair every unlit thing in this
+/// window uses. The edge lights the way a section button lights while the
+/// caret is in it, so that a field being typed into is as obvious as a section
+/// being looked at.
+#[must_use]
+pub fn field(theme: &Theme, status: text_input::Status) -> text_input::Style {
+    let material = materials(theme);
+    let rim = match status {
+        text_input::Status::Focused { .. } => material.lit,
+        text_input::Status::Hovered => material.metal_low,
+        text_input::Status::Active | text_input::Status::Disabled => material.recess_edge,
+    };
+    text_input::Style {
+        background: Background::Color(material.recess),
+        border: Border {
+            color: rim,
+            width: 1.0,
+            radius: 2.into(),
+        },
+        icon: material.metal_low,
+        placeholder: material.metal_low,
+        value: material.metal_high,
+        selection: material.plate,
     }
 }
 

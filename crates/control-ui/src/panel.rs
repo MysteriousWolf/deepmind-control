@@ -29,13 +29,20 @@ use deepmind_midi::param::{Group, Kind, ParamId, Shape};
 use deepmind_midi::program::ProgramName;
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::alignment::{Horizontal, Vertical};
-use iced_core::{Background, Border, Font, Length, Theme, border, text::Renderer as TextRenderer};
-use iced_widget::{Space, button, column, container, mouse_area, pick_list, row, text};
+use iced_core::gradient::Linear;
+use iced_core::layout::{self, Layout};
+use iced_core::widget::Tree;
+use iced_core::{
+    Background, Border, Color, Font, Gradient, Length, Radians, Rectangle, Size, Theme, Widget,
+    border, mouse, renderer, text::Renderer as TextRenderer,
+};
+use iced_widget::{Space, button, column, container, mouse_area, pick_list, row, stack, text};
 
 use crate::effect;
 use crate::envelope;
 use crate::fader::{self, Axis, fader};
 use crate::knob::{self, knob};
+use crate::mapping::{Mapper, Mapping, Sent};
 use crate::matrix;
 use crate::name;
 use crate::sequencer;
@@ -297,6 +304,18 @@ impl Room {
         }
     }
 
+    /// The same, taking the room it is given rather than a width of its own.
+    ///
+    /// What a column of a table that fills the window asks for: the width is
+    /// the row's to share out, and a control that carried one of its own would
+    /// be a column that stopped where it was written to stop.
+    pub(crate) const fn filling_list() -> Self {
+        Self {
+            fills: true,
+            ..Self::listed(0.0)
+        }
+    }
+
     /// Room for one lane of a strip, `width` points across.
     ///
     /// Narrower than a slot and as tall, so a row of thirty-two stands as one
@@ -362,19 +381,27 @@ impl Room {
         }
     }
 
-    /// Returns how much room across the panel this is.
-    pub(crate) const fn width(self) -> f32 {
-        self.width
+    /// Returns which way the control in this room travels.
+    ///
+    /// Asked by what is drawn *over* a control rather than by the control
+    /// itself: a band saying how far a routing can push it has to run the way
+    /// the control runs, or it is a bar beside a fader rather than a reading of
+    /// it. A knob keeps whichever axis its room was cut with, because a knob's
+    /// sweep is not a direction on the panel and a bar along one edge of it is
+    /// a scale rather than a picture of the dial.
+    pub(crate) const fn along(self) -> Axis {
+        self.axis
     }
 }
 
 /// What a view in this crate asks for.
 ///
-/// Four things, and the last two never reach a wire: a parameter should move,
+/// Seven things, and the last four never reach a wire: a parameter should move,
 /// the program should be called something, a section should be the one on the
-/// screen, or the pointer has come to rest on a control. What an edit costs on
-/// a wire, when it goes out and what it goes out behind is the host crate's
-/// business.
+/// screen, the pointer has come to rest on a control or on a press, a routing
+/// is being mapped onto the window, or a drag while it is mapped has said where
+/// and how much. What an edit costs on a wire, when it goes out and what it
+/// goes out behind is the host crate's business.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Message {
     /// A parameter should move to this value.
@@ -407,6 +434,64 @@ pub enum Message {
     ///
     /// It never reaches a wire. Looking at a control is not editing it.
     Pointed(Option<ParamId>),
+    /// The pointer is over a press, or has left the one it was over.
+    ///
+    /// The same question [`Pointed`](Message::Pointed) asks about a control,
+    /// for the things in this window that are not parameters: the marks along
+    /// the header and the foot, and the two presses that move a routing up and
+    /// down the matrix. A press whose whole face is a nine-dot mark has nowhere
+    /// to put a word, and a word beside it is a word on the panel whether or
+    /// not anybody is asking — so the answer goes where this window already
+    /// says what is under the pointer.
+    ///
+    /// It is what the press says about itself rather than anything read from
+    /// the instrument, which is why it is a string and not a parameter.
+    Hinted(Option<&'static str>),
+    /// This routing is being mapped onto the window, or none is any more.
+    ///
+    /// While one is, every control the matrix can reach is lit across all three
+    /// surfaces and none of them edits anything: the next one somebody takes
+    /// hold of is where the routing goes. See [`Mapper`].
+    ///
+    /// It never reaches a wire either. Choosing where to point something is not
+    /// pointing it.
+    Mapper(Option<Mapping>),
+    /// A drag on a control while a routing is mapped onto the window.
+    ///
+    /// Both bytes are already worked out, by the view that knows which control
+    /// the drag is on and what it was holding before the drag began: the
+    /// destination the control answers to, and the depth its travel asks for.
+    /// Two [`Edit`](Message::Edit)s, in other words, and they are one message
+    /// because they are one gesture.
+    Reach {
+        /// Where the routing goes, and the byte that names what was taken hold
+        /// of.
+        destination: ParamId,
+        /// That byte.
+        at: u8,
+        /// How much of it arrives, and the byte the drag's travel asks for.
+        depth: ParamId,
+        /// That byte.
+        by: u8,
+    },
+    /// Two routings should trade places.
+    ///
+    /// Six parameters, three at a time, and the pairs are already worked out by
+    /// the view that knows which two rows are being swapped. It is one message
+    /// because it is one gesture, for the reason [`Reach`](Message::Reach) is:
+    /// somebody moving a routing up the table is moving a routing, not editing
+    /// six bytes.
+    ///
+    /// Nothing about the sound changes. The eight routings are read as a set
+    /// and the instrument does not care which of them says what, so this is a
+    /// rearrangement for whoever has to read the table next — which is the one
+    /// thing a matrix of eight identical slots gives somebody no way to do.
+    Swap {
+        /// One routing's source, destination and depth.
+        one: [ParamId; 3],
+        /// The other's, in the same order.
+        other: [ParamId; 3],
+    },
 }
 
 /// Draws one group of parameters.
@@ -416,7 +501,12 @@ pub enum Message {
 /// mean something else on 1.0. Until a synthesizer has answered, the caller
 /// passes the library's default and says so on the screen.
 #[must_use]
-pub fn group<'a, Renderer>(patch: &Patch, group: Group, firmware: Version) -> Element<'a, Renderer>
+pub fn group<'a, Renderer>(
+    patch: &'a Patch,
+    group: Group,
+    firmware: Version,
+    mapper: &'a Mapper,
+) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
@@ -428,6 +518,16 @@ where
     // A panel drawn as a table takes its own parameters out of the rack, and
     // leaves anything it did not claim in it: a group that grows a parameter no
     // row knows about keeps it as a slot rather than losing it to a layout.
+    // The routing mapped onto the window, if one is. Read once for the panel:
+    // it reaches every control drawn below and it is the same answer for all of
+    // them.
+    let mapping = mapper.mapped();
+    // Read once for the rack, for the same reason `moved` is: every control
+    // below asks the same question of the same eight routings.
+    let reaches = mapping
+        .map(|_| matrix::reaching(patch, firmware))
+        .unwrap_or_default();
+    let sent = mapping.map(|mapping| Sent::new(mapping, &reaches));
     let routed = matrix::routed(group);
     let stepped = sequencer::stepped(group);
     let claimed = effect::claimed(group);
@@ -446,7 +546,7 @@ where
             if name::holds(parameter) {
                 return name::begins(parameter).then(|| name::field(patch));
             }
-            Some(slot(patch, parameter, firmware, &moved))
+            Some(slot(patch, parameter, firmware, &moved, sent))
         })
         .collect();
     // An envelope's meaning is a picture, so the picture goes above its rack,
@@ -457,13 +557,13 @@ where
     if let Some(shape) = envelope::shape(patch, group) {
         body = body.push(shape);
     }
-    if let Some(table) = matrix::table(patch, group, firmware) {
+    if let Some(table) = matrix::table(patch, group, firmware, mapper) {
         body = body.push(table);
     }
-    if let Some(strip) = sequencer::strip(patch, group, firmware) {
+    if let Some(strip) = sequencer::strip(patch, group, firmware, sent) {
         body = body.push(strip);
     }
-    if let Some(engines) = effect::panels(patch, group, firmware, &moved) {
+    if let Some(engines) = effect::panels(patch, group, firmware, &moved, sent) {
         body = body.push(engines);
     }
     if !slots.is_empty() {
@@ -496,6 +596,7 @@ fn slot<'a, Renderer>(
     parameter: ParamId,
     firmware: Version,
     moved: &[ParamId],
+    sent: Option<Sent<'_>>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -509,7 +610,7 @@ where
             modulated(moved.contains(&parameter), true),
         ]
         .align_y(Vertical::Center),
-        control(parameter, value, claim, firmware, Room::SLOT),
+        control(parameter, value, claim, firmware, Room::SLOT, sent),
         readout(parameter, value, claim, firmware),
         container(text(parameter.short_name()).size(11).center())
             .height(Length::Fixed(NAME))
@@ -569,6 +670,7 @@ pub(crate) fn control<'a, Renderer>(
     claim: Confidence,
     firmware: Version,
     room: Room,
+    sent: Option<Sent<'_>>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -576,12 +678,290 @@ where
     // Every control in this editor is drawn through here — a lane of the front
     // panel, a slot of a rack, a step of the sequencer, a byte of an effect — so
     // this is the one place that has to notice a pointer for all of them to say
-    // what they are.
-    mouse_area(drawn(parameter, value, claim, firmware, room))
+    // what they are. It is also the one place that has to answer the modulation
+    // matrix when a routing is mapped onto the window, for the same reason: a
+    // mode that lit the controls of one panel would be a mode that stopped at
+    // the edge of the panel somebody is looking at.
+    let asked = For::of(sent, parameter, firmware);
+    let drawn = drawn(parameter, value, claim, firmware, room, asked);
+    let Some(sent) = sent else {
+        return mouse_area(drawn)
+            .on_enter(Message::Pointed(Some(parameter)))
+            .on_exit(Message::Pointed(None))
+            .into();
+    };
+    // Over the control rather than around it. A border drawn in a container
+    // would be two points of layout this panel does not have, and every control
+    // in the window would move the moment a routing was pointed — which is a
+    // window that jumps when somebody is about to map onto something in it.
+    let reached = sent.mapping().names(parameter, firmware);
+    // What is already there, drawn on the control it is already there on.
+    // Somebody choosing where a routing goes is choosing against the other
+    // seven, and a second routing onto the same filter corner is a thing people
+    // do on purpose and a thing people do by accident.
+    let swings: Vec<(f32, f32)> = value
+        .filter(|_| reached.is_some())
+        .map(|value| {
+            sent.already(parameter)
+                .map(|reach| reach.swing(value))
+                .collect()
+        })
+        .unwrap_or_default();
+    let lit = stack![
+        drawn,
+        mapping_light(reached.is_some(), room.along(), swings)
+    ];
+    let area = mouse_area(lit)
         .on_enter(Message::Pointed(Some(parameter)))
-        .on_exit(Message::Pointed(None))
-        .into()
+        .on_exit(Message::Pointed(None));
+    // A press is taken by the control under it, which is what makes a drag
+    // possible; the release is what says *this one*. A control the matrix
+    // cannot reach answers nothing at all, so a click on it neither points the
+    // routing nor loses what was already being mapped.
+    match reached {
+        Some(value) => area.on_release(Message::Edit {
+            parameter: sent.mapping().destination(),
+            value,
+        }),
+        None => area,
+    }
+    .into()
 }
+
+/// What is laid over a control while a routing is mapped onto the window.
+///
+/// Three things, and the first two are the whole of the mode. A control the
+/// matrix can reach is lit; a control it cannot reach is covered by the panel
+/// it stands on until it is barely there. Lit and dimmed rather than lit and
+/// left alone, because a page of forty faders with six outlined is a page
+/// somebody has to search; the same page with thirty-four of them faded is a
+/// page with six faders on it.
+///
+/// The third is what is already there: a band along the control's own travel
+/// for each of the other seven routings that lands on it, showing how far that
+/// one can push it. See [`Reach::swing`](crate::Reach::swing) for what that
+/// band assumes.
+///
+/// None of them takes an event. A stack hands what lands on it to what is
+/// under it, and what is under it is the control.
+fn mapping_light<'a, Renderer>(
+    reached: bool,
+    along: Axis,
+    swings: Vec<(f32, f32)>,
+) -> Element<'a, Renderer>
+where
+    Renderer: iced_core::Renderer + 'a,
+{
+    Element::new(Light {
+        reached,
+        along,
+        swings,
+    })
+}
+
+/// The lamp, and what is already wired to the control under it.
+#[derive(Debug)]
+struct Light {
+    reached: bool,
+    along: Axis,
+    swings: Vec<(f32, f32)>,
+}
+
+impl Light {
+    /// Where one routing's band is drawn, in `bounds`.
+    ///
+    /// Along the control's own travel and against the near edge of it: a fader
+    /// that runs down the panel gets a bar up its left-hand side, and one that
+    /// runs across gets a bar along its top. `lane` is which of them this is,
+    /// so that two routings onto one control are two bars rather than one bar
+    /// drawn twice.
+    fn band(&self, bounds: Rectangle, swing: (f32, f32), lane: usize) -> Rectangle {
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "a lane of the few a control has room for"
+        )]
+        let out = EDGE + lane as f32 * (BAND + APART);
+        let (from, to) = swing;
+        match self.along {
+            // Nothing at the foot and one at the head, which is the way up
+            // every drawing in this window reads and the way a fader's own cap
+            // sits on its travel.
+            Axis::Down => {
+                let top = bounds.y + bounds.height * (1.0 - to);
+                Rectangle {
+                    x: bounds.x + out,
+                    y: top,
+                    width: BAND,
+                    height: (bounds.height * (to - from)).max(BAND),
+                }
+            }
+            Axis::Across => Rectangle {
+                x: bounds.x + bounds.width * from,
+                y: bounds.y + out,
+                width: (bounds.width * (to - from)).max(BAND),
+                height: BAND,
+            },
+        }
+    }
+}
+
+impl<Message, Renderer> Widget<Message, Theme, Renderer> for Light
+where
+    Renderer: iced_core::Renderer,
+{
+    fn size(&self) -> Size<Length> {
+        Size::new(Length::Fill, Length::Fill)
+    }
+
+    fn layout(
+        &mut self,
+        _tree: &mut Tree,
+        _renderer: &Renderer,
+        limits: &layout::Limits,
+    ) -> layout::Node {
+        layout::atomic(limits, Length::Fill, Length::Fill)
+    }
+
+    fn draw(
+        &self,
+        _tree: &Tree,
+        renderer: &mut Renderer,
+        theme: &Theme,
+        _style: &renderer::Style,
+        layout: Layout<'_>,
+        _cursor: mouse::Cursor,
+        _viewport: &Rectangle,
+    ) {
+        let bounds = layout.bounds();
+        let material = materials(theme);
+        // A control that is not part of the question, covered by the panel it
+        // stands on. What is left is enough to see that there is a control
+        // there and not enough to read it.
+        if !self.reached {
+            renderer.fill_quad(
+                renderer::Quad {
+                    bounds,
+                    ..renderer::Quad::default()
+                },
+                Background::Color(Color {
+                    a: PASSED_OVER,
+                    ..material.panel
+                }),
+            );
+            return;
+        }
+        // The lamp: light coming up through the panel from behind it, which is
+        // how a `DeepMind` says a press is on. It was a hairline rectangle
+        // round the control, and a hairline rectangle is a focus ring on a web
+        // page rather than anything on a piece of equipment.
+        //
+        // Brightest at the foot and falling away across it, because that is
+        // what a lamp behind a panel does and it is the rule every other lit
+        // surface in this window is already drawn under — the display's own
+        // glass is two stops of the same argument. A flat fill of one colour is
+        // a highlight; this is a light.
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds,
+                border: Border::default().rounded(3.0),
+                ..renderer::Quad::default()
+            },
+            Background::Gradient(Gradient::Linear(
+                Linear::new(Radians(core::f32::consts::PI))
+                    .add_stop(
+                        0.0,
+                        Color {
+                            a: FAR,
+                            ..style::MODULATION
+                        },
+                    )
+                    .add_stop(
+                        1.0,
+                        Color {
+                            a: NEAR,
+                            ..style::MODULATION
+                        },
+                    ),
+            )),
+        );
+        // And the wall the light is coming past, lit hardest of all: the one
+        // thing every cut surface in this window has in common is that it
+        // catches the light along the edge the light reaches. A track does it,
+        // a plate does it, and a display does it.
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds: Rectangle {
+                    x: bounds.x + 1.0,
+                    y: bounds.y + bounds.height - EDGE - 1.0,
+                    width: (bounds.width - 2.0).max(0.0),
+                    height: EDGE,
+                },
+                border: Border::default().rounded(EDGE / 2.0),
+                ..renderer::Quad::default()
+            },
+            Background::Color(Color {
+                a: CATCH,
+                ..style::MODULATION
+            }),
+        );
+        for (lane, swing) in self.swings.iter().copied().enumerate() {
+            let band = self.band(bounds, swing, lane);
+            // A band that has run off the control is a band nobody can read
+            // against it, which is what happens to the fourth routing onto one
+            // slot. The three that fit are the ones drawn.
+            if !bounds.contains(band.position()) {
+                break;
+            }
+            renderer.fill_quad(
+                renderer::Quad {
+                    bounds: band,
+                    border: Border::default().rounded(BAND / 2.0),
+                    ..renderer::Quad::default()
+                },
+                Background::Color(Color {
+                    a: ALREADY,
+                    ..style::MODULATION
+                }),
+            );
+        }
+    }
+}
+
+/// How hard the lamp shows through the panel at the foot of a lit control.
+///
+/// Where the light enters. Faint even here: it is a ground the control is still
+/// read against, and a fill that competed with the cap on a fader would be a
+/// mode that hid the values it was asking somebody to choose between.
+const NEAR: f32 = 0.20;
+
+/// How hard it still shows at the head of one, which is most of the way to
+/// nothing.
+const FAR: f32 = 0.03;
+
+/// How hard the wall the light comes past catches it.
+const CATCH: f32 = 0.6;
+
+/// How thick that lit edge is.
+const EDGE: f32 = 1.5;
+
+/// How thick the band for one routing already landing here is.
+const BAND: f32 = 2.5;
+
+/// How much panel there is between two of those bands.
+const APART: f32 = 1.5;
+
+/// How hard a band is drawn.
+///
+/// Harder than the lamp and softer than the aperture: what is already wired to
+/// a control is a fact about the patch, and the lamp is a question about it.
+const ALREADY: f32 = 0.75;
+
+/// How much of the panel is laid over a control the matrix cannot reach.
+///
+/// Most of it. What is left is enough to see that there is a control there and
+/// not enough to read it, which is the right amount for something that is not
+/// part of the question being asked.
+const PASSED_OVER: f32 = 0.72;
 
 /// Draws the control itself, as whatever the library says the parameter is.
 fn drawn<'a, Renderer>(
@@ -590,12 +970,14 @@ fn drawn<'a, Renderer>(
     claim: Confidence,
     firmware: Version,
     room: Room,
+    asked: For,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
     let low = u8::try_from(parameter.min()).unwrap_or(u8::MIN);
     let high = u8::try_from(parameter.max()).unwrap_or(u8::MAX);
+    let idle = idle(parameter);
     match parameter.kind() {
         // A switch is two states, and the library says which parameters are
         // switches. Where it also says one accepts 256 values, the two answers
@@ -604,19 +986,94 @@ where
         // 9` and `11` are the two that say it today, from a `kind = "switch"`
         // in `spec/parameters.toml` that their own range and their own note
         // disagree with. Drawing the sweep is the reading that loses nothing.
-        Kind::Switch if parameter.max() <= 1 => lamp(parameter, value, claim, room),
+        Kind::Switch if parameter.max() <= 1 => lamp(parameter, value, claim, room, asked),
         Kind::Enumerated(_) => match choices(parameter, firmware, value) {
             Some(options) if options.len() <= LEGENDS || room.legends => {
-                legends(parameter, &options, value, claim, room)
+                legends(parameter, &options, value, claim, room, asked)
             }
-            Some(options) => list(parameter, options, value, room),
+            Some(options) => list(parameter, options, value, room, asked),
             // A table that does not name this value is a table that would drop
             // the value on the next click, so the raw number stays draggable.
-            None => sweep(parameter, low..=high, value.unwrap_or(low), claim, room),
+            None => sweep(
+                parameter,
+                low..=high,
+                value.unwrap_or(idle),
+                claim,
+                room,
+                asked,
+            ),
         },
         // A sweep, and anything a later library adds that this build has not
         // heard of: every parameter is a number underneath.
-        _ => sweep(parameter, low..=high, value.unwrap_or(low), claim, room),
+        _ => sweep(
+            parameter,
+            low..=high,
+            value.unwrap_or(idle),
+            claim,
+            room,
+            asked,
+        ),
+    }
+}
+
+/// Returns where a control stands when this window has no value to stand it at.
+///
+/// Nothing is drawn to take hold of either way — see the cap in
+/// [`fader`](crate::fader) — so this is where the *track* is read from, and for
+/// a value read about a centre that is the centre. A modulation depth nobody
+/// has read, drawn at the floor of its own range, is a control sitting at
+/// `-128` on a page whose whole subject is how much of something arrives: the
+/// window would be showing full negative modulation where it means to be
+/// showing that it has not asked.
+fn idle(parameter: ParamId) -> u8 {
+    let low = u8::try_from(parameter.min()).unwrap_or(u8::MIN);
+    match parameter.shape() {
+        Shape::Bipolar { centre } => u8::try_from(centre).unwrap_or(low),
+        // Unipolar, and anything a later library adds: a range that counts up
+        // from somewhere starts where it counts from.
+        _ => low,
+    }
+}
+
+/// What a control is being drawn for.
+///
+/// Three states, and the second two are the modulation matrix pointing a
+/// routing at the window. They decide what a control *does* and never what it
+/// is: a lamp is a lamp in all three, a list says which value is chosen in all
+/// three, and a fader has its cap in all three. What changes is whether taking
+/// hold of one moves the sound, moves the routing, or does nothing at all.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum For {
+    /// Editing the sound, which is every control almost all of the time.
+    Editing,
+    /// Answering a routing that is mapped onto the window, at a control the
+    /// matrix can reach: the routing, and the destination byte that names this
+    /// control.
+    Mapping(Mapping, u8),
+    /// The same, at a control it cannot reach. The control is drawn and does
+    /// nothing, because it is not part of the question being asked.
+    Passed,
+}
+
+impl For {
+    /// What a control is being drawn for, given what the matrix is asking.
+    fn of(sent: Option<Sent<'_>>, parameter: ParamId, firmware: Version) -> Self {
+        match sent {
+            None => Self::Editing,
+            Some(sent) => sent
+                .mapping()
+                .names(parameter, firmware)
+                .map_or(Self::Passed, |at| Self::Mapping(sent.mapping(), at)),
+        }
+    }
+
+    /// Returns whether a control drawn for this is one somebody can move.
+    ///
+    /// Only while editing. A routing being mapped is a question about where it
+    /// goes, and a control that answered it by also changing the sound would be
+    /// answering a question nobody asked.
+    const fn edits(self) -> bool {
+        matches!(self, Self::Editing)
     }
 }
 
@@ -627,25 +1084,46 @@ fn sweep<'a, Renderer>(
     value: u8,
     claim: Confidence,
     room: Room,
+    asked: For,
 ) -> Element<'a, Renderer>
 where
     Renderer: iced_core::Renderer + 'a,
 {
     let low = *range.start();
     let high = *range.end();
+    let held = value.clamp(low, high);
+    // The one gesture the two modes share. While the matrix is mapping, the
+    // drag is the same drag over the same range with the same relative grab,
+    // and what comes out of it is the depth that travel asks for rather than
+    // the value it would have reached — so the number under the hand is still
+    // "how far did I move it", which is the only question a hand can answer
+    // about an amount it has not heard yet.
+    let moved = move |to: u8| match asked {
+        For::Mapping(mapped, at) => Message::Reach {
+            destination: mapped.destination(),
+            at,
+            depth: mapped.depth(),
+            by: mapped.depth_of(parameter, held, to),
+        },
+        // A control the matrix cannot reach never publishes, because it is
+        // built inert below; this is the arm that says so.
+        _ if !asked.edits() => Message::Pointed(Some(parameter)),
+        _ => Message::Edit {
+            parameter,
+            value: to,
+        },
+    };
+    let live = !matches!(asked, For::Passed);
     if matches!(room.form, Form::Knob) {
         // A knob is as wide as it is tall and takes the room across the panel
         // it was given, which for a slot in the rack is the fader's own width
         // and for a column of an effect plate is the size that plate asked for.
-        return knob(range, value.clamp(low, high), claim, move |value| {
-            Message::Edit { parameter, value }
-        })
-        .size(room.body.unwrap_or_else(|| room.width.min(knob::SIZE)))
-        .into();
+        return knob(range, held, claim, moved)
+            .live(live)
+            .size(room.body.unwrap_or_else(|| room.width.min(knob::SIZE)))
+            .into();
     }
-    let fader = fader(range, value.clamp(low, high), claim, move |value| {
-        Message::Edit { parameter, value }
-    });
+    let fader = fader(range, held, claim, moved).live(live);
     let across = room.body.unwrap_or(room.width);
     match room.axis {
         // A fader takes as much room across as it is given and never more than
@@ -687,13 +1165,14 @@ fn lamp<'a, Renderer>(
     value: Option<u8>,
     claim: Confidence,
     room: Room,
+    asked: For,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
     let on = value.is_some_and(|value| value != 0);
     let next = u8::from(!on);
-    let live = !matches!(claim, Confidence::Unknown);
+    let live = !matches!(claim, Confidence::Unknown) && asked.edits();
     // Nothing is written on the cap. A button on the instrument is a blank
     // piece of rubber that is lit or is not, and the word `off` printed inside
     // an unlit one is this window explaining a control the control already
@@ -732,11 +1211,12 @@ fn legends<'a, Renderer>(
     value: Option<u8>,
     claim: Confidence,
     room: Room,
+    asked: For,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
-    let live = !matches!(claim, Confidence::Unknown);
+    let live = !matches!(claim, Confidence::Unknown) && asked.edits();
     let lamp = |choice: &Choice| {
         let on = Some(choice.byte()) == value;
         let byte = choice.byte();
@@ -789,6 +1269,7 @@ fn list<'a, Renderer>(
     options: Vec<Choice>,
     value: Option<u8>,
     room: Room,
+    asked: For,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -797,6 +1278,30 @@ where
         .iter()
         .find(|choice| Some(choice.byte()) == value)
         .copied();
+    if !asked.edits() {
+        // A list that opened while the matrix was pointing would be a list
+        // whose choice nobody wanted made, over a menu covering the controls
+        // somebody is trying to map onto. So it is the name it is showing, in the
+        // recess the list was in, and the click goes to the control.
+        return container(
+            text(selected.map_or_else(|| "\u{2014}".to_owned(), |choice| choice.name.to_owned()))
+                .size(11),
+        )
+        .padding([2, 6])
+        .width(Length::Fixed(room.width))
+        .height(room.height)
+        .align_y(Vertical::Center)
+        .style(|theme: &Theme| {
+            let material = materials(theme);
+            container::Style {
+                background: Some(Background::Color(material.recess)),
+                border: border::rounded(2).width(1.0).color(material.recess_edge),
+                text_color: Some(material.metal_low),
+                ..container::Style::default()
+            }
+        })
+        .into();
+    }
     container(
         pick_list(options, selected, move |choice: Choice| Message::Edit {
             parameter,
@@ -902,16 +1407,16 @@ fn capped(theme: &Theme, on: bool, claim: Confidence, status: button::Status) ->
     }
 }
 
-/// Draws the mark that says the modulation matrix is pointed at this parameter.
+/// Draws the mark that says the modulation matrix is mapped onto this parameter.
 ///
 /// The one saturated thing on the panel, and it means one thing: something
-/// other than a hand can move this control. A parameter nothing is pointed at
+/// other than a hand can move this control. A parameter nothing is mapped at
 /// keeps the space, so a rack does not jostle when a routing changes.
 ///
 /// `heeded` is whether the value arriving there does anything, which is a
 /// question only the effects can answer no to: the library says of a slot
 /// whether its engine acts on modulation reaching it, and every slot is
-/// addressable from the matrix regardless. A routing pointed somewhere the
+/// addressable from the matrix regardless. A routing mapped somewhere the
 /// engine ignores gets the mark as an outline, because the matrix really is
 /// pointed there and really is doing nothing, and an editor that drew that the
 /// same way as an effective routing would be hiding the reason a sound is not
@@ -1013,6 +1518,26 @@ mod readings {
     use deepmind_midi::param::{ParamId, Shape};
 
     #[test]
+    fn a_control_nobody_has_read_stands_where_its_range_is_read_from() {
+        // The floor for a value that counts up from one, and the centre for a
+        // value read about one. Both are places the control is drawn with
+        // nothing to take hold of; only one of them is a picture of full
+        // negative modulation.
+        let Shape::Bipolar { centre } = ParamId::Mod1Depth.shape() else {
+            panic!("a depth is read about its centre");
+        };
+
+        assert_eq!(
+            super::idle(ParamId::Mod1Depth),
+            u8::try_from(centre).unwrap_or_default()
+        );
+        assert_eq!(
+            super::idle(ParamId::Lfo1Rate),
+            u8::try_from(ParamId::Lfo1Rate.min()).unwrap_or_default()
+        );
+    }
+
+    #[test]
     fn a_bipolar_value_is_read_about_its_centre_and_not_from_the_floor() {
         // The fact the library published and this used to get wrong: a
         // modulation depth at 128 is no modulation, and eight of them reading
@@ -1054,15 +1579,20 @@ mod readings {
 
 /// One value of a named set, as a list shows it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct Choice {
+pub(crate) struct Choice {
     value: u16,
     name: &'static str,
 }
 
 impl Choice {
     /// Returns the value as the program byte it is stored as.
-    fn byte(self) -> u8 {
+    pub(crate) fn byte(self) -> u8 {
         u8::try_from(self.value).unwrap_or(u8::MAX)
+    }
+
+    /// Returns the name the instrument's own display prints for it.
+    pub(crate) const fn name(self) -> &'static str {
+        self.name
     }
 }
 
@@ -1088,7 +1618,11 @@ impl fmt::Display for Choice {
 /// A parameter nobody has read is not that case: there is no value to be
 /// missing from the table, and the control is drawn as the named set it is with
 /// nothing chosen in it.
-fn choices(parameter: ParamId, firmware: Version, value: Option<u8>) -> Option<Vec<Choice>> {
+pub(crate) fn choices(
+    parameter: ParamId,
+    firmware: Version,
+    value: Option<u8>,
+) -> Option<Vec<Choice>> {
     let entries = parameter.choices_for(firmware)?;
     let options: Vec<Choice> = entries
         .iter()

@@ -7,7 +7,9 @@ use control_ui::{Band, Confidence, Ink, Screen, Size};
 use deepmind_midi::param::ParamId;
 use iced::futures::Stream;
 use iced::futures::channel::mpsc;
-use iced::widget::{button, column, container, pick_list, row, scrollable, space, text};
+use iced::widget::{
+    button, column, container, pick_list, row, scrollable, space, svg, text, tooltip,
+};
 use iced::{Background, Center, Element, Fill, Length, Subscription, Theme, border};
 
 use crate::app::{App, Message, View};
@@ -52,23 +54,42 @@ pub fn run() -> iced::Result {
         .default_font(control_ui::printed())
         .theme(theme)
         .subscription(subscription)
-        // As wide as the panel measures, plus the ground it stands on and the
-        // bar it scrolls on, so a window opens on the instrument's own
-        // arrangement rather than on a wrapped one. Narrower than this and the
-        // rows wrap, which is readable and is no longer two rows and a screen.
-        .window_size((
-            control_ui::panel_width() + GROUND * 2.0 + BAR + BESIDE,
-            940.0,
-        ))
+        .window_size(window_size())
         .run()
 }
+
+/// How big a window opens.
+///
+/// As wide as the widest surface measures, plus the ground it stands on and the
+/// bar it scrolls on, so a window opens on the instrument's own arrangement
+/// rather than on a wrapped one. Narrower than this and the panel's rows wrap,
+/// which is readable and is no longer two rows and a screen — and the effects
+/// page draws its chain past the edge of its own glass, which is not readable at
+/// all.
+///
+/// Written down rather than spelled out in [`run`] because the previews open the
+/// same window: a picture taken at a size the application never opens at is a
+/// picture of a layout nobody sees.
+pub(crate) fn window_size() -> (f32, f32) {
+    (
+        control_ui::panel_width().max(control_ui::effects_width()) + GROUND * 2.0 + BAR + BESIDE,
+        DEEP,
+    )
+}
+
+/// How deep it opens.
+///
+/// The one number here that no surface measures: a panel is as tall as it is and
+/// a window is as tall as a screen has room for. Deep enough for the front panel
+/// without a scroll and short enough for a laptop.
+const DEEP: f32 = 940.0;
 
 /// What the window is drawn in.
 ///
 /// The instrument is a dark panel, so the window is one. Every colour in it
 /// comes from this theme, which lives in `control-ui` because the plugin is
 /// drawn in the same one.
-fn theme(app: &App) -> Theme {
+pub(crate) fn theme(app: &App) -> Theme {
     if app.is_negative() {
         control_ui::negative()
     } else {
@@ -77,7 +98,7 @@ fn theme(app: &App) -> Theme {
 }
 
 /// What the title bar says.
-fn title(app: &App) -> String {
+pub(crate) fn title(app: &App) -> String {
     match app.patch().name() {
         Some(name) => format!("{} \u{2014} deepmind control", name.as_str().trim()),
         None => "deepmind control".to_owned(),
@@ -88,7 +109,7 @@ fn title(app: &App) -> String {
 ///
 /// Nothing at all until a port is open, because a window with nothing to hear
 /// has nothing to redraw.
-fn subscription(app: &App) -> Subscription<Message> {
+pub(crate) fn subscription(app: &App) -> Subscription<Message> {
     if app.is_connected() {
         Subscription::run(ticks)
     } else {
@@ -128,9 +149,9 @@ fn ticks() -> impl Stream<Item = Message> {
 /// lit at the top where the light is, rather than the flat dark the theme's own
 /// background would give. It is the one surface in the window nothing is cut
 /// into, so it is drawn once, here, around all of it.
-fn view(app: &App) -> Element<'_, Message> {
+pub(crate) fn view(app: &App) -> Element<'_, Message> {
     container(
-        column![header(app), identity(app), controls(app), surfaces(app)]
+        column![header(app), surfaces(app)]
             .push(match app.view() {
                 // The panel scrolls for the same reason the rack does, and it
                 // did not have to before its plates carried displays: two rows
@@ -138,8 +159,10 @@ fn view(app: &App) -> Element<'_, Message> {
                 // and a front panel with its lower row below the fold is a
                 // front panel with the whole voice missing.
                 View::Panel => scrollable(
-                    control_ui::panel(app.patch(), app.firmware(), |screen| paint(screen, app))
-                        .map(Message::Ui),
+                    control_ui::panel(app.patch(), app.firmware(), app.mapper(), |screen| {
+                        paint(screen, app);
+                    })
+                    .map(Message::Ui),
                 )
                 // The bar is cut into the window beside the panel rather than
                 // laid over it. The panel is drawn out to the room it is given
@@ -157,7 +180,7 @@ fn view(app: &App) -> Element<'_, Message> {
             // Along the foot, under whichever surface is showing, because a
             // control is pointed at on all three of them and a footer that
             // moved with the surface would be a different footer each time.
-            .push(control_ui::footer(app.pointed(), app.patch(), app.firmware()).map(Message::Ui))
+            .push(status(app))
             .spacing(12)
             .padding(GROUND),
     )
@@ -193,7 +216,41 @@ fn surfaces(app: &App) -> Element<'_, Message> {
         tab(View::Library, "Library".to_owned()),
     ]
     .push(space::horizontal())
-    .push(livery(app))
+    .spacing(6)
+    .align_y(Center)
+    .into()
+}
+
+/// The strip along the foot: what is under the pointer, and what can be asked
+/// of the synthesizer.
+///
+/// A status bar, which is where a desktop application puts the things that are
+/// true of the window rather than of the page in it. All three of these were on
+/// their own rows under the header, which is the most expensive room on the
+/// screen and was being spent on two presses somebody uses twice a session and
+/// a sentence the instrument's own display was already printing.
+fn status(app: &App) -> Element<'_, Message> {
+    let open = app.is_connected();
+    row![
+        control_ui::footer(
+            app.pointed(),
+            app.patch(),
+            app.firmware(),
+            app.mapper().mapped(),
+            app.hinted(),
+        )
+        .map(Message::Ui),
+        // At the right-hand end, in the order somebody reaches for them: ask
+        // the instrument what it is, ask it what it is playing, and turn the
+        // glass over.
+        chrome(control_ui::WHO)
+            .on_press_maybe(open.then_some(Message::Identify))
+            .on_hint("Ask the synthesizer what it is: device, firmware, voices and channel."),
+        chrome(control_ui::READ)
+            .on_press_maybe(open.then_some(Message::Read))
+            .on_hint("Read the sound the synthesizer is playing into this window."),
+        livery(app),
+    ]
     .spacing(6)
     .align_y(Center)
     .into()
@@ -201,28 +258,21 @@ fn surfaces(app: &App) -> Element<'_, Message> {
 
 /// The press that turns the displays over.
 ///
-/// At the far end of the row that chooses a surface, because it belongs to the
-/// window rather than to any one of the three: every display in all of them
-/// turns over together, the way a screen has one backlight.
+/// Every display in the window turns over together, the way a screen has one
+/// backlight, so it belongs to the window rather than to any one surface — and
+/// the foot of the window is where the things that are true of the window live.
 ///
-/// It says which way up they will be rather than which way up they are, because
-/// that is what a press does — and it is the one control in this window that
-/// changes nothing about the sound, which is why it is a plain press and not
-/// something that lights.
+/// It is a display rather than a word. `Negative display` said which way up they
+/// would be, in a sentence, on a row of sentences; a screen the size of a
+/// character showing itself the way it is about to be says the same thing
+/// without being read, and says it in the one material this press is about.
 fn livery(app: &App) -> Element<'_, Message> {
-    let label = if app.is_negative() {
-        "Positive display"
-    } else {
-        "Negative display"
-    };
-    button(text(label).size(12))
-        .padding([5, 10])
-        .style(control_ui::chrome)
+    pressed(Element::from(control_ui::swatch(!app.is_negative())).map(Message::Ui))
         .on_press(Message::Invert)
-        .into()
+        .on_hint("Turn every display in this window over, dark glass for light.")
 }
 
-/// What the instrument's own display would be showing.
+/// What the instrument's own display would be showing./// What the instrument's own display would be showing.
 ///
 /// The panel leaves a screen-shaped hole in itself and the application fills
 /// it, because what a display says is the application's business rather than
@@ -350,7 +400,8 @@ fn editor(app: &App) -> Element<'_, Message> {
         scrollable(
             column![
                 text(section.name()).size(18),
-                control_ui::group(app.patch(), section, app.firmware()).map(Message::Ui),
+                control_ui::group(app.patch(), section, app.firmware(), app.mapper())
+                    .map(Message::Ui),
             ]
             .spacing(12)
             .padding([0, 12]),
@@ -361,17 +412,39 @@ fn editor(app: &App) -> Element<'_, Message> {
     .into()
 }
 
-/// The name of the thing, the port picker, and what to do with a port.
+/// The name of the thing, what is known about the instrument, the port picker,
+/// and what to do with a port.
+///
+/// One line, and the name is the only thing on it that is not a control. It
+/// carried the project's mark and a subtitle on a case with wooden end cheeks,
+/// which is `docs/banner.svg` reproduced — and the banner is the picture that
+/// introduces this project to somebody who has never seen it, which is not the
+/// job of the top of a window somebody has open all afternoon. The mark is the
+/// application's icon, where an icon belongs.
+///
+/// What is left is the wordmark, sliced the way the banner slices it, standing
+/// on the panel with the port beside it.
 fn header(app: &App) -> Element<'_, Message> {
     let ports = app.ports().to_vec();
+    // A socket with a plug in it where one is open, and an empty one where none
+    // is: the two presses do the same thing to the same port and the word that
+    // told them apart is in the footer now, so the mark is what says which of
+    // them this is.
     let connection = if app.is_connected() {
-        chrome("Close").on_press(Message::Disconnect)
+        chrome(control_ui::PLUGGED)
+            .on_press(Message::Disconnect)
+            .on_hint("Put this port down.")
     } else {
-        chrome("Open").on_press_maybe(app.chosen().map(|_| Message::Connect))
+        chrome(control_ui::PORT)
+            .on_press_maybe(app.chosen().map(|_| Message::Connect))
+            .on_hint("Open the chosen port and listen on it.")
     };
     row![
         wordmark(),
         space().width(Fill),
+        // Beside the picker, because everything it says is about whatever that
+        // picker has open.
+        about(app),
         pick_list(ports, app.chosen().cloned(), Message::Choose)
             .placeholder("MIDI port")
             .font(control_ui::printed())
@@ -379,108 +452,202 @@ fn header(app: &App) -> Element<'_, Message> {
             .padding([5, 10])
             .style(control_ui::selector)
             .menu_style(control_ui::shortlist)
-            .width(Length::Fixed(260.0)),
-        chrome("Rescan").on_press(Message::Rescan),
+            .width(Length::Fixed(220.0)),
+        chrome(control_ui::RESCAN)
+            .on_press(Message::Rescan)
+            .on_hint("Look for MIDI ports again."),
         connection,
     ]
     .spacing(10)
-    .align_y(Center)
+    // Against the baseline the name sits on rather than against the middle of
+    // the line it stands in: a thirty-four point word beside a twenty-four
+    // point press, centred, is a press floating in the middle of a word.
+    .align_y(iced::alignment::Vertical::Bottom)
     .into()
 }
 
-/// The project's own name, set the way the mark sets it.
+/// What is known about the instrument on the other end of the port, under a
+/// press that opens when the pointer is over it.
 ///
-/// `docs/banner.svg` puts it across the panel in the metal of a fader cap, in
-/// Liberation Sans Bold, with the wordmark's lines through it. A window has the
-/// first two of those and not the third: a line 1.5 points thick across a
-/// 22-point word is a smudge rather than a slice, and the mark is not improved
-/// by being approximated. So it is the name, in the face and the metal, over
-/// the panel it is printed on.
-fn wordmark() -> Element<'static, Message> {
-    column![
-        text("deepmind control")
-            .font(control_ui::wordmark())
-            .size(22)
-            .style(|theme: &Theme| text::Style {
-                color: Some(control_ui::materials(theme).metal),
-            }),
-        text("editor and librarian")
-            .size(11)
-            .style(|theme: &Theme| text::Style {
-                color: Some(control_ui::materials(theme).metal_low),
-            }),
-    ]
-    .spacing(1)
-    .into()
-}
-
-/// A button that is not a parameter, in the instrument's own materials.
-fn chrome(label: &str) -> button::Button<'_, Message, Theme, iced::Renderer> {
-    button(text(label).size(13))
-        .padding([5, 12])
-        .style(control_ui::chrome)
-}
-
-/// Who is on the other end, and which value tables that makes true.
-fn identity(app: &App) -> Element<'_, Message> {
-    let who = match (app.identity(), app.channel()) {
-        (Some(identity), Some(channel)) => format!(
-            "{} \u{00b7} firmware {} \u{00b7} voice {} \u{00b7} channel {}",
-            identity.device,
-            identity.firmware,
-            identity.voice,
-            channel.number()
-        ),
-        _ if app.is_connected() => format!(
-            "Nobody has answered yet \u{00b7} assuming firmware {}",
-            app.firmware()
-        ),
-        _ => format!(
-            "Nothing is open \u{00b7} assuming firmware {}",
-            app.firmware()
-        ),
+/// Two rows of sentences used to stand under the header saying this — who
+/// answered, what the last thing to happen was, and whatever went wrong — on
+/// every page, whether or not anybody was asking. It is four facts about a
+/// cable that change perhaps twice a session, and it was being given the most
+/// expensive room on the screen.
+///
+/// So it is one press, and what it says is laid out as the rows it always was
+/// rather than as a paragraph: a name, a number, a number and a number line up
+/// down a column, which is what somebody comparing them against the back of an
+/// instrument is doing.
+fn about(app: &App) -> Element<'_, Message> {
+    let known: Vec<(&'static str, String)> = match (app.identity(), app.channel()) {
+        (Some(identity), Some(channel)) => vec![
+            ("Device", identity.device.to_string()),
+            ("Firmware", identity.firmware.to_string()),
+            ("Voice", identity.voice.to_string()),
+            ("Channel", channel.number().to_string()),
+        ],
+        // What this window is assuming meanwhile, said as an assumption. The
+        // firmware decides which value tables every list in the window is drawn
+        // from, so it is never not an answer — it is either the instrument's or
+        // this window's, and which of those it is is the whole distinction.
+        _ => vec![
+            ("Device", "nobody has answered".to_owned()),
+            ("Firmware", format!("{} (assumed)", app.firmware())),
+        ],
     };
-    let trouble = app.trouble().map(|trouble| text(trouble).size(13));
-    container(
-        column![text(who).size(13), text(app.status()).size(13)]
-            .extend(trouble.map(Element::from))
-            .spacing(4),
+    let rows = known.into_iter().map(|(name, said)| {
+        row![
+            text(name)
+                .size(11)
+                .width(Length::Fixed(62.0))
+                .style(|theme: &Theme| text::Style {
+                    color: Some(control_ui::materials(theme).metal_low),
+                }),
+            text(said).size(11).font(control_ui::reading()),
+        ]
+        .spacing(8)
+        .into()
+    });
+    let said = column(rows)
+        .push(text(app.status()).size(11).width(Length::Fixed(240.0)))
+        .extend(app.trouble().map(|trouble| {
+            text(trouble)
+                .size(11)
+                .width(Length::Fixed(240.0))
+                .style(|theme: &Theme| text::Style {
+                    color: Some(theme.extended_palette().danger.base.color),
+                })
+                .into()
+        }))
+        .spacing(4);
+    tooltip(
+        pressed(badge(control_ui::ABOUT)),
+        container(said).padding(10).style(control_ui::bay),
+        tooltip::Position::Bottom,
     )
-    .width(Fill)
-    .padding(10)
-    .style(control_ui::bay)
+    .gap(6)
     .into()
 }
 
-/// What can be asked of the synthesizer, and what backs what is on the screen.
-fn controls(app: &App) -> Element<'_, Message> {
-    let open = app.is_connected();
-    let sound = match app.patch().confidence() {
-        Confidence::Unknown => "Nothing has been read.".to_owned(),
-        // Edited here, or loaded off the shelf: both are this window putting a
-        // value somewhere, and neither is the synthesizer agreeing that it went
-        // there. Reading the edit buffer back is what settles it.
-        Confidence::Assumed => "This window's claim, not the synthesizer's.".to_owned(),
-        Confidence::Confirmed => match app.patch().name() {
-            Some(name) => format!(
-                "{} \u{2014} as the synthesizer described it.",
-                name.as_str().trim()
-            ),
-            None => "As the synthesizer described it.".to_owned(),
-        },
-    };
-    row![
-        chrome("Read the edit buffer").on_press_maybe(open.then_some(Message::Read)),
-        chrome("Ask who is there").on_press_maybe(open.then_some(Message::Identify)),
-        // The sound takes what is left rather than pushing what is beside it:
-        // a program name is sixteen characters and the legend is the one thing
-        // on this row that has to stay readable whatever the sound is called.
-        text(sound).size(13).width(Fill),
-    ]
-    .spacing(10)
-    .align_y(Center)
-    .into()
+/// The project's own name, as `docs/wordmark.svg` sets it.
+///
+/// A file rather than a drawing. The name is the banner's name — outlined from
+/// the mark's own face, tracked the way the banner tracks it, and cut by the
+/// five slices that *are* the mark — and what this window was doing instead was
+/// setting the word in a font and laying five rectangles over it, each of them
+/// under two points tall and each rounded to whatever the pointer's device
+/// gives it. Five lines from a sixtieth of an em to a twentieth, rounded
+/// independently, are five bands of grey at five weights the mark does not
+/// have: what somebody sees is stripes rather than a slice.
+///
+/// As vector it is the same geometry at any size, which is the whole of what
+/// the mark asks for — and it is the *same file's* geometry as the banner, so
+/// the two cannot drift.
+fn wordmark() -> Element<'static, Message> {
+    svg(svg::Handle::from_memory(WORDMARK))
+        .width(Length::Shrink)
+        .height(Length::Fixed(NAME))
+        .into()
 }
+
+/// The name, as the bytes of the file that draws it.
+///
+/// Carried in the binary rather than read from disk: it is the application's
+/// own name, not something a user chooses, and a window whose title depended on
+/// a file beside the executable is a window that can be shipped without one.
+const WORDMARK: &[u8] = include_bytes!("../../../docs/wordmark.svg");
+
+/// How tall the name is drawn.
+///
+/// The width follows from it, because the file knows its own proportions. It is
+/// the height of the ink and the slices together — the word plus what hangs
+/// below it — so a header built around it has the room the mark actually needs.
+const NAME: f32 = 54.0;
+
+/// A press whose whole face is a mark, and what it says about itself.
+///
+/// It was a mark and a word inside a rounded rectangle with a metal rim. Three
+/// of those along the header and two along the foot are five rims on a panel
+/// whose own controls have none — and the rim was drawn to the height of the
+/// *words*, so a nine-dot mark stood in the middle of it with four points of
+/// panel above and below. A mark scaled to a box built for type is a mark that
+/// is never the size it was drawn at.
+///
+/// So the word goes to the footer, where this window already says what is under
+/// the pointer, and what is left on the panel is the mark: stencilled on it the
+/// way the numbers on a rack unit's case are stencilled on the case, with the
+/// panel lifting under the pointer and dipping while it is held. What it does
+/// is said by [`on_hint`](Hinted::on_hint), which every one of them carries.
+fn chrome(mark: control_ui::Badge) -> button::Button<'static, Message, Theme, iced::Renderer> {
+    pressed(badge(mark))
+}
+
+/// Says what a press does in the footer while the pointer is on it.
+///
+/// A trait rather than a function so that it reads the way the toolkit's own
+/// builders do, and so that a press that is built two different ways — a mark,
+/// or a display the size of a character — says it the same way.
+trait Hinted<'a> {
+    /// The sentence the footer prints while the pointer is over this.
+    fn on_hint(self, said: &'static str) -> Element<'a, Message>;
+}
+
+impl<'a, Into_> Hinted<'a> for Into_
+where
+    Into_: Into<Element<'a, Message>>,
+{
+    fn on_hint(self, said: &'static str) -> Element<'a, Message> {
+        iced::widget::mouse_area(self)
+            .on_enter(Message::Ui(control_ui::Message::Hinted(Some(said))))
+            .on_exit(Message::Ui(control_ui::Message::Hinted(None)))
+            .into()
+    }
+}
+
+/// Draws one of the marks a press wears.
+///
+/// Stencilled onto the panel rather than lit on glass: it is printing, not a
+/// display, and the same call the number on an effect engine's case and the
+/// number beside a matrix row already go through. The one press that is a
+/// display is the one whose subject is the display.
+///
+/// In the metal a hand touches, carried part of the way back to the panel: it
+/// is a legend on an instrument rather than a lamp, and the loudest thing on
+/// this panel is a fader cap.
+fn badge(mark: control_ui::Badge) -> Element<'static, Message> {
+    Element::from(control_ui::stencil(mark.screen(), |theme: &Theme| {
+        let material = control_ui::materials(theme);
+        control_ui::mix(material.panel, material.metal, MARKED)
+    }))
+    .map(Message::Ui)
+}
+
+/// How far a press's mark is carried from the panel towards the metal.
+const MARKED: f32 = 0.82;
+
+/// A press with a mark or a display in it, at the size the thing in it is
+/// drawn.
+///
+/// No rim and no fill until a hand comes near it — see
+/// [`marked`](control_ui::marked) — and no height of its own: what is in it is
+/// a drawing with a size, and a press built to the height of the words that are
+/// no longer in it is a press built for nothing. The padding is what keeps two
+/// of them from touching.
+fn pressed<'a>(
+    inside: impl Into<Element<'a, Message>>,
+) -> button::Button<'a, Message, Theme, iced::Renderer> {
+    button(inside)
+        .padding(BESIDE_MARK)
+        .style(control_ui::marked)
+}
+
+/// How much panel there is around the mark on a press.
+///
+/// Enough that the light under the pointer is a shape around the mark rather
+/// than a shape the mark is touching the edges of, and little enough that the
+/// mark is what somebody sees.
+const BESIDE_MARK: f32 = 5.0;
 
 /// What a panel admits about itself, and where it says it.
 ///

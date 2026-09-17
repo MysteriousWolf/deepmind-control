@@ -14,39 +14,38 @@ from a fact this repository transcribed is a second copy of a generated table,
 going stale silently on the next release. So the answer to "the window cannot
 say that" is an issue, not a table.
 
-There were two, and both are gone, and a third is being written down before it
-settles. The front panel's own contents were a table in
-`control-ui/src/home.rs`, because the home screen could not be built without
-them; 26.3 published the same thing and the table is deleted. The shapes the
-plate displays draw were arithmetic about the instrument written in
-`control-ui/src/scene.rs` and `envelope.rs` — where a filter's corner sits for a
-byte, what a `Sample & Hold` looks like — and 26.4 published those as functions,
-so they are deleted too.
+**There is nothing about the instrument written down in this tree.** That
+sentence could not be written before 26.5. The front panel's own contents were a
+table in `control-ui/src/home.rs` and 26.3 published them. The shapes the plate
+displays draw were arithmetic in `control-ui/src/scene.rs` and `envelope.rs` and
+26.4 published those. What was left after that was one number — `HIGH_PASS_SLOPE`,
+6 dB per octave, transcribed out of a doc comment in the library — and 26.5
+published the curve it belonged to. It is deleted, and with it the last place
+this repository kept a fact it did not own.
 
-That is the measure of the arrangement working: both were named out loud, scoped
-to the files they were in, and removed by the other side of the split rather than
-becoming permanent. What is left in those two files is a sample loop, the one
-number the library declines to draw — the high-pass slope, marked where it is
-used and now asked for in [#37](https://github.com/MysteriousWolf/deepmind-midi/issues/37)
-— and one assumption about where an LFO rests, marked the same way and asked for
-in [#35](https://github.com/MysteriousWolf/deepmind-midi/issues/35). Both are in
-the open list above rather than quietly correct, which is the only way a number
-like that does not become permanent.
+That is the measure of the arrangement working. Every one of those was named out
+loud, scoped to the file it was in, and removed by the other side of the split
+rather than becoming permanent.
 
 ## Open
 
-Three, all from one pass over the section plates' own displays. 26.4 published
-the shapes; these are what a shape still cannot say about itself.
+Two. Six of the seven rows this file carried closed in 26.5, the seventh closed
+as far as it can until somebody puts a meter on the instrument, and the second
+row here is what reading the new answers turned up: a list of the ends that came
+back without a picture.
 
 | | | What the window does meanwhile |
 | --- | --- | --- |
-| [#35](https://github.com/MysteriousWolf/deepmind-midi/issues/35) | `generator::lfo` reads the shape byte and ignores the four other parameters that shape an LFO | Draws the shape it is given, over at least two turns, with a dotted rule across the middle of the band for the level it swings about. **The middle is assumed.** `LFO n Unipolar` is what says whether an LFO swings about the centre of its range or rides up from the floor, and the generator is not reading it, so a unipolar LFO is drawn with its rest line in the wrong place. `Slew Rate`, `Delay / Fade` and `Key Sync` are not drawn at all |
-| [#36](https://github.com/MysteriousWolf/deepmind-midi/issues/36) | The marks along a generator's horizontal | Rules the two axes that are regular enough to derive — an octave a tick on the filter plates out of `Scale::Octaves`, a cycle a tick on the LFO plates out of `Scale::Turns`. The envelope plates have no marks at all: the four bytes a player is editing are the four segments of that line and nothing on the screen says which part is which |
-| [#37](https://github.com/MysteriousWolf/deepmind-midi/issues/37) | The high-pass response, and what the oscillators are making | Draws both by hand. The high-pass is the one number about the instrument still written down in this tree — `HIGH_PASS_SLOPE`, transcribed out of a doc comment in the library — and the two oscillator plates assemble their own shapes and their own mixing law out of six parameters |
+| [#38](https://github.com/MysteriousWolf/deepmind-midi/issues/38) | What a modulation depth is worth: the law between `Mod n Depth` and the destination's own range | **Assumes full depth moves the destination over its whole range.** 26.5 published `ParamId::modulation_reach`, which is the accessor and not the answer: it returns `None` for every pair, because the manual prints the depth's own range and nothing relating a depth to what it does at the other end of a routing, and nobody has measured it. What changed here is that the assumption is now a fallback behind a question — `reach_of` in `control-ui/src/mapping.rs` is the one place it lives, and both the drag that sets a depth and the band that says how far the existing depths reach go through it. The day a measurement lands in `spec/measurements.toml` the fallback stops being reached and nothing in this tree changes. It blocks nothing: the drag puts a number in the same byte the depth fader already held |
 
-None of the three blocks anything. They are each a place where the window is
-deciding something the library would decide better, which is the same argument
-every row in the table below was filed on.
+| [#43](https://github.com/MysteriousWolf/deepmind-midi/issues/43) | The ends `cell_of` and `glyph` still have none for | **Draws an empty seven-by-seven box and the name beside it**, which is the same refusal the effect families' marks were drawn under before `Algorithm::mark` existed. Measured against 26.5's own tables rather than eyeballed: 3 of the 25 modulation sources (`BreathCtrl`, `Voice Num`, `Uni Voice` — `Off` is rightly none), 11 destinations that name a *set* with no one narrowest among them (`All Attack`, `Env Rates`, the three `Env n CurveS`), and 8 that name no program parameter at all (`OSC1 Pitch`, `VCA Pan` and the rest of the voice's own quantities), which are also the ones no control can light for. The 48 `FX n Param m` are a question rather than a gap: what one *is* depends on the algorithm loaded, so the issue asks whether the family's own mark should stand in or whether "no glyph by design" should be said out loud |
+
+That row is the newest kind of ask and the one that shows what the arrangement
+is for. It was answered *structurally* without being answered factually: the
+library gave the window somewhere to ask, said plainly that it has no answer
+yet, and said where a measurement would go. The window's guess did not get
+better and it did get smaller — one function instead of two copies — and it will
+disappear without a diff here.
 
 ## Answered
 
@@ -62,9 +61,41 @@ every row in the table below was filed on.
 | [#26](https://github.com/MysteriousWolf/deepmind-midi/issues/26) | Which parameters the front panel puts a control under | 26.3, as `front::sections`. **The transcription is deleted.** `control-ui/src/home.rs` reads the panel off the library and spends what it saved on layout: two of the nine sections are drawn as more than one plate |
 | [#28](https://github.com/MysteriousWolf/deepmind-midi/issues/28) | What a parameter does, behind a default-off feature | 26.3, as `ParamId::description` under `descriptions`. Spent: the workspace turns the feature on and the footer prints the sentence |
 | [#30](https://github.com/MysteriousWolf/deepmind-midi/issues/30) | How an FX slot is turned off, or that it cannot be | 26.4, and the answer is that on 32 of the 35 it is not: `FX n Type` has no `Off`, and what takes effects out of circuit is the `Bypass` mode, which is the whole block of four. `FxSlot::is_enable` names the three that carry a switch of their own. Spent: the strip says `out of circuit` where one of those three is off and the chain draws that engine as something the signal goes past. Nothing collapses, because there is nothing to collapse |
-| [#31](https://github.com/MysteriousWolf/deepmind-midi/issues/31) | A mark per algorithm, as unit geometry or as a `Family` | 26.4, as both: nine families across the 35 and a `Mark` per family, published as strokes in a unit box and as a seven by seven grid for a display with no room to stroke anything. Spent in full — `control-ui/src/mark.rs` lays the strokes out in the window's own ink at the head of every engine's strip, and the chain's boxes blit the grid |
+| [#31](https://github.com/MysteriousWolf/deepmind-midi/issues/31) | A mark per algorithm, as unit geometry or as a `Family` | 26.4, as both: nine families across the 35 and a `Mark` per family, published as strokes in a unit box and as a seven by seven grid for a display with no room to stroke anything. Spent in full — `control-ui/src/mark.rs` lays the strokes out in the window's own ink at the head of every engine's strip, and the chain's boxes blit the grid. 26.5 went further than the issue asked: `Algorithm::own_mark` tells a plate reverb from a hall where a symbol can carry the difference, which 26.4 had declined to, and `Algorithm::mark` hands back whichever applies — so this window got the better marks with nothing to change |
 | [#32](https://github.com/MysteriousWolf/deepmind-midi/issues/32) | The generators the panels draw: envelopes, LFO shapes, filter responses, arpeggiator gates | 26.4, as `generator`. **The arithmetic is deleted.** The envelope corners, the seven waves and the scatter behind the sampled two, the roll-off a pole count gives and the gates a rate byte used to stretch are all gone from `scene.rs` and `envelope.rs`, which are a sample loop over a published function now. The four curve faders under an envelope bend it, the filter stands on the published decibel vertical, and the refusal to label an axis moved into the library's own `Scale` where it can be tested |
 | [#33](https://github.com/MysteriousWolf/deepmind-midi/issues/33) | What an effect does to a signal: a `Quantity` per slot, and a response where it is known | 26.4. Spent: the line under every slot says what kind of quantity the byte is where the manual prints no range for it, and the two tap delays have the screen every other panel in this window has. The other 33 have none, which is the answer — a reverb's impulse response is its designer's |
+| [#35](https://github.com/MysteriousWolf/deepmind-midi/issues/35) | `generator::lfo` reads the shape byte and ignores the four other parameters that shape an LFO | 26.5. Spent in full: the slew rate is in the shape the library hands back, so corners round and a square becomes a ramp between its levels; `Generator::rest` is where an LFO sits rather than an assumed middle, and `lfo_unipolar` is the same wave read from the floor; and `lfo_fade` is the `Delay / Fade` byte, which was a fader that moved nothing on the glass and is now a dotted line the wave is brought in under |
+| [#36](https://github.com/MysteriousWolf/deepmind-midi/issues/36) | The marks along a generator's horizontal | 26.5, as `Generator::marks` and `Generator::anchored`. Spent: the envelope plates write `A`, `D`, `S` and `R` where the library says each segment begins — the one thing four faders under a line could not say — a filter's corner and a pulse's falling edge are marks rather than arithmetic, and a free-running LFO's left edge is left unruled, because a phase the instrument does not define is not a phase a screen should draw |
+| [#37](https://github.com/MysteriousWolf/deepmind-midi/issues/37) | The high-pass response, and what the oscillators are making | 26.5. **The last transcribed number is deleted.** `high_pass_response` is the curve, on the low-pass's own vertical and the low-pass's own span, so the two plates of one section agree because the library says so rather than because this window arranged it. `oscillator` sums `OSC 1`'s two waves at a weight it states is its own reading, which retires the side-by-side drawing this window used instead of guessing, and `noise` retires the scatter table |
+| [#39](https://github.com/MysteriousWolf/deepmind-midi/issues/39) | The destination join, read backwards, and which of several destinations is the narrowest | 26.5, as `ValueTable::values_naming`. Spent: `Mapping::names` is one call and a `next`. The walk was over the library's own slices and was fine; the *ranking* was a judgement about the instrument being made in a window, and it is on the other side of the split now — down to what happens when two destinations move the same number of parameters, which the library answers in value order and says outright that nothing makes one of them narrower |
+| [#40](https://github.com/MysteriousWolf/deepmind-midi/issues/40) | A dot-matrix cell for every modulation source and destination | 26.5, as `ValueTable::cell_of`. Spent in full, and it took `ParamId::glyph` with it: a source's cell is the library's drawing of it and a destination's picture is the glyph of the parameter it moves, so the patch bay's two columns of abbreviations are two columns of pictures and the empty 7×7 boxes beside each matrix row are filled wherever the library has drawn the end. Which is most of them and not all: what is left is [#43](https://github.com/MysteriousWolf/deepmind-midi/issues/43) |
+| [#41](https://github.com/MysteriousWolf/deepmind-midi/issues/41) | Which way a modulation source swings a control it reaches | 26.5, as `ValueTable::swing_of` and `Swing`. Spent: the band on a control runs either side of where it sits for a `Centred` source and from it for a `Rising` one. This window took the depth's own sign as the whole answer, which is right for a wheel and for an envelope and wrong for an LFO — a band drawn one way from a filter's corner said the filter could only ever open |
+
+## What arrived unasked
+
+26.5 published two things this repository had not filed an issue for, and both
+are spent:
+
+- **A glyph per parameter and per effect slot.** `ParamId::glyph`,
+  `FxSlot::glyph` and `Controller::glyph`: the picture of what a control *does*,
+  on the same seven by seven grid as the marks and the cells, and the same
+  picture wherever the same job is met. The footer puts it before a parameter's
+  name and every effect slot wears its own, so a decay reads as a tail and a mix
+  as wet against dry before the word is read. 177 of the 242 parameters carry
+  one; the rest are the effect slots, which have their own, and the seventeen
+  characters of the program's name, which are letters and not a control.
+- **What kind of thing an effect is.** `Algorithm::characters`: vintage,
+  modelled, stereo, dual, multiband, two in one, lo-fi, modulated, dynamic. Read
+  rather than derived — the library's own file carries a reason per membership,
+  and the reasons are the manual's name for the effect, the slots it gives it, or
+  the unit a name refers to. A window matching on `Vintage` in a `full_name`
+  would be right until the day it was not. They are a caption beside an engine's
+  name, and empty for the plain reverbs and the noise gate, whose family says
+  everything a word can.
+
+Neither was a row in this file, which is worth noticing: the arrangement works
+in the other direction too. A library that knows what a host is drawing publishes
+the thing the host has not thought to ask for yet.
 
 ## What an answer costs here
 
