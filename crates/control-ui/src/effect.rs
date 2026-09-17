@@ -445,7 +445,7 @@ where
 /// Barely. It is a watermark: enough that the eye finds it without looking and
 /// never enough that a word standing over it is harder to read, which is the
 /// whole difference between a mark under a panel and a picture behind one.
-const HERO_INK: f32 = 0.075;
+const HERO_INK: f32 = 0.038;
 
 /// How far the light and the shadow of a relieved hero are carried from the
 /// face.
@@ -454,7 +454,7 @@ const HERO_INK: f32 = 0.075;
 /// have to be told apart and a watermark is read as one shape. Still barely
 /// there: the test of a hero is that a word standing over it is no harder to
 /// read.
-const HERO_RELIEF: f32 = 0.17;
+const HERO_RELIEF: f32 = 0.085;
 
 /// How many dots across the picture of what an engine is doing is drawn.
 ///

@@ -1275,7 +1275,7 @@ second row readable down against the first.
   made to sit against each other, and three attempts at placing them all looked
   like a drawing that had slipped. The same nine strokes at ten times the area
   have no such problem. It is drawn across the face the controls stand on, in
-  that surface's own ink carried a thirteenth of the way towards it, anchored
+  that surface's own ink carried a twenty-sixth of the way towards it, anchored
   into the bottom right and running a third of itself off the corner, clipped to
   the case.
 
@@ -1290,6 +1290,12 @@ second row readable down against the first.
   It says which family without being read, which is what a mark is for, and it
   never competes with a word because it is barely there. It also lands exactly
   where a case that is deeper than its algorithm needs has nothing on it.
+
+  Barely there is a number and the number was wrong once: at a thirteenth of the
+  way towards the plate's ink the flat ones came out as solid grey slabs behind
+  the lower rows of a deep case, hard-edged and crossing two legends, which is a
+  stray structural element rather than a watermark. It is half that now, and the
+  light and shadow a relief catches with it.
 
   **And it meets the case the way the case's own material would let it.** A mark
   on a worn panel is *stamped into* it, one on a modern face is *raised off* it,
