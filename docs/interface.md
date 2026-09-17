@@ -1256,6 +1256,39 @@ are still on the instrument:
 All of it comes from `materials()`, which means restyling the chrome is the same
 one file as restyling a fader.
 
+### The header is the case
+
+`docs/logo.svg` and `docs/banner.svg` are the same drawing at two widths: a
+`DeepMind`'s front, which is a dark panel bolted between two wooden end cheeks,
+with three faders cut into it and the wordmark's own horizontal slices laid
+across their caps. The window's heading was the project's name set in the mark's
+face on the window's background — the one place somebody sees this project
+before they see the instrument, and it looked like a heading rather than like
+the mark on the file they downloaded.
+
+It is the case now. Wood at both ends, the panel between them lit at the top and
+edged in the seam the wood meets it along, and the mark itself standing on it at
+the height of the name and its line together — which is the arrangement the
+banner has, where the name is fitted to the box the faders leave. The port
+picker and the presses stand on the same panel, because they always did.
+
+The mark is **drawn and not loaded**. An `SVG` would want a renderer feature, a
+file beside the binary or a blob inside it, and a second copy of the geometry
+either way; what it would buy is the one thing this window does not want, which
+is a mark that ignores the theme. Every surface here asks the theme what it is
+made of — that is what makes the displays turn over on one press — and the mark
+is now the only part that could not have. So `logo.rs` is the file's own numbers
+against a 128-unit box, in `materials()`, and the wood is two more materials
+beside the metal and the glass rather than two colours picked to look like it.
+
+**The slices survive on the mark and not on the name.** Against the file's box
+the eight run from 1 unit to 3.6, which at a forty-point mark is a third of a
+point to one and a third — thin at the top of the run and solid at the bottom,
+which is what they are on the mark itself. The same proportions against a
+22-point word are every slice under a point, and a line under a point across a
+word is a smudge rather than a slice. The mark is not improved by being
+approximated, so the name is the metal without them.
+
 ## Movement
 
 - **A control never animates toward a value that arrived from the instrument.**

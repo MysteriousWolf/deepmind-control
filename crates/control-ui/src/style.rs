@@ -176,6 +176,18 @@ pub struct Materials {
     pub lit: Color,
     /// A scale printed on the panel.
     pub scale: Color,
+    /// The end cheek the panel is bolted between.
+    ///
+    /// A `DeepMind` is a panel between two pieces of wood, and it is the one
+    /// material on the instrument that is not metal, ink or the panel itself.
+    /// The mark and the banner are both built out of it — see `docs/logo.svg`
+    /// — so the window that carries the same mark carries the same two colours
+    /// rather than a third pair chosen to look like them.
+    pub wood: Color,
+    /// The far side of it, which is where the light has stopped reaching.
+    pub wood_low: Color,
+    /// A line of grain along it, lighter than the cheek.
+    pub grain: Color,
     /// The face of a metal part.
     pub metal: Color,
     /// Its lit edge.
@@ -211,6 +223,9 @@ pub fn materials(theme: &Theme) -> Materials {
         recess_edge: color!(0x242932),
         lit: color!(0x7d838f),
         scale: palette.background.strong.color,
+        wood: color!(0xa9552c),
+        wood_low: color!(0x8a3f1f),
+        grain: color!(0xc26436),
         metal: color!(0xc9cdd6),
         metal_high: color!(0xf4f5f8),
         metal_low: color!(0x8e939f),

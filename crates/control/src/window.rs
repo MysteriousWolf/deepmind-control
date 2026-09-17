@@ -373,6 +373,12 @@ fn editor(app: &App) -> Element<'_, Message> {
 }
 
 /// The name of the thing, the port picker, and what to do with a port.
+///
+/// It stands on the case the project's own mark is drawn on, because it is the
+/// same case: `docs/logo.svg` and `docs/banner.svg` are both a `DeepMind`'s
+/// front — a dark panel between two wooden end cheeks — and a window whose
+/// heading was a word on the background was the one place this project did not
+/// look like the thing it is a picture of.
 fn header(app: &App) -> Element<'_, Message> {
     let ports = app.ports().to_vec();
     let connection = if app.is_connected() {
@@ -380,33 +386,104 @@ fn header(app: &App) -> Element<'_, Message> {
     } else {
         chrome("Open").on_press_maybe(app.chosen().map(|_| Message::Connect))
     };
-    row![
-        wordmark(),
-        space().width(Fill),
-        pick_list(ports, app.chosen().cloned(), Message::Choose)
-            .placeholder("MIDI port")
-            .font(control_ui::printed())
-            .text_size(13)
-            .padding([5, 10])
-            .style(control_ui::selector)
-            .menu_style(control_ui::shortlist)
-            .width(Length::Fixed(260.0)),
-        chrome("Rescan").on_press(Message::Rescan),
-        connection,
-    ]
-    .spacing(10)
-    .align_y(Center)
+    container(
+        container(
+            row![
+                Element::from(control_ui::logo(MARK)).map(Message::Ui),
+                wordmark(),
+                space().width(Fill),
+                pick_list(ports, app.chosen().cloned(), Message::Choose)
+                    .placeholder("MIDI port")
+                    .font(control_ui::printed())
+                    .text_size(13)
+                    .padding([5, 10])
+                    .style(control_ui::selector)
+                    .menu_style(control_ui::shortlist)
+                    .width(Length::Fixed(260.0)),
+                chrome("Rescan").on_press(Message::Rescan),
+                connection,
+            ]
+            .spacing(10)
+            .align_y(Center),
+        )
+        .width(Fill)
+        .padding([CASE, INSIDE])
+        .style(face),
+    )
+    .padding([0.0, CHEEK])
+    .style(cheeks)
     .into()
+}
+
+/// How tall the mark is drawn in the header.
+///
+/// As tall as the name and its line together, so that the mark and the word
+/// stand on one baseline and finish on one — which is the arrangement the
+/// banner has, where the name is fitted to the box the faders leave.
+const MARK: f32 = 42.0;
+
+/// How much case there is above and below what stands on it.
+const CASE: f32 = 8.0;
+
+/// How much panel there is at each end of it, inside the wood.
+const INSIDE: f32 = 12.0;
+
+/// How much cheek there is at each end of the case.
+///
+/// Wider than the panel's own ground, because a cheek is a piece of wood the
+/// panel is bolted between and not a margin: `docs/logo.svg` gives it a tenth
+/// of the case, and this is that tenth of the height a header runs to.
+const CHEEK: f32 = 10.0;
+
+/// The wood the case is bolted between.
+///
+/// Two cheeks and a rounded corner is one rectangle with the panel laid over
+/// it, not two rectangles that have to meet in the middle — which is how the
+/// mark beside it is drawn and how `docs/logo.svg` draws it.
+fn cheeks(theme: &Theme) -> container::Style {
+    let material = control_ui::materials(theme);
+    container::Style {
+        background: Some(Background::Gradient(iced::Gradient::Linear(
+            iced::gradient::Linear::new(iced::Radians(std::f32::consts::FRAC_PI_2))
+                .add_stop(0.0, material.wood)
+                .add_stop(1.0, material.wood_low),
+        ))),
+        border: border::rounded(6),
+        ..container::Style::default()
+    }
+}
+
+/// The panel bolted between them.
+///
+/// Lit at the top where the light is, and edged in the seam the wood meets it
+/// along — which is the same pair of edges every plate in this window presents
+/// and the same pair `docs/logo.svg` draws either side of its own panel.
+fn face(theme: &Theme) -> container::Style {
+    let material = control_ui::materials(theme);
+    container::Style {
+        background: Some(Background::Gradient(iced::Gradient::Linear(
+            iced::gradient::Linear::new(iced::Radians(std::f32::consts::PI))
+                .add_stop(0.0, material.recess_edge)
+                .add_stop(1.0, material.panel),
+        ))),
+        border: iced::Border {
+            color: material.recess,
+            width: 1.0,
+            radius: 2.into(),
+        },
+        ..container::Style::default()
+    }
 }
 
 /// The project's own name, set the way the mark sets it.
 ///
 /// `docs/banner.svg` puts it across the panel in the metal of a fader cap, in
 /// Liberation Sans Bold, with the wordmark's lines through it. A window has the
-/// first two of those and not the third: a line 1.5 points thick across a
-/// 22-point word is a smudge rather than a slice, and the mark is not improved
-/// by being approximated. So it is the name, in the face and the metal, over
-/// the panel it is printed on.
+/// first two of those and not the third: measured against the file's own box,
+/// the eight slices against a 22-point word are every one of them under a
+/// point, which is a smudge rather than a slice, and the mark is not improved
+/// by being approximated. They are on the mark beside it, where they are at the
+/// size the file draws them.
 fn wordmark() -> Element<'static, Message> {
     column![
         text("deepmind control")
