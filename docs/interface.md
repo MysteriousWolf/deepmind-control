@@ -767,14 +767,34 @@ trade — the top row cannot go up, the bottom cannot go down, and a routing who
 bytes nobody has read cannot be moved anywhere, because writing a value this
 window has not seen into a slot is the one thing it does not do.
 
-**A list gets a dot rather than a reading.** Every control in this window prints
-its value underneath in the colour of the claim behind it, and for a fader that
-is the only place the number appears. For a list it is the name of a value and
-the byte that name stands for, one above the other: `Pitch Bend` over `1`. That
-is the one reading here that says nothing the control above it does not, and
-eight rows of them is sixteen numbers nobody reads. What is left is the part
-that was never redundant — a dot for what backs the value, which is the same
-mark the section bar prints for the same reason.
+**A row is a card, and everything on it is on one line.** Eight rows of controls
+at four heights, floating on the plate the rack stands on, are eight rows
+nothing lines up against — every one of them looked a little out, because there
+was nothing for them to be in. A routing is one sentence and the card is the
+paper it is written on: the same face plate a rack's slots already stand on,
+with the seam and the lit lip every cut surface here presents.
+
+**No row prints a value.** Every control in this window prints its reading
+underneath, and in this table that was two lies and a repetition. A list's
+reading is the name of a value over the byte that name stands for — `Pitch Bend`
+over `1` — which says nothing the control above it does not. A depth's reading
+is a number nobody needs to the byte: the fader is already the picture of it,
+and the footer prints the exact number, the name and the range whenever somebody
+points at one. So the readings went, and the row came down from a line and a
+half to one line.
+
+**What backs a routing is the colour of its number.** It was two dots floating
+under the two lists, which is a mark that has to be asked about before it says
+anything. The numeral is already about the routing rather than about any one of
+its three parameters, and it is already being read, so it carries the claim:
+green for what the synthesizer reported, copper for what this window claims,
+washed grey for what nobody has read. The same three-way answer, on something
+somebody is looking at anyway.
+
+**The eight depths are on the glass**, along its foot, in the order the matrix
+reads them: `1 +72`, as many to a line as it holds. A column of eight readings
+down a table is eight numbers nobody compares; the same eight in one block are
+the shape of how hard this patch is being driven.
 
 The room that came out of all of this went into the two lists, which are wider.
 
@@ -788,11 +808,18 @@ print, where a cell sized for all eight is a cell that is mostly empty on every
 patch anybody writes.
 
 **A source or a destination is a cell, and every cell is the same cell.** A thin
-frame, a seven-by-seven box for its picture, and its name — so that the two
-columns read as two columns of the same thing rather than as words at different
-lengths in roughly the right places. A wire attaches to a knot on the cell's
-edge, which is what makes three wires out of one source visibly three wires out
-of one source rather than three lines that happen to converge.
+frame, a seven-by-seven box for its picture with the routings that use it beside
+it, and its name on the line underneath — so that the two columns read as two
+columns of the same thing rather than as words at different lengths in roughly
+the right places. A wire attaches to a knot on the cell's edge, which is what
+makes three wires out of one source visibly three wires out of one source rather
+than three lines that happen to converge.
+
+The cell is **two lines and not one**. Run across, it was nearly a third of the
+glass wide and eleven dots deep, which left the wires a narrow gap to cross and
+a tall empty screen to cross it in — the wrong way round for a drawing whose
+whole subject is what goes where. Stacked, a cell is as wide as its name and the
+gap is half the glass.
 
 **A wire leaves flat, turns down a track of its own, and arrives flat.** Not a
 line between two points: the glass is as deep as eight rows of controls and the
@@ -1392,12 +1419,31 @@ of it is that it is the other way round.
 
 **Every press in the chrome is one press.** The same height, the same padding
 either side of whatever is in it, and the same metal rim — in the header and
-along the foot alike. What varies is what is inside: a word, a letter, or a
-display the size of a character. The height is the *display's* and not the
-type's, because a row where one press is a screen's height and the rest are a
-word's height is a row of presses that do not line up; a press with a screen in
-it gets less panel either side, because a display is already set into a moulding
-with its own dead border.
+along the foot alike. The height is the *display's* and not the type's, because
+a row where one press is a screen's height and the rest are a word's height is a
+row of presses that do not line up; a press with a screen in it gets less panel
+either side, because a display is already set into a moulding with its own dead
+border.
+
+**And every press wears a mark.** Ask who is there is a question mark; read the
+edit buffer is an arrow coming down into a tray; look for ports again is an
+arrow that goes round; open or close one is the five pins of a `DIN` socket,
+which is the connector this whole application arrives through. They are dots,
+because everything small in this window is dots — a display's characters, an
+effect engine's number, a routing's number, the patch bay's names — and a press
+with a line-drawn icon on it would be the only small drawing here made of
+anything else. They are stencilled on the panel rather than lit on glass, which
+is the same call the numbers go through; the one press that is a *display* is
+the one whose subject is the display.
+
+Nine dots square and not seven: seven is the cell a character stands in, and
+these are not characters. Nine is the smallest odd grid with a middle dot, a dot
+either side of it and a dot either side of those, which is what a circle, an
+arrow and a plug all need before they stop being suggestions.
+
+The words stay beside them. A mark this size can say *what kind of thing* a
+press does and a word is what says which one — and where a grid this size has no
+honest answer, the word is all there is.
 
 ### What is known about the instrument is behind one press
 

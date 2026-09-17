@@ -73,7 +73,7 @@ use iced_widget::{Space, button, column, combo_box, container, row, text};
 use crate::glyphs;
 use crate::lcd::{self, Band, Ink, Screen, Size};
 use crate::mapping::{Mapper, Mapping, Reach, Sent};
-use crate::panel::{Choice, Message, Room, choices, control, dot, readout};
+use crate::panel::{Choice, Message, Room, choices, control, sits_at};
 use crate::style::{self, chrome, field, materials, shortlist};
 use crate::{Confidence, Element, Patch, tint};
 
@@ -251,10 +251,12 @@ pub(crate) fn moved(patch: &Patch, firmware: Version) -> Vec<ParamId> {
 
 /// One routing as the instrument's own display would name it: where it comes
 /// from, where it goes, and what backs both.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Wire {
     /// Which of the group's routings this is: `3`.
     number: &'static str,
+    /// How much of it arrives, as the instrument's own display would print it.
+    depth: String,
     /// The source's name, as the display prints it.
     from: &'static str,
     /// The destination's, the same way.
@@ -291,6 +293,9 @@ pub(crate) fn wiring(patch: &Patch, firmware: Version) -> Vec<Wire> {
         .filter_map(|routing| {
             Some(Wire {
                 number: routing.number(),
+                depth: patch
+                    .value(routing.depth)
+                    .map_or_else(String::new, |value| sits_at(routing.depth, value)),
                 from: named(routing.source)?,
                 to: named(routing.destination)?,
                 claim: patch.claim_across([routing.source, routing.destination]),
@@ -384,10 +389,17 @@ where
                 cell(patch, routing.depth, firmware, Room::across(DEPTH), sent),
             ]
             .spacing(10)
-            .align_y(Vertical::Bottom);
+            .align_y(Vertical::Center);
+            // Each row on a card of its own. Eight rows of controls at four
+            // heights, floating on the plate the rack stands on, are eight rows
+            // nothing lines up against — every one of them looked a little out,
+            // because there was nothing for them to be in. A routing is one
+            // sentence and this is the paper it is written on.
             container(reading)
                 .height(Length::Fixed(ROW))
-                .align_y(Vertical::Bottom)
+                .padding([0.0, BESIDE_ROW])
+                .align_y(Vertical::Center)
+                .style(card)
                 .into()
         });
     let read = column![header]
@@ -417,15 +429,39 @@ where
 /// How much panel there is between the eight rows and the glass beside them.
 const BESIDE: f32 = 14.0;
 
+/// Draws the card one routing is written on.
+///
+/// The face plate a rack's slots already stand on, with the seam and the lit
+/// lip every cut surface in this window presents. Eight of them down a page are
+/// eight things of one size, which is what the rows were missing: a control is
+/// aligned against the card it is in rather than against a control two rows
+/// away that happens to be the same height.
+fn card(theme: &Theme) -> container::Style {
+    let material = materials(theme);
+    container::Style {
+        background: Some(Background::Color(material.plate)),
+        border: border::rounded(3).width(1.0).color(material.recess_edge),
+        ..container::Style::default()
+    }
+}
+
+/// How much card there is either side of what stands on it.
+const BESIDE_ROW: f32 = 10.0;
+
 /// How tall one routing's row stands.
 ///
 /// Fixed rather than however tall the tallest thing in it happens to be,
 /// because the glass beside the rows has to be exactly as deep as they are:
 /// a patch bay that stopped two rows short of the table it is a picture of
-/// would be a picture of something else. It is the tallest a row needs — a
-/// control and the reading under it — and every row is that whatever is in it,
-/// which is the rule a rack's slots already follow.
-const ROW: f32 = 65.0;
+/// would be a picture of something else. It is the tallest a row needs — one
+/// line of controls and a little card either side of them — and every row is
+/// that whatever is in it, which is the rule a rack's slots already follow.
+///
+/// It was half again as tall when every control printed its value underneath.
+/// The footer already says what is under the pointer, which for anything in
+/// this table is its name, its reading and its range, so a row that printed the
+/// same number a third time was a row and a half.
+const ROW: f32 = 46.0;
 
 /// How much panel there is between two of those rows.
 const DOWN: f32 = 8.0;
@@ -549,9 +585,22 @@ fn drawn(wires: &[Wire], deep: i32, of: usize, run: &str) -> Screen {
             .collect::<Vec<_>>()
             .join(" ")
     };
+    // And the depths, along the foot, which is where the eight exact amounts
+    // are now that no row prints one: the fader is the picture of a depth and
+    // the footer is its number when somebody points at one, so a column of
+    // eight readings down the table was a third copy.
+    let (readings, step, across) = listed(wires);
     let head = MARGIN * 2 + LINE;
-    let left = Column::new(MARGIN, head, deep, sources.len());
-    let right = Column::new(BAY - MARGIN - CELL_ACROSS, head, deep, destinations.len());
+    // What the readings along the foot take, so that a column of cells stops
+    // above them rather than standing on them.
+    let standing = deep - foot(readings.len().div_ceil(across));
+    let left = Column::new(MARGIN, head, standing, sources.len());
+    let right = Column::new(
+        BAY - MARGIN - CELL_ACROSS,
+        head,
+        standing,
+        destinations.len(),
+    );
     for (index, name) in sources.iter().enumerate() {
         left.cell(
             &mut screen,
@@ -569,6 +618,18 @@ fn drawn(wires: &[Wire], deep: i32, of: usize, run: &str) -> Screen {
             &using(name, |wire| wire.to),
             Side::To,
         );
+    }
+    let lines = readings.len().div_ceil(across);
+    for (line, run) in readings.chunks(across).enumerate() {
+        // Counted back from the foot, so that the first four stand above the
+        // last four rather than under them: a list printed from the bottom up
+        // is a list read in the wrong order.
+        let up = i32::try_from(lines - 1 - line).unwrap_or(0);
+        let down = deep - MARGIN - LINE - up * (LINE + APART);
+        for (place, reading) in run.iter().enumerate() {
+            let at = MARGIN + i32::try_from(place).unwrap_or(0) * step;
+            screen.write(at, down, reading, Size::Small);
+        }
     }
     // A wire for every routing, bending out of one node and into the other. A
     // straight line between two cells three quarters of a glass apart is a
@@ -647,12 +708,18 @@ impl Column {
         self.first + i32::try_from(index).unwrap_or(0) * self.apart
     }
 
-    /// Draws one cell: its frame, the box its picture will stand in, its name,
-    /// and the knot a wire attaches to.
+    /// Draws one cell: its frame, the box its picture will stand in, the
+    /// routings that use it, its name, and the knot a wire attaches to.
+    ///
+    /// Two lines rather than one. A cell that ran picture, name and numbers
+    /// across was nearly a third of the glass wide and eleven dots deep, which
+    /// left the wires a narrow gap to cross and a tall empty screen to cross it
+    /// in — the wrong way round for a drawing whose whole subject is what goes
+    /// where. Stacked, a cell is as wide as its name and the gap is half the
+    /// glass.
     fn cell(self, screen: &mut Screen, index: usize, name: &'static str, using: &str, side: Side) {
         let top = self.top(index);
-        let frame = Band::new(self.at, top, CELL_ACROSS, CELL_DEEP);
-        screen.frame(frame, Ink::Solid);
+        screen.frame(Band::new(self.at, top, CELL_ACROSS, CELL_DEEP), Ink::Solid);
         // Where the library's own picture of this source or destination will
         // go: seven dots by seven, which is the cell this display writes a
         // character in. Dotted, because an empty solid box is a box and a
@@ -661,29 +728,31 @@ impl Column {
         // one invented here would be this window making one up. Asked for in
         // deepmind-midi#40.
         screen.frame(
-            Band::new(self.at + 2, top + 2, PICTURE, PICTURE),
+            Band::new(self.at + GUTTER, top + 2, PICTURE, PICTURE),
             Ink::Dotted,
         );
+        // Beside the picture, on the same line: which routings use it. A
+        // destination three of them are fighting over says `1 4 7` rather than
+        // making somebody trace three wires back, and the numbers are the ones
+        // the rows beside the glass are printing — which is what makes the
+        // table and the picture one page rather than two.
+        let numbers = Screen::width_of(using, Size::Small).min(NUMBERS);
+        screen.write(
+            self.at + CELL_ACROSS - GUTTER - numbers,
+            top + 2,
+            using,
+            Size::Small,
+        );
+        // And the name under both, which is the line that decides how wide a
+        // cell is.
         let written: String = name
             .chars()
             .take(usize::try_from(LETTERS).unwrap_or(0))
             .collect();
         screen.write(
-            self.at + 2 + PICTURE + GUTTER,
-            top + 3,
+            self.at + GUTTER,
+            top + 2 + PICTURE + APART,
             &written,
-            Size::Small,
-        );
-        // And which routings use it, against the far edge. A destination three
-        // of them are fighting over says `1 4 7` rather than making somebody
-        // trace three wires back to find out, and the numbers are the ones the
-        // rows beside the glass are printing — which is what makes the table
-        // and the picture one page rather than two.
-        let numbers = Screen::width_of(using, Size::Small).min(NUMBERS);
-        screen.write(
-            self.at + CELL_ACROSS - 2 - numbers,
-            top + 3,
-            using,
             Size::Small,
         );
         // The knot: a blob on the edge the wire leaves or arrives at, so that
@@ -767,14 +836,15 @@ const LETTERS: i32 = 9;
 /// size asked of the library in deepmind-midi#40.
 const PICTURE: i32 = 7;
 
-/// How wide a cell is: its frame, the picture, the name, and the routings
-/// that use it.
-const CELL_ACROSS: i32 =
-    2 + PICTURE + GUTTER + (LETTERS * glyphs::ADVANCE - glyphs::GAP) + APART + NUMBERS + 2;
+/// How wide a cell is, which is what its name needs.
+///
+/// The picture and the routing numbers share the line above the name and are
+/// narrower than it together, so the name is the only thing that decides this.
+const CELL_ACROSS: i32 = GUTTER * 2 + (LETTERS * glyphs::ADVANCE - glyphs::GAP);
 
-/// How deep a cell is: its frame, and the picture with a dot of glass either
-/// side of it.
-const CELL_DEEP: i32 = PICTURE + 4;
+/// How deep a cell is: the picture, the name under it, and the glass around
+/// both.
+const CELL_DEEP: i32 = 2 + PICTURE + APART + LINE + 2;
 
 /// How much glass there is between a cell's picture, its name and its frame.
 const GUTTER: i32 = 3;
@@ -799,11 +869,11 @@ const KNOT: i32 = 3;
 
 /// The most glass there is between two cells in a column, top to top.
 ///
-/// A cell and twice the same again: eight of them fill a glass as deep as the
-/// eight rows beside it, which is the case this is laid out for, and three of
-/// them are a group in the middle of one rather than three cells in its
-/// corners.
-const PITCH: i32 = CELL_DEEP * 3;
+/// A cell and two lines of glass under it. Eight at that pitch fill a glass as
+/// deep as the eight rows beside it, which is the case this is laid out for,
+/// and three of them are a group in the middle of one rather than three cells
+/// in its corners.
+const PITCH: i32 = CELL_DEEP + LINE * 2;
 
 /// How much glass the wires have to cross.
 ///
@@ -823,6 +893,33 @@ const BAY: i32 = MARGIN * 2 + CELL_ACROSS * 2 + LINK;
 
 /// How much glass there is around the drawing.
 const MARGIN: i32 = 3;
+
+/// Returns how much glass `lines` of depths along the foot take.
+fn foot(lines: usize) -> i32 {
+    i32::try_from(lines).unwrap_or(1).max(1) * (LINE + APART)
+}
+
+/// Returns the depths as the glass prints them, how far apart they stand, and
+/// how many fit on one line.
+///
+/// One place, because the drawing has to reserve exactly the room it then uses:
+/// a column of cells that stopped a line short of the readings would stand on
+/// them, and one that stopped a line early would leave a gap nobody asked for.
+fn listed(wires: &[Wire]) -> (Vec<String>, i32, usize) {
+    let readings: Vec<String> = wires
+        .iter()
+        .filter(|wire| !wire.depth.is_empty())
+        .map(|wire| format!("{} {}", wire.number, wire.depth))
+        .collect();
+    let step = readings
+        .iter()
+        .map(|reading| Screen::width_of(reading, Size::Small))
+        .max()
+        .unwrap_or(0)
+        + APART * 3;
+    let across = usize::try_from(((BAY - MARGIN * 2) / step.max(1)).max(1)).unwrap_or(1);
+    (readings, step, across)
+}
 
 /// Draws the two presses that move a routing up or down the table.
 ///
@@ -844,6 +941,14 @@ where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
     let routing = routings.get(index).copied();
+    // What backs the routing, carried by the one glyph that is already about
+    // the routing rather than about any one of its three parameters. It was two
+    // dots floating under the two lists, which is a mark that has to be asked
+    // about before it says anything; a number in the claim's own colour is the
+    // same three-way answer on something somebody is already reading.
+    let claim = routing.map_or(Confidence::Unknown, |routing| {
+        patch.claim_across(routing.parameters())
+    });
     let press = |label: &'static str, towards: Option<usize>| {
         let swap = routing.zip(towards.and_then(|at| routings.get(at).copied()));
         let known = |routing: Routing| {
@@ -877,9 +982,8 @@ where
         .push(
             container(lcd::stencil(
                 Screen::of(routing.map_or("", Routing::number), Size::Small),
-                |theme: &Theme| {
-                    let material = materials(theme);
-                    style::mix(material.plate, material.metal, NUMERAL)
+                move |theme: &Theme| {
+                    style::mix(materials(theme).plate, tint(theme, claim), NUMERAL)
                 },
             ))
             .width(Length::Fixed(LABEL))
@@ -977,14 +1081,7 @@ where
             sent,
         ),
     };
-    column![row![chosen, press].spacing(6).align_y(Vertical::Center)]
-        .push(backing(
-            destination,
-            patch.value(destination),
-            patch.claim(destination),
-            firmware,
-        ))
-        .spacing(3)
+    container(row![chosen, press].spacing(6).align_y(Vertical::Center))
         .width(Length::Fixed(DESTINATION + POINT + 6.0))
         .into()
 }
@@ -1058,37 +1155,9 @@ where
 {
     let claim = patch.claim(parameter);
     let value = patch.value(parameter);
-    column![control(parameter, value, claim, firmware, room, sent)]
-        .push(backing(parameter, value, claim, firmware))
-        .spacing(3)
+    container(control(parameter, value, claim, firmware, room, sent))
         .width(Length::Fixed(room.width()))
         .into()
-}
-
-/// Draws what backs a cell's value, in as many words as it needs.
-///
-/// A fader gets the reading every control in this window gets: the number, in
-/// the colour of the claim behind it.
-///
-/// A **list does not**. `Pitch Bend` with `1` under it is the name of a value
-/// and the byte that name stands for, printed one above the other — the one
-/// reading in this window that says nothing the control above it does not, and
-/// eight rows of them is sixteen numbers nobody reads. What is left of it is
-/// the part that was never redundant: a dot for what backs the value, which is
-/// the same mark the section bar prints for the same reason.
-fn backing<'a, Renderer>(
-    parameter: ParamId,
-    value: Option<u8>,
-    claim: Confidence,
-    firmware: Version,
-) -> Element<'a, Renderer>
-where
-    Renderer: TextRenderer<Font = Font> + 'a,
-{
-    if choices(parameter, firmware, value).is_some() {
-        return container(dot(claim)).padding([3, 0]).into();
-    }
-    readout(parameter, value, claim, firmware)
 }
 
 /// The arrow that makes a row a sentence.
@@ -1150,6 +1219,7 @@ mod tests {
             .enumerate()
             .map(|(index, (from, to))| Wire {
                 number: NUMBERED.get(index).copied().unwrap_or("9"),
+                depth: format!("+{}", index * 8),
                 from,
                 to,
                 claim: Confidence::Confirmed,
@@ -1229,8 +1299,11 @@ mod tests {
         // to tell from a corner.
         let screen = shown(&wired(&[("A", "B"), ("A", "C"), ("A", "D"), ("A", "E")]));
         let under = super::MARGIN * 2 + super::LINE;
-        let left = super::Column::new(super::MARGIN, under, dots, 1);
-        let right = super::Column::new(BAY - super::MARGIN - CELL_ACROSS, under, dots, 4);
+        let (readings, _, across) =
+            super::listed(&wired(&[("A", "B"), ("A", "C"), ("A", "D"), ("A", "E")]));
+        let standing = dots - super::foot(readings.len().div_ceil(across));
+        let left = super::Column::new(super::MARGIN, under, standing, 1);
+        let right = super::Column::new(BAY - super::MARGIN - CELL_ACROSS, under, standing, 4);
         let (x, y) = left.knot(0);
 
         // Flat until the corner, which is where it is allowed to start turning.
@@ -1263,7 +1336,7 @@ mod tests {
         for lane in [0, 3] {
             let track = x + super::TURN + lane * super::LANE;
             assert!(
-                runs(track) > usize::try_from(super::PITCH).unwrap_or(0),
+                runs(track) > usize::try_from(super::CHAMFER * 2).unwrap_or(0),
                 "nothing runs down the track at {track}:\n{}",
                 printed(&screen)
             );

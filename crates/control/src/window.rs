@@ -223,8 +223,8 @@ fn status(app: &App) -> Element<'_, Message> {
         // At the right-hand end, in the order somebody reaches for them: ask
         // the instrument what it is, ask it what it is playing, and turn the
         // glass over.
-        chrome("Who").on_press_maybe(open.then_some(Message::Identify)),
-        chrome("Read").on_press_maybe(open.then_some(Message::Read)),
+        chrome(control_ui::WHO, "Who").on_press_maybe(open.then_some(Message::Identify)),
+        chrome(control_ui::READ, "Read").on_press_maybe(open.then_some(Message::Read)),
         livery(app),
     ]
     .spacing(6)
@@ -407,9 +407,9 @@ fn editor(app: &App) -> Element<'_, Message> {
 fn header(app: &App) -> Element<'_, Message> {
     let ports = app.ports().to_vec();
     let connection = if app.is_connected() {
-        chrome("Close").on_press(Message::Disconnect)
+        chrome(control_ui::PORT, "Close").on_press(Message::Disconnect)
     } else {
-        chrome("Open").on_press_maybe(app.chosen().map(|_| Message::Connect))
+        chrome(control_ui::PORT, "Open").on_press_maybe(app.chosen().map(|_| Message::Connect))
     };
     row![
         wordmark(),
@@ -425,7 +425,7 @@ fn header(app: &App) -> Element<'_, Message> {
             .style(control_ui::selector)
             .menu_style(control_ui::shortlist)
             .width(Length::Fixed(220.0)),
-        chrome("Rescan").on_press(Message::Rescan),
+        chrome(control_ui::RESCAN, "Rescan").on_press(Message::Rescan),
         connection,
     ]
     .spacing(10)
@@ -492,7 +492,7 @@ fn about(app: &App) -> Element<'_, Message> {
         }))
         .spacing(4);
     tooltip(
-        chrome("i"),
+        pressed(badge(control_ui::ABOUT)).padding([0.0, BESIDE_SCREEN]),
         container(said).padding(10).style(control_ui::bay),
         tooltip::Position::Bottom,
     )
@@ -538,9 +538,37 @@ fn wordmark() -> Element<'static, Message> {
 const NAME: f32 = 34.0;
 
 /// A button that is not a parameter, in the instrument's own materials./// A button that is not a parameter, in the instrument's own materials.
-fn chrome(label: &str) -> button::Button<'_, Message, Theme, iced::Renderer> {
-    pressed(text(label).size(13).center())
+fn chrome(
+    mark: control_ui::Badge,
+    label: &str,
+) -> button::Button<'_, Message, Theme, iced::Renderer> {
+    pressed(
+        row![badge(mark), text(label).size(13).center(),]
+            .spacing(7)
+            .align_y(Center),
+    )
 }
+
+/// Draws one of the marks a press wears.
+///
+/// Stencilled onto the panel rather than lit on glass: it is printing, not a
+/// display, and the same call the number on an effect engine's case and the
+/// number beside a matrix row already go through. The one press that is a
+/// display is the one whose subject is the display.
+///
+/// In the metal a hand touches, carried most of the way back to the panel — a
+/// mark on a press is as loud as the word beside it and no louder, because the
+/// two are saying the same thing.
+fn badge(mark: control_ui::Badge) -> Element<'static, Message> {
+    Element::from(control_ui::stencil(mark.screen(), |theme: &Theme| {
+        let material = control_ui::materials(theme);
+        control_ui::mix(material.panel, material.metal, MARKED)
+    }))
+    .map(Message::Ui)
+}
+
+/// How far a press's mark is carried from the panel towards the metal.
+const MARKED: f32 = 0.72;
 
 /// A press with something else inside it, at the same size as all the others.
 ///

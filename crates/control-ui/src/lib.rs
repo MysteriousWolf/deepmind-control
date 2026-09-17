@@ -147,6 +147,7 @@
 //! do not have to agree on one, and concrete in the theme, because
 //! [`iced_core::Theme`] is what both of them have.
 
+mod badge;
 mod chain;
 mod confidence;
 mod effect;
@@ -169,6 +170,7 @@ mod section;
 mod sequencer;
 mod style;
 
+pub use badge::{ABOUT, Badge, PORT, READ, RESCAN, WHO};
 pub use confidence::Confidence;
 pub use fader::{Axis, Fader, fader};
 pub use footer::footer;
@@ -183,7 +185,7 @@ pub use patch::Patch;
 pub use section::{first_section, section_bar, sections};
 pub use style::{
     Materials, READABLE, bay, chrome, contrast, deepmind, ground, ink_on, is_negative, legible,
-    materials, negative, printed, reading, selector, shortlist, tint, wordmark, written,
+    materials, mix, negative, printed, reading, selector, shortlist, tint, wordmark, written,
 };
 
 /// A piece of interface, produced by the views in this crate.
