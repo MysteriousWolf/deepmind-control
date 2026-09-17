@@ -196,6 +196,29 @@ pub struct Materials {
     pub metal_low: Color,
 }
 
+/// Returns the glass, the far end of its backlight, and the ink on it, for a
+/// display of the polarity `negative` asks for.
+///
+/// The same two greens either way round: the lit one is what a backlight puts
+/// through the panel and the dark one is the panel with nothing driving it, so
+/// turning them over is the display turned over rather than a second palette.
+///
+/// Apart from [`materials`] because of the press that turns them over: that
+/// press shows a display of the polarity it is about to give you, which is the
+/// one place in this window that has to draw a display the theme is not wearing.
+#[must_use]
+#[expect(
+    clippy::unreadable_literal,
+    reason = "a colour is read as a colour, and `0x00d6_e7cd` is not one"
+)]
+pub fn glazing(negative: bool) -> (Color, Color, Color) {
+    if negative {
+        (color!(0x101a12), color!(0x18231b), color!(0xd6e7cd))
+    } else {
+        (color!(0xd6e7cd), color!(0xbfd3b6), color!(0x101a12))
+    }
+}
+
 /// Returns the materials a drawn control is made of, in `theme`.
 #[must_use]
 #[expect(
@@ -208,11 +231,7 @@ pub fn materials(theme: &Theme) -> Materials {
     // The same two greens: the lit one is what a backlight puts through the
     // panel and the dark one is the panel with nothing driving it, so turning
     // them over is the display turned over rather than a second palette.
-    let (glass, glass_low, ink) = if is_negative(theme) {
-        (color!(0x101a12), color!(0x18231b), color!(0xd6e7cd))
-    } else {
-        (color!(0xd6e7cd), color!(0xbfd3b6), color!(0x101a12))
-    };
+    let (glass, glass_low, ink) = glazing(is_negative(theme));
     Materials {
         panel: palette.background.base.color,
         plate: color!(0x1b1f26),

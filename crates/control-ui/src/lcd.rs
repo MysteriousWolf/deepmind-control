@@ -58,7 +58,7 @@ use iced_core::{
 
 use crate::Confidence;
 use crate::glyphs;
-use crate::style::{materials, written};
+use crate::style::{glazing, materials, written};
 
 /// How far apart two dots are, in points, on every display in the window.
 pub const PITCH: f32 = 2.5;
@@ -606,7 +606,11 @@ pub fn lcd<'a, Renderer>(screen: Screen, claim: Confidence) -> crate::Element<'a
 where
     Renderer: iced_core::Renderer + 'a,
 {
-    Element::new(Display { screen, claim })
+    Element::new(Display {
+        screen,
+        claim,
+        polarity: None,
+    })
 }
 
 /// Draws `screen` as dots stencilled on whatever is behind them, in `ink`.
@@ -693,11 +697,52 @@ where
     }
 }
 
+/// A display the size of a character, showing the polarity it names.
+///
+/// What the press that turns the window's displays over wears instead of the
+/// words `Negative display`. A sentence on a row of sentences said which way up
+/// they would be and had to be read to say it; a screen showing itself the way
+/// it is about to be says the same thing without being read, and says it in the
+/// one material the press is about.
+///
+/// It is the only display in this window that does not take its glass from the
+/// theme, for exactly that reason: it is a picture of the other way round.
+#[must_use]
+pub fn swatch<'a, Renderer>(negative: bool) -> crate::Element<'a, Renderer>
+where
+    Renderer: iced_core::Renderer + 'a,
+{
+    // Seven by seven, which is the cell this instrument's display writes a
+    // character in, with the lower half of it printed: the smallest drawing
+    // that is obviously a screen with something on it rather than a screen.
+    let mut screen = Screen::new(CHARACTER, CHARACTER);
+    for row in 0..CHARACTER {
+        for column in 0..CHARACTER {
+            if column <= row {
+                screen.dot(column, row);
+            }
+        }
+    }
+    Element::new(Display {
+        screen,
+        claim: Confidence::Confirmed,
+        polarity: Some(negative),
+    })
+}
+
+/// How many dots a character of this display's own writing stands in.
+const CHARACTER: i32 = glyphs::HEIGHT;
+
 /// The glass, and the dots on it.
 #[derive(Debug)]
 struct Display {
     screen: Screen,
     claim: Confidence,
+    /// Which way up this one is drawn, where that is not the theme's answer.
+    ///
+    /// `None` everywhere but the press that turns them over, which is a picture
+    /// of the polarity somebody is about to get rather than the one they have.
+    polarity: Option<bool>,
 }
 
 impl Display {
@@ -739,7 +784,13 @@ where
         _viewport: &Rectangle,
     ) {
         let bounds = layout.bounds();
-        let material = materials(theme);
+        let mut material = materials(theme);
+        if let Some(negative) = self.polarity {
+            let (glass, glass_low, ink) = glazing(negative);
+            material.glass = glass;
+            material.glass_low = glass_low;
+            material.ink = ink;
+        }
 
         // The glass: the lit panel, brightest where the light enters it and
         // falling away across it, inside the dark bezel it is set into. It is
@@ -811,12 +862,19 @@ where
             }),
         );
 
+        // The ink is the claim's, which is the theme's answer — except on the
+        // press that turns the displays over, where the whole point is that the
+        // glass is the other one and the ink has to be the other one with it.
+        let ink = match self.polarity {
+            Some(_) => material.ink,
+            None => written(theme, self.claim),
+        };
         print_dots(
             renderer,
             &self.screen,
             bounds.x + SURROUND,
             bounds.y + SURROUND,
-            written(theme, self.claim),
+            ink,
         );
     }
 }

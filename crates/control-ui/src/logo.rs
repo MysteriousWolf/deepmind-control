@@ -110,6 +110,111 @@ where
     Element::new(Logo { side })
 }
 
+/// Lays the wordmark's own slices over a word set in the mark's face.
+///
+/// `docs/banner.svg` sets the project's name in the metal of a fader cap and
+/// cuts five horizontal lines through it, spaced evenly and thickening as they
+/// fall. The slices are the mark; the name without them is a word in a bold
+/// sans.
+///
+/// This draws the lines and nothing else, so it goes *over* the word rather
+/// than through it — a slice is the panel showing between two pieces of metal,
+/// and the panel is what the word is standing on, so drawing the panel over the
+/// word is the same picture by a shorter route than a mask would be.
+///
+/// # Where they land
+///
+/// Measured off the file, in ems of the face rather than in points, so that the
+/// name can be set at any size and get the mark's own proportions. The banner's
+/// name has an ascender height of 56.65 units and its five cuts fall between
+/// 25.2 and 5.0 units above the baseline: at the face's ascender of 0.905 em
+/// that is [`FIRST`] em above the baseline, [`STEP`] em apart, thickening from
+/// a sixtieth of an em to a twentieth.
+///
+/// The baseline is one em below the top of the line box, which is what iced's
+/// default line height of 1.3 leaves once the face's ascender and descender are
+/// centred in it. That is a property of the face and not of this drawing, so a
+/// fallback sans with a slightly different ascender moves the slices by a
+/// fraction of a point inside letters they cross the whole lower half of.
+#[must_use]
+pub fn sliced<'a, Renderer>(size: f32) -> crate::Element<'a, Renderer>
+where
+    Renderer: iced_core::Renderer + 'a,
+{
+    Element::new(Sliced { size })
+}
+
+/// The five lines, and nothing else.
+#[derive(Debug)]
+struct Sliced {
+    size: f32,
+}
+
+/// How far above the baseline the first slice falls, in ems.
+const FIRST: f32 = 0.4030;
+
+/// How far apart two of them are, in ems.
+const STEP: f32 = 0.0806;
+
+/// How thick each is, in ems, thinnest first.
+const THICK: [f32; 5] = [0.0161, 0.0228, 0.0296, 0.0376, 0.0457];
+
+/// How far below the top of a line box the baseline sits, in ems.
+///
+/// What iced's default line height of 1.3 leaves once the face's ascender and
+/// descender are centred in it: the leading is a sixth of an em, half of it
+/// above, and the ascender is nine tenths — which comes to one em, near enough
+/// that the difference is a twentieth of a point on a forty point word.
+const BASELINE: f32 = 1.0;
+
+impl<Message, Renderer> Widget<Message, Theme, Renderer> for Sliced
+where
+    Renderer: iced_core::Renderer,
+{
+    fn size(&self) -> Size<Length> {
+        Size::new(Length::Fill, Length::Fill)
+    }
+
+    fn layout(
+        &mut self,
+        _tree: &mut Tree,
+        _renderer: &Renderer,
+        limits: &layout::Limits,
+    ) -> layout::Node {
+        layout::atomic(limits, Length::Fill, Length::Fill)
+    }
+
+    fn draw(
+        &self,
+        _tree: &Tree,
+        renderer: &mut Renderer,
+        theme: &Theme,
+        _style: &renderer::Style,
+        layout: Layout<'_>,
+        _cursor: mouse::Cursor,
+        _viewport: &Rectangle,
+    ) {
+        let bounds = layout.bounds();
+        let baseline = bounds.y + BASELINE * self.size;
+        let panel = materials(theme).panel;
+        for (step, thick) in THICK.into_iter().enumerate() {
+            #[expect(clippy::cast_precision_loss, reason = "one of the five the mark cuts")]
+            let above = FIRST - step as f32 * STEP;
+            renderer.fill_quad(
+                renderer::Quad {
+                    bounds: Rectangle {
+                        y: baseline - above * self.size,
+                        height: thick * self.size,
+                        ..bounds
+                    },
+                    ..renderer::Quad::default()
+                },
+                Background::Color(panel),
+            );
+        }
+    }
+}
+
 /// The case, and the three faders in it.
 #[derive(Debug)]
 struct Logo {

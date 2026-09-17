@@ -71,7 +71,7 @@ use iced_core::{Background, Font, Length, Theme, border, text::Renderer as TextR
 use iced_widget::{Space, button, column, combo_box, container, row, text};
 
 use crate::glyphs;
-use crate::lcd::{self, Ink, Screen, Size};
+use crate::lcd::{self, Band, Ink, Screen, Size};
 use crate::mapping::{Mapper, Mapping, Reach, Sent};
 use crate::panel::{Choice, Message, Room, choices, control, readout};
 use crate::style::{self, chrome, field, materials, reading, shortlist};
@@ -81,21 +81,21 @@ use crate::{Confidence, Element, Patch, tint};
 const LABEL: f32 = 52.0;
 
 /// How much room a source is chosen in.
-const SOURCE: f32 = 150.0;
+const SOURCE: f32 = 120.0;
 
 /// How much room a destination is chosen in.
 ///
 /// Wider than a source, because there are 133 of them and their names are the
 /// long ones: `VCF Envelope Attack` has to be readable to be chosen.
-const DESTINATION: f32 = 200.0;
+const DESTINATION: f32 = 170.0;
 
 /// How long the depth fader's travel is.
 ///
 /// Shorter than it was, because the glass beside the rows wanted the room and
-/// wanted it more: a depth is one byte and 130 points of travel is already
+/// wanted it more: a depth is one byte and ninety points of travel is already
 /// finer than a hand can be, where the patch bay is eight routings and cannot
 /// be read at all if the two columns of names meet in the middle.
-const DEPTH: f32 = 130.0;
+const DEPTH: f32 = 90.0;
 
 /// How much room the arrow between a source and its destination takes.
 const ARROW: f32 = 18.0;
@@ -333,9 +333,10 @@ where
         heading(first.destination, DESTINATION + POINT + 6.0),
         heading(first.depth, DEPTH),
     ]
-    .spacing(10);
+    .spacing(10)
+    .height(Length::Fixed(HEADING - DOWN));
     let rows = routings.iter().copied().map(|routing| {
-        row![
+        let reading = row![
             // The routing's own name and where it lives, which the rack would
             // print above and below each of its three parameters. Against the
             // whole row rather than its bottom, because a row is one sentence
@@ -358,8 +359,11 @@ where
             cell(patch, routing.depth, firmware, Room::across(DEPTH), sent),
         ]
         .spacing(10)
-        .align_y(Vertical::Bottom)
-        .into()
+        .align_y(Vertical::Bottom);
+        container(reading)
+            .height(Length::Fixed(ROW))
+            .align_y(Vertical::Bottom)
+            .into()
     });
     let read = column![header]
         .extend(rows)
@@ -368,7 +372,7 @@ where
         // because the whole point of it is that they are about to go
         // somewhere else in the window.
         .extend(mapping.map(mapping_note))
-        .spacing(8);
+        .spacing(DOWN);
     // And the shape of the whole thing beside the eight sentences, on the
     // instrument's own glass. The rows say what each routing is; the glass says
     // what they add up to, which is the question the rows cannot answer however
@@ -376,7 +380,8 @@ where
     Some(
         row![
             read,
-            container(bay(patch, firmware)).width(Length::Fixed(lcd::room(BAY))),
+            container(bay(patch, firmware, deep(routings.len())))
+                .width(Length::Fixed(lcd::room(BAY))),
         ]
         .spacing(BESIDE)
         .align_y(Vertical::Top)
@@ -386,6 +391,43 @@ where
 
 /// How much panel there is between the eight rows and the glass beside them.
 const BESIDE: f32 = 14.0;
+
+/// How tall one routing's row stands.
+///
+/// Fixed rather than however tall the tallest thing in it happens to be,
+/// because the glass beside the rows has to be exactly as deep as they are:
+/// a patch bay that stopped two rows short of the table it is a picture of
+/// would be a picture of something else. It is the tallest a row needs — a
+/// control and the reading under it — and every row is that whatever is in it,
+/// which is the rule a rack's slots already follow.
+const ROW: f32 = 65.0;
+
+/// How much panel there is between two of those rows.
+const DOWN: f32 = 8.0;
+
+/// How tall the heading over them stands, with its own gap under it.
+const HEADING: f32 = 16.0 + DOWN;
+
+/// Returns how many dots deep the glass beside `rows` routings is.
+///
+/// The table's own height, measured in the dots every display in this window is
+/// drawn at. The two are locked together by construction rather than by two
+/// numbers somebody has to keep in step, which is what a test holds.
+fn deep(rows: usize) -> i32 {
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "a count of routings, which the library gives as eight"
+    )]
+    let rows = rows.max(1) as f32;
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "a count of dots down a table a window has room for"
+    )]
+    let dots = ((HEADING + rows * ROW + (rows - 1.0) * DOWN - lcd::room(0)) / crate::lcd::PITCH)
+        .floor()
+        .max(1.0) as i32;
+    dots
+}
 
 /// Draws the patch bay: which sources are wired to which destinations.
 ///
@@ -412,7 +454,7 @@ const BESIDE: f32 = 14.0;
 /// [deepmind-midi#40](https://github.com/MysteriousWolf/deepmind-midi/issues/40),
 /// recorded in [`docs/waiting.md`](https://github.com/MysteriousWolf/deepmind-control/blob/main/docs/waiting.md),
 /// and until it lands the cells are the names the display already prints.
-fn bay<'a, Renderer>(patch: &Patch, firmware: Version) -> Element<'a, Renderer>
+fn bay<'a, Renderer>(patch: &Patch, firmware: Version, deep: i32) -> Element<'a, Renderer>
 where
     Renderer: iced_core::Renderer + 'a,
 {
@@ -428,6 +470,15 @@ where
             _ => Confidence::Confirmed,
         }
     });
+    lcd::lcd(drawn(&wires, deep), claim)
+}
+
+/// Draws the bay onto a screen `deep` dots tall.
+///
+/// Apart from [`bay`] so that what it draws can be looked at without a window
+/// to draw it in, which for a picture made of dots is the only way to look at
+/// it at all.
+fn drawn(wires: &[Wire], deep: i32) -> Screen {
     let ends = |pick: fn(&Wire) -> &'static str| -> Vec<&'static str> {
         let mut ends: Vec<&'static str> = Vec::new();
         for name in wires.iter().map(pick) {
@@ -438,93 +489,236 @@ where
         ends
     };
     let (sources, destinations) = (ends(|wire| wire.from), ends(|wire| wire.to));
-    let lanes = i32::try_from(sources.len().max(destinations.len()))
-        .unwrap_or(1)
-        .max(1);
-    let deep = MARGIN * 2 + lanes * LINE + (lanes - 1).max(0) * APART;
     let mut screen = Screen::new(BAY, deep);
-    // Where each name's lane sits, so that a line is drawn to the row the name
-    // is written on rather than to a row that happens to line up.
-    let row_of =
-        |index: usize| -> i32 { MARGIN + i32::try_from(index).unwrap_or(0) * (LINE + APART) };
-    // Each name in its own cell, cut to what the cell holds. The right-hand
-    // column is set against the right-hand edge, so the two read as two columns
-    // rather than as one column and some words.
-    let cut = |name: &'static str| -> String {
-        name.chars()
-            .take(usize::try_from(CELL).unwrap_or(0))
-            .collect()
-    };
+    let left = Column::new(MARGIN, deep, sources.len());
+    let right = Column::new(BAY - MARGIN - CELL_ACROSS, deep, destinations.len());
     for (index, name) in sources.iter().enumerate() {
-        screen.write(MARGIN, row_of(index), &cut(name), Size::Small);
+        left.cell(&mut screen, index, name, Side::From);
     }
     for (index, name) in destinations.iter().enumerate() {
-        let written = cut(name);
-        let at = BAY - MARGIN - Screen::width_of(&written, Size::Small);
-        screen.write(at, row_of(index), &written, Size::Small);
+        right.cell(&mut screen, index, name, Side::To);
     }
-    // And a line for each routing, from the middle of its source's lane to the
-    // middle of its destination's. Solid, every one of them: the ink a line is
-    // laid down in distinguishes one line from the next and never says how much
-    // of anything there is — how much is the depth, and the depth is the fader
-    // beside this glass.
-    let from_x = BAY / 2 - LINK / 2;
-    let to_x = BAY / 2 + LINK / 2;
-    for wire in &wires {
-        let (Some(source), Some(destination)) = (
+    // A wire for every routing, bending out of one node and into the other. A
+    // straight line between two cells three quarters of a glass apart is a
+    // diagonal that crosses every other diagonal at the same angle and says
+    // nothing about which end is which; a wire that leaves flat, turns, and
+    // arrives flat reads as going from somewhere to somewhere, and two wires
+    // leaving the same node are visibly two wires leaving the same node.
+    for (lane, wire) in wires.iter().enumerate() {
+        let (Some(from), Some(to)) = (
             sources.iter().position(|name| *name == wire.from),
             destinations.iter().position(|name| *name == wire.to),
         ) else {
             continue;
         };
-        let middle = LINE / 2;
-        screen.line(
-            (from_x, row_of(source) + middle),
-            (to_x, row_of(destination) + middle),
-            Ink::Solid,
+        bend(
+            &mut screen,
+            left.knot(from),
+            right.knot(to),
+            i32::try_from(lane).unwrap_or(0),
         );
     }
-    lcd::lcd(screen, claim)
+    screen
 }
 
-/// How many characters of a name the glass has room for either side.
+/// Which end of a wire a cell is, which decides where its knot sits.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Side {
+    /// A source: the wire leaves its right-hand edge.
+    From,
+    /// A destination: the wire arrives at its left-hand edge.
+    To,
+}
+
+/// One column of the bay: where its cells stand and where its wires attach.
+#[derive(Debug, Clone, Copy)]
+struct Column {
+    /// The left edge of every cell in it.
+    at: i32,
+    /// How far apart two cells are, top to top.
+    apart: i32,
+    /// Where the first one starts.
+    first: i32,
+}
+
+impl Column {
+    /// A column of `count` cells, spread down `deep` dots of glass.
+    ///
+    /// Spread rather than stacked, because the room is what the curves are for:
+    /// three sources against a glass as deep as eight rows of controls leave
+    /// eighty dots between them, and eighty dots is a wire that visibly goes
+    /// somewhere. Stacked at the top they would be three cells and a lot of
+    /// empty glass, with the same three diagonals in the corner of it.
+    fn new(at: i32, deep: i32, count: usize) -> Self {
+        let count = i32::try_from(count).unwrap_or(1).max(1);
+        let room = deep - MARGIN * 2 - CELL_DEEP;
+        // As far apart as the glass allows, up to a limit: three sources spread
+        // over a glass as deep as eight rows of controls are three cells in the
+        // corners of an empty screen with three long verticals between them,
+        // which is a picture of the glass rather than of the patch. Capped,
+        // they are a group — and the group is centred, because a column of
+        // three is not eight rows with five missing.
+        let apart = if count > 1 {
+            (room / (count - 1)).min(PITCH)
+        } else {
+            0
+        };
+        let first = MARGIN + (room - apart * (count - 1)) / 2;
+        Self { at, apart, first }
+    }
+
+    /// Where the `index`th cell's top edge is.
+    fn top(self, index: usize) -> i32 {
+        self.first + i32::try_from(index).unwrap_or(0) * self.apart
+    }
+
+    /// Draws one cell: its frame, the box its picture will stand in, its name,
+    /// and the knot a wire attaches to.
+    fn cell(self, screen: &mut Screen, index: usize, name: &'static str, side: Side) {
+        let top = self.top(index);
+        let frame = Band::new(self.at, top, CELL_ACROSS, CELL_DEEP);
+        screen.frame(frame, Ink::Solid);
+        // Where the library's own picture of this source or destination will
+        // go: seven dots by seven, which is the cell this display writes a
+        // character in. Dotted, because an empty solid box is a box and a
+        // dotted one is a box waiting for something — and nothing is drawn in
+        // it, because a picture of `LFO 1` is a fact about the instrument and
+        // one invented here would be this window making one up. Asked for in
+        // deepmind-midi#40.
+        screen.frame(
+            Band::new(self.at + 2, top + 2, PICTURE, PICTURE),
+            Ink::Dotted,
+        );
+        let written: String = name
+            .chars()
+            .take(usize::try_from(LETTERS).unwrap_or(0))
+            .collect();
+        screen.write(
+            self.at + 2 + PICTURE + GUTTER,
+            top + 3,
+            &written,
+            Size::Small,
+        );
+        // The knot: a blob on the edge the wire leaves or arrives at, so that
+        // three wires out of one source are visibly three wires out of one
+        // source rather than three lines that happen to converge.
+        let (x, y) = self.knot(index);
+        let out = match side {
+            Side::From => 0,
+            Side::To => -(KNOT - 1),
+        };
+        screen.fill(Band::new(x + out, y - KNOT / 2, KNOT, KNOT));
+    }
+
+    /// Where a wire attaches to the `index`th cell.
+    fn knot(self, index: usize) -> (i32, i32) {
+        let x = match self.at {
+            // The left-hand column's wires leave its right-hand edge; the
+            // right-hand column's arrive at its left.
+            at if at == MARGIN => at + CELL_ACROSS - 1,
+            at => at,
+        };
+        (x, self.top(index) + CELL_DEEP / 2)
+    }
+}
+
+/// Draws one wire between two knots, down the `lane`th track of the gap.
+///
+/// Flat out of the source, down a track of its own, flat into the destination,
+/// with the corners taken off. Not a line between two points and not an ease
+/// across the gap: the glass is as deep as eight rows of controls and the gap
+/// is a fifth of that across, so anything drawn as a single sweep between two
+/// distant nodes comes out as a near-vertical scratch that could have started
+/// anywhere.
+///
+/// A track each, so that two wires down the same part of the glass are two
+/// wires rather than one heavier one — which is the whole question somebody
+/// looks at a patch bay to answer.
+fn bend(screen: &mut Screen, from: (i32, i32), to: (i32, i32), lane: i32) {
+    let (x, y) = from;
+    let (across, down) = to;
+    let track = x + TURN + lane * LANE;
+    // Not far enough apart to take a corner off: two chamfers would meet and
+    // the wire would bulge where it should be straight.
+    let corner = if (down - y).abs() >= CHAMFER * 2 {
+        CHAMFER
+    } else {
+        0
+    };
+    let step = if down > y { corner } else { -corner };
+    screen.line((x, y), (track - corner, y), Ink::Solid);
+    screen.line((track - corner, y), (track, y + step), Ink::Solid);
+    screen.line((track, y + step), (track, down - step), Ink::Solid);
+    screen.line((track, down - step), (track + corner, down), Ink::Solid);
+    screen.line((track + corner, down), (across, down), Ink::Solid);
+}
+
+/// How far into the gap the first wire turns.
+const TURN: i32 = 6;
+
+/// How far apart two wires' tracks are.
+const LANE: i32 = 2;
+
+/// How much of each corner is taken off.
+///
+/// Three dots, which at this pitch is a corner that reads as turned rather than
+/// as mitred — the most a dot matrix can say about a radius.
+const CHAMFER: i32 = 3;
+
+/// How many characters of a name a cell has room for./// How many characters of a name a cell has room for.
 ///
 /// A display clips, which is what a display does and what this one is a picture
-/// of: the instrument's own screen prints these names abbreviated already, and
-/// the handful that run past ten characters lose their tail rather than push
-/// the two columns into each other. Ten is what fits beside eight rows of
-/// controls on the width the window opens at.
-const CELL: i32 = 10;
+/// of. Ten is what the instrument's own screen prints for all but a handful:
+/// `Pitch Bend`, `BreathCtrl` and `VCF Freq` are ten, nine and eight, and the
+/// few that run past lose their tail rather than push the two columns into each
+/// other.
+const LETTERS: i32 = 10;
 
-/// How much glass the lines have to cross.
+/// How wide the box a name's picture will stand in is, and how deep.
 ///
-/// Enough that a line from the top of one column to the bottom of the other is
-/// a line and not a corner. Below this the drawing is two columns of names with
-/// a smudge between them.
-const LINK: i32 = 16;
+/// Seven by seven, which is the cell this display writes a character in and the
+/// size asked of the library in deepmind-midi#40.
+const PICTURE: i32 = 7;
+
+/// How wide a cell is: its frame, the picture, the gap, and the name.
+const CELL_ACROSS: i32 = 2 + PICTURE + GUTTER + (LETTERS * glyphs::ADVANCE - glyphs::GAP) + GUTTER;
+
+/// How deep a cell is: its frame, and the picture with a dot of glass either
+/// side of it.
+const CELL_DEEP: i32 = PICTURE + 4;
+
+/// How much glass there is between a cell's picture, its name and its frame.
+const GUTTER: i32 = 3;
+
+/// How big the blob a wire attaches to is.
+const KNOT: i32 = 3;
+
+/// The most glass there is between two cells in a column, top to top.
+///
+/// A cell and the same again: close enough that eight of them read as one
+/// column, far enough that the wire leaving each is unmistakably its own.
+const PITCH: i32 = CELL_DEEP * 2;
+
+/// How much glass the wires have to cross.
+///
+/// Enough for eight tracks side by side with room to turn into and out of each:
+/// the first turns [`TURN`] dots in, they are [`LANE`] apart, and a corner
+/// takes [`CHAMFER`] off either end of the run.
+const LINK: i32 = TURN * 2 + LANE * 8 + CHAMFER * 2;
 
 /// How many dots across the patch bay is drawn.
 ///
-/// Two cells, the gap the lines cross, and the glass around it. A fixed count
-/// rather than whatever the band divides into, which is the one place in this
-/// window that rule is not followed: the eight rows beside it are as wide as
-/// eight rows of controls are, and glass that took the room left over would be
-/// glass whose width was decided by how long a destination's name is.
-const BAY: i32 = MARGIN * 2 + GUTTER * 2 + LINK + (CELL * (glyphs::ADVANCE) - glyphs::GAP) * 2;
+/// Two cells and the gap the wires cross. A fixed count rather than whatever
+/// the band divides into, which is the one place in this window that rule is
+/// not followed: the eight rows beside it are as wide as eight rows of controls
+/// are, and glass that took the room left over would be glass whose width was
+/// decided by how long a destination's name is.
+const BAY: i32 = MARGIN * 2 + CELL_ACROSS * 2 + LINK;
 
 /// How much glass there is around the drawing.
-const MARGIN: i32 = 2;
+const MARGIN: i32 = 3;
 
-/// How tall one line of writing is on it.
-const LINE: i32 = 7;
-
-/// How much glass there is between two lanes.
-const APART: i32 = 3;
-
-/// How much glass there is between a name and the line leaving it.
-const GUTTER: i32 = 2;
-
-/// Draws where a routing goes: the name, the search it is found in, and the
+/// Draws where a routing goes: the name, the search it is found in, and the/// Draws where a routing goes: the name, the search it is found in, and the
 /// press that asks the window instead.
 ///
 /// Two ways to answer one question, side by side, because they are good at
@@ -719,6 +913,158 @@ mod tests {
     use deepmind_midi::param::{Group, Kind, ParamId};
 
     use super::{moved, of, routed};
+
+    use super::{BAY, CELL_ACROSS, CELL_DEEP, Wire, deep, drawn};
+    use crate::Confidence;
+
+    /// The screen as characters, so that a picture made of dots can be looked
+    /// at in a test failure.
+    fn printed(screen: &crate::Screen) -> String {
+        (0..screen.rows())
+            .map(|row| {
+                (0..screen.columns())
+                    .map(|column| {
+                        if screen.is_inked(column, row) {
+                            '#'
+                        } else {
+                            '.'
+                        }
+                    })
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    fn wired(pairs: &[(&'static str, &'static str)]) -> Vec<Wire> {
+        pairs
+            .iter()
+            .map(|(from, to)| Wire {
+                from,
+                to,
+                claim: Confidence::Confirmed,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn the_glass_is_as_deep_as_the_rows_it_stands_beside() {
+        // The two are one drawing: a patch bay that stopped two rows short of
+        // the table it is a picture of would be a picture of something else.
+        let dots = deep(8);
+        let points = f32::from(u16::try_from(dots).expect("a count of dots")) * crate::PITCH;
+        let table = super::HEADING + 8.0 * super::ROW + 7.0 * super::DOWN;
+
+        assert!(
+            (table - points).abs() < crate::PITCH + 8.0,
+            "the glass is {points} points against a table of {table}"
+        );
+    }
+
+    #[test]
+    fn a_source_with_three_destinations_is_one_cell_and_three_wires() {
+        // The whole of why the bay exists. The table says it three times, once
+        // per row; the glass says it once, as a fan.
+        let screen = drawn(
+            &wired(&[
+                ("LFO 1", "VCF Freq"),
+                ("LFO 1", "VCA Level"),
+                ("LFO 1", "Pitch"),
+            ]),
+            deep(8),
+        );
+        let ink = |band: crate::Band| {
+            (0..band.height)
+                .flat_map(|row| (0..band.width).map(move |column| (column, row)))
+                .filter(|(column, row)| screen.is_inked(band.x + column, band.y + row))
+                .count()
+        };
+        // One cell on the left, three on the right, and the glass between them
+        // carrying three wires rather than one.
+        let gap = crate::Band::new(
+            super::MARGIN + CELL_ACROSS,
+            0,
+            BAY - super::MARGIN * 2 - CELL_ACROSS * 2,
+            screen.rows(),
+        );
+        assert!(
+            ink(gap) > 0,
+            "nothing crosses the glass between the columns:\n{}",
+            printed(&screen)
+        );
+        // The one source sits in the middle of its column rather than at the
+        // top, because a column of one is not the top of a list.
+        let middle = screen.rows() / 2;
+        assert!(
+            (0..CELL_DEEP).any(|row| screen.is_inked(super::MARGIN, middle - CELL_DEEP / 2 + row)),
+            "the lone source is not in the middle:\n{}",
+            printed(&screen)
+        );
+    }
+
+    #[test]
+    fn a_wire_leaves_flat_arrives_flat_and_runs_down_a_track_of_its_own() {
+        // Not a line between two points. The glass is as deep as eight rows of
+        // controls and the gap is a fifth of that across, so a single sweep
+        // between two distant nodes comes out as a near-vertical scratch that
+        // could have started anywhere. Flat out, down a track, flat in — and a
+        // track each, so that two wires down the same part of the glass are two
+        // wires rather than one heavier one.
+        let dots = deep(8);
+        // One source and four destinations, so that the two wires under test
+        // are the ones furthest apart and their vertical runs are long enough
+        // to tell from a corner.
+        let screen = drawn(
+            &wired(&[("A", "B"), ("A", "C"), ("A", "D"), ("A", "E")]),
+            dots,
+        );
+        let left = super::Column::new(super::MARGIN, dots, 1);
+        let right = super::Column::new(BAY - super::MARGIN - CELL_ACROSS, dots, 4);
+        let (x, y) = left.knot(0);
+
+        // Flat until the corner, which is where it is allowed to start turning.
+        let flat = super::TURN - super::CHAMFER;
+        for step in 0..=flat {
+            assert!(
+                screen.is_inked(x + step, y),
+                "the wire is already falling {step} dots out of its source:\n{}",
+                printed(&screen)
+            );
+        }
+        for index in 0..4 {
+            let (to, row) = right.knot(index);
+            for step in 0..=flat {
+                assert!(
+                    screen.is_inked(to - step, row),
+                    "the wire is still falling {step} dots short of its destination:\n{}",
+                    printed(&screen)
+                );
+            }
+        }
+        // And each one turns down a column of its own rather than sharing one.
+        let runs = |at: i32| {
+            (0..screen.rows())
+                .filter(|row| screen.is_inked(at, *row))
+                .count()
+        };
+        // The first and the last, which are the two furthest from the source
+        // and so the two with a run long enough to tell from a corner.
+        for lane in [0, 3] {
+            let track = x + super::TURN + lane * super::LANE;
+            assert!(
+                runs(track) > usize::try_from(super::PITCH).unwrap_or(0),
+                "nothing runs down the track at {track}:\n{}",
+                printed(&screen)
+            );
+        }
+    }
+
+    #[test]
+    fn nothing_is_drawn_for_a_matrix_nobody_has_wired() {
+        // The instrument ships with all eight sitting on `Off`, and eight lines
+        // from `Off` to `Off` is a picture of nothing drawn eight times.
+        assert!(drawn(&[], deep(8)).is_blank());
+    }
 
     #[test]
     fn one_group_is_a_matrix_and_the_rest_are_racks() {

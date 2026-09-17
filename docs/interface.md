@@ -717,9 +717,8 @@ Mod 1   [ LFO 1        v]  ->  [ VCF Freq      ] [map]    [======|========]
 
 ### The patch bay
 
-Beside the eight rows, on the instrument's own glass: the sources written down
-one side, the destinations down the other, and a line for every routing between
-them.
+Beside the eight rows, on the instrument's own glass: the sources down one side,
+the destinations down the other, and a wire for every routing between them.
 
 It is the one thing the table cannot show. Eight rows read one sentence each,
 and what somebody wants to know about a modulation matrix is the *shape* of it —
@@ -728,21 +727,50 @@ filter corner, that the aftertouch goes nowhere. Reading that off eight rows
 means holding eight sentences in your head at once; the glass is the same eight
 facts arranged so that the shape is the picture.
 
-Only the routings the patch has actually wired are drawn. The instrument ships
-with all eight sitting on `Off`, and eight lines from `Off` to `Off` is a
-picture of nothing drawn eight times. The names are cut to what a cell holds,
-which is what a display does and what this one is a picture of.
+**The glass is as deep as the rows it stands beside**, and the two are locked
+together by one number rather than by two somebody has to keep in step: a
+routing's row is a fixed height whatever is in it, and the glass is that height
+eight times over with the heading on top. A patch bay that stopped two rows
+short of the table it is a picture of would be a picture of something else.
 
-Every line is solid. The ink a line is laid down in distinguishes one line from
+**A source or a destination is a cell, and every cell is the same cell.** A thin
+frame, a seven-by-seven box for its picture, and its name — so that the two
+columns read as two columns of the same thing rather than as words at different
+lengths in roughly the right places. A wire attaches to a knot on the cell's
+edge, which is what makes three wires out of one source visibly three wires out
+of one source rather than three lines that happen to converge.
+
+**A wire leaves flat, turns down a track of its own, and arrives flat.** Not a
+line between two points: the glass is as deep as eight rows of controls and the
+gap the wires cross is a fifth of that across, so anything drawn as a single
+sweep between two distant nodes comes out as a near-vertical scratch that could
+have started anywhere. A track each, because two wires down the same part of the
+glass have to be two wires and not one heavier one. The corners are taken off by
+three dots, which at this pitch is the most a dot matrix can say about a radius.
+
+The cells are spread down the glass as far as it allows, **up to a limit**, and
+the group is centred. Three sources spread over the whole of a glass that deep
+are three cells in the corners of an empty screen; capped, they are a column,
+and a column of three is not eight rows with five missing.
+
+Only the routings the patch has actually wired are drawn. The instrument ships
+with all eight sitting on `Off`, and eight wires from `Off` to `Off` is a
+picture of nothing drawn eight times. The names are cut to what a cell holds,
+which is what a display does and what this one is a picture of; ten characters
+is what the instrument's own screen prints for all but a handful.
+
+Every wire is solid. The ink a line is laid down in distinguishes one line from
 the next and never says how much of anything there is — that rule is written
 down in `lcd.rs` and this is the first drawing that had a reason to want to
 break it. How much is the depth, and the depth is the fader beside the glass.
 
-**What is not drawn yet is a 7 by 7 cell for each name**: an LFO's wave, an
-envelope's corner, a wheel, a filter's knee, in place of the two columns of
-abbreviations. Those are the library's to publish for the same reason the effect
-families' marks were — a picture of `LFO 1` is a fact about the instrument, and
-one drawn here would be this window making one up. Asked for in
+**The picture in each cell is a dotted box and nothing in it.** Seven dots by
+seven, which is the cell this display writes a character in: an LFO's wave, an
+envelope's corner, a wheel, a filter's knee. Those are the library's to publish
+for the same reason the effect families' marks were — a picture of `LFO 1` is a
+fact about the instrument, and one drawn here would be this window making one
+up. So the box is drawn and left empty, which says a picture is coming without
+inventing one. Asked for in
 [deepmind-midi#40](https://github.com/MysteriousWolf/deepmind-midi/issues/40).
 
   Nothing edits the sound while it is up. The sections still open, the panel
@@ -1286,6 +1314,42 @@ are still on the instrument:
 All of it comes from `materials()`, which means restyling the chrome is the same
 one file as restyling a fader.
 
+### The foot of the window is the status bar
+
+Three things are true of the window rather than of the page in it: what is under
+the pointer, what can be asked of the instrument, and which way up the displays
+are. They were on three separate rows under the header — the most expensive room
+on the screen, spent on two presses somebody uses twice a session and a sentence
+the instrument's own display was already printing.
+
+They are along the foot now, with the presses at the right-hand end. `Who` asks
+the instrument what it is, which is what settles the firmware every value table
+in the window is read from. `Read` asks it for its edit buffer, which is what
+turns this window's claims into the synthesizer's facts. And the third is the
+display.
+
+**The display press is a display.** `Negative display` said which way up they
+would be, in a sentence, on a row of sentences. A screen the size of a character
+showing itself the way it is about to be says the same thing without being read,
+and says it in the one material the press is about. It is the only display in
+the window that does not take its glass from the theme, because the whole point
+of it is that it is the other way round.
+
+### What is known about the instrument is behind one press
+
+Who answered, what firmware, what voice version, what channel, what the last
+thing to happen was, and whatever went wrong. Two rows of sentences under the
+header, on every page, whether or not anybody was asking — four facts about a
+cable that change perhaps twice a session.
+
+It is one `i` beside the port picker now, and what it says opens under the
+pointer: a name, a number, a number and a number lined up down a column, which
+is what somebody comparing them against the back of an instrument is doing.
+Where nobody has answered it says so, and says what this window is assuming
+meanwhile — because the firmware is never *not* an answer, it is either the
+instrument's or this window's, and which of those it is is the whole distinction
+this editor turns on.
+
 ### The header is the case
 
 `docs/logo.svg` and `docs/banner.svg` are the same drawing at two widths: a
@@ -1311,13 +1375,26 @@ is now the only part that could not have. So `logo.rs` is the file's own numbers
 against a 128-unit box, in `materials()`, and the wood is two more materials
 beside the metal and the glass rather than two colours picked to look like it.
 
-**The slices survive on the mark and not on the name.** Against the file's box
-the eight run from 1 unit to 3.6, which at a forty-point mark is a third of a
-point to one and a third — thin at the top of the run and solid at the bottom,
-which is what they are on the mark itself. The same proportions against a
-22-point word are every slice under a point, and a line under a point across a
-word is a smudge rather than a slice. The mark is not improved by being
-approximated, so the name is the metal without them.
+**The slices are on the mark and on the name.** The banner cuts five of them
+through the word and eight through the mark's fader caps, and the lines *are*
+the mark: the name without them is a word in a bold sans. They are drawn over
+the word rather than through it — a slice is the panel showing between two
+pieces of metal, the word is standing on the panel, and drawing the panel over
+the word is the same picture by a shorter route than a mask would be.
+
+They are placed in **ems of the face** rather than in points, off the file's own
+box: the banner's name has an ascender height of 56.65 units and its five cuts
+fall between 25.2 and 5.0 units above the baseline, which at the face's ascender
+of 0.905 em is 0.403 em above the baseline, 0.081 em apart, thickening from a
+sixtieth of an em to a twentieth. So the name can be set at any size and get the
+mark's own proportions.
+
+At the twenty-two points the name used to be set at, every one of those five was
+under a point, and a line under a point across a word is a smudge rather than a
+slice. So the name is set at thirty-four, where they run from about six tenths
+of a point to a point and two thirds — the banner's own range. The mark is not
+improved by being approximated; it is improved by being given the room it
+needs.
 
 ## Movement
 
