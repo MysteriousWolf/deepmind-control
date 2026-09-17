@@ -148,6 +148,7 @@
 //! [`iced_core::Theme`] is what both of them have.
 
 mod badge;
+mod case;
 mod chain;
 mod confidence;
 mod effect;

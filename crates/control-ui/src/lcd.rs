@@ -467,6 +467,25 @@ impl Screen {
         }
     }
 
+    /// Puts out every dot of a band.
+    ///
+    /// What a caller wants before it writes something that has to be read
+    /// whatever is already there: a label on a drawing is the one thing on a
+    /// screen that cannot be *mixed* with what it stands on, because half a
+    /// letter and half a curve is neither.
+    pub fn wipe(&mut self, band: Band) {
+        for row in 0..band.height {
+            for column in 0..band.width {
+                let (x, y) = (band.x + column, band.y + row);
+                if let Some(index) = self.index(x, y)
+                    && let Some(dot) = self.inked.get_mut(index)
+                {
+                    *dot = false;
+                }
+            }
+        }
+    }
+
     /// Lights every other dot of a band.
     ///
     /// What a screen with one colour of light does instead of a grey: near

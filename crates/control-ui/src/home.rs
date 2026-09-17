@@ -64,7 +64,7 @@ use deepmind_midi::param::{Group, ParamId};
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::alignment::{Horizontal, Vertical};
 use iced_core::{Background, Border, Font, Length, Theme, text::Renderer as TextRenderer};
-use iced_widget::{Space, button, column, container, responsive, row, text};
+use iced_widget::{Space, button, column, container, mouse_area, responsive, row, text};
 
 use crate::envelope;
 use crate::lcd::{self, Screen};
@@ -497,6 +497,14 @@ pub(crate) struct Plate {
     lamps: Option<Control>,
     /// The controls the hardware puts in the row of buttons under the faders.
     switches: Vec<Control>,
+    /// What the specification records about this plate beyond its controls.
+    ///
+    /// `front::Section::note`: which fader of the instrument's is missing from
+    /// this section and why, or which of three envelopes the shared faders
+    /// address. A sentence about the *panel* rather than about a parameter, so
+    /// it is said where this window says what is under the pointer rather than
+    /// printed on a plate that has no room for it.
+    note: Option<&'static str>,
 }
 
 impl Plate {
@@ -705,6 +713,7 @@ fn whole(section: &'static Section, name: &str, controls: &[&'static PanelContro
         faders: of(PanelShape::Fader),
         lamps: of(PanelShape::Lamps).first().copied(),
         switches: of(PanelShape::Button),
+        note: section.note(),
     }
 }
 
@@ -799,6 +808,10 @@ fn envelopes(section: &'static Section) -> Option<Vec<Plate>> {
                     .collect(),
                 lamps: None,
                 switches: Vec::new(),
+                // The section's own note, which on this one is what the
+                // unfolding is *about*: the instrument multiplexes three
+                // envelopes onto four faders and says so here.
+                note: section.note(),
             })
             .collect(),
     )
@@ -963,7 +976,7 @@ where
     buttons = buttons.push(way("EDIT", plate.opens, scale));
     container(
         column![
-            heading(plate.name(), scale),
+            heading(plate.name(), plate.note, scale),
             glass(patch, plate, firmware, scale, width),
             controls,
             buttons
@@ -1023,11 +1036,19 @@ where
 /// Caps on a darker band across the top of the plate, which is how the
 /// instrument prints every one of them, and how a person finds `VCF` without
 /// reading the whole panel.
-fn heading<'a, Renderer>(name: &'a str, scale: Scale) -> Element<'a, Renderer>
+/// What the library records about the plate beyond its controls is said in the
+/// footer while the pointer is on this bar — which is where this window already
+/// says what is under the pointer, and the only place a sentence about a
+/// *plate* can go without being printed on every plate that has one.
+fn heading<'a, Renderer>(
+    name: &'a str,
+    note: Option<&'static str>,
+    scale: Scale,
+) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
-    container(
+    let bar = container(
         text(name)
             .size(scale.of(11.0))
             .font(printed())
@@ -1055,8 +1076,14 @@ where
             },
             ..container::Style::default()
         }
-    })
-    .into()
+    });
+    match note {
+        Some(note) => mouse_area(bar)
+            .on_enter(Message::Hinted(Some(note)))
+            .on_exit(Message::Hinted(None))
+            .into(),
+        None => bar.into(),
+    }
 }
 
 /// Draws one control of the panel: what is printed over it, it, and its value.

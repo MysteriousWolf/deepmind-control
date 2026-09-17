@@ -95,6 +95,14 @@ the arrangement changes and what a control *is* does not.
   — the display was cut in *before* the voicing on the hardware, and it still
   is.
 
+- **What the library records about a plate is said in the footer.**
+  `front::Section::note` is the specification's own sentence about a section
+  beyond its controls — which fader of the instrument's is missing from this
+  plate and why, which of three envelopes the shared faders address when the
+  instrument is switched on. Three of the nine sections carry one. It is a
+  sentence about a *plate*, so it goes where this window already says what is
+  under the pointer rather than onto every plate that has one: the name bar is
+  what is pointed at, and the footer is where it answers.
 - **The screen is the application's, and the panel leaves a hole for it.** What a
   display says is which sound is on it, what backs that, and what last happened
   — none of which the view layer knows, and all of which a plugin answers
@@ -656,6 +664,15 @@ under, because they are the library's:
   weakest of everything it read, and a scene with anything unread is not drawn
   at all: a filter assembled from four values the synthesizer described and one
   this window invented is a picture of no filter.
+
+**A letter on a drawing is knocked out of a block.** The four segment initials
+stand along the foot of an envelope's glass, which is the line its sustain runs
+along: written in the same dots as the curve, `A` and `D` are four dots of a
+dither. So each one is drawn in reverse — a solid block with the letter left
+unlit inside it, and a ring of dark glass around the block so that it has an
+edge where the curve is densest. It is the same thing this instrument's display
+does to say a line is a heading, and it is legible whatever the curve is doing
+behind it.
 
 **A wave is drawn about the line it swings around**, and one turn of it is
 enough. The level is `Generator::rest`, which 26.5 publishes
@@ -1273,6 +1290,48 @@ second row readable down against the first.
   It says which family without being read, which is what a mark is for, and it
   never competes with a word because it is barely there. It also lands exactly
   where a case that is deeper than its algorithm needs has nothing on it.
+
+  **And it meets the case the way the case's own material would let it.** A mark
+  on a worn panel is *stamped into* it, one on a modern face is *raised off* it,
+  and one on a case that is neither is printed flat — which is three passes of
+  the same nine strokes a few dots apart, the light edge and the shadow either
+  side of the ink, in the order the relief calls for. A boss is lit along its
+  top-left edge and casts below-right, because that is the light every cap,
+  plate and display in this window is already drawn under; an indent is the same
+  two edges the other way round.
+- **A case is finished the way the unit it is a picture of would be.**
+  `Algorithm::characters` says what kind of thing an effect is beside what it
+  does — vintage, modelled, stereo, dual, multiband, combined, lo-fi, modulated,
+  dynamic — read off the specification rather than matched on a name. Two of
+  those are facts about the *box* rather than about the signal, and they are the
+  two a surface can carry:
+
+  - **vintage** is *worn*: a coarse, uneven grain with the odd long rub across
+    it, and corners darker than the middle the way a panel that has been handled
+    for thirty years is;
+  - **lo-fi** is *gritty*: a fine, dense, harder speckle, which is what dust on
+    a converter looks like;
+  - everything else is *brushed*, which is still not flat — a few dozen
+    hairlines the long way, because four large blocks of one colour on a page is
+    the one way a case measured off a photograph gives itself away.
+
+  A Tel-Ray delay is both vintage and lo-fi, and the box is the older fact, so
+  vintage decides. The rest of the characters leave the face alone: a stereo
+  chorus is a rack unit like any other, and a surface that changed for every tag
+  would be a page of materials that mean nothing.
+
+  Every mark on a face is laid down from a counter run through a hash seeded by
+  the algorithm's *name* — so the same algorithm is the same unit on every
+  frame, two engines running it are two of the same unit, and a firmware that
+  renumbers the 35 does not re-scuff anything. And it is light and shadow rather
+  than ink: a scuff is what a room does to a surface, and it does the same thing
+  to a cream panel as to a black one.
+
+  What this does **not** do is wear the unit's own paint. The library publishes
+  `Panel::face` and `Panel::cap` as well as the chassis and the accent, and
+  those two are the ones this page declines: four measured liveries side by side
+  are the collage it has always refused to be, and a surface can say what kind
+  of unit it is without it.
 - **An effect that is out of circuit says so, and 32 of the 35 cannot.**
   `FX n Type` is 35 effects with no `Off` in the table, and what takes effects
   out is the `Bypass` mode, which is the whole block of four. Three algorithms

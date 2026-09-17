@@ -107,14 +107,24 @@ const HERO_WEIGHT: f32 = 0.38;
 ///
 /// It says which family without being read, which is what a mark is for, and it
 /// never competes with a word because it is barely there.
+/// # Stamped, raised, or neither
+///
+/// [`Relief`] is how the mark meets the case it is on, and it is read off what
+/// kind of unit the case is: a mark on a worn panel is *stamped into* it, one
+/// on a modern face is *raised off* it, and one on a case that is neither is
+/// printed flat. A stamping is two edges — the light that catches on one side
+/// and the shadow that falls on the other — so a relieved hero is the same nine
+/// strokes laid down three times, a dot apart, and which of the two edges comes
+/// first is the whole difference between an indent and a boss.
 #[must_use]
 pub(crate) fn hero<'a, Renderer, Ink>(
     mark: &'static Mark,
+    relief: Relief,
     ink: Ink,
 ) -> Element<'a, crate::Message, Theme, Renderer>
 where
     Renderer: iced_core::Renderer + 'a,
-    Ink: Fn(&Theme) -> Color + 'a,
+    Ink: Fn(&Theme) -> Inks + 'a,
 {
     Element::new(Drawing {
         mark,
@@ -122,8 +132,56 @@ where
         ink,
         fits: Fits::of(mark),
         anchored: true,
+        relief,
     })
 }
+
+/// The three inks a relieved mark is laid down in: the light on its edge, the
+/// shadow off it, and the body of the mark itself.
+pub(crate) type Inks = (Color, Color, Color);
+
+/// How a mark meets the surface it is on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum Relief {
+    /// Printed on it: one pass, in the ink.
+    #[default]
+    Flat,
+    /// Standing off it: lit along its top-left edge and casting below-right,
+    /// which is what a boss does under a light that comes from the top left —
+    /// the same light every cap, plate and display in this window is drawn
+    /// under.
+    Raised,
+    /// Stamped into it: the same two edges the other way round.
+    Sunk,
+}
+
+impl Relief {
+    /// Returns the two edges this relief draws, as (offset, which ink), in the
+    /// order they are laid down.
+    ///
+    /// Behind the body of the mark in both cases, so the ink is what a reader
+    /// sees and the edges are what they feel.
+    const fn edges(self) -> &'static [(f32, f32)] {
+        match self {
+            // (across and down, and which way the ink goes: -1 lit, 1 shadow)
+            Self::Flat => &[],
+            Self::Raised => &[(-1.0, -1.0), (1.0, 1.0)],
+            Self::Sunk => &[(-1.0, 1.0), (1.0, -1.0)],
+        }
+    }
+}
+
+/// How far an edge of a relieved mark stands from the mark itself, as a share
+/// of the shorter side of the room it is drawn in.
+///
+/// Small: a stamping in a panel is a hundredth of an inch deep, and what says
+/// so at this size is a line of light a few dots off the line it belongs to.
+/// Any further and the three passes read as three marks rather than as one with
+/// a depth.
+const RELIEF: f32 = 0.013;
+
+/// The least that is, in points, because a hundredth of nothing is nothing.
+const RELIEF_LEAST: f32 = 1.0;
 
 /// The mark itself: its strokes, the room they are drawn in, and the ink.
 #[derive(Debug)]
@@ -138,6 +196,8 @@ struct Drawing<Ink> {
     /// hangs off the far corner — so `at` is answering a different question and
     /// `size` is a different answer.
     anchored: bool,
+    /// How the mark meets the surface it is on.
+    relief: Relief,
     /// What of the library's unit box this mark's own strokes reach.
     ///
     /// Measured once, when the mark is built, because it is a property of the
@@ -344,7 +404,7 @@ impl<Ink> Drawing<Ink> {
 impl<Message, Renderer, Ink> Widget<Message, Theme, Renderer> for Drawing<Ink>
 where
     Renderer: iced_core::Renderer,
-    Ink: Fn(&Theme) -> Color,
+    Ink: Fn(&Theme) -> Inks,
 {
     fn size(&self) -> Size<Length> {
         if self.anchored {
@@ -376,10 +436,21 @@ where
         _viewport: &Rectangle,
     ) {
         let bounds = layout.bounds();
-        let ink = (self.ink)(theme);
+        let (lit, shadow, ink) = (self.ink)(theme);
+        let off = (bounds.width.min(bounds.height) * RELIEF).max(RELIEF_LEAST);
         // A hero runs off two edges of the case, so what falls outside is cut
         // rather than drawn over the plate beside it.
         renderer.with_layer(bounds, |renderer| {
+            // The two edges first and the mark over them, so that what a
+            // reader sees is the mark and what they feel is the light on it.
+            for (step, which) in self.relief.edges().iter().copied() {
+                let edge = Rectangle {
+                    x: bounds.x + step * off,
+                    y: bounds.y + step * off,
+                    ..bounds
+                };
+                self.strokes(renderer, edge, if which < 0.0 { lit } else { shadow });
+            }
             self.strokes(renderer, bounds, ink);
         });
     }
@@ -525,13 +596,15 @@ mod tests {
     };
 
     /// One mark, ready to be asked where its points land.
-    fn drawn(mark: &'static deepmind_midi::effect::Mark) -> Drawing<fn(&Theme) -> Color> {
+    fn drawn(mark: &'static deepmind_midi::effect::Mark) -> Drawing<fn(&Theme) -> super::Inks> {
         Drawing {
             mark,
             side: ROOM.width,
-            ink: (|_: &Theme| Color::BLACK) as fn(&Theme) -> Color,
+            ink: (|_: &Theme| (Color::BLACK, Color::BLACK, Color::BLACK))
+                as fn(&Theme) -> super::Inks,
             fits: Fits::of(mark),
             anchored: false,
+            relief: super::Relief::Flat,
         }
     }
 

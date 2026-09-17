@@ -448,12 +448,27 @@ const APART: i32 = TICK + 1;
 /// A letter that would land on the one before it is dropped. Two boundaries
 /// share a position when a time byte is zero — an attack of nothing begins and
 /// ends at the left edge — and a screen cannot print two letters in one column.
+///
+/// # Knocked out rather than written on
+///
+/// A letter printed in the same dots as the curve, on a line the curve can
+/// reach, is four dots of writing in a drawing made of dots: the sustain runs
+/// along the foot of the band on most envelopes, straight through where the
+/// letters stand. So each one is drawn *in reverse* — a solid block of glass
+/// with the letter left unlit inside it — which is how this instrument's own
+/// display says a line is a heading, and it is legible whatever the curve is
+/// doing behind it.
+///
+/// The block is a dot of glass wider and taller than the letter on every side,
+/// because a letter inverted against its own edges is a letter whose stem
+/// touches the block's and reads as a smudge.
 fn segments(screen: &mut Screen, band: Band, shape: &Generator) {
     let tall = Screen::height_of(Size::Small);
-    if band.height < tall * 2 {
+    let block = tall + QUIET * 2;
+    if band.height < block + tall {
         return;
     }
-    let row = band.y + band.height - tall;
+    let row = band.y + band.height - block + QUIET;
     let mut taken = band.x;
     for mark in shape.marks() {
         let MarkKind::Segment(segment) = mark.kind() else {
@@ -465,15 +480,32 @@ fn segments(screen: &mut Screen, band: Band, shape: &Generator) {
             Segment::Sustain => "S",
             Segment::Release => "R",
         };
-        let at = band.column(mark.at()) + 1;
+        let at = band.column(mark.at()) + 1 + QUIET;
         let wide = Screen::width_of(letter, Size::Small);
-        if at < taken || at + wide > band.x + band.width {
+        if at - QUIET < taken || at + wide + QUIET > band.x + band.width {
             continue;
         }
+        let block = Band::new(at - QUIET, row - QUIET, wide + QUIET * 2, tall + QUIET * 2);
+        // Cleared first, and cleared wider than the block: what is inverted
+        // afterwards would otherwise come out as holes in the letter — an
+        // envelope's fill is a dither and half a dither inside a letter is
+        // neither — and a solid block standing directly on that dither is a
+        // block with no edge. The ring of dark glass round it is the edge.
+        screen.wipe(Band::new(
+            block.x - QUIET,
+            block.y - QUIET,
+            block.width + QUIET * 2,
+            block.height + QUIET * 2,
+        ));
         screen.write(at, row, letter, Size::Small);
-        taken = at + wide + 1;
+        screen.invert(block);
+        taken = at + wide + QUIET * 3;
     }
 }
+
+/// How much glass there is around a letter inside the block it is knocked out
+/// of.
+const QUIET: i32 = 1;
 
 /// Draws where the low-pass corner is and what is happening at it.
 ///
@@ -1332,6 +1364,35 @@ mod tests {
         assert!(patch.edit(ParamId::VcfFrequency, 0));
         assert_eq!(travel(&patch, ParamId::VcfFrequency), Some(0.0));
         assert_eq!(travel(&Patch::new(), ParamId::VcfFrequency), None);
+    }
+
+    #[test]
+    fn a_segment_letter_is_a_block_with_a_hole_in_it_whatever_is_behind_it() {
+        // The one thing on an envelope's glass that is *writing* rather than
+        // drawing, on the line the curve is most likely to be running along.
+        // Written in the same dots as the curve it stands on, it is four dots
+        // of a dither; knocked out of a block with a ring of dark glass round
+        // it, it is legible over anything.
+        use crate::lcd::Screen;
+
+        let mut screen = Screen::new(120, 30);
+        let band = screen.all();
+        // The worst case: every dot behind the letters already lit.
+        screen.fill(band);
+        let program = Program::new(ProtocolVersion::V7);
+        let shape =
+            deepmind_midi::generator::envelope(&program, deepmind_midi::generator::EnvelopeId::Vca);
+        super::segments(&mut screen, band, &shape);
+
+        // Somewhere along the foot there is now a hole: a letter's own dots,
+        // put out inside a block that is otherwise lit.
+        let foot = band.height - crate::Screen::height_of(crate::Size::Small) - 1;
+        let holes = (0..band.width)
+            .flat_map(|column| (foot..band.height).map(move |row| (column, row)))
+            .filter(|(column, row)| !screen.is_inked(*column, *row))
+            .count();
+
+        assert!(holes > 0, "nothing was knocked out of the foot");
     }
 
     #[test]

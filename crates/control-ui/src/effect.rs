@@ -173,18 +173,16 @@ use deepmind_midi::effect::{
 use deepmind_midi::param::{DEFAULT_FIRMWARE, Group, ParamId};
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::alignment::{Horizontal, Vertical};
-use iced_core::gradient::Linear;
-use iced_core::{
-    Background, Border, Color, Font, Gradient, Length, Radians, Theme,
-    text::Renderer as TextRenderer,
-};
+use iced_core::{Background, Border, Color, Font, Length, Theme, text::Renderer as TextRenderer};
 use iced_widget::{Space, column, container, pick_list, row, stack, text};
 
+use crate::case::{self, Finish};
 use crate::chain;
 use crate::fader;
 use crate::lcd::{self, Ink, Screen, Size};
 use crate::mapping::Sent;
 use crate::mark;
+use crate::mark::Relief;
 use crate::panel::{self, Message, Room, control, lit_rather_than_listed, modulated, shown};
 use crate::style::{self, materials, reading as reading_face};
 use crate::{Confidence, Element, Patch, tint};
@@ -391,41 +389,65 @@ where
     let Some(algorithm) = algorithm(patch, engine, firmware) else {
         return Space::new().into();
     };
-    mark::hero(algorithm.mark(), |theme: &Theme| {
+    // Stamped into the face of an old unit, raised off a modern one, and left
+    // flat where the case is neither — see [`Relief`](crate::mark::Relief). The
+    // two inks are the light and the shadow a stamping catches, which is what
+    // makes an indent an indent rather than a second colour.
+    let relief = match Finish::of(algorithm) {
+        Finish::Worn => Relief::Sunk,
+        Finish::Gritty => Relief::Flat,
+        Finish::Brushed => Relief::Raised,
+    };
+    mark::hero(algorithm.mark(), relief, |theme: &Theme| {
         let material = materials(theme);
-        style::mix(material.plate, ink(theme, On::Face), HERO_INK)
+        (
+            style::mix(material.plate, Color::WHITE, HERO_RELIEF),
+            style::mix(material.plate, Color::BLACK, HERO_RELIEF),
+            style::mix(material.plate, ink(theme, On::Face), HERO_INK),
+        )
     })
 }
 
-/// Draws the grain of the case an engine is in.
+/// Draws the finish of the plate an engine's controls stand on.
 ///
-/// A rack unit's face is brushed rather than painted flat, and the one thing a
-/// window can do about that at this size is put a few lines of light across it.
-/// Faint enough that it reads as a surface rather than as stripes: it is there
-/// to stop four large blocks of flat colour looking like four large blocks of
-/// flat colour, which is the one way a case measured off a photograph still
-/// gives itself away.
-fn grain<'a, Renderer>(figure: Option<(Colour, Colour)>) -> Element<'a, Renderer>
+/// The same material as the case around it, in the window's own plate colour
+/// rather than in a fourth measured one: what an engine wears is its case and a
+/// hairline of its accent, because four measured liveries side by side are the
+/// collage this page has always refused to be. The library publishes
+/// `Panel::face` and `Panel::cap` as well, and those are the two this window
+/// declines — a surface can carry what kind of unit it is without wearing its
+/// paint.
+fn face<'a, Renderer>(algorithm: Option<&'static Algorithm>) -> Element<'a, Renderer>
 where
     Renderer: iced_core::Renderer + 'a,
 {
-    container(Space::new().width(Length::Fill).height(Length::Fill))
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .style(move |theme: &Theme| {
-            let case = chassis(theme, figure);
-            let lit = style::mix(case, ink(theme, On::Case(figure)), GRAIN_INK);
-            container::Style {
-                background: Some(Background::Gradient(Gradient::Linear(
-                    Linear::new(Radians(std::f32::consts::PI))
-                        .add_stop(0.0, lit)
-                        .add_stop(0.45, case)
-                        .add_stop(1.0, style::mix(case, lit, 0.6)),
-                ))),
-                ..container::Style::default()
-            }
-        })
-        .into()
+    let finish = algorithm.map(Finish::of).unwrap_or_default();
+    let seed = algorithm.map_or(0, |algorithm| case::seed_of(algorithm.name));
+    case::surface(finish, seed, |theme: &Theme| materials(theme).plate)
+}
+
+/// Draws the face of the case an engine is in.
+///
+/// A rack unit's face is brushed rather than painted flat, and what kind of
+/// unit it is decides how: `Algorithm::characters` says which of the 35 came in
+/// a box from before effects were digital and which one degrades what goes
+/// through it, and [`case`](crate::case) is the material that follows from
+/// that. The colour under it is the library's measurement; the finish is this
+/// window's, the same way the weight of a stroke and the pitch of a display's
+/// dots are.
+///
+/// `seed` is the algorithm's own number, so two engines running the same
+/// algorithm are two of the same unit rather than two differently scuffed ones.
+fn grain<'a, Renderer>(
+    algorithm: Option<&'static Algorithm>,
+    figure: Option<(Colour, Colour)>,
+) -> Element<'a, Renderer>
+where
+    Renderer: iced_core::Renderer + 'a,
+{
+    let finish = algorithm.map(Finish::of).unwrap_or_default();
+    let seed = algorithm.map_or(0, |algorithm| case::seed_of(algorithm.name));
+    case::surface(finish, seed, move |theme: &Theme| chassis(theme, figure))
 }
 
 /// How far the hero mark is carried from the case towards the case's own ink.
@@ -435,8 +457,14 @@ where
 /// whole difference between a mark under a panel and a picture behind one.
 const HERO_INK: f32 = 0.075;
 
-/// How far the grain is carried the same way, and how far apart its lines run.
-const GRAIN_INK: f32 = 0.05;
+/// How far the light and the shadow of a relieved hero are carried from the
+/// face.
+///
+/// Further than the flat ink, because a stamping is read from two edges that
+/// have to be told apart and a watermark is read as one shape. Still barely
+/// there: the test of a hero is that a word standing over it is no harder to
+/// read.
+const HERO_RELIEF: f32 = 0.17;
 
 /// How many dots across the picture of what an engine is doing is drawn.
 ///
@@ -1285,22 +1313,29 @@ where
     }
     // The family's mark, large and faint, under the grid rather than under the
     // case: the face plate the controls stand on is opaque, so a watermark
-    // behind that is a watermark nobody sees. See [`mark::hero`].
-    let drawn = container(stack![drawn].push_under(hero(patch, engine, firmware)))
-        .width(Length::Fill)
-        .padding(7)
-        .style(|theme: &Theme| {
-            let material = materials(theme);
-            container::Style {
-                background: Some(Background::Color(material.plate)),
-                border: Border {
-                    color: material.recess_edge,
-                    width: 1.0,
-                    radius: 2.into(),
-                },
-                ..container::Style::default()
-            }
-        });
+    // behind that is a watermark nobody sees. See [`mark::hero`]. And under the
+    // mark, the face's own finish — which is where most of a case's surface
+    // actually is, so a texture only on the frame round it is a texture nobody
+    // sees either.
+    let drawn = container(
+        stack![drawn]
+            .push_under(hero(patch, engine, firmware))
+            .push_under(face(algorithm(patch, engine, firmware))),
+    )
+    .width(Length::Fill)
+    .padding(7)
+    .style(|theme: &Theme| {
+        let material = materials(theme);
+        container::Style {
+            background: Some(Background::Color(material.plate)),
+            border: Border {
+                color: material.recess_edge,
+                width: 1.0,
+                radius: 2.into(),
+            },
+            ..container::Style::default()
+        }
+    });
     let body = column![header(patch, engine, firmware, moved, panel, sent)]
         .push(drawn)
         // The twelve under the library's own names, for an engine running an
@@ -1322,7 +1357,7 @@ where
     // size from its base and the base has to be what is actually on the case: a
     // grain is as tall as whatever it is behind, and a stack sized from one is
     // a case with no height at all.
-    container(stack![body].push_under(grain(figure_colours)))
+    container(stack![body].push_under(grain(algorithm(patch, engine, firmware), figure_colours)))
         .padding(6)
         .width(Length::Fill)
         .clip(true)
