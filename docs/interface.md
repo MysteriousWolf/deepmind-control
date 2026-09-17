@@ -682,13 +682,38 @@ Mod 1   [ LFO 1        v]  ->  [ VCF Freq      ] [map]    [======|========]
   is still the parameter's own value table, asked of the library for the
   firmware that answered, and a destination the library has no complete table
   for keeps whatever control the library says the parameter is.
-- **Or the routing is pointed at the window, and you take hold of what it should
-  move.** `map` is the press. While it is down, every control the matrix can
-  reach is outlined in the modulation colour — on the front panel, in all
-  fourteen racks, on all four effect engines — and everything it cannot reach is
-  covered by the panel it stands on until it is barely there. Lit *and* dimmed,
-  because forty faders with six outlined is a page somebody searches and the
-  same page with thirty-four faded is a page with six faders on it.
+- **Or the routing is mapped onto the window, and you take hold of what it
+  should move.** `map` is the press. While it is down, every control the matrix
+  can reach is lit — on the front panel, in all fourteen racks, on all four
+  effect engines — and everything it cannot reach is covered by the panel it
+  stands on until it is barely there. Lit *and* dimmed, because forty faders
+  with six outlined is a page somebody searches and the same page with
+  thirty-four faded is a page with six faders on it.
+
+  **Lit means lit, not outlined.** It was a hairline rectangle around the
+  control, which is a focus ring on a web page and is nothing at all on a piece
+  of equipment. A `DeepMind` says a press is on by lighting it from behind, so
+  that is what this does: the instrument's own cyan coming up through the panel,
+  brightest at the foot of the control where the light enters and falling away
+  across it, with the wall it comes past catching it hardest of all. That is the
+  same rule the display's glass is drawn under and the same rule a fader's track
+  is — every cut surface in this window is lit along the edge the light reaches.
+
+  **What is already there is drawn on the thing it is already on.** A control
+  another routing lands on carries a band up its own travel for each one, from
+  where the control sits to as far as that routing's depth can push it, and the
+  footer names them: `Mod 3 and Mod 5 already → here`. Somebody choosing where a
+  routing goes is choosing against the other seven, and a second routing onto
+  the same filter corner is a thing people do on purpose and a thing people do
+  by accident — the difference is whether they could see the first one. Which
+  routing a band belongs to is the footer's to say, because a bar on a fader
+  cannot carry a name.
+
+  How far a band reaches is **assumed**, the same assumption the drag makes:
+  full depth is taken to move a control over the whole of its range. So is which
+  way it swings — a routing from an LFO moves a control about where it sits and
+  one from an envelope rides up from it, and what a source does with a depth is
+  not published either. Both are in the open list rather than quietly correct.
 
   Nothing edits the sound while it is up. The sections still open, the panel
   still scrolls, the lists still say what they are showing, and the one thing a

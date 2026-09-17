@@ -183,6 +183,129 @@ impl Mapping {
     }
 }
 
+/// What one routing the patch already holds does to one control.
+///
+/// The other seven rows, carried to every control while the eighth is being
+/// mapped. Somebody choosing where a routing goes is choosing against what is
+/// already there — a second routing onto the same filter corner is a thing
+/// people do on purpose and a thing people do by accident, and the difference
+/// is whether they could see the first one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Reach {
+    /// The control it lands on.
+    at: ParamId,
+    /// What the library calls the routing that lands there: `Mod 3`.
+    label: &'static str,
+    /// The parameter that holds how much of it arrives.
+    ///
+    /// The parameter and not just its byte, because how far a depth reaches is
+    /// read against that depth's own range and centre — which is the library's
+    /// to say, the same as everywhere else in this window.
+    of: ParamId,
+    /// The byte that parameter holds.
+    depth: u8,
+}
+
+impl Reach {
+    /// A routing that lands on `at`, with `depth` in `of`.
+    pub(crate) const fn new(at: ParamId, label: &'static str, of: ParamId, depth: u8) -> Self {
+        Self {
+            at,
+            label,
+            of,
+            depth,
+        }
+    }
+
+    /// Returns the control this one lands on.
+    #[must_use]
+    pub const fn at(self) -> ParamId {
+        self.at
+    }
+
+    /// Returns what the library calls the routing.
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        self.label
+    }
+
+    /// Returns how far it can push a control sitting at `value`, as two
+    /// fractions of that control's own travel.
+    ///
+    /// Low end first, both between nothing and one, and equal where the depth
+    /// is at its centre — a routing with no depth in it moves nothing, which is
+    /// a band of no width rather than no band.
+    ///
+    /// **What full depth is worth is assumed**, exactly as it is for a drag:
+    /// full depth is taken to move the control over the whole of its range.
+    /// The manual does not print the law and the library refuses to guess, so
+    /// this band is the same claim the drag makes, drawn instead of typed. It
+    /// is asked for in
+    /// [deepmind-midi#38](https://github.com/MysteriousWolf/deepmind-midi/issues/38).
+    ///
+    /// Which *way* it swings is assumed too, and it is the second thing: a
+    /// routing from an LFO swings a control about where it sits and one from an
+    /// envelope rides up from it, and what a source does with a depth is not
+    /// published either. So the band runs from where the control sits to as far
+    /// as the depth reaches in the direction the depth's own sign gives, which
+    /// is what the fader holding it already says out loud.
+    #[must_use]
+    pub fn swing(self, value: u8) -> (f32, f32) {
+        let span = f32::from(self.at.max().saturating_sub(self.at.min())).max(1.0);
+        let sits = ((f32::from(value) - f32::from(self.at.min())) / span).clamp(0.0, 1.0);
+        let depth = f32::from(self.depth);
+        let low = f32::from(self.of.min());
+        let high = f32::from(self.of.max());
+        let reaches = match self.of.shape() {
+            Shape::Bipolar { centre } => {
+                let centre = f32::from(centre);
+                if depth < centre {
+                    -(centre - depth) / (centre - low).max(1.0)
+                } else {
+                    (depth - centre) / (high - centre).max(1.0)
+                }
+            }
+            // A depth a later library makes unipolar has no direction in it, so
+            // all of it is upwards — the same reading the drag takes.
+            _ => (depth - low) / (high - low).max(1.0),
+        };
+        let lands = (sits + reaches).clamp(0.0, 1.0);
+        (sits.min(lands), sits.max(lands))
+    }
+}
+
+/// What the modulation matrix has sent out into the window.
+///
+/// The routing being mapped, and what the patch's other routings already reach
+/// — the second of those only matters while the first is up, which is why they
+/// travel together rather than as two arguments every control has to carry.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Sent<'a> {
+    mapping: Mapping,
+    reaches: &'a [Reach],
+}
+
+impl<'a> Sent<'a> {
+    /// The routing being mapped, against what is already there.
+    pub(crate) const fn new(mapping: Mapping, reaches: &'a [Reach]) -> Self {
+        Self { mapping, reaches }
+    }
+
+    /// Returns the routing being mapped.
+    pub(crate) const fn mapping(self) -> Mapping {
+        self.mapping
+    }
+
+    /// Returns what already lands on `at`, in the order the matrix reads the
+    /// routings.
+    pub(crate) fn already(self, at: ParamId) -> impl Iterator<Item = Reach> + 'a {
+        self.reaches
+            .iter()
+            .copied()
+            .filter(move |reach| reach.at() == at)
+    }
+}
+
 #[cfg(test)]
 #[expect(
     clippy::expect_used,
@@ -300,6 +423,67 @@ mod tests {
 
         mapper.map(None);
         assert!(mapper.mapped().is_none());
+    }
+
+    #[test]
+    fn a_routing_with_no_depth_in_it_sweeps_nothing() {
+        use super::Reach;
+
+        let Shape::Bipolar { centre } = ParamId::Mod1Depth.shape() else {
+            unreachable!("a depth is read about its centre")
+        };
+        let at = ParamId::VcfFrequency;
+        let reach = Reach::new(
+            at,
+            "Mod 1",
+            ParamId::Mod1Depth,
+            u8::try_from(centre).expect("a byte"),
+        );
+        let (from, to) = reach.swing(64);
+
+        assert!(
+            (from - to).abs() < f32::EPSILON,
+            "a depth at its centre swept {from}..{to}"
+        );
+    }
+
+    #[test]
+    fn a_routing_at_full_depth_sweeps_the_rest_of_the_control() {
+        use super::Reach;
+
+        // The whole of the assumption, from the other end: full depth is taken
+        // to move the control over all of its range, so a routing at full depth
+        // onto a control sitting at the bottom of its own range reaches the
+        // top of it — and one onto a control already at the top has nowhere
+        // left to go and says so.
+        let at = ParamId::VcfFrequency;
+        let full = u8::try_from(ParamId::Mod1Depth.max()).expect("a byte");
+        let reach = Reach::new(at, "Mod 1", ParamId::Mod1Depth, full);
+        let low = u8::try_from(at.min()).expect("a byte");
+        let high = u8::try_from(at.max()).expect("a byte");
+
+        assert_eq!(reach.swing(low), (0.0, 1.0));
+        assert_eq!(reach.swing(high), (1.0, 1.0));
+    }
+
+    #[test]
+    fn a_routing_below_the_centre_sweeps_downwards() {
+        use super::Reach;
+
+        // Which way a depth swings is the depth's own sign, and a band that
+        // drew a negative depth as an upward sweep would be a band saying the
+        // opposite of the number under the fader that holds it.
+        let at = ParamId::VcfFrequency;
+        let none = u8::try_from(ParamId::Mod1Depth.min()).expect("a byte");
+        let reach = Reach::new(at, "Mod 1", ParamId::Mod1Depth, none);
+        let middle = u8::try_from(u16::midpoint(at.min(), at.max())).expect("a byte");
+        let (from, to) = reach.swing(middle);
+
+        assert!(from < to, "nothing was swept");
+        assert!(
+            to <= 0.51,
+            "a depth at its floor reached up to {to} from the middle"
+        );
     }
 
     #[test]

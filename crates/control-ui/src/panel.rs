@@ -29,8 +29,12 @@ use deepmind_midi::param::{Group, Kind, ParamId, Shape};
 use deepmind_midi::program::ProgramName;
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::alignment::{Horizontal, Vertical};
+use iced_core::gradient::Linear;
+use iced_core::layout::{self, Layout};
+use iced_core::widget::Tree;
 use iced_core::{
-    Background, Border, Color, Font, Length, Theme, border, text::Renderer as TextRenderer,
+    Background, Border, Color, Font, Gradient, Length, Radians, Rectangle, Size, Theme, Widget,
+    border, mouse, renderer, text::Renderer as TextRenderer,
 };
 use iced_widget::{Space, button, column, container, mouse_area, pick_list, row, stack, text};
 
@@ -38,7 +42,7 @@ use crate::effect;
 use crate::envelope;
 use crate::fader::{self, Axis, fader};
 use crate::knob::{self, knob};
-use crate::mapping::{Mapper, Mapping};
+use crate::mapping::{Mapper, Mapping, Sent};
 use crate::matrix;
 use crate::name;
 use crate::sequencer;
@@ -369,6 +373,18 @@ impl Room {
     pub(crate) const fn width(self) -> f32 {
         self.width
     }
+
+    /// Returns which way the control in this room travels.
+    ///
+    /// Asked by what is drawn *over* a control rather than by the control
+    /// itself: a band saying how far a routing can push it has to run the way
+    /// the control runs, or it is a bar beside a fader rather than a reading of
+    /// it. A knob keeps whichever axis its room was cut with, because a knob's
+    /// sweep is not a direction on the panel and a bar along one edge of it is
+    /// a scale rather than a picture of the dial.
+    pub(crate) const fn along(self) -> Axis {
+        self.axis
+    }
 }
 
 /// What a view in this crate asks for.
@@ -467,7 +483,13 @@ where
     // The routing mapped onto the window, if one is. Read once for the panel:
     // it reaches every control drawn below and it is the same answer for all of
     // them.
-    let sent = mapper.mapped();
+    let mapping = mapper.mapped();
+    // Read once for the rack, for the same reason `moved` is: every control
+    // below asks the same question of the same eight routings.
+    let reaches = mapping
+        .map(|_| matrix::reaching(patch, firmware))
+        .unwrap_or_default();
+    let sent = mapping.map(|mapping| Sent::new(mapping, &reaches));
     let routed = matrix::routed(group);
     let stepped = sequencer::stepped(group);
     let claimed = effect::claimed(group);
@@ -536,7 +558,7 @@ fn slot<'a, Renderer>(
     parameter: ParamId,
     firmware: Version,
     moved: &[ParamId],
-    sent: Option<Mapping>,
+    sent: Option<Sent<'_>>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -610,7 +632,7 @@ pub(crate) fn control<'a, Renderer>(
     claim: Confidence,
     firmware: Version,
     room: Room,
-    sent: Option<Mapping>,
+    sent: Option<Sent<'_>>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -624,7 +646,7 @@ where
     // the edge of the panel somebody is looking at.
     let asked = For::of(sent, parameter, firmware);
     let drawn = drawn(parameter, value, claim, firmware, room, asked);
-    let Some(mapping) = sent else {
+    let Some(sent) = sent else {
         return mouse_area(drawn)
             .on_enter(Message::Pointed(Some(parameter)))
             .on_exit(Message::Pointed(None))
@@ -634,8 +656,23 @@ where
     // would be two points of layout this panel does not have, and every control
     // in the window would move the moment a routing was pointed — which is a
     // window that jumps when somebody is about to map onto something in it.
-    let reached = mapping.names(parameter, firmware);
-    let lit = stack![drawn, mapping_light(reached.is_some())];
+    let reached = sent.mapping().names(parameter, firmware);
+    // What is already there, drawn on the control it is already there on.
+    // Somebody choosing where a routing goes is choosing against the other
+    // seven, and a second routing onto the same filter corner is a thing people
+    // do on purpose and a thing people do by accident.
+    let swings: Vec<(f32, f32)> = value
+        .filter(|_| reached.is_some())
+        .map(|value| {
+            sent.already(parameter)
+                .map(|reach| reach.swing(value))
+                .collect()
+        })
+        .unwrap_or_default();
+    let lit = stack![
+        drawn,
+        mapping_light(reached.is_some(), room.along(), swings)
+    ];
     let area = mouse_area(lit)
         .on_enter(Message::Pointed(Some(parameter)))
         .on_exit(Message::Pointed(None));
@@ -645,7 +682,7 @@ where
     // routing nor loses what was already being mapped.
     match reached {
         Some(value) => area.on_release(Message::Edit {
-            parameter: mapping.destination(),
+            parameter: sent.mapping().destination(),
             value,
         }),
         None => area,
@@ -655,41 +692,231 @@ where
 
 /// What is laid over a control while a routing is mapped onto the window.
 ///
-/// Two states and they are the whole of the mode: a control the matrix can
-/// reach is outlined in the one saturated colour on the panel, which is the
-/// colour the modulation mark is already drawn in, and a control it cannot
-/// reach is covered by the panel it stands on until it is barely there. Lit
-/// and dimmed rather than lit and left alone, because a page of forty faders
-/// with six outlined is a page somebody has to search; the same page with
-/// thirty-four of them faded is a page with six faders on it.
+/// Three things, and the first two are the whole of the mode. A control the
+/// matrix can reach is lit; a control it cannot reach is covered by the panel
+/// it stands on until it is barely there. Lit and dimmed rather than lit and
+/// left alone, because a page of forty faders with six outlined is a page
+/// somebody has to search; the same page with thirty-four of them faded is a
+/// page with six faders on it.
 ///
-/// Neither of them takes an event. A stack hands what lands on it to what is
+/// The third is what is already there: a band along the control's own travel
+/// for each of the other seven routings that lands on it, showing how far that
+/// one can push it. See [`Reach::swing`](crate::Reach::swing) for what that
+/// band assumes.
+///
+/// None of them takes an event. A stack hands what lands on it to what is
 /// under it, and what is under it is the control.
-fn mapping_light<'a, Renderer>(reached: bool) -> Element<'a, Renderer>
+fn mapping_light<'a, Renderer>(
+    reached: bool,
+    along: Axis,
+    swings: Vec<(f32, f32)>,
+) -> Element<'a, Renderer>
 where
     Renderer: iced_core::Renderer + 'a,
 {
-    container(Space::new())
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .style(move |theme: &Theme| {
-            if reached {
-                container::Style {
-                    border: border::rounded(3).width(1.0).color(style::MODULATION),
-                    ..container::Style::default()
-                }
-            } else {
-                container::Style {
-                    background: Some(Background::Color(Color {
-                        a: PASSED_OVER,
-                        ..materials(theme).panel
-                    })),
-                    ..container::Style::default()
+    Element::new(Light {
+        reached,
+        along,
+        swings,
+    })
+}
+
+/// The lamp, and what is already wired to the control under it.
+#[derive(Debug)]
+struct Light {
+    reached: bool,
+    along: Axis,
+    swings: Vec<(f32, f32)>,
+}
+
+impl Light {
+    /// Where one routing's band is drawn, in `bounds`.
+    ///
+    /// Along the control's own travel and against the near edge of it: a fader
+    /// that runs down the panel gets a bar up its left-hand side, and one that
+    /// runs across gets a bar along its top. `lane` is which of them this is,
+    /// so that two routings onto one control are two bars rather than one bar
+    /// drawn twice.
+    fn band(&self, bounds: Rectangle, swing: (f32, f32), lane: usize) -> Rectangle {
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "a lane of the few a control has room for"
+        )]
+        let out = EDGE + lane as f32 * (BAND + APART);
+        let (from, to) = swing;
+        match self.along {
+            // Nothing at the foot and one at the head, which is the way up
+            // every drawing in this window reads and the way a fader's own cap
+            // sits on its travel.
+            Axis::Down => {
+                let top = bounds.y + bounds.height * (1.0 - to);
+                Rectangle {
+                    x: bounds.x + out,
+                    y: top,
+                    width: BAND,
+                    height: (bounds.height * (to - from)).max(BAND),
                 }
             }
-        })
-        .into()
+            Axis::Across => Rectangle {
+                x: bounds.x + bounds.width * from,
+                y: bounds.y + out,
+                width: (bounds.width * (to - from)).max(BAND),
+                height: BAND,
+            },
+        }
+    }
 }
+
+impl<Message, Renderer> Widget<Message, Theme, Renderer> for Light
+where
+    Renderer: iced_core::Renderer,
+{
+    fn size(&self) -> Size<Length> {
+        Size::new(Length::Fill, Length::Fill)
+    }
+
+    fn layout(
+        &mut self,
+        _tree: &mut Tree,
+        _renderer: &Renderer,
+        limits: &layout::Limits,
+    ) -> layout::Node {
+        layout::atomic(limits, Length::Fill, Length::Fill)
+    }
+
+    fn draw(
+        &self,
+        _tree: &Tree,
+        renderer: &mut Renderer,
+        theme: &Theme,
+        _style: &renderer::Style,
+        layout: Layout<'_>,
+        _cursor: mouse::Cursor,
+        _viewport: &Rectangle,
+    ) {
+        let bounds = layout.bounds();
+        let material = materials(theme);
+        // A control that is not part of the question, covered by the panel it
+        // stands on. What is left is enough to see that there is a control
+        // there and not enough to read it.
+        if !self.reached {
+            renderer.fill_quad(
+                renderer::Quad {
+                    bounds,
+                    ..renderer::Quad::default()
+                },
+                Background::Color(Color {
+                    a: PASSED_OVER,
+                    ..material.panel
+                }),
+            );
+            return;
+        }
+        // The lamp: light coming up through the panel from behind it, which is
+        // how a `DeepMind` says a press is on. It was a hairline rectangle
+        // round the control, and a hairline rectangle is a focus ring on a web
+        // page rather than anything on a piece of equipment.
+        //
+        // Brightest at the foot and falling away across it, because that is
+        // what a lamp behind a panel does and it is the rule every other lit
+        // surface in this window is already drawn under — the display's own
+        // glass is two stops of the same argument. A flat fill of one colour is
+        // a highlight; this is a light.
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds,
+                border: Border::default().rounded(3.0),
+                ..renderer::Quad::default()
+            },
+            Background::Gradient(Gradient::Linear(
+                Linear::new(Radians(core::f32::consts::PI))
+                    .add_stop(
+                        0.0,
+                        Color {
+                            a: FAR,
+                            ..style::MODULATION
+                        },
+                    )
+                    .add_stop(
+                        1.0,
+                        Color {
+                            a: NEAR,
+                            ..style::MODULATION
+                        },
+                    ),
+            )),
+        );
+        // And the wall the light is coming past, lit hardest of all: the one
+        // thing every cut surface in this window has in common is that it
+        // catches the light along the edge the light reaches. A track does it,
+        // a plate does it, and a display does it.
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds: Rectangle {
+                    x: bounds.x + 1.0,
+                    y: bounds.y + bounds.height - EDGE - 1.0,
+                    width: (bounds.width - 2.0).max(0.0),
+                    height: EDGE,
+                },
+                border: Border::default().rounded(EDGE / 2.0),
+                ..renderer::Quad::default()
+            },
+            Background::Color(Color {
+                a: CATCH,
+                ..style::MODULATION
+            }),
+        );
+        for (lane, swing) in self.swings.iter().copied().enumerate() {
+            let band = self.band(bounds, swing, lane);
+            // A band that has run off the control is a band nobody can read
+            // against it, which is what happens to the fourth routing onto one
+            // slot. The three that fit are the ones drawn.
+            if !bounds.contains(band.position()) {
+                break;
+            }
+            renderer.fill_quad(
+                renderer::Quad {
+                    bounds: band,
+                    border: Border::default().rounded(BAND / 2.0),
+                    ..renderer::Quad::default()
+                },
+                Background::Color(Color {
+                    a: ALREADY,
+                    ..style::MODULATION
+                }),
+            );
+        }
+    }
+}
+
+/// How hard the lamp shows through the panel at the foot of a lit control.
+///
+/// Where the light enters. Faint even here: it is a ground the control is still
+/// read against, and a fill that competed with the cap on a fader would be a
+/// mode that hid the values it was asking somebody to choose between.
+const NEAR: f32 = 0.20;
+
+/// How hard it still shows at the head of one, which is most of the way to
+/// nothing.
+const FAR: f32 = 0.03;
+
+/// How hard the wall the light comes past catches it.
+const CATCH: f32 = 0.6;
+
+/// How thick that lit edge is.
+const EDGE: f32 = 1.5;
+
+/// How thick the band for one routing already landing here is.
+const BAND: f32 = 2.5;
+
+/// How much panel there is between two of those bands.
+const APART: f32 = 1.5;
+
+/// How hard a band is drawn.
+///
+/// Harder than the lamp and softer than the aperture: what is already wired to
+/// a control is a fact about the patch, and the lamp is a question about it.
+const ALREADY: f32 = 0.75;
 
 /// How much of the panel is laid over a control the matrix cannot reach.
 ///
@@ -772,12 +999,13 @@ enum For {
 
 impl For {
     /// What a control is being drawn for, given what the matrix is asking.
-    fn of(sent: Option<Mapping>, parameter: ParamId, firmware: Version) -> Self {
+    fn of(sent: Option<Sent<'_>>, parameter: ParamId, firmware: Version) -> Self {
         match sent {
             None => Self::Editing,
-            Some(mapped) => mapped
+            Some(sent) => sent
+                .mapping()
                 .names(parameter, firmware)
-                .map_or(Self::Passed, |at| Self::Mapping(mapped, at)),
+                .map_or(Self::Passed, |at| Self::Mapping(sent.mapping(), at)),
         }
     }
 

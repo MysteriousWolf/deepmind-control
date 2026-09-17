@@ -68,7 +68,8 @@ use iced_widget::{Space, button, column, container, responsive, row, text};
 
 use crate::envelope;
 use crate::lcd::{self, Screen};
-use crate::mapping::{Mapper, Mapping};
+use crate::mapping::{Mapper, Sent};
+use crate::matrix;
 use crate::panel::{Message, Room, readout};
 use crate::scene;
 use crate::style::{materials, printed, reading};
@@ -776,8 +777,15 @@ pub fn panel<'a, Renderer>(
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
-    let mapper = mapper.mapped();
+    let mapping = mapper.mapped();
+    // What the patch's other routings already reach, read once for the whole
+    // panel rather than once per control: the walk is the same answer for all
+    // of them, and it is only asked for at all while a routing is being mapped.
+    let reaches = mapping
+        .map(|_| matrix::reaching(patch, firmware))
+        .unwrap_or_default();
     responsive(move |room| {
+        let sent = mapping.map(|mapping| Sent::new(mapping, &reaches));
         let scale = Scale::filling(room.width);
         // What every line of the panel is drawn out to.
         let panel_across = span(room.width, scale);
@@ -806,7 +814,7 @@ where
                             firmware,
                             scale,
                             share.width(item, scale),
-                            mapper,
+                            sent,
                         ),
                         Standing::Screen => display(patch, &paint, scale),
                     });
@@ -874,21 +882,21 @@ fn group<'a, Renderer>(
     firmware: Version,
     scale: Scale,
     width: f32,
-    mapper: Option<Mapping>,
+    sent: Option<Sent<'_>>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
     let mut controls = row![].spacing(scale.of(2.0)).align_y(Vertical::Top);
     for control in plate.faders.iter().copied() {
-        controls = controls.push(lane(patch, control, firmware, scale, mapper));
+        controls = controls.push(lane(patch, control, firmware, scale, sent));
     }
     if let Some(control) = plate.lamps {
-        controls = controls.push(strip(patch, control, firmware, scale, mapper));
+        controls = controls.push(strip(patch, control, firmware, scale, sent));
     }
     let mut buttons = row![].spacing(scale.of(4.0)).align_y(Vertical::Top);
     for control in plate.switches.iter().copied() {
-        buttons = buttons.push(switch(patch, control, firmware, scale, mapper));
+        buttons = buttons.push(switch(patch, control, firmware, scale, sent));
     }
     // Every plate has a way in, and it is the press the hardware calls EDIT.
     buttons = buttons.push(way("EDIT", plate.opens, scale));
@@ -1001,7 +1009,7 @@ fn lane<'a, Renderer>(
     control: Control,
     firmware: Version,
     scale: Scale,
-    mapper: Option<Mapping>,
+    sent: Option<Sent<'_>>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1017,7 +1025,7 @@ where
             claim,
             firmware,
             Room::lane(scale.of(LANE), scale.of(TRAVEL)),
-            mapper,
+            sent,
         ),
         container(readout(parameter, value, claim, firmware))
             .height(Length::Fixed(READ))
@@ -1045,7 +1053,7 @@ fn strip<'a, Renderer>(
     control: Control,
     firmware: Version,
     scale: Scale,
-    mapper: Option<Mapping>,
+    sent: Option<Sent<'_>>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1059,7 +1067,7 @@ where
             patch.claim(parameter),
             firmware,
             Room::lamps(scale.of(LAMPS), lit(scale, named(control, firmware))),
-            mapper,
+            sent,
         ),
     ]
     .spacing(scale.of(APART))
@@ -1104,7 +1112,7 @@ fn switch<'a, Renderer>(
     control: Control,
     firmware: Version,
     scale: Scale,
-    mapper: Option<Mapping>,
+    sent: Option<Sent<'_>>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1117,7 +1125,7 @@ where
             patch.claim(parameter),
             firmware,
             Room::listed(scale.of(SWITCH)),
-            mapper,
+            sent,
         ),
         legend(control.legend, scale),
     ]

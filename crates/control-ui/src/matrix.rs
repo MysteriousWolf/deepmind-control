@@ -70,7 +70,7 @@ use iced_core::alignment::Vertical;
 use iced_core::{Background, Font, Length, Theme, border, text::Renderer as TextRenderer};
 use iced_widget::{Space, button, column, combo_box, container, row, text};
 
-use crate::mapping::{Mapper, Mapping};
+use crate::mapping::{Mapper, Mapping, Reach, Sent};
 use crate::panel::{Choice, Message, Room, choices, control, readout};
 use crate::style::{self, chrome, field, materials, reading, shortlist};
 use crate::{Confidence, Element, Patch, tint};
@@ -211,6 +211,40 @@ pub(crate) fn moved(patch: &Patch, firmware: Version) -> Vec<ParamId> {
     moved
 }
 
+/// Every routing the patch holds, against the control each one lands on.
+///
+/// The same walk [`moved`] makes and one more question asked of it: not only
+/// which controls something can move, but which routing moves them and how
+/// much is in it. Read once for a window and handed to every control, because
+/// a routing being mapped is answered on all three surfaces at once and the
+/// answer is the same for all of them.
+///
+/// A routing whose destination nobody has read reaches nothing, for the reason
+/// [`moved`] draws no mark for one: a band drawn from a value this window has
+/// not seen is a band that says the instrument is doing something it may not
+/// be. A depth nobody has read is the same — the destination may be known and
+/// the amount not, and a band of an assumed width on a known destination is the
+/// worse of the two errors.
+pub(crate) fn reaching(patch: &Patch, firmware: Version) -> Vec<Reach> {
+    let mut reaches = Vec::new();
+    for group in Group::ORDER.iter().copied() {
+        for routing in of(group).into_iter().flatten() {
+            let Kind::Enumerated(table) = routing.destination.kind() else {
+                continue;
+            };
+            let (Some(value), Some(depth)) =
+                (patch.value(routing.destination), patch.value(routing.depth))
+            else {
+                continue;
+            };
+            for parameter in table.table_for(firmware).parameters_of(u16::from(value)) {
+                reaches.push(Reach::new(*parameter, routing.label, routing.depth, depth));
+            }
+        }
+    }
+    reaches
+}
+
 pub(crate) fn table<'a, Renderer>(
     patch: &'a Patch,
     group: Group,
@@ -221,7 +255,13 @@ where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
     let routings = of(group)?;
-    let sent = mapper.mapped();
+    let mapping = mapper.mapped();
+    // The other seven rows, for the eighth to be chosen against. Read once
+    // here, as the rack reads it once: the same walk answers every control.
+    let reaches = mapping
+        .map(|_| reaching(patch, firmware))
+        .unwrap_or_default();
+    let sent = mapping.map(|mapping| Sent::new(mapping, &reaches));
     let heading = |parameter: ParamId, width: f32| -> Element<'a, Renderer> {
         // The heading is the parameter's own name with what the row already
         // says taken off the front, which is the rule a slot's title follows
@@ -262,7 +302,7 @@ where
             .align_y(Vertical::Center),
             cell(patch, routing.source, firmware, Room::listed(SOURCE), sent),
             arrow(),
-            going(patch, routing, firmware, mapper),
+            going(patch, routing, firmware, mapper, sent),
             cell(patch, routing.depth, firmware, Room::across(DEPTH), sent),
         ]
         .spacing(10)
@@ -276,7 +316,7 @@ where
             // rather than beside the control somebody is about to take hold of,
             // because the whole point of it is that they are about to go
             // somewhere else in the window.
-            .extend(sent.map(mapping_note))
+            .extend(mapping.map(mapping_note))
             .spacing(8)
             .into(),
     )
@@ -297,6 +337,7 @@ fn going<'a, Renderer>(
     routing: Routing,
     firmware: Version,
     mapper: &'a Mapper,
+    sent: Option<Sent<'_>>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -355,7 +396,7 @@ where
             destination,
             firmware,
             Room::listed(DESTINATION),
-            mapper.mapped(),
+            sent,
         ),
     };
     column![
@@ -434,7 +475,7 @@ fn cell<'a, Renderer>(
     parameter: ParamId,
     firmware: Version,
     room: Room,
-    mapper: Option<Mapping>,
+    sent: Option<Sent<'_>>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -442,7 +483,7 @@ where
     let claim = patch.claim(parameter);
     let value = patch.value(parameter);
     column![
-        control(parameter, value, claim, firmware, room, mapper),
+        control(parameter, value, claim, firmware, room, sent),
         readout(parameter, value, claim, firmware),
     ]
     .spacing(3)

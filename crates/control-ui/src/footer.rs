@@ -41,7 +41,8 @@ use iced_core::alignment::Vertical;
 use iced_core::{Background, Border, Font, Length, Theme, border, text::Renderer as TextRenderer};
 use iced_widget::{button, container, row, text};
 
-use crate::mapping::Mapping;
+use crate::mapping::{Mapping, Reach};
+use crate::matrix;
 use crate::panel::{Message, sits_at};
 use crate::style::{self, materials, printed, reading};
 use crate::{Confidence, Element, Patch};
@@ -76,6 +77,13 @@ where
     // definition somewhere other than the page they turned it on from.
     if let Some(mapped) = mapped {
         across = across.push(mode(mapped));
+        // And what is already wired to whatever the pointer is over, by name.
+        // The control itself draws how far each of them can push it; a band on
+        // a fader cannot say *which* routing drew it, and which one it is is
+        // the thing somebody about to add a second one wants to know.
+        if let Some(already) = pointed.and_then(|at| already(at, patch, firmware)) {
+            across = across.push(already);
+        }
     }
     for part in line {
         across = across.push(part.draw());
@@ -232,6 +240,39 @@ fn ends(parameter: ParamId) -> String {
         "{}\u{2013}{}",
         sits_at(parameter, low),
         sits_at(parameter, high)
+    )
+}
+
+/// Says which of the other routings already land on the control under the
+/// pointer.
+///
+/// Only while one is being mapped, because it is only then that somebody is
+/// choosing against them. Nothing at all where nothing else lands there, which
+/// is most controls and is the answer rather than a gap.
+fn already<'a, Renderer>(
+    at: ParamId,
+    patch: &Patch,
+    firmware: Version,
+) -> Option<Element<'a, Renderer>>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    let names: Vec<&'static str> = matrix::reaching(patch, firmware)
+        .into_iter()
+        .filter(|reach| reach.at() == at)
+        .map(Reach::label)
+        .collect();
+    let said = match names.split_last()? {
+        (last, []) => (*last).to_owned(),
+        (last, rest) => format!("{} and {last}", rest.join(", ")),
+    };
+    Some(
+        text(format!("{said} already \u{2192} here"))
+            .size(11)
+            .style(|_theme: &Theme| text::Style {
+                color: Some(style::MODULATION),
+            })
+            .into(),
     )
 }
 
