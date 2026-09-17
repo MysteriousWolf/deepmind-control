@@ -23,51 +23,75 @@
 //! `VCF` and `HPF` are two plates of one section, and which of them is which is
 //! the frequency each has on it.
 //!
+//! # The shapes are the library's
+//!
+//! An envelope's bends, an LFO's wave, a filter's roll-off, the arpeggiator's
+//! gates: every one of those is a fact about the instrument, and 26.4 publishes
+//! them as functions
+//! ([deepmind-midi#32](https://github.com/MysteriousWolf/deepmind-midi/issues/32)).
+//! What is left here is a sample loop — walk the columns of a band, ask
+//! [`Generator::at`](deepmind_midi::generator::Generator::at) what the shape is
+//! doing there, and print the dot nearest the answer. Where a byte's curve has
+//! not been measured the library says so in
+//! [`Scale`](deepmind_midi::generator::Scale) rather than inventing one, which
+//! is the same refusal this file used to make in prose and could not test.
+//!
 //! # What these drawings do not claim
 //!
-//! The same two refusals the envelope drawing is under, because they are the
-//! same refusals the library is under.
-//!
-//! **No axis is in anybody's units.** A filter's corner is drawn at the
-//! fraction of its own range the byte sits at, not at a frequency; a rate is
-//! drawn as how many cycles fit across a screen, not as a speed. The manual
-//! prints the two ends of a range and almost never the curve between them, so
-//! a drawing that put a hertz on an axis would be wrong in a way nobody could
-//! see. What every one of these says is *where in its travel* a value is,
-//! which is exactly what the fader beside it says.
+//! **No axis is in anybody's units unless the library publishes one.** Two of
+//! them are published and they are drawn as published: a filter's vertical is
+//! decibels about unity, because the slope of a pole is, and an LFO's
+//! horizontal is turns, because a cycle is a cycle whatever the rate byte does.
+//! Everything else is [`Scale::Normalised`](deepmind_midi::generator::Scale::Normalised),
+//! which says the shape is real and its axis is an ordering — so a corner is
+//! drawn at the fraction of its own range the byte sits at, which is exactly
+//! what the fader beside it says, and never at a frequency.
 //!
 //! **Nothing is drawn from a value nobody has read.** A scene's claim is the
 //! weakest of everything it read, and a scene with anything unread is not
 //! drawn: a picture of a filter assembled from four values the synthesizer
 //! described and one this window invented is a picture of no filter at all.
 
+use deepmind_midi::generator::{self, FILTER_UNITY, GATES_DRAWN, Gate, LfoId};
 use deepmind_midi::param::{Group, ParamId};
+use deepmind_midi::program::{LfoShape, Program, VcfEnvelopePolarity};
 use deepmind_midi::sysex::inquiry::Version;
 
 use crate::envelope;
 use crate::lcd::{Band, Ink, Screen, Size};
 use crate::{Confidence, Patch};
 
-/// Where a passband sits, so that a resonant peak has somewhere to go.
+/// Decibels per octave the high-pass filter rolls off at.
 ///
-/// A filter drawn flat across the top of its screen is a filter whose
-/// resonance cannot be drawn at all.
-const PASSBAND: f32 = 0.55;
+/// The one number about a filter this file holds, and it is the one the library
+/// declines to draw: [`generator::filter_response`] is the low-pass alone,
+/// because putting the two corners on one axis needs the spacing between two
+/// bytes whose curves are both unpublished. Drawn on its own plate there is no
+/// spacing to invent — the corner is where the fader says it is and the slope
+/// is the 6 dB per octave [`generator::filter_response`] records beside the
+/// low-pass it does draw, on that same decibel vertical.
+const HIGH_PASS_SLOPE: f32 = 6.0;
 
-/// How much of a screen a two-pole fall takes to reach nothing.
+/// How far past its own fall a filter's horizontal reaches, as a multiple.
 ///
-/// Twice as much as a four-pole one, which is the whole of what the pole count
-/// changes about the picture. It is not a claim about decibels: it is the one
-/// relation between the two that every filter obeys, drawn on an axis that is
-/// nobody's units.
-const FALL: f32 = 1.1;
+/// Read back out of the span the library publishes rather than chosen here: a
+/// 24 dB per octave slope takes two octaves to fall from unity to the floor and
+/// [`generator::filter_response`] draws three either side of the corner, so the
+/// axis is half as wide again as the fall it has to show. That is what puts a
+/// filter's knee in the middle of its picture instead of at one edge of it, and
+/// a 6 dB per octave slope drawn on the same proportion fills the same glass.
+/// `the_two_filters_are_drawn_to_one_proportion` holds it to what the library
+/// publishes, so a library that widened its own span moves this with it.
+const SPREAD: f32 = 1.5;
 
 /// A scatter that is the same every time it is asked.
 ///
-/// Noise on a display and a sample-and-hold's steps both need a number that
-/// looks unchosen, and both need the same one on every frame: a screen that
-/// reseeded when nothing had moved would crawl, and a crawling drawing says the
-/// sound is doing something it is not.
+/// Noise on a display needs a number that looks unchosen and needs the same one
+/// on every frame: a screen that reseeded when nothing had moved would crawl,
+/// and a crawling drawing says the sound is doing something it is not. The
+/// sampled LFO shapes wanted the same thing and no longer ask here — the
+/// library publishes a fixed sequence for those, and says in the same breath
+/// that it is not the instrument's stream.
 const SCATTER: [f32; 16] = [
     0.62, 0.18, 0.91, 0.44, 0.07, 0.73, 0.35, 0.99, 0.26, 0.81, 0.53, 0.12, 0.68, 0.39, 0.86, 0.02,
 ];
@@ -99,15 +123,30 @@ fn named(patch: &Patch, parameter: ParamId, firmware: Version) -> Option<&'stati
     parameter.label_for(u16::from(patch.value(parameter)?), firmware)
 }
 
-/// Returns how many cycles of something fit across a screen at `travel`.
+/// Returns how many turns of something fit across a screen at `travel`.
 ///
-/// Between one and `most`. A rate drawn as a count of cycles says that a faster
-/// setting is more of them in the same window, which is true of every rate this
-/// instrument has and is as much as the manual establishes; a screen is not a
-/// length of time, so nothing here is a speed.
-fn cycles(travel: f32, most: f32) -> f32 {
-    1.0 + travel * (most - 1.0)
+/// Between `least` and `most`. A rate drawn as a count of turns says that a
+/// faster setting is more of them in the same window, which is true of every
+/// rate this instrument has and is as much as the manual establishes; a screen
+/// is not a length of time, so nothing here is a speed. The shape being
+/// repeated is the library's, and so is the count of turns its own horizontal
+/// covers — this is only how many of them the glass is given.
+fn turns(travel: f32, least: f32, most: f32) -> f32 {
+    least + travel * (most - least)
 }
+
+/// Fewest turns of an LFO the glass is ever given.
+///
+/// Two, and never one. Every shape in the library's table starts at the bottom
+/// of its range so that the seven can be drawn side by side without one looking
+/// shifted, which means one turn of the sine is a hill: it leaves the floor,
+/// reaches the top and comes back, and a picture of that is a bump rather than
+/// something going round. The second turn is what says it repeats, and what it
+/// swings about is [`centre`].
+const LEAST_TURNS: f32 = 2.0;
+
+/// Most turns of one it is given, at the top of the rate's travel.
+const MOST_TURNS: f32 = 8.0;
 
 /// One plate's drawing.
 ///
@@ -139,6 +178,8 @@ pub(crate) enum Scene {
     Arpeggiator,
     /// An LFO's shape, at its own rate.
     Lfo {
+        /// Which of the library's two.
+        which: LfoId,
         /// The parameter naming the shape.
         shape: ParamId,
         /// The one setting how fast it runs.
@@ -153,6 +194,19 @@ pub(crate) enum Which {
     First,
     /// The one that is a shape at a level, with the noise beside it.
     Second,
+}
+
+/// Returns the parameter holding one of the library's two LFO shapes.
+///
+/// The bridge the envelopes have between a group and an `EnvelopeId`, made the
+/// same way and for the same reason: a match over the library's own enum, so a
+/// third LFO is a third variant and a third variant fails to compile here
+/// rather than drawing one of the two.
+const fn shape_of(which: LfoId) -> ParamId {
+    match which {
+        LfoId::One => ParamId::Lfo1Shape,
+        LfoId::Two => ParamId::Lfo2Shape,
+    }
 }
 
 /// Returns which oscillator `parameter` belongs to, out of the library's own
@@ -189,12 +243,16 @@ fn from(control: ParamId) -> Option<Scene> {
     if envelope::of(control.group()).is_some() {
         return Some(Scene::Envelope(control.group()));
     }
-    if control.short_name() == "Shape" {
+    if let Some(which) = LfoId::ALL
+        .into_iter()
+        .find(|which| shape_of(*which) == control)
+    {
         let rate = control
             .group()
             .parameters()
             .find(|parameter| parameter.short_name() == "Rate")?;
         return Some(Scene::Lfo {
+            which,
             shape: control,
             rate,
         });
@@ -241,12 +299,14 @@ impl Scene {
                 .chain([ParamId::VcaLevel])
                 .collect(),
             Self::Voicing => vec![ParamId::UnisonDetune, ParamId::PolyphonyMode],
-            Self::Arpeggiator => vec![
-                ParamId::ArpOnOff,
-                ParamId::ArpRateTempo,
-                ParamId::ArpGateTime,
-            ],
-            Self::Lfo { shape, rate } => vec![shape, rate],
+            // Not the rate. How many steps the picture covers is the library's
+            // `GATES_DRAWN` and not a byte: the gate time is published against
+            // a step — 128 is half of one, which the manual states outright —
+            // and what a step is worth in seconds is exactly what it does not
+            // print. A rate byte stretched across the glass was this window
+            // drawing an axis the instrument does not publish.
+            Self::Arpeggiator => vec![ParamId::ArpOnOff, ParamId::ArpGateTime],
+            Self::Lfo { shape, rate, .. } => vec![shape, rate],
         }
     }
 
@@ -260,14 +320,16 @@ impl Scene {
     ) -> Screen {
         let mut screen = Screen::new(columns, rows);
         match self {
-            Self::Filter => filter(&mut screen, patch, firmware),
+            Self::Filter => filter(&mut screen, patch),
             Self::HighPass => high_pass(&mut screen, patch),
             Self::Oscillator(which) => oscillator(&mut screen, patch, which),
             Self::Envelope(group) => envelope_on(&mut screen, patch, group),
             Self::Amplifier => amplifier(&mut screen, patch),
             Self::Voicing => voicing(&mut screen, patch, firmware),
             Self::Arpeggiator => arpeggiator(&mut screen, patch),
-            Self::Lfo { shape, rate } => lfo(&mut screen, patch, firmware, shape, rate),
+            Self::Lfo { which, shape, rate } => {
+                lfo(&mut screen, patch, firmware, which, shape, rate);
+            }
         }
         screen
     }
@@ -283,48 +345,111 @@ fn envelopes() -> Vec<Group> {
         .collect()
 }
 
+/// Returns how many octaves of glass a filter of `slope` is drawn across.
+///
+/// Enough for the slope to fall from unity to the library's own floor, and half
+/// as much again — see [`SPREAD`]. Asking it of the slope rather than writing a
+/// number down is what lets the high-pass, which is a quarter as steep as a
+/// four-pole low-pass, be drawn on the same vertical without spending three
+/// quarters of its glass on a line that has not fallen yet.
+fn octaves(slope: f32) -> f32 {
+    -generator::FILTER_FLOOR_DB / slope.max(1.0) * 2.0 * SPREAD
+}
+
+/// Returns how many octaves the library draws its own filter across.
+///
+/// `None` where the library stops publishing an octave axis for it, which is
+/// the one thing that would make [`octaves`] a number this window had invented.
+#[cfg(test)]
+fn published(response: &generator::Generator) -> Option<f32> {
+    match response.scale() {
+        generator::Scale::Octaves(span) => Some(span),
+        _ => None,
+    }
+}
+
+/// Returns where a gain in decibels sits up a filter's screen.
+///
+/// The library's vertical: linear in decibels from its floor to its ceiling,
+/// which is where [`FILTER_UNITY`] comes from and is the axis
+/// [`generator::filter_response`] is already drawn on. The high-pass on the
+/// plate beside it is drawn on the same one, so the two read against each
+/// other.
+fn decibels(gain: f32) -> f32 {
+    let floor = generator::FILTER_FLOOR_DB;
+    let ceiling = generator::FILTER_CEILING_DB;
+    ((gain - floor) / (ceiling - floor)).clamp(0.0, 1.0)
+}
+
+/// How many dots tall a tick on a published axis stands.
+///
+/// Two: enough to read as a mark along the foot of the glass and not enough to
+/// be mistaken for anything the sound is doing. A drawing carries one curve,
+/// and an axis that competed with it would be a second.
+const TICK: i32 = 2;
+
+/// Rules the axis the library publishes for a shape, where it publishes one.
+///
+/// [`generator::Scale`] is the honest half of a generator: two of its three
+/// answers are measured — an octave either side of a filter's corner, a turn of
+/// an LFO — and the third says outright that the horizontal is an ordering and
+/// nothing else. So this marks the first two and draws nothing at all for the
+/// third, which is the whole point of the library publishing it: a screen with
+/// a scale on it that nobody measured is a screen that looks like information.
+///
+/// `every` is how much of the drawn width one unit of the scale covers, which
+/// the caller knows and the generator does not: a window showing four turns of
+/// a one-turn shape is drawing the same scale four times over.
+fn ruled(screen: &mut Screen, band: Band, every: f32) {
+    if every <= 0.0 || every >= 1.0 {
+        return;
+    }
+    let mut at = every;
+    while at < 1.0 {
+        screen.down(
+            band.column(at),
+            band.y + band.height - TICK,
+            TICK,
+            Ink::Dotted,
+        );
+        at += every;
+    }
+}
+
 /// Draws where the low-pass corner is and what is happening at it.
 ///
-/// The corner sits at the fraction of its own range the byte is at, the
-/// resonance is how far the peak rises out of the passband, and the fall past
-/// it is twice as steep with four poles as with two. The pole count is read
-/// from what the value table calls the value and never from the value: `0` is
-/// `4 Pole` on this instrument, so a drawing that counted the byte would draw
-/// every filter the wrong way round.
-fn filter(screen: &mut Screen, patch: &Patch, firmware: Version) {
+/// The curve is [`generator::filter_response`], which is the roll-off the pole
+/// count gives and the peak the resonance byte lifts, on a vertical that is
+/// decibels from the library's own floor to its own ceiling. The whole of what
+/// this adds is where the corner stands: the generator draws the response about
+/// its corner, because the slope of a pole is published and the frequency a
+/// byte lands on is not, so the corner is put at the fraction of its own range
+/// the byte sits at — the reading the fader beside it gives — and the response
+/// is sampled either side of it.
+///
+/// The passband sits at [`FILTER_UNITY`], which is where the library puts unity
+/// gain on that vertical, and the headroom above it is what a resonant peak
+/// rises into. It is ruled, because a filter drawn without the level it passes
+/// at is a curve with nothing to read it against.
+fn filter(screen: &mut Screen, patch: &Patch) {
     let band = screen.all();
-    let (Some(corner), Some(resonance)) = (
-        travel(patch, ParamId::VcfFrequency),
-        travel(patch, ParamId::VcfResonance),
-    ) else {
+    let (Some(program), Some(corner)) = (patch.program(), travel(patch, ParamId::VcfFrequency))
+    else {
         return;
     };
-    let poles = named(patch, ParamId::Vcf2PoleMode, firmware)
-        .and_then(|name| name.chars().next())
-        .and_then(|digit| digit.to_digit(10))
-        .unwrap_or(2);
-    #[expect(
-        clippy::cast_precision_loss,
-        reason = "a count of poles, which this instrument has two or four of"
-    )]
-    let span = FALL / poles as f32;
-    let peak = PASSBAND + resonance * (1.0 - PASSBAND);
-    // The rise into the corner. A resonant peak with no width is a spike a dot
-    // wide, which on a screen this size is a dot.
-    let shoulder = 0.08;
-    screen.curve(band, Ink::Solid, |x| {
-        if x <= corner {
-            let into = corner - shoulder;
-            if shoulder > 0.0 && x > into {
-                PASSBAND + (peak - PASSBAND) * (x - into) / shoulder
-            } else {
-                PASSBAND
-            }
-        } else {
-            (peak - (x - corner) * (PASSBAND / span)).max(0.0)
-        }
-    });
-    reach(screen, patch, corner, firmware);
+    let response = generator::filter_response(program);
+    // The level the filter passes, on the library's own axis.
+    screen.across(band.x, band.row(FILTER_UNITY), band.width, Ink::Dotted);
+    // And the axis itself, an octave a tick. The library publishes the span the
+    // response is drawn across, so this is the one horizontal on any of these
+    // plates that is measured rather than an ordering.
+    if let generator::Scale::Octaves(span) = response.scale() {
+        ruled(screen, band, 1.0 / span.max(1.0));
+    }
+    // The corner sits at `0.5` along the generator, so a column of the screen
+    // is half a span either side of wherever the byte put it.
+    screen.curve(band, Ink::Solid, |x| response.at(0.5 + x - corner));
+    reach(screen, patch, corner);
 }
 
 /// Draws how far the envelope moves the corner, and which way.
@@ -335,14 +460,18 @@ fn filter(screen: &mut Screen, patch: &Patch, firmware: Version) {
 /// that the two parameters are in the same units is exactly what the manual
 /// does not say, so this says how much of its own travel the depth is using and
 /// which way the polarity points it, and stops there.
-fn reach(screen: &mut Screen, patch: &Patch, corner: f32, firmware: Version) {
+fn reach(screen: &mut Screen, patch: &Patch, corner: f32) {
     let Some(depth) = travel(patch, ParamId::VcfEnvelopeDepth) else {
         return;
     };
     if depth <= 0.0 {
         return;
     }
-    let positive = named(patch, ParamId::VcfEnvelopePolarity, firmware) != Some("Negative");
+    // The library's own reading of the byte rather than the word its display
+    // prints: a drawing that matched on `Negative` would point the reach the
+    // wrong way on the day that word moved, and there is a type for it.
+    let positive = patch.program().and_then(Program::vcf_envelope_polarity)
+        != Some(VcfEnvelopePolarity::Negative);
     let band = screen.all();
     let moved = if positive {
         corner + depth
@@ -358,6 +487,14 @@ fn reach(screen: &mut Screen, patch: &Patch, corner: f32, firmware: Version) {
 
 /// Draws where the high-pass corner is, and says whether a boost is on.
 ///
+/// On the low-pass's own vertical — decibels, with unity at [`FILTER_UNITY`] —
+/// and across the low-pass's own span, so the two plates of one section are two
+/// readings of one picture. The slope is the 6 dB per octave the library
+/// records for it and the corner is where the fader says it is, the same pair of
+/// facts the generator beside it is built out of; what the library will not do
+/// is put both corners on one axis, and a plate with one filter on it is not
+/// asking it to.
+///
 /// The boost is not in the curve. It is two states, what it lifts the low end
 /// by is not published, and a shelf drawn under the corner would be this
 /// window choosing a height and then drawing it as confidently as the corner
@@ -368,17 +505,19 @@ fn high_pass(screen: &mut Screen, patch: &Patch) {
     let Some(corner) = travel(patch, ParamId::VcfHighPassFrequency) else {
         return;
     };
-    let span = FALL / 2.0;
+    let span = octaves(HIGH_PASS_SLOPE);
+    screen.across(band.x, band.row(FILTER_UNITY), band.width, Ink::Dotted);
+    // The same octave a tick as the low-pass beside it, which is what makes the
+    // two plates two readings of one picture rather than two pictures.
+    ruled(screen, band, 1.0 / span.max(1.0));
     screen.curve(band, Ink::Solid, |x| {
-        if x >= corner {
-            PASSBAND
-        } else {
-            (PASSBAND - (corner - x) * (PASSBAND / span)).max(0.0)
-        }
+        let below = ((corner - x) * span).max(0.0);
+        decibels(-HIGH_PASS_SLOPE * below)
     });
     if is_on(patch, ParamId::VcfBassBoost) == Some(true) {
-        // Under the passband, which is the one part of this drawing that is
-        // always flat and always empty.
+        // Under the passband and past the corner, which is the one part of this
+        // drawing that is always empty: a high-pass has nothing below it on the
+        // side the curve has already risen on.
         screen.write(
             band.width - Screen::width_of("BOOST", Size::Small) - 1,
             band.height - Screen::height_of(Size::Small),
@@ -484,25 +623,24 @@ fn swing(screen: &mut Screen, patch: &Patch, band: Band) {
 /// button choosing which of its four faders address — so a player comparing the
 /// filter's decay with the amplifier's is comparing one with a memory of the
 /// other. This window unfolds that into three plates, and this is what each of
-/// them draws: its own envelope, at the size of its own screen, with the four
-/// faders that move it underneath.
+/// them draws: its own envelope, at the size of its own screen, with the faders
+/// that move it underneath.
 ///
-/// Which is the better answer to the same problem three panes of one strip were
-/// solving. All three are still on screen at once, which is the thing no
-/// `DeepMind` can show, and each of them is now a drawing rather than a third of
-/// one.
+/// The shape is [`generator::envelope`] and the bends are the curve bytes',
+/// which is what 26.4 changed: the four faders under the drawing that used to
+/// move nothing on it now move it.
 fn envelope_on(screen: &mut Screen, patch: &Patch, group: Group) {
     let band = screen.all();
     // The floor, so that a plate whose envelope has not been read is still a
     // drawing of an envelope rather than an empty screen.
     screen.across(band.x, band.row(0.0), band.width, Ink::Dotted);
-    let Some(corners) = envelope::corners(patch, group) else {
+    let Some(shape) = envelope::shape_of(patch, group) else {
         return;
     };
     // Filled, because a plate showing one envelope has the room to say what
     // shape it is rather than only where its line runs.
-    screen.under(band, |x| corners.height_at(x));
-    screen.curve(band, Ink::Solid, |x| corners.height_at(x));
+    screen.under(band, |x| shape.at(x));
+    screen.curve(band, Ink::Solid, |x| shape.at(x));
 }
 
 /// Draws the amplifier's envelope, under the level it is played at.
@@ -512,14 +650,14 @@ fn envelope_on(screen: &mut Screen, patch: &Patch, group: Group) {
 /// envelope drawn at a loudness the instrument is not playing.
 fn amplifier(screen: &mut Screen, patch: &Patch) {
     let band = screen.all();
-    let (Some(corners), Some(level)) = (
-        envelope::corners(patch, Group::VcaEnvelope),
+    let (Some(shape), Some(level)) = (
+        envelope::shape_of(patch, Group::VcaEnvelope),
         travel(patch, ParamId::VcaLevel),
     ) else {
         return;
     };
-    screen.under(band, |x| corners.height_at(x) * level);
-    screen.curve(band, Ink::Solid, |x| corners.height_at(x) * level);
+    screen.under(band, |x| shape.at(x) * level);
+    screen.curve(band, Ink::Solid, |x| shape.at(x) * level);
     screen.across(band.x, band.row(level), band.width, Ink::Dotted);
 }
 
@@ -534,7 +672,10 @@ fn voicing(screen: &mut Screen, patch: &Patch, firmware: Version) {
     if let Some(mode) = named(patch, ParamId::PolyphonyMode, firmware)
         && band.height > Screen::height_of(Size::Small) + 4
     {
-        screen.write(0, 0, mode, Size::Small);
+        // Centred, because the marks under it are centred on the same middle:
+        // a word against the left edge over a spread about the centre reads as
+        // two drawings that happened to land on one screen.
+        screen.centre(0, mode, Size::Small);
         let written = Screen::height_of(Size::Small) + 2;
         band = Band::new(band.x, band.y + written, band.width, band.height - written);
     }
@@ -548,48 +689,87 @@ fn voicing(screen: &mut Screen, patch: &Patch, firmware: Version) {
 
 /// Draws the gates the arpeggiator opens.
 ///
-/// How many of them fit across the screen is the rate through its own travel,
-/// and how much of each is open is the gate time through its own. An
-/// arpeggiator that is switched off is a line: a screen still drawing gates
+/// [`generator::arpeggiator_gates`], which is the one drawing on the panel
+/// whose two axes are both published: the manual gives the gate time byte as a
+/// fraction of a step outright — 0 is no note, 255 a full one and 128 half of
+/// one — and [`GATES_DRAWN`] steps is the pattern its own illustration uses.
+///
+/// The rate is not in it. What a step is worth in seconds is exactly what the
+/// manual does not print, so a rate byte stretched across the glass was this
+/// window drawing an axis nobody published; the fader says what the rate is and
+/// the screen says what the gate does to a step.
+///
+/// An arpeggiator that is switched off is a line: a screen still drawing gates
 /// for a sound that is not arpeggiating would be the panel's one lie.
 fn arpeggiator(screen: &mut Screen, patch: &Patch) {
     let band = screen.all();
-    let (Some(rate), Some(gate)) = (
-        travel(patch, ParamId::ArpRateTempo),
-        travel(patch, ParamId::ArpGateTime),
-    ) else {
+    let Some(program) = patch.program() else {
         return;
     };
     if is_on(patch, ParamId::ArpOnOff) == Some(false) {
         screen.across(band.x, band.y + band.height - 1, band.width, Ink::Solid);
         return;
     }
-    let gates = cycles(rate, 8.0);
-    let open = gate.clamp(0.05, 0.95);
-    screen.curve(band, Ink::Solid, |x| {
-        if (x * gates).fract() < open { 1.0 } else { 0.0 }
-    });
+    let gates: Vec<Gate> = generator::arpeggiator_gates(program).collect();
+    if gates.is_empty() {
+        // A gate byte of nothing is no note at all, which the library answers
+        // with no gates. The step line stays, because the arpeggiator is
+        // running and opening nothing is what it is doing.
+        screen.across(band.x, band.y + band.height - 1, band.width, Ink::Dotted);
+        return;
+    }
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "the count of steps the library draws, which is four"
+    )]
+    let steps = GATES_DRAWN as f32;
+    let open = move |x: f32| {
+        let step = x * steps;
+        let held = gates
+            .iter()
+            .any(|gate| step >= gate.start() && step < gate.end());
+        if held { 1.0 } else { 0.0 }
+    };
+    // Filled, because a gate is a note being held and a block reads as one
+    // where an outline reads as a shape.
+    screen.under(band, &open);
+    screen.curve(band, Ink::Solid, &open);
 }
 
 /// Draws an LFO's shape, at its own rate.
 ///
-/// The shape is whichever one the value table names, drawn as that shape; a
-/// name this drawing has no shape for is written out instead, because a
-/// display that drew a sine for a shape it did not recognise would be inventing
-/// the sound. The rate is how many cycles fit across the screen and is not a
-/// speed: what a byte of `Rate` is in hertz is not published, and what this
-/// says is that more of it is more cycles.
+/// The shape is [`generator::lfo`] — the seven the value table names, including
+/// the two sampled ones, whose steps used to be a scatter table in this file
+/// and are now a fixed sequence the library publishes and marks as not being
+/// the instrument's own stream. A byte this firmware's table does not name is
+/// written out instead, because a display that drew a sine for a shape it did
+/// not recognise would be inventing the sound.
+///
+/// The rate is how many of the library's own horizontals fit across the screen
+/// and is not a speed: what a byte of `Rate` is in hertz is not published, and
+/// what this says is that more of it is more cycles. One is what the library
+/// publishes — a turn of a sine, and six steps of a sample and hold, which is
+/// what that shape needs to show itself.
 ///
 /// The delay is not drawn at all. `Delay / Fade` is one parameter doing two
 /// things and the manual does not say where the byte stops doing one and starts
 /// doing the other, so the fader says what it is and the screen says nothing.
-fn lfo(screen: &mut Screen, patch: &Patch, firmware: Version, shape: ParamId, rate: ParamId) {
+fn lfo(
+    screen: &mut Screen,
+    patch: &Patch,
+    firmware: Version,
+    which: LfoId,
+    shape: ParamId,
+    rate: ParamId,
+) {
     let band = screen.all();
-    let (Some(name), Some(rate)) = (named(patch, shape, firmware), travel(patch, rate)) else {
+    let (Some(program), Some(value), Some(rate)) =
+        (patch.program(), patch.value(shape), travel(patch, rate))
+    else {
         return;
     };
-    let over = cycles(rate, 5.0);
-    let Some(drawn) = wave(name) else {
+    if LfoShape::from_raw(value).is_none() {
+        let name = named(patch, shape, firmware).unwrap_or("?");
         screen.write(
             0,
             band.height / 2 - Screen::height_of(Size::Small) / 2,
@@ -597,53 +777,30 @@ fn lfo(screen: &mut Screen, patch: &Patch, firmware: Version, shape: ParamId, ra
             Size::Small,
         );
         return;
-    };
-    screen.curve(band, Ink::Solid, |x| 0.5 + drawn(x * over) / 2.0);
-}
-
-/// Returns the shape a named one is drawn as, over a run of cycles.
-///
-/// Given how many cycles have gone by, and answering between minus one and one.
-/// Matched on the display's own name for the value, the way the envelopes are
-/// found by what the library calls their parameters: a firmware that renamed
-/// one draws its name instead of the wrong picture.
-fn wave(name: &str) -> Option<fn(f32) -> f32> {
-    Some(match name {
-        "Sine" => |cycle: f32| (cycle * core::f32::consts::TAU).sin(),
-        "Triangle" => |cycle: f32| {
-            let through = cycle.fract();
-            if through < 0.5 {
-                through * 4.0 - 1.0
-            } else {
-                3.0 - through * 4.0
-            }
-        },
-        "Square" => |cycle: f32| if cycle.fract() < 0.5 { 1.0 } else { -1.0 },
-        "Ramp Up" => |cycle: f32| cycle.fract() * 2.0 - 1.0,
-        "Ramp Down" => |cycle: f32| 1.0 - cycle.fract() * 2.0,
-        // One number a cycle, which is what a sample and hold is: held to the
-        // end of the cycle, or walked to the next one.
-        "Sample & Hold" => |cycle: f32| {
-            #[expect(
-                clippy::cast_possible_truncation,
-                reason = "a cycle count across a screen, which is single figures"
-            )]
-            let step = cycle as i32;
-            scattered(step) * 2.0 - 1.0
-        },
-        "Sample & Glide" => |cycle: f32| {
-            #[expect(
-                clippy::cast_possible_truncation,
-                reason = "a cycle count across a screen, which is single figures"
-            )]
-            let step = cycle as i32;
-            let through = cycle.fract();
-            let from = scattered(step) * 2.0 - 1.0;
-            let to = scattered(step + 1) * 2.0 - 1.0;
-            from + (to - from) * through
-        },
-        _ => return None,
-    })
+    }
+    let drawn = generator::lfo(program, which);
+    let over = turns(rate, LEAST_TURNS, MOST_TURNS);
+    // The level it swings about, drawn before the shape so that the shape
+    // crosses it rather than the other way round. An LFO is a modulation source
+    // and half its range is where it sits when it is doing nothing — which is
+    // the one thing a picture of a wave needs in order to read as a wave, and
+    // the one thing the library does not publish
+    // ([deepmind-midi#35](https://github.com/MysteriousWolf/deepmind-midi/issues/35)).
+    screen.across(band.x, band.row(0.5), band.width, Ink::Dotted);
+    // A tick a turn along the foot, which is the axis the library calls exact:
+    // a cycle is a cycle whatever the rate byte does, so a picture can count
+    // them even though nothing about this instrument can say how long one is.
+    ruled(screen, band, 1.0 / over.max(1.0));
+    screen.curve(band, Ink::Solid, |x| {
+        let through = x * over;
+        // The far edge is the end of the last cycle rather than the start of
+        // the next one, which is where `fract` would put it.
+        drawn.at(if through >= over {
+            1.0
+        } else {
+            through.fract()
+        })
+    });
 }
 
 /// Draws the display a plate holding `controls` has, when it has one.
@@ -677,12 +834,13 @@ where
     reason = "a failed expectation is the test failure"
 )]
 mod tests {
-    use super::{Scene, envelopes, of, travel, wave};
+    use super::{Scene, decibels, envelopes, of, shape_of, travel};
     use crate::home::rows;
     use crate::{Confidence, Patch};
+    use deepmind_midi::generator::{FILTER_UNITY, LfoId};
     use deepmind_midi::ids::ProtocolVersion;
     use deepmind_midi::param::{DEFAULT_FIRMWARE, Group, Kind, ParamId};
-    use deepmind_midi::program::Program;
+    use deepmind_midi::program::{LfoShape, Program};
 
     /// A patch the synthesizer has described.
     fn read() -> Patch {
@@ -718,20 +876,61 @@ mod tests {
     }
 
     #[test]
-    fn an_lfo_is_found_by_what_the_library_calls_its_parameters() {
-        // Two LFOs, one drawing. Found the way the envelopes are, so that a
-        // third one a later library adds draws itself with nothing here to
-        // edit.
-        for (shape, rate) in [
-            (ParamId::Lfo1Shape, ParamId::Lfo1Rate),
-            (ParamId::Lfo2Shape, ParamId::Lfo2Rate),
+    fn an_lfo_is_found_by_the_shape_parameter_the_library_names() {
+        // Two LFOs, one drawing, and the scene carries which of the library's
+        // two it is asking for rather than working it out again where it draws.
+        for (which, shape, rate) in [
+            (LfoId::One, ParamId::Lfo1Shape, ParamId::Lfo1Rate),
+            (LfoId::Two, ParamId::Lfo2Shape, ParamId::Lfo2Rate),
         ] {
-            assert_eq!(of([shape]), Some(Scene::Lfo { shape, rate }));
+            assert_eq!(of([shape]), Some(Scene::Lfo { which, shape, rate }));
         }
     }
 
     #[test]
-    fn each_envelope_is_its_own_screen_reading_only_its_own_four() {
+    fn each_lfo_plate_draws_its_own_shape() {
+        // The bridge between a shape parameter and the library's own `LfoId`,
+        // held to by what the answer draws: a square on one LFO leaves the
+        // other one's plate drawing the sine its byte still says.
+        let mut patch = read();
+        assert!(patch.edit(ParamId::Lfo1Shape, LfoShape::Square.raw()));
+
+        let square = shape_of(LfoId::One);
+        assert_eq!(square, ParamId::Lfo1Shape);
+        let program = patch.program().expect("a sound that has been read");
+        let one = deepmind_midi::generator::lfo(program, LfoId::One);
+        let two = deepmind_midi::generator::lfo(program, LfoId::Two);
+
+        // A square is at one end or the other and a sine passes through the
+        // middle, which is the cheapest way to tell the two apart.
+        assert!(one.at(0.3) > 0.99 || one.at(0.3) < 0.01);
+        assert!(two.at(0.3) > 0.01 && two.at(0.3) < 0.99);
+    }
+
+    #[test]
+    fn every_shape_the_table_names_is_one_the_library_draws() {
+        // The seven shapes of the value table, held against the seven the
+        // library has a wave for. A shape it does not know is written out on
+        // the glass instead of drawn, and this is the test that says which of
+        // the two a firmware's table would get.
+        let Kind::Enumerated(table) = ParamId::Lfo1Shape.kind() else {
+            // Unreachable: a shape is one of a named set, and a library that
+            // made it a sweep would have taken the names with it.
+            return;
+        };
+
+        for entry in table.table_for(DEFAULT_FIRMWARE).entries {
+            let raw = u8::try_from(entry.value).expect("a shape byte");
+            assert!(
+                LfoShape::from_raw(raw).is_some(),
+                "{} is a shape the library does not draw",
+                entry.name
+            );
+        }
+    }
+
+    #[test]
+    fn each_envelope_is_its_own_screen_reading_only_its_own_eight() {
         // The whole of what unfolding the section bought. Three envelopes
         // sharing one screen were three sets of dots in the same place, and the
         // question the display is for — which of these decays first — is the
@@ -741,7 +940,7 @@ mod tests {
         for group in envelopes() {
             let parameters = Scene::Envelope(group).parameters();
 
-            assert_eq!(parameters.len(), 4, "{group} is an A, D, S and R");
+            assert_eq!(parameters.len(), 8, "{group} is four times and four curves");
             assert!(
                 parameters
                     .iter()
@@ -763,6 +962,20 @@ mod tests {
     }
 
     #[test]
+    fn a_curve_moves_the_envelope_that_is_drawn() {
+        // What 26.4 changed. The four curve faders under an envelope's plate
+        // used to move four bytes and nothing on the screen above them.
+        let mut patch = read();
+        assert!(patch.edit(ParamId::VcaEnvelopeAttackTime, 200));
+        let straight = Scene::Envelope(Group::VcaEnvelope).screen(&patch, DEFAULT_FIRMWARE, 40, 20);
+
+        assert!(patch.edit(ParamId::VcaEnvelopeAttackCurve, 255));
+        let bent = Scene::Envelope(Group::VcaEnvelope).screen(&patch, DEFAULT_FIRMWARE, 40, 20);
+
+        assert_ne!(straight, bent, "a curve byte moved nothing on the glass");
+    }
+
+    #[test]
     fn an_envelope_screen_is_a_drawing_before_anything_is_read() {
         // The floor is drawn whatever is known, because a plate about an
         // envelope with an empty screen on it reads as a plate that is broken.
@@ -770,6 +983,55 @@ mod tests {
         super::envelope_on(&mut screen, &Patch::new(), Group::VcaEnvelope);
 
         assert!(!screen.is_blank(), "an envelope plate drew nothing at all");
+    }
+
+    #[test]
+    fn a_filter_is_drawn_on_the_librarys_own_decibel_axis() {
+        // Unity gain is where the library says it is, and it is where the
+        // passband of a filter with its corner at the top of its range lands.
+        assert!((decibels(0.0) - FILTER_UNITY).abs() < 0.001);
+        assert!(decibels(deepmind_midi::generator::FILTER_CEILING_DB) > 0.99);
+        assert!(decibels(deepmind_midi::generator::FILTER_FLOOR_DB) < 0.01);
+    }
+
+    #[test]
+    fn the_two_filters_are_drawn_to_one_proportion() {
+        // The one number about a filter this window still holds is how far past
+        // its own fall the axis reaches, and it is not a number this window
+        // chose: asked of a four-pole low-pass it gives back the span the
+        // library publishes for exactly that filter. A library that widened its
+        // own span fails here rather than leaving the high-pass beside it drawn
+        // to the old one.
+        // A program at its floor is already four-pole, which is what `0` is on
+        // this instrument and why nothing here reads the byte as a count.
+        let patch = read();
+        let program = patch.program().expect("a sound that has been read");
+        let response = super::generator::filter_response(program);
+
+        let span = super::published(&response).expect("an octave axis");
+        assert!(
+            (super::octaves(24.0) - span).abs() < 0.001,
+            "the library draws {span} octaves and this window would draw {}",
+            super::octaves(24.0)
+        );
+        // And a slope a quarter as steep is drawn across four times as much, so
+        // its knee lands in the same place on the glass.
+        assert!((super::octaves(6.0) - span * 4.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn a_resonant_peak_reaches_into_the_headroom_over_the_passband() {
+        // The reason a filter is drawn on a decibel axis at all: a resonance
+        // has somewhere to go that is not the top of the glass, and the screen
+        // says so by changing when the byte moves.
+        let mut patch = read();
+        assert!(patch.edit(ParamId::VcfFrequency, 128));
+        let flat = Scene::Filter.screen(&patch, DEFAULT_FIRMWARE, 60, 24);
+
+        assert!(patch.edit(ParamId::VcfResonance, 255));
+        let peaked = Scene::Filter.screen(&patch, DEFAULT_FIRMWARE, 60, 24);
+
+        assert_ne!(flat, peaked, "resonance moved nothing on the glass");
     }
 
     #[test]
@@ -803,6 +1065,27 @@ mod tests {
     }
 
     #[test]
+    fn the_arpeggiator_draws_the_gate_and_not_the_rate() {
+        // The gate time is published against a step and the step is not
+        // published against a second, so the gate is on the glass and the rate
+        // is on its fader. A screen that read the rate would be claiming an
+        // axis nobody prints.
+        let parameters = Scene::Arpeggiator.parameters();
+        assert!(parameters.contains(&ParamId::ArpGateTime));
+        assert!(!parameters.contains(&ParamId::ArpRateTempo));
+
+        let mut patch = read();
+        assert!(patch.edit(ParamId::ArpOnOff, 1));
+        assert!(patch.edit(ParamId::ArpGateTime, 64));
+        let short = Scene::Arpeggiator.screen(&patch, DEFAULT_FIRMWARE, 40, 20);
+
+        assert!(patch.edit(ParamId::ArpGateTime, 220));
+        let held = Scene::Arpeggiator.screen(&patch, DEFAULT_FIRMWARE, 40, 20);
+
+        assert_ne!(short, held, "the gate time moved nothing on the glass");
+    }
+
+    #[test]
     fn a_scene_is_blank_until_something_has_been_read() {
         let scene = Scene::Filter;
         let unread = Patch::new();
@@ -833,49 +1116,6 @@ mod tests {
             patch.claim_across(Scene::Filter.parameters()),
             Confidence::Assumed
         );
-    }
-
-    #[test]
-    fn the_seven_shapes_the_table_names_are_the_seven_that_are_drawn() {
-        // Matched on the display's own words, so this is the test that says the
-        // words have not moved. A shape with no drawing is written out instead,
-        // which is why nothing here can fail quietly.
-        let Kind::Enumerated(table) = ParamId::Lfo1Shape.kind() else {
-            // Unreachable: a shape is one of a named set, and a library that
-            // made it a sweep would have taken the names with it.
-            return;
-        };
-
-        for entry in table.table_for(DEFAULT_FIRMWARE).entries {
-            assert!(
-                wave(entry.name).is_some(),
-                "{} is a shape the display does not draw",
-                entry.name
-            );
-        }
-        assert!(wave("Parabola").is_none());
-    }
-
-    #[test]
-    fn a_shape_stays_between_the_two_ends_of_its_swing() {
-        for name in [
-            "Sine",
-            "Triangle",
-            "Square",
-            "Ramp Up",
-            "Ramp Down",
-            "Sample & Glide",
-        ] {
-            let shape = wave(name).expect("a shape the table names");
-            for step in 0..200_i16 {
-                let cycle = f32::from(step) / 40.0;
-                let drawn = shape(cycle);
-                assert!(
-                    (-1.0..=1.0).contains(&drawn),
-                    "{name} reaches {drawn} at {cycle}"
-                );
-            }
-        }
     }
 
     #[test]

@@ -1,10 +1,10 @@
-//! The envelopes: four parameters, and the shape they make.
+//! The envelopes: eight parameters, and the shape they make.
 //!
 //! Three groups on this instrument are the same nine parameters with a
 //! different destination: an attack time, a decay time, a sustain level, a
-//! release time, four curves and a trigger mode. Four of those are a picture
-//! everybody who has touched a synthesizer can read at a glance, and four
-//! numbers that do not draw it are four numbers.
+//! release time, four curves and a trigger mode. Eight of those are a picture
+//! everybody who has touched a synthesizer can read at a glance, and eight
+//! numbers that do not draw it are eight numbers.
 //!
 //! So the rack keeps all nine slots, exactly as the specification gives them,
 //! and the shape is drawn above it. Hand layout changes the arrangement and
@@ -12,18 +12,32 @@
 //! generated panel had, and moving one redraws the picture because the picture
 //! is only ever read from the patch.
 //!
+//! # The shape is the library's, not this window's
+//!
+//! [`generator::envelope`] is what draws it, and this file holds none of the
+//! arithmetic it used to. Where the segments share the width, what a curve byte
+//! bends, which way a sustain slope sags: all of it is a fact about the
+//! instrument, published in 26.4
+//! ([deepmind-midi#32](https://github.com/MysteriousWolf/deepmind-midi/issues/32)),
+//! and a window is the wrong place to keep any of it right. What this file does
+//! is find the eight parameters in a group, ask which envelope that group is,
+//! and sample the answer into the room the layout gave it.
+//!
 //! # What the drawing does not claim
 //!
-//! The horizontal axis is proportion and not time. The manual publishes the two
-//! ends of each range and almost never the curve between them, so `Attack Time`
-//! at 128 is drawn half as wide as at 255 and nothing here says how many
-//! milliseconds either of those is.
+//! The horizontal axis is proportion and not time. It is
+//! [`Scale::Normalised`](deepmind_midi::generator::Scale::Normalised), which is
+//! the library saying outright that the axis is an ordering: the manual
+//! publishes the two ends of each range and never the curve between them, so
+//! `Attack Time` at 128 is drawn half as wide as at 255 and nothing here says
+//! how many milliseconds either of those is.
 //!
-//! The four curve parameters do not bend the segments. What a curve byte does
-//! to the shape is not published either, and a drawing that guessed would be
-//! wrong in a way nobody could see. They are faders in the rack like the rest,
-//! and the day the library measures them is the day the segments bend.
+//! The four curves do bend the segments now, which is the one thing that
+//! changed. The law is the library's and it is marked there as a reading of the
+//! five responses the manual prints rather than as an equation the manual
+//! gives.
 
+use deepmind_midi::generator::{self, EnvelopeId, Generator};
 use deepmind_midi::param::{Group, ParamId};
 use iced_core::layout::{self, Layout};
 use iced_core::widget::Tree;
@@ -40,46 +54,89 @@ const HEIGHT: f32 = 92.0;
 /// Width of the drawing, which is three slots of the rack it sits over.
 const WIDTH: f32 = crate::panel::SLOT * 3.0;
 
-/// How much of the width the sustain plateau takes.
+/// What the eight parameters of an envelope are called, in the order the shape
+/// reads them.
 ///
-/// Sustain is a level and not a time: the instrument holds it for as long as a
-/// key is down, which is a length this drawing cannot know. A fixed quarter of
-/// the axis says "and then it holds here" without pretending to time it.
-const PLATEAU: f32 = 0.25;
+/// The four the library's own `EnvelopeId` reads first and then the four
+/// curves, which is the order it documents them in. Matched against the end of
+/// a parameter's name, the way this file has always found them: a library that
+/// renamed one fails to find an envelope here rather than drawing three
+/// quarters of one.
+const NAMED: [&str; 8] = [
+    "Attack Time",
+    "Decay Time",
+    "Sustain Level",
+    "Release Time",
+    "Attack Curve",
+    "Decay Curve",
+    "Sustain Curve",
+    "Release Curve",
+];
 
-/// The four parameters that make the shape.
+/// The eight parameters that make the shape, and which envelope they are.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Envelope {
-    attack: ParamId,
-    decay: ParamId,
-    sustain: ParamId,
-    release: ParamId,
+    /// Which of the three, as the library names them.
+    which: EnvelopeId,
+    /// The eight, in [`NAMED`] order.
+    parameters: [ParamId; 8],
 }
 
 impl Envelope {
-    /// The four, in the order the shape reads them.
-    pub(crate) fn parameters(self) -> [ParamId; 4] {
-        [self.attack, self.decay, self.sustain, self.release]
+    /// The eight, in the order the shape reads them.
+    pub(crate) fn parameters(self) -> [ParamId; 8] {
+        self.parameters
+    }
+
+    /// Returns the shape these eight make, out of a sound that has been read.
+    pub(crate) fn shape(self, patch: &Patch) -> Option<Generator> {
+        Some(generator::envelope(patch.program()?, self.which))
     }
 }
 
-/// Returns the four parameters of `group`, when it is an envelope.
+/// Returns the group one of the library's three envelopes lives in.
+///
+/// The one bridge between the two, and it is a match over the library's own
+/// enum rather than over the parameter table: a fourth envelope is a fourth
+/// variant, and a fourth variant fails to compile here instead of quietly
+/// drawing one of the three.
+const fn group_of(which: EnvelopeId) -> Group {
+    match which {
+        EnvelopeId::Vca => Group::VcaEnvelope,
+        EnvelopeId::Vcf => Group::VcfEnvelope,
+        EnvelopeId::Mod => Group::ModEnvelope,
+    }
+}
+
+/// Returns the eight parameters of `group`, when it is an envelope.
 ///
 /// Found by what the library calls them rather than by offset, so the three
 /// envelopes are one piece of code and a library that renumbers them moves this
-/// with it.
+/// with it. A group whose eight are all there and which is not one of the
+/// library's three is not an envelope this window can draw, because there would
+/// be no generator to ask for its shape.
 pub(crate) fn of(group: Group) -> Option<Envelope> {
-    let find = |suffix: &str| {
-        group
+    let which = EnvelopeId::ALL
+        .into_iter()
+        .find(|which| group_of(*which) == group)?;
+    let mut parameters = [ParamId::VcaEnvelopeAttackTime; 8];
+    for (slot, suffix) in parameters.iter_mut().zip(NAMED) {
+        *slot = group
             .parameters()
-            .find(|parameter| parameter.name().ends_with(suffix))
-    };
-    Some(Envelope {
-        attack: find("Attack Time")?,
-        decay: find("Decay Time")?,
-        sustain: find("Sustain Level")?,
-        release: find("Release Time")?,
-    })
+            .find(|parameter| parameter.name().ends_with(suffix))?;
+    }
+    Some(Envelope { which, parameters })
+}
+
+/// Returns the shape `group` makes, when it is an envelope and its sound has
+/// been read.
+///
+/// What the drawing above the rack is read from, and what the display on the
+/// envelope's own plate is read from as well: the shape is the eight bytes and
+/// nothing else, so there is one place that asks the library what they draw and
+/// two things that draw it.
+pub(crate) fn shape_of(patch: &Patch, group: Group) -> Option<Generator> {
+    of(group)?.shape(patch)
 }
 
 /// Draws the shape `group` makes, when it is an envelope.
@@ -91,112 +148,19 @@ where
     Renderer: iced_core::Renderer + 'a,
 {
     let envelope = of(group)?;
-    let parameters = envelope.parameters();
-    // The weakest claim of the four, because one unread value is a shape nobody
-    // can vouch for, and one claimed value makes the whole outline a claim. It
-    // is the rule a name is drawn under, and the same call makes it.
-    let claim = patch.claim_across(parameters);
-    let values = parameters.map(|parameter| patch.value(parameter));
-    let [attack, decay, sustain, release] = values;
-    let known = match (attack, decay, sustain, release) {
-        (Some(attack), Some(decay), Some(sustain), Some(release)) => {
-            Some(Corners::new(attack, decay, sustain, release))
-        }
-        _ => None,
-    };
+    // The weakest claim of the eight, because one unread value is a shape
+    // nobody can vouch for, and one claimed value makes the whole outline a
+    // claim. It is the rule a name is drawn under, and the same call makes it.
+    let claim = patch.claim_across(envelope.parameters());
     Some(Element::new(Drawing {
-        corners: known,
+        shape: envelope.shape(patch),
         claim,
     }))
 }
 
-/// Returns the shape `group` makes, when it is an envelope all four of whose
-/// values have been read.
-///
-/// What the drawing above the rack is read from, and what a display drawing
-/// three envelopes at once on one screen is read from as well: the shape is
-/// the four bytes and nothing else, so there is one place that works out what
-/// they draw and two things that draw it.
-pub(crate) fn corners(patch: &Patch, group: Group) -> Option<Corners> {
-    let envelope = of(group)?;
-    let [attack, decay, sustain, release] = envelope.parameters();
-    Some(Corners::new(
-        patch.value(attack)?,
-        patch.value(decay)?,
-        patch.value(sustain)?,
-        patch.value(release)?,
-    ))
-}
-
-/// The shape, as the four points a line through it turns at.
-///
-/// Widths are fractions of the drawing and heights are fractions of its height,
-/// so the same numbers draw at any size the layout gives.
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct Corners {
-    attack: f32,
-    decay: f32,
-    sustain: f32,
-    release: f32,
-}
-
-impl Corners {
-    /// Works the four raw bytes into the fractions the drawing uses.
-    fn new(attack: u8, decay: u8, sustain: u8, release: u8) -> Self {
-        let times = f32::from(attack) + f32::from(decay) + f32::from(release);
-        // Three instant segments are a spike, and a spike is what gets drawn:
-        // the plateau, and no width either side of it.
-        let scale = if times > 0.0 {
-            (1.0 - PLATEAU) / times
-        } else {
-            0.0
-        };
-        Self {
-            attack: f32::from(attack) * scale,
-            decay: f32::from(decay) * scale,
-            sustain: f32::from(sustain) / f32::from(u8::MAX),
-            release: f32::from(release) * scale,
-        }
-    }
-
-    /// Returns the height of the shape at `x`, both as fractions.
-    ///
-    /// It starts at nothing and ends at nothing, whatever the four values are.
-    /// A release of nothing is the case that needs saying: its plateau runs to
-    /// the right edge, and the drop has only the end of the axis to happen in.
-    /// Drawn as a plateau that reaches the edge and stops, a gate would read as
-    /// a sound that never ends.
-    pub(crate) fn height_at(self, x: f32) -> f32 {
-        let decay_ends = self.attack + self.decay;
-        let plateau_ends = decay_ends + PLATEAU;
-        if x <= self.attack {
-            // Rising to the peak. An instant attack is already there.
-            if self.attack <= 0.0 {
-                1.0
-            } else {
-                x / self.attack
-            }
-        } else if x <= decay_ends {
-            if self.decay <= 0.0 {
-                self.sustain
-            } else {
-                let through = (x - self.attack) / self.decay;
-                1.0 - through * (1.0 - self.sustain)
-            }
-        } else if x < plateau_ends {
-            self.sustain
-        } else if self.release <= 0.0 {
-            0.0
-        } else {
-            let through = (x - plateau_ends) / self.release;
-            self.sustain * (1.0 - through.min(1.0))
-        }
-    }
-}
-
 /// The drawing itself: a baseline, and the shape over it.
 struct Drawing {
-    corners: Option<Corners>,
+    shape: Option<Generator>,
     claim: Confidence,
 }
 
@@ -244,7 +208,7 @@ where
             Background::Color(material.recess),
         );
 
-        let Some(corners) = self.corners else {
+        let Some(shape) = self.shape else {
             // Nothing has been read: the frame, and no shape in it, which is
             // the same answer a fader with no cap gives.
             return;
@@ -283,7 +247,7 @@ where
             } else {
                 f32::from(column)
             };
-            let top = base - corners.height_at(offset / width) * height;
+            let top = base - shape.at(offset / width) * height;
             let x = bounds.x + inset + offset;
             if filled {
                 // Filled under the line for a shape the synthesizer described,
@@ -333,60 +297,98 @@ where
     reason = "a failed expectation is the test failure"
 )]
 mod tests {
-    use super::{Corners, PLATEAU, of};
+    use super::{NAMED, group_of, of, shape_of};
     use crate::{Confidence, Patch};
+    use deepmind_midi::generator::EnvelopeId;
     use deepmind_midi::ids::ProtocolVersion;
     use deepmind_midi::param::Group;
     use deepmind_midi::program::Program;
 
+    /// A sound the synthesizer has described.
+    fn read() -> Patch {
+        let mut patch = Patch::new();
+        patch.confirm(Program::new(ProtocolVersion::V7));
+        patch
+    }
+
     #[test]
     fn the_three_envelopes_are_found_and_nothing_else_is() {
         // Asked of every group the instrument has, rather than of a handful:
-        // the three are found by what the library calls their parameters, and
-        // a fourth group that grew an `Attack Time` would be found too.
+        // the three are the three the library publishes a generator for, and a
+        // group that grew an `Attack Time` without one is not an envelope this
+        // window can draw.
         let found: Vec<Group> = Group::ALL
             .iter()
             .copied()
             .filter(|group| of(*group).is_some())
             .collect();
 
-        assert_eq!(found.len(), 3, "found {found:?}");
-        for group in [Group::VcaEnvelope, Group::VcfEnvelope, Group::ModEnvelope] {
-            assert!(found.contains(&group), "{group:?} is an envelope");
+        assert_eq!(found.len(), EnvelopeId::ALL.len(), "found {found:?}");
+        for which in EnvelopeId::ALL {
+            assert!(found.contains(&group_of(which)), "{which:?} is an envelope");
         }
     }
 
     #[test]
-    fn the_shape_starts_at_nothing_and_ends_at_nothing() {
-        let corners = Corners::new(128, 128, 128, 128);
-        assert!(corners.height_at(0.0).abs() < f32::EPSILON);
-        assert!(corners.height_at(1.0).abs() < f32::EPSILON);
+    fn an_envelope_reads_eight_parameters_of_its_own_group() {
+        for which in EnvelopeId::ALL {
+            let group = group_of(which);
+            let envelope = of(group).expect("an envelope");
+            let parameters = envelope.parameters();
+
+            assert_eq!(parameters.len(), NAMED.len());
+            for parameter in parameters {
+                assert_eq!(
+                    parameter.group(),
+                    group,
+                    "{parameter} is drawn on another envelope's plate"
+                );
+            }
+            // Eight distinct parameters, so a suffix that matched twice would
+            // fail here rather than drawing one byte as two segments.
+            let mut offsets: Vec<u8> = parameters.iter().map(|it| it.offset()).collect();
+            offsets.sort_unstable();
+            offsets.dedup();
+            assert_eq!(offsets.len(), NAMED.len(), "{group} reads a byte twice");
+        }
     }
 
     #[test]
-    fn the_peak_is_the_top_and_the_plateau_is_the_sustain() {
-        let corners = Corners::new(100, 100, 200, 100);
-        assert!((corners.height_at(corners.attack) - 1.0).abs() < 0.01);
-        let plateau = corners.attack + corners.decay + PLATEAU / 2.0;
-        assert!((corners.height_at(plateau) - corners.sustain).abs() < 0.01);
+    fn each_group_asks_the_library_for_its_own_envelope() {
+        // The bridge between a group and the library's own name for it, held to
+        // by what the answer draws rather than by inspection: an envelope held
+        // at the top is a sustain of 255 at a level curve, and it is drawn on
+        // the plate of the group whose bytes were moved and on no other.
+        for which in EnvelopeId::ALL {
+            let group = group_of(which);
+            let envelope = of(group).expect("an envelope");
+            let [_, _, sustain, _, _, _, curve, _] = envelope.parameters();
+            let mut patch = read();
+            assert!(patch.edit(sustain, 255));
+            assert!(patch.edit(curve, 128));
+
+            let held = shape_of(&patch, group).expect("a shape");
+            assert!(
+                (held.at(0.5) - 1.0).abs() < 0.01,
+                "{group} does not draw its own sustain"
+            );
+            for other in EnvelopeId::ALL.map(group_of) {
+                if other == group {
+                    continue;
+                }
+                let quiet = shape_of(&patch, other).expect("a shape");
+                assert!(
+                    quiet.at(0.5) < 0.01,
+                    "{other} draws the bytes {group} holds"
+                );
+            }
+        }
     }
 
     #[test]
-    fn an_instant_envelope_is_a_plateau_and_not_a_panic() {
-        let corners = Corners::new(0, 0, 255, 0);
-        assert!((corners.height_at(0.0) - 1.0).abs() < 0.01);
-        assert!((corners.height_at(PLATEAU / 2.0) - 1.0).abs() < 0.01);
-    }
-
-    #[test]
-    fn a_release_of_nothing_still_ends_at_nothing() {
-        // A gate: up, held, and gone the instant the key is. The drop has only
-        // the end of the axis to happen in, and a plateau that reaches the
-        // right edge and stops would read as a sound that never ends.
-        let corners = Corners::new(255, 0, 255, 0);
-
-        assert!((corners.height_at(0.99) - 1.0).abs() < 0.01);
-        assert!(corners.height_at(1.0).abs() < f32::EPSILON);
+    fn nothing_is_drawn_from_a_sound_nobody_has_read() {
+        assert!(shape_of(&Patch::new(), Group::VcaEnvelope).is_none());
+        assert!(shape_of(&read(), Group::VcaEnvelope).is_some());
     }
 
     #[test]
@@ -406,10 +408,12 @@ mod tests {
             Confidence::Confirmed
         );
 
-        // One of the four moved in this window, and the whole outline is a
-        // claim: three values the synthesizer described do not vouch for a
-        // shape drawn through a fourth it has not.
-        assert!(patch.edit(envelope.decay, 90));
+        // One of the eight moved in this window, and the whole outline is a
+        // claim: seven values the synthesizer described do not vouch for a
+        // shape drawn through an eighth it has not. A curve is one of the
+        // eight now, which is what changed when the segments started bending.
+        let [_, _, _, _, _, curve, _, _] = envelope.parameters();
+        assert!(patch.edit(curve, 90));
         assert_eq!(
             patch.claim_across(envelope.parameters()),
             Confidence::Assumed

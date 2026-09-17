@@ -44,12 +44,19 @@
 //! arpeggiator is opening. The envelopes get the one drawing no `DeepMind` can
 //! show, which is all three of them at once.
 //!
+//! What those drawings are shapes *of* is not in this crate. `deepmind-midi`
+//! 26.4 publishes them as functions — an envelope's bends, an LFO's wave, a
+//! filter's roll-off about its own corner, the arpeggiator's gates — and a
+//! screen here is a sample loop over one: where a filter's corner sits for a
+//! byte is a fact about the instrument, and a window is the wrong place to keep
+//! it right.
+//!
 //! Every one of those is under the refusals the rest of this crate is under. No
-//! axis is in anybody's units, because the manual prints the ends of a range
-//! and not the curve between them; nothing is drawn from a value nobody has
-//! read; and the claim is the whole screen's colour, because a display has no
-//! moving part to fill and the [name](name_characters) field answered that
-//! question first.
+//! axis is in anybody's units unless the library publishes one, which it does
+//! for two of them and says so in its own `Scale`; nothing is drawn from a value
+//! nobody has read; and the claim is the whole screen's colour, because a
+//! display has no moving part to fill and the [name](name_characters) field
+//! answered that question first.
 //!
 //! # Fourteen panels, one at a time
 //!
@@ -79,6 +86,14 @@
 //! The control is still the parameter table's own, because what the display
 //! reads there and what the byte is are two different claims and only one of
 //! them is published.
+//!
+//! What an engine *is* comes from the same place. Every algorithm belongs to one
+//! of nine families and every family has a mark, published as strokes
+//! and laid out here; three of the 35 carry a switch that takes them out of
+//! circuit and the other 32 have no such thing; and two of them — the tap
+//! delays — have a response that follows from their own parameters, so those
+//! two get a screen and the other 33 get the blank a library that refuses to
+//! guess leaves behind.
 //!
 //! ```
 //! use control_ui::{Confidence, Patch};
@@ -133,6 +148,7 @@ mod glyphs;
 mod home;
 mod knob;
 mod lcd;
+mod mark;
 mod matrix;
 mod name;
 mod panel;
@@ -147,14 +163,14 @@ pub use fader::{Axis, Fader, fader};
 pub use footer::footer;
 pub use home::{panel, panel_width, panelled, screen};
 pub use knob::{Knob, knob};
-pub use lcd::{Band, Ink, PITCH, Screen, Size, lcd};
+pub use lcd::{Band, Ink, PITCH, Screen, Size, lcd, stencil};
 pub use name::characters as name_characters;
 pub use panel::{Message, group};
 pub use patch::Patch;
 pub use section::{first_section, section_bar, sections};
 pub use style::{
-    Materials, READABLE, bay, chrome, contrast, deepmind, ground, ink_on, legible, materials,
-    printed, reading, selector, shortlist, tint, wordmark, written,
+    Materials, READABLE, bay, chrome, contrast, deepmind, ground, ink_on, is_negative, legible,
+    materials, negative, printed, reading, selector, shortlist, tint, wordmark, written,
 };
 
 /// A piece of interface, produced by the views in this crate.

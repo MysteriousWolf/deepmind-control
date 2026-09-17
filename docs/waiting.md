@@ -14,32 +14,39 @@ from a fact this repository transcribed is a second copy of a generated table,
 going stale silently on the next release. So the answer to "the window cannot
 say that" is an issue, not a table.
 
-There was one exception, and it is gone. The front panel's own contents were a
-table in `control-ui/src/home.rs`, because the home screen could not be built
-without them: written as `ParamId`s so a rename failed the build rather than
-mislabelling a fader, in one file, with that file's first paragraph saying it
-was there until the library published the same thing and the issue that would
-delete it linked from the code. 26.3 published it and the table is deleted.
-That is the measure of the arrangement working: the transcription was named out
-loud, scoped to one file, and removed by the other side of the split rather than
-becoming permanent.
+There were two, and both are gone, and a third is being written down before it
+settles. The front panel's own contents were a table in
+`control-ui/src/home.rs`, because the home screen could not be built without
+them; 26.3 published the same thing and the table is deleted. The shapes the
+plate displays draw were arithmetic about the instrument written in
+`control-ui/src/scene.rs` and `envelope.rs` — where a filter's corner sits for a
+byte, what a `Sample & Hold` looks like — and 26.4 published those as functions,
+so they are deleted too.
+
+That is the measure of the arrangement working: both were named out loud, scoped
+to the files they were in, and removed by the other side of the split rather than
+becoming permanent. What is left in those two files is a sample loop, the one
+number the library declines to draw — the high-pass slope, marked where it is
+used and now asked for in [#37](https://github.com/MysteriousWolf/deepmind-midi/issues/37)
+— and one assumption about where an LFO rests, marked the same way and asked for
+in [#35](https://github.com/MysteriousWolf/deepmind-midi/issues/35). Both are in
+the open list above rather than quietly correct, which is the only way a number
+like that does not become permanent.
 
 ## Open
 
-Four, all of them the effects page asking for more than the library publishes.
-The first is a gap; the other three are the same move made three times — the
-library owns what a thing *is*, and a window that decides it instead is a second
-copy of a generated table, going stale silently on the next release.
+Three, all from one pass over the section plates' own displays. 26.4 published
+the shapes; these are what a shape still cannot say about itself.
 
-| | | |
+| | | What the window does meanwhile |
 | --- | --- | --- |
-| [#30](https://github.com/MysteriousWolf/deepmind-midi/issues/30) | How an FX slot is turned off, or that it cannot be | `fx_type` is 35 algorithms with no `Off`, the Effects group has no per-slot enable, and `FX Mode` is the whole block. Three algorithms carry their own enable in their twelve bytes (`EdisonEX1` `ON`, `NoiseGate` `PWR`, `RackAmp` `CAB`), which is what makes the absence look like a gap. **When it lands:** an engine running nothing collapses to a marker and gives its room back, instead of drawing twelve controls that reach nothing. Meanwhile every engine draws its full panel, because this window has no way to know which one is doing nothing |
-| [#31](https://github.com/MysteriousWolf/deepmind-midi/issues/31) | A mark per algorithm, as unit geometry or as a `Family` | **When it lands:** the mark goes in each engine's header, where four long names currently have to be read one at a time. The `Family` half alone would do most of it. Meanwhile the header carries the full name and the category, which is the most the library can currently answer |
-| [#32](https://github.com/MysteriousWolf/deepmind-midi/issues/32) | The generators the panels draw: envelopes, LFO shapes, filter responses, arpeggiator gates | The big one, and the one that would take real decisions out of this tree. Ten screens in `control-ui/src/scene.rs` and `envelope.rs` are arithmetic about the instrument written in a window — where a filter's corner sits for a byte, what a `Sample & Hold` looks like. **When it lands:** every one of them becomes a sample loop over a published function, and the refusal to label an axis the manual does not print moves into the library's own `Scale`, where it can be tested. This is the nearest thing left to the `home.rs` transcription, and it should go the same way |
-| [#33](https://github.com/MysteriousWolf/deepmind-midi/issues/33) | What an effect does to a signal: a `Quantity` per slot, and a response where it is known | #32 pointed at the effects. **When it lands:** the effects get the screen every other panel has — four small pictures, one per engine, and a parameter that shows what it is doing as it moves. The `Quantity` half is worth having first and on its own, because grouping an algorithm's slots into a picture currently means matching on titles across 35 algorithms. Meanwhile the effects are the one panel with no screen on it, which is honest: there is nothing published to draw there |
+| [#35](https://github.com/MysteriousWolf/deepmind-midi/issues/35) | `generator::lfo` reads the shape byte and ignores the four other parameters that shape an LFO | Draws the shape it is given, over at least two turns, with a dotted rule across the middle of the band for the level it swings about. **The middle is assumed.** `LFO n Unipolar` is what says whether an LFO swings about the centre of its range or rides up from the floor, and the generator is not reading it, so a unipolar LFO is drawn with its rest line in the wrong place. `Slew Rate`, `Delay / Fade` and `Key Sync` are not drawn at all |
+| [#36](https://github.com/MysteriousWolf/deepmind-midi/issues/36) | The marks along a generator's horizontal | Rules the two axes that are regular enough to derive — an octave a tick on the filter plates out of `Scale::Octaves`, a cycle a tick on the LFO plates out of `Scale::Turns`. The envelope plates have no marks at all: the four bytes a player is editing are the four segments of that line and nothing on the screen says which part is which |
+| [#37](https://github.com/MysteriousWolf/deepmind-midi/issues/37) | The high-pass response, and what the oscillators are making | Draws both by hand. The high-pass is the one number about the instrument still written down in this tree — `HIGH_PASS_SLOPE`, transcribed out of a doc comment in the library — and the two oscillator plates assemble their own shapes and their own mixing law out of six parameters |
 
-Nothing is banked against any of them. The window does the most the library can
-currently answer for, and each row says what that is.
+None of the three blocks anything. They are each a place where the window is
+deciding something the library would decide better, which is the same argument
+every row in the table below was filed on.
 
 ## Answered
 
@@ -54,6 +61,10 @@ currently answer for, and each row says what that is.
 | [#25](https://github.com/MysteriousWolf/deepmind-midi/issues/25) | A parameter's displayed range, as the manual prints it | 26.3, as `ParamId::display`. Spent: the footer prints `50.0 Hz to 20000.0 Hz` where the manual has it, and the raw ends where it does not |
 | [#26](https://github.com/MysteriousWolf/deepmind-midi/issues/26) | Which parameters the front panel puts a control under | 26.3, as `front::sections`. **The transcription is deleted.** `control-ui/src/home.rs` reads the panel off the library and spends what it saved on layout: two of the nine sections are drawn as more than one plate |
 | [#28](https://github.com/MysteriousWolf/deepmind-midi/issues/28) | What a parameter does, behind a default-off feature | 26.3, as `ParamId::description` under `descriptions`. Spent: the workspace turns the feature on and the footer prints the sentence |
+| [#30](https://github.com/MysteriousWolf/deepmind-midi/issues/30) | How an FX slot is turned off, or that it cannot be | 26.4, and the answer is that on 32 of the 35 it is not: `FX n Type` has no `Off`, and what takes effects out of circuit is the `Bypass` mode, which is the whole block of four. `FxSlot::is_enable` names the three that carry a switch of their own. Spent: the strip says `out of circuit` where one of those three is off and the chain draws that engine as something the signal goes past. Nothing collapses, because there is nothing to collapse |
+| [#31](https://github.com/MysteriousWolf/deepmind-midi/issues/31) | A mark per algorithm, as unit geometry or as a `Family` | 26.4, as both: nine families across the 35 and a `Mark` per family, published as strokes in a unit box and as a seven by seven grid for a display with no room to stroke anything. Spent in full — `control-ui/src/mark.rs` lays the strokes out in the window's own ink at the head of every engine's strip, and the chain's boxes blit the grid |
+| [#32](https://github.com/MysteriousWolf/deepmind-midi/issues/32) | The generators the panels draw: envelopes, LFO shapes, filter responses, arpeggiator gates | 26.4, as `generator`. **The arithmetic is deleted.** The envelope corners, the seven waves and the scatter behind the sampled two, the roll-off a pole count gives and the gates a rate byte used to stretch are all gone from `scene.rs` and `envelope.rs`, which are a sample loop over a published function now. The four curve faders under an envelope bend it, the filter stands on the published decibel vertical, and the refusal to label an axis moved into the library's own `Scale` where it can be tested |
+| [#33](https://github.com/MysteriousWolf/deepmind-midi/issues/33) | What an effect does to a signal: a `Quantity` per slot, and a response where it is known | 26.4. Spent: the line under every slot says what kind of quantity the byte is where the manual prints no range for it, and the two tap delays have the screen every other panel in this window has. The other 33 have none, which is the answer — a reverb's impulse response is its designer's |
 
 ## What an answer costs here
 
@@ -66,7 +77,7 @@ printing — the caveat under a section, the note in
 
 ## Asking for something new
 
-An issue there, not a table here. What has worked, in all five above: what is
+An issue there, not a table here. What has worked, in every row above: what is
 missing and where it already exists in `spec/`, why this editor cannot do its
 job without it, the accessor that would answer it, and what the library should
 *not* do — because half of what is useful about this library is what it refuses

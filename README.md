@@ -29,14 +29,15 @@ has a screen of its own as well, which is the one place this window is not the
 instrument — a dot matrix at the same pitch as the panel's own display, drawing
 the shapes the oscillators are making, where the filter's corner is, the gates
 the arpeggiator is opening, and the one picture no `DeepMind` can show: all
-three envelopes at once. Behind those
-presses is the editor, which lists the ports, opens one, finds out who is on it
-and which firmware's value tables are true, reads the edit buffer, and edits all
-242 parameters end to end — with the values the synthesizer reported drawn
-differently from the ones this window put there. The library reads and writes `.syx` files, reads a bank
-off the instrument with a progress bar and a stop button, browses what it found
-in slot order, and loads any of it into the edit buffer as the difference rather
-than as 242 parameters.
+three envelopes at once. None of those shapes is this window's arithmetic: the
+library publishes them as functions and each screen is a sample loop over one.
+Behind those presses is the editor, which lists the ports, opens one, finds out
+who is on it and which firmware's value tables are true, reads the edit buffer,
+and edits all 242 parameters end to end — with the values the synthesizer
+reported drawn differently from the ones this window put there. The library
+reads and writes `.syx` files, reads a bank off the instrument with a progress
+bar and a stop button, browses what it found in slot order, and loads any of it
+into the edit buffer as the difference rather than as 242 parameters.
 
 The parameters are fourteen panels, chosen from a section bar that carries each
 section's own claim, and every panel is drawn from the library's table rather
@@ -47,13 +48,14 @@ the three envelopes, four faders and the shape they make; the modulation matrix,
 eight routings read across as rows rather than down as twenty-four slots; the
 control sequencer as one strip of thirty-two steps; and the effects as all four
 engines at once, in the two-by-two the four of them make, each in the case the
-manual prints beside its algorithm and carrying its own strip — what it is
-running, the list that changes it, and how loud it comes out — with its twelve
-bytes under the names that algorithm gives them, each in the column and row the
-instrument's own FX page draws it in, under a display of the chain the four are
-wired into, drawn from the library's edge lists rather than out of the
-topology's name. What is left is polish, and then the plugin. See
-[the plan](docs/plan.md) for what is being built and in what order.
+manual prints beside its algorithm and carrying its own strip — the mark of the
+family it is in, what it is running, the list that changes it, and how loud it
+comes out — with its twelve bytes under the names that algorithm gives them,
+each in the column and row the instrument's own FX page draws it in, under a
+display of the chain the four are wired into, drawn from the library's edge
+lists rather than out of the topology's name. What is left is polish, and then
+the plugin. See [the plan](docs/plan.md) for what is being built and in what
+order.
 
 It is dark, in the instrument's own colours: the palette is read off the mark in
 `docs/logo.svg`, which draws the same panel, metal and wood, and one file holds

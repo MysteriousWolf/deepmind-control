@@ -56,6 +56,8 @@ pub enum Message {
     Tick,
     /// Show the front panel, a section of it, or the librarian.
     Show(View),
+    /// Turn the displays over, and back.
+    Invert,
     /// Sit the bank picker on a bank, without reading it.
     ChooseBank(Bank),
     /// Read the chosen bank onto the shelf, one dump at a time.
@@ -113,6 +115,13 @@ pub struct App {
     bank: Bank,
     /// Which of the three surfaces is showing.
     view: View,
+    /// Whether the displays are drawn the other way up.
+    ///
+    /// Not part of the sound and nothing to do with the synthesizer: it is
+    /// which of the two liveries this window is painted in, the way the glass
+    /// on a piece of equipment is either dark dots on a lit screen or lit dots
+    /// on a dark one. A `DeepMind` ships positive, so that is where it starts.
+    negative: bool,
     /// The last thing worth saying, in words.
     status: String,
 }
@@ -140,6 +149,7 @@ impl App {
             shelf: Shelf::new(),
             bank: Bank::A,
             view: View::Panel,
+            negative: false,
             status: "Choose a port.".to_owned(),
         }
     }
@@ -236,6 +246,12 @@ impl App {
         self.section
     }
 
+    /// Returns whether the displays are drawn the other way up.
+    #[must_use]
+    pub const fn is_negative(&self) -> bool {
+        self.negative
+    }
+
     /// Returns what the librarian is holding.
     #[must_use]
     pub const fn shelf(&self) -> &Shelf {
@@ -296,6 +312,7 @@ impl App {
                     self.ask(Command::SetParameter { parameter, value });
                 }
             }
+            Message::Invert => self.negative = !self.negative,
             Message::Ui(control_ui::Message::Rename(name)) => self.rename(name),
             Message::Ui(control_ui::Message::Pointed(parameter)) => self.pointed = parameter,
         }

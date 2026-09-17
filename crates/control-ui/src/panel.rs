@@ -162,6 +162,23 @@ pub(crate) struct Room {
     /// slot wide and a control drawn at the column's width would be a knob the
     /// size of a fist.
     body: Option<f32>,
+    /// How many columns a lit set stands in.
+    ///
+    /// One, everywhere the instrument itself lights a set: `Sine`, `Triangle`,
+    /// `Square` beside an LFO's faders are a column, because that is how they
+    /// are silkscreened. A set too long to read down in one — the ten
+    /// topologies the effects block can be wired in — is the same lamps in
+    /// several, which is a shape a page has room for where a column of ten is
+    /// a page of nothing else.
+    across: usize,
+    /// Whether the control takes the room left over rather than its own.
+    ///
+    /// A rack's slot is cut to its fader and a table's cell to its longest
+    /// name, so both of those are a number. A set of lamps laid out in columns
+    /// across a band of its own is not: what it wants is the band, and a width
+    /// written down for it is a band half full with the rest of the page blank
+    /// beside it.
+    fills: bool,
 }
 
 /// What a control that sweeps a range is drawn as.
@@ -191,6 +208,8 @@ impl Room {
         legends: false,
         form: Form::Fader,
         body: None,
+        across: 1,
+        fills: false,
     };
 
     /// Room for one lane of the instrument's own front panel.
@@ -207,6 +226,8 @@ impl Room {
             legends: false,
             form: Form::Fader,
             body: None,
+            across: 1,
+            fills: false,
         }
     }
 
@@ -220,6 +241,41 @@ impl Room {
             legends: true,
             form: Form::Fader,
             body: None,
+            across: 1,
+            fills: false,
+        }
+    }
+
+    /// Room to light a long named set in `across` columns of legends.
+    ///
+    /// What a set too long to read down in one column gets when the page has
+    /// the width for it: the same lamps, in the same order, wrapped. The
+    /// height is taken rather than given — as many rows as the columns need —
+    /// because a set laid out to be read whole is a set where a legend past
+    /// the end of the room would be one of the choices silently missing.
+    pub(crate) const fn spread(width: f32, across: usize) -> Self {
+        Self {
+            axis: Axis::Down,
+            width,
+            height: Length::Shrink,
+            travel: fader::HEIGHT,
+            legends: true,
+            form: Form::Fader,
+            body: None,
+            across,
+            fills: true,
+        }
+    }
+
+    /// Returns how much room across, as a length a widget can be given.
+    ///
+    /// A number for everything cut to its own contents, and the room left over
+    /// for a set of lamps laid out across a band of its own.
+    pub(crate) const fn across_as(self) -> Length {
+        if self.fills {
+            Length::Fill
+        } else {
+            Length::Fixed(self.width)
         }
     }
 
@@ -236,6 +292,8 @@ impl Room {
             legends: false,
             form: Form::Fader,
             body: None,
+            across: 1,
+            fills: false,
         }
     }
 
@@ -252,6 +310,8 @@ impl Room {
             legends: false,
             form: Form::Fader,
             body: None,
+            across: 1,
+            fills: false,
         }
     }
 
@@ -265,6 +325,8 @@ impl Room {
             legends: false,
             form: Form::Fader,
             body: None,
+            across: 1,
+            fills: false,
         }
     }
 
@@ -658,7 +720,12 @@ where
         .into()
 }
 
-/// Draws a named set as a column of legends, one of them lit.
+/// Draws a named set as legends, one of them lit.
+///
+/// A column of them, which is how the instrument silkscreens a set beside the
+/// faders it belongs to, or several columns where the room says so — see
+/// [`Room::spread`]. Down each column and then across, so that reading it the
+/// way the instrument numbers the values is reading down.
 fn legends<'a, Renderer>(
     parameter: ParamId,
     options: &[Choice],
@@ -670,7 +737,7 @@ where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
     let live = !matches!(claim, Confidence::Unknown);
-    let rows = options.iter().map(|choice| {
+    let lamp = |choice: &Choice| {
         let on = Some(choice.byte()) == value;
         let byte = choice.byte();
         let face = button(text(choice.name).size(10).font(reading()))
@@ -687,16 +754,34 @@ where
         } else {
             Element::from(face)
         }
+    };
+    let across = room.across.max(1);
+    // As many rows as it takes, so that the last column is the short one: a set
+    // of ten in three columns is four, four and two, and the one that is two is
+    // the last rather than one somewhere in the middle of the reading.
+    let down = options.len().div_ceil(across);
+    let columns = options.chunks(down.max(1)).map(|chunk| {
+        Element::from(
+            column(chunk.iter().map(lamp))
+                .spacing(BETWEEN)
+                .width(Length::Fill),
+        )
     });
     container(
-        column(rows)
-            .spacing(BETWEEN)
-            .width(Length::Fixed(room.width)),
+        row(columns)
+            .spacing(if across > 1 { BESIDE } else { 0.0 })
+            .width(room.across_as()),
     )
     .height(room.height)
     .align_y(Vertical::Center)
     .into()
 }
+
+/// How far apart two columns of lit legends stand.
+///
+/// Wider than the gap down a column, so that a set read down reads as columns
+/// rather than as a block of words.
+const BESIDE: f32 = 6.0;
 
 /// Draws a named set too long for legends as the list it is.
 fn list<'a, Renderer>(
