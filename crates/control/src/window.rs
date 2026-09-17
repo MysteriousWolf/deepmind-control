@@ -54,12 +54,17 @@ pub fn run() -> iced::Result {
         .default_font(control_ui::printed())
         .theme(theme)
         .subscription(subscription)
-        // As wide as the panel measures, plus the ground it stands on and the
-        // bar it scrolls on, so a window opens on the instrument's own
+        // As wide as the widest surface measures, plus the ground it stands on
+        // and the bar it scrolls on, so a window opens on the instrument's own
         // arrangement rather than on a wrapped one. Narrower than this and the
-        // rows wrap, which is readable and is no longer two rows and a screen.
+        // panel's rows wrap, which is readable and is no longer two rows and a
+        // screen — and the effects page draws its chain past the edge of its
+        // own glass, which is not readable at all.
         .window_size((
-            control_ui::panel_width() + GROUND * 2.0 + BAR + BESIDE,
+            control_ui::panel_width().max(control_ui::effects_width())
+                + GROUND * 2.0
+                + BAR
+                + BESIDE,
             940.0,
         ))
         .run()

@@ -349,18 +349,14 @@ impl Standing<'_> {
 }
 
 /// What stands in `plates`' row, with the screen cut in where it belongs.
+///
+/// At the end of it. The instrument cuts its display in before the *last* plate
+/// of the top row — between what a player reaches for and the voicing — and the
+/// voicing is not in that row any more, so the end of the row is where the
+/// display's own neighbour went.
 fn standing_in(plates: &[Plate], holds_screen: bool) -> Vec<Standing<'_>> {
-    let mut row = Vec::with_capacity(plates.len() + usize::from(holds_screen));
-    // The instrument cuts its display in before the last plate of the row:
-    // between what a player reaches for and what the voicing does.
-    let cut = plates.len().saturating_sub(1);
-    for (at, plate) in plates.iter().enumerate() {
-        if holds_screen && at == cut {
-            row.push(Standing::Screen);
-        }
-        row.push(Standing::Plate(plate));
-    }
-    if holds_screen && !row.iter().any(|item| matches!(item, Standing::Screen)) {
+    let mut row: Vec<Standing<'_>> = plates.iter().map(Standing::Plate).collect();
+    if holds_screen {
         row.push(Standing::Screen);
     }
     row
@@ -593,6 +589,22 @@ pub(crate) fn rows() -> &'static [Vec<Plate>] {
 /// envelope gets the same four legends over its *own* parameters, and its own
 /// display, which is what it was really short of. Three envelopes sharing one
 /// screen were three panes of a strip; three plates are three full drawings.
+///
+/// **The amplifier stands at the head of the envelope row.** `VCA` is one
+/// fader — how loud the voice is — and the plate immediately after it is
+/// `VCA ENVELOPE`, which is what moves that fader while a note is held. On the
+/// instrument they are two rows apart because the envelopes are multiplexed
+/// onto four faders in the middle of the panel; unfolded, the amplifier and its
+/// own envelope are two plates that belong beside each other, and the row reads
+/// as the level and the three shapes that drive levels.
+///
+/// **The voicing drops to the [second row](VOICING_ROW).** It is one fader and
+/// a strip of lamps — how many voices a note takes and how far they are detuned
+/// — which is about the voice the signal path builds rather than about the two
+/// modulators and the arpeggiator it was printed beside. The instrument has it
+/// in the top row because that is where its front had the room, and taking it
+/// out of that row is also what lets the display stand at the end of one rather
+/// than in the middle.
 fn plates() -> Vec<Vec<Plate>> {
     let mut rows: Vec<Vec<Plate>> = vec![Vec::new(); usize::from(front::PANEL_ROWS)];
     // The envelopes get a row of their own rather than the one the instrument
@@ -618,7 +630,56 @@ fn plates() -> Vec<Vec<Plate>> {
     if !unfolded.is_empty() {
         rows.push(unfolded);
     }
+    // And two plates stand somewhere other than the row the instrument prints
+    // them in. See the note below for why each of them moves; both are the same
+    // hand layout the oscillators and the envelopes already are, and neither
+    // changes what a control is.
+    let last = rows.len().saturating_sub(1);
+    lift(&mut rows, Group::Vca, last, Beside::First);
+    lift(&mut rows, Group::Voicing, VOICING_ROW, Beside::Last);
+    rows.retain(|row| !row.is_empty());
     rows
+}
+
+/// Which row the voicing stands in, counting from the top.
+///
+/// The second. It is one fader and a row of lamps, and what it does — how many
+/// voices a note takes and how far they are detuned from each other — is about
+/// the voice the row under it builds rather than about the two modulators and
+/// the arpeggiator it was printed beside. The instrument has it up there
+/// because that is where its front panel had the room.
+const VOICING_ROW: usize = 1;
+
+/// Which end of its new row a moved plate stands at.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Beside {
+    /// The left-hand end, in front of what is already there.
+    First,
+    /// The right-hand end, after it.
+    Last,
+}
+
+/// Moves the plate that opens `group` to the `to`th row, at `beside`.
+///
+/// Nothing happens where the library has no such section, which is the same
+/// refusal every other reading of its tables makes here: a panel that lost a
+/// plate because a firmware renamed a group would be a panel drawn from an
+/// assumption.
+fn lift(rows: &mut [Vec<Plate>], group: Group, to: usize, beside: Beside) {
+    let mut moved = None;
+    for row in rows.iter_mut() {
+        if let Some(at) = row.iter().position(|plate| plate.opens == group) {
+            moved = Some(row.remove(at));
+            break;
+        }
+    }
+    let (Some(plate), Some(row)) = (moved, rows.get_mut(to)) else {
+        return;
+    };
+    match beside {
+        Beside::First => row.insert(0, plate),
+        Beside::Last => row.push(plate),
+    }
 }
 
 /// Gathers `controls` of `section` onto one plate called `name`.
@@ -1674,25 +1735,26 @@ mod tests {
 
     #[test]
     fn the_voice_the_signal_takes_is_the_second_row_and_the_envelopes_the_third() {
-        let second: Vec<&str> = rows()
-            .get(1)
-            .map(|plates| plates.iter().map(Plate::name).collect())
-            .unwrap_or_default();
+        let named = |row: usize| -> Vec<&str> {
+            rows()
+                .get(row)
+                .map(|plates| plates.iter().map(Plate::name).collect())
+                .unwrap_or_default()
+        };
 
+        // The top row is what a player reaches for, and the display stands at
+        // the end of it now that the voicing it was cut in before has gone
+        // down a row.
+        assert_eq!(named(0), vec!["ARP / SEQ", "LFO 1", "LFO 2"]);
+        // The signal path, left to right, with the oscillators unfolded — and
+        // the voicing at the end of it, which is the voice this row builds.
+        assert_eq!(named(1), vec!["OSC 1", "OSC 2", "VCF", "HPF", "POLY"]);
+        // The row the instrument had no room for: the level, and the three
+        // shapes that drive levels, with the one that drives *this* level
+        // standing next to it.
         assert_eq!(
-            second,
-            vec!["OSC 1", "OSC 2", "VCF", "VCA", "HPF"],
-            "the signal path, left to right, with the oscillators unfolded"
-        );
-        let third: Vec<&str> = rows()
-            .get(2)
-            .map(|plates| plates.iter().map(Plate::name).collect())
-            .unwrap_or_default();
-
-        assert_eq!(
-            third,
-            vec!["VCA ENVELOPE", "VCF ENVELOPE", "MOD ENVELOPE"],
-            "and the envelopes have the row the instrument had no room for"
+            named(2),
+            vec!["VCA", "VCA ENVELOPE", "VCF ENVELOPE", "MOD ENVELOPE"]
         );
     }
 }

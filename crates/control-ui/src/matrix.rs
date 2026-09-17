@@ -96,14 +96,30 @@ const NUMERAL: f32 = 0.78;
 /// many times a run of twenty-four needs saying.
 const LABEL: f32 = 20.0;
 
-/// How much room a source is chosen in.
-const SOURCE: f32 = 116.0;
-
-/// How much room a destination is chosen in.
+/// What share of the room the two lists have between them a source takes.
 ///
-/// Wider than a source, because there are 133 of them and their names are the
-/// long ones: `VCF Envelope Attack` has to be readable to be chosen.
-const DESTINATION: f32 = 168.0;
+/// A share rather than a width, because the table is drawn out to whatever the
+/// window gives it: the eight rows are a table of two lists, and a table that
+/// stopped two thirds of the way across the page with bare panel beside it is
+/// a table that decided how wide a window should be. The glass beside it is a
+/// fixed count of dots, so what the window has spare goes here.
+const SOURCE: u16 = 116;
+
+/// The same for a destination.
+///
+/// Half again, because there are 133 of them and their names are the long ones:
+/// `VCF Envelope Attack` has to be readable to be chosen, where `LFO 1` is five
+/// characters.
+const DESTINATION: u16 = 168;
+
+/// What share of that room a picture's box takes.
+///
+/// Its own size, in the same units as the two shares beside it, so that the
+/// boxes stay the size they are drawn at while the lists grow around them.
+const PICTURE_SHARE: u16 = 18;
+
+/// And the card between a picture and the list beside it.
+const BESIDE_SHARE: u16 = 6;
 
 /// How big the depth's dial is drawn, which is all the room it takes.
 ///
@@ -113,13 +129,6 @@ const DESTINATION: f32 = 168.0;
 /// down once in [`knob`](crate::knob) so that every control in this window
 /// moves at one rate under one hand.
 const DIAL: f32 = 38.0;
-
-/// How wide the box a source or destination's picture stands in is.
-///
-/// Seven dots at the pitch every display in this window shares, which is the
-/// cell the instrument's own screen writes a character in and the grid the
-/// library draws its cells, its glyphs and its marks on.
-const PICTURE_ACROSS: f32 = 7.0 * lcd::PITCH;
 
 /// How much card there is between that picture and the list beside it.
 const BESIDE_PICTURE: f32 = 6.0;
@@ -455,25 +464,33 @@ where
         .map(|_| reaching(patch, firmware))
         .unwrap_or_default();
     let sent = mapping.map(|mapping| Sent::new(mapping, &reaches));
-    let heading = |parameter: ParamId, width: f32| -> Element<'a, Renderer> {
+    let heading = |parameter: ParamId, width: Length| -> Element<'a, Renderer> {
         // The heading is the parameter's own name with what the row already
         // says taken off the front, which is the rule a slot's title follows
         // against its group: `Mod 1 Destination` in the `Mod 1` row is
         // `Destination`.
         let name = parameter.name();
         let title = name.rsplit(' ').next().unwrap_or(name);
-        text(title).size(11).width(Length::Fixed(width)).into()
+        text(title).size(11).width(width).into()
     };
     let first = routings.first().copied()?;
+    // The two lists take what the window has spare, in the proportion their
+    // names need it — see [`SOURCE`] and [`DESTINATION`]. Everything else in
+    // the row is the size of what is drawn in it, so a wider window is a wider
+    // pair of lists rather than a wider everything.
     let header = row![
         Space::new().width(Length::Fixed(LABEL)),
-        heading(first.source, SOURCE + PICTURE_ACROSS + BESIDE_PICTURE),
+        heading(
+            first.source,
+            Length::FillPortion(SOURCE + PICTURE_SHARE + BESIDE_SHARE)
+        ),
         Space::new().width(Length::Fixed(ARROW)),
         heading(
             first.destination,
-            DESTINATION + PICTURE_ACROSS + BESIDE_PICTURE + POINT + 10.0
+            Length::FillPortion(DESTINATION + PICTURE_SHARE + BESIDE_SHARE)
         ),
-        heading(first.depth, DIAL),
+        Space::new().width(Length::Fixed(POINT + 10.0)),
+        heading(first.depth, Length::Fixed(DIAL)),
     ]
     .spacing(10)
     // The card the rows stand on has its own padding, and a heading that
@@ -541,14 +558,20 @@ where
     // instrument's own glass. The rows say what each routing is; the glass says
     // what they add up to, which is the question the rows cannot answer however
     // carefully somebody reads down them.
+    // The table takes the room the window has and the glass takes its own: a
+    // display is a count of dots at a fixed pitch, and one drawn out to fill a
+    // page would be a magnified screen rather than a bigger one. So what a wide
+    // window is worth goes to the two lists, which is where a long destination
+    // name needs it.
     Some(
         row![
-            read,
+            read.width(Length::Fill),
             container(bay(patch, firmware, deep(routings.len()), &routings))
                 .width(Length::Fixed(lcd::room(BAY))),
         ]
         .spacing(BESIDE)
         .align_y(Vertical::Top)
+        .width(Length::Fill)
         .into(),
     )
 }
@@ -1131,7 +1154,7 @@ fn chosen<'a, Renderer>(
     firmware: Version,
     mapper: &'a Mapper,
     sent: Option<Sent<'_>>,
-    width: f32,
+    share: u16,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1159,13 +1182,14 @@ where
                 .menu_height(Length::Fixed(MENU))
                 .input_style(field)
                 .menu_style(shortlist)
-                .width(Length::Fixed(width)),
+                .width(Length::Fill),
             )
+            .width(Length::Fill)
             .height(Length::Fixed(crate::panel::BUTTON))
             .align_y(Vertical::Center)
             .into()
         }
-        _ => cell(patch, parameter, firmware, Room::listed(width), sent),
+        _ => cell(patch, parameter, firmware, Room::filling_list(), sent),
     };
     let drawn = patch
         .value(parameter)
@@ -1173,6 +1197,7 @@ where
     row![picture(drawn), listed]
         .spacing(BESIDE_PICTURE)
         .align_y(Vertical::Center)
+        .width(Length::FillPortion(share + PICTURE_SHARE + BESIDE_SHARE))
         .into()
 }
 
@@ -1355,7 +1380,7 @@ where
     let claim = patch.claim(parameter);
     let value = patch.value(parameter);
     container(control(parameter, value, claim, firmware, room, sent))
-        .width(Length::Fixed(room.width()))
+        .width(room.across_as())
         .into()
 }
 

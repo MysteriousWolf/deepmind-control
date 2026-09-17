@@ -304,6 +304,18 @@ impl Room {
         }
     }
 
+    /// The same, taking the room it is given rather than a width of its own.
+    ///
+    /// What a column of a table that fills the window asks for: the width is
+    /// the row's to share out, and a control that carried one of its own would
+    /// be a column that stopped where it was written to stop.
+    pub(crate) const fn filling_list() -> Self {
+        Self {
+            fills: true,
+            ..Self::listed(0.0)
+        }
+    }
+
     /// Room for one lane of a strip, `width` points across.
     ///
     /// Narrower than a slot and as tall, so a row of thirty-two stands as one
@@ -367,11 +379,6 @@ impl Room {
             body: Some(across),
             ..self
         }
-    }
-
-    /// Returns how much room across the panel this is.
-    pub(crate) const fn width(self) -> f32 {
-        self.width
     }
 
     /// Returns which way the control in this room travels.

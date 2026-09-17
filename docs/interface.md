@@ -59,20 +59,41 @@ looks first, and the rack of a section is one press behind it exactly as it is
 on the hardware.
 
 ```
-┌ ARP / SEQ ┐ ┌── LFO 1 ──┐ ┌── LFO 2 ──┐ ┌─────────────┐ ┌ POLY ┐
-│ ┌───────┐ │ │ ┌───────┐ │ │ ┌───────┐ │ │▛PROGRAM Pad▜│ │┌────┐│
-│ │▔╷ ▔╷ ▔│ │ │ │╭─╮ ╭─╮│ │ │ │╶╴ ┌─┐ │ │ │             │ ││ ╷╷╷││
-│ └───────┘ │ │ │╯ ╰─╯ ╰│ │ │ │  ─┘ └─│ │ │ Modular Fun │ │└────┘│
-│  ▮     ▮  │ │ └───────┘ │ │ └───────┘ │ │ ▁▁▁▁▁▁▁▁▁▁▁ │ │  ▮   │
-│ RATE GATE │ │ ▮  ▮ ○Sine│ │ ▮  ▮ ○Sine│ │ this claim  │ │DETUNE│
-│ [on][off] │ │      ●Tri │ │      ●Ramp│ │ ▓▓▓▓▓░░░ 84 │ │      │
-│      EDIT │ │      EDIT │ │      EDIT │ │ Read it.    │ │MOD FX│
-└───────────┘ └───────────┘ └───────────┘ └─────────────┘ └──────┘
-┌─── DCO 1 & 2 ───┐ ┌─── VCF ───┐ ┌VCA┐ ┌HPF┐ ┌ ENVELOPES ┐
-│ ▮ ▮ ▮ ▮ ▮ ▮ ▮   │ │ ▮ ▮ ▮ ▮ ▮ │ │ ▮ │ │ ▮ │ │ ▮ ▮ ▮ ▮   │
-│      [on]  EDIT │ │ [2 Pole]  │ │   │ │   │ │ A D S R   │
-└─────────────────┘ └───────────┘ └───┘ └───┘ └───────────┘
+┌ ARP / SEQ ┐ ┌── LFO 1 ──┐ ┌── LFO 2 ──┐ ┌───────────────┐
+│ ┌───────┐ │ │ ┌───────┐ │ │ ┌───────┐ │ │▛PROGRAM   Pad▜│
+│ │▔╷ ▔╷ ▔│ │ │ │╭─╮ ╭─╮│ │ │ │╶╴ ┌─┐ │ │ │               │
+│ └───────┘ │ │ │╯ ╰─╯ ╰│ │ │ │  ─┘ └─│ │ │  Modular Fun  │
+│  ▮     ▮  │ │ └───────┘ │ │ └───────┘ │ │ ▁▁▁▁▁▁▁▁▁▁▁▁▁ │
+│ RATE GATE │ │ ▮  ▮ ○Sine│ │ ▮  ▮ ○Sine│ │  this claim   │
+│ [on][off] │ │      ●Tri │ │      ●Ramp│ │  Read it.     │
+│      EDIT │ │      EDIT │ │      EDIT │ │               │
+└───────────┘ └───────────┘ └───────────┘ └───────────────┘
+┌ OSC 1 ┐ ┌── OSC 2 ──┐ ┌─── VCF ───┐ ┌HPF┐ ┌ POLY ┐
+│ ▮  ▮  │ │ ▮ ▮ ▮ ▮ ▮ │ │ ▮ ▮ ▮ ▮ ▮ │ │ ▮ │ │  ▮   │
+│  EDIT │ │ [on] EDIT │ │ [2 Pole]  │ │   │ │DETUNE│
+└───────┘ └───────────┘ └───────────┘ └───┘ └──────┘
+┌VCA┐ ┌VCA ENVELOPE┐ ┌VCF ENVELOPE┐ ┌MOD ENVELOPE┐
+│ ▮ │ │ ▮ ▮ ▮ ▮    │ │ ▮ ▮ ▮ ▮    │ │ ▮ ▮ ▮ ▮    │
+│   │ │ A D S R    │ │ A D S R    │ │ A D S R    │
+└───┘ └────────────┘ └────────────┘ └────────────┘
 ```
+
+**Two plates stand somewhere other than where the instrument prints them**, and
+both are the same hand layout the oscillators and the envelopes already are —
+the arrangement changes and what a control *is* does not.
+
+- **The amplifier heads the envelope row.** `VCA` is one fader, how loud the
+  voice is, and the plate immediately after it is the envelope that moves that
+  fader while a note is held. The instrument has them two rows apart because its
+  envelopes are multiplexed onto four faders in the middle of the panel;
+  unfolded, the level and the three shapes that drive levels are one row.
+- **The voicing drops to the second row**, at the end of the signal path it is
+  about: how many voices a note takes and how far they are detuned is a fact
+  about the voice the row builds, not about the two modulators and the
+  arpeggiator it was printed beside. Taking it out of the top row is also what
+  lets the display stand at the end of that row rather than in the middle of it
+  — the display was cut in *before* the voicing on the hardware, and it still
+  is.
 
 - **The screen is the application's, and the panel leaves a hole for it.** What a
   display says is which sound is on it, what backs that, and what last happened
@@ -113,6 +134,12 @@ on the hardware.
   instrument prints `ARP / SEQ`, `VCF` and `ENVELOPES`: a pale strip across the
   top of each group with the name dark on it. It is what the eye follows across
   the panel before it reads a single legend.
+- **The window opens as wide as the widest surface it has to draw**, which is
+  the panel or the effects page — not whichever of them the window happens to
+  open on. The panel's width is its widest row at the instrument's own
+  proportions; the effects page's is its chain, which is a fixed count of dots
+  because every box on it has to be able to name what is running in it. A window
+  sized for one of the two draws the other past its own edge.
 - **The panel fills the window it is in.** Every dimension here is written at
   the instrument's own proportions and then drawn through one scale, measured
   from the widest row against the room there actually is — the lanes, the travel
@@ -711,6 +738,14 @@ the modulation comes from, an arrow, where it goes, and how much.
 - **A rack is the wrong drawing for it.** Three parameters are one sentence, and
   twenty-four slots in one wrapping line put the words of a sentence in three
   places with the next sentence between them.
+- **The table takes the room the window has.** The two lists are shares rather
+  than widths — a source gets the smaller of them because `LFO 1` is five
+  characters and `VCF Envelope Attack` is nineteen — so a wider window is a
+  wider pair of lists rather than a wider everything, and the eight rows stop
+  two thirds of the way across a page they could have filled. The glass beside
+  them is a fixed count of dots and stays one: a display given more room gets
+  more dots, and a display *stretched* is a magnified screen rather than a
+  bigger one.
 - **Each cell is a slot with what the row already says taken out of it**: the
   control alone. The title is gone because the column heading says `Source`,
   `Destination` and `Depth` once rather than eight times, which is the rule that

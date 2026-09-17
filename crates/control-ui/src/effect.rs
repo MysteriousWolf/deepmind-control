@@ -905,6 +905,29 @@ where
     Some(body.into())
 }
 
+/// How wide this surface has to be before the chain stops fitting in it.
+///
+/// The one page in this window whose width is decided by a *display* rather
+/// than by its controls: the chain's glass is a fixed count of dots — enough
+/// that every box can name what is running in it, which is the longest
+/// abbreviation in the library's own table, four times over — and a window
+/// narrower than that is a window drawing a picture past the edge of its own
+/// glass.
+///
+/// Read by the application when it decides how wide to open, beside
+/// [`panel_width`](crate::panel_width). A window opens as wide as the widest
+/// thing it has to draw and not as wide as one of them.
+#[must_use]
+pub fn width() -> f32 {
+    lcd::room(chain::columns()) + (WIRING + PLATE) * 2.0
+}
+
+/// How much panel the block the chain stands in keeps around it.
+const WIRING: f32 = 8.0;
+
+/// And how much the surface keeps around that.
+const PLATE: f32 = 12.0;
+
 /// Draws one row of a plate's grid: six columns, each of them a slot or empty.
 ///
 /// Every column is the same width and is there whether or not anything stands

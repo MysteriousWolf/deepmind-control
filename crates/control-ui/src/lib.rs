@@ -172,6 +172,7 @@ mod style;
 
 pub use badge::{ABOUT, ARROW, Badge, DOWN, MAP, PLUGGED, PORT, READ, RESCAN, SIDE, UP, WHO};
 pub use confidence::Confidence;
+pub use effect::width as effects_width;
 pub use fader::{Axis, Fader, fader};
 pub use footer::footer;
 pub use home::{panel, panel_width, panelled, screen};
