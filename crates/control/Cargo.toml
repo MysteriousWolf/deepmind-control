@@ -8,6 +8,13 @@ license.workspace = true
 repository.workspace = true
 authors.workspace = true
 
+[features]
+## Builds the `previews` binary: the tool that photographs every surface this
+## window has, which a release is not made without. Off by default, because
+## nothing in the shipped editor reaches it and a screenshot encoder is not
+## something an editor should be carrying.
+previews = ["dep:png"]
+
 [dependencies]
 control-ui = { path = "../control-ui" }
 deepmind-host = { path = "../deepmind-host" }
@@ -31,6 +38,18 @@ rfd = { version = "0.17", default-features = false, features = [
     "xdg-portal",
     "wayland",
 ] }
+# What a preview is written out as. Already in the tree — `iced`'s `svg` feature
+# brings it in to draw the wordmark — so the release tool costs no new crate.
+png = { version = "0.17", optional = true }
+
+[[bin]]
+name = "previews"
+required-features = ["previews"]
+
+[[bin]]
+name = "control"
+path = "src/main.rs"
+
 
 [lints]
 workspace = true

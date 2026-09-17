@@ -127,6 +127,37 @@ cargo fmt --all --check
 synthesizer, and `deepmind-host` puts it in the port list as an ordinary choice
 alongside the real ones.
 
+### Previews
+
+`docs/previews/` holds a picture of every surface the editor has — the front
+panel, each of the fourteen sections, and the shelf — and they are taken by the
+application itself:
+
+```
+tools/previews.fish                 # a new set, from a seed off the clock
+tools/previews.fish --seed 1234     # that set again, exactly
+tools/previews.fish --check         # the release gate
+```
+
+The window is pointed at the simulated synthesizer, and the unit powers up
+holding a program built from the seed: every parameter somewhere inside its own
+range. So the pictures are of an instrument holding a *sound* rather than of a
+window that has just opened, and a new run turns up arrangements a fixed sound
+would hide — a worn case beside a brushed one, a matrix with six routings in it,
+an effects chain nobody would have thought to set up. The seed is printed and
+recorded beside the pictures, so a set somebody liked can be had back.
+
+It needs a display. Whatever is already there is used, and on a machine with
+none the script starts an `Xvfb` and draws in software.
+
+**`--check` is run before a release is cut.** Screenshots go stale silently,
+because nothing reads a picture. The check fails when one is missing, when
+`crates/` has uncommitted changes, and when the set was taken before the last
+commit that touched `crates/` — which is the only thing a picture can be out of
+date with. It does not compare the images: the sound in them is random by
+design, and what the gate holds is that somebody generated them from the code as
+it stands.
+
 The plugin comes after the desktop application and is built and bundled
 separately. The CLAP is what the other two formats are made from:
 

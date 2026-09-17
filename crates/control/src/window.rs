@@ -54,28 +54,42 @@ pub fn run() -> iced::Result {
         .default_font(control_ui::printed())
         .theme(theme)
         .subscription(subscription)
-        // As wide as the widest surface measures, plus the ground it stands on
-        // and the bar it scrolls on, so a window opens on the instrument's own
-        // arrangement rather than on a wrapped one. Narrower than this and the
-        // panel's rows wrap, which is readable and is no longer two rows and a
-        // screen — and the effects page draws its chain past the edge of its
-        // own glass, which is not readable at all.
-        .window_size((
-            control_ui::panel_width().max(control_ui::effects_width())
-                + GROUND * 2.0
-                + BAR
-                + BESIDE,
-            940.0,
-        ))
+        .window_size(window_size())
         .run()
 }
+
+/// How big a window opens.
+///
+/// As wide as the widest surface measures, plus the ground it stands on and the
+/// bar it scrolls on, so a window opens on the instrument's own arrangement
+/// rather than on a wrapped one. Narrower than this and the panel's rows wrap,
+/// which is readable and is no longer two rows and a screen — and the effects
+/// page draws its chain past the edge of its own glass, which is not readable at
+/// all.
+///
+/// Written down rather than spelled out in [`run`] because the previews open the
+/// same window: a picture taken at a size the application never opens at is a
+/// picture of a layout nobody sees.
+pub(crate) fn window_size() -> (f32, f32) {
+    (
+        control_ui::panel_width().max(control_ui::effects_width()) + GROUND * 2.0 + BAR + BESIDE,
+        DEEP,
+    )
+}
+
+/// How deep it opens.
+///
+/// The one number here that no surface measures: a panel is as tall as it is and
+/// a window is as tall as a screen has room for. Deep enough for the front panel
+/// without a scroll and short enough for a laptop.
+const DEEP: f32 = 940.0;
 
 /// What the window is drawn in.
 ///
 /// The instrument is a dark panel, so the window is one. Every colour in it
 /// comes from this theme, which lives in `control-ui` because the plugin is
 /// drawn in the same one.
-fn theme(app: &App) -> Theme {
+pub(crate) fn theme(app: &App) -> Theme {
     if app.is_negative() {
         control_ui::negative()
     } else {
@@ -84,7 +98,7 @@ fn theme(app: &App) -> Theme {
 }
 
 /// What the title bar says.
-fn title(app: &App) -> String {
+pub(crate) fn title(app: &App) -> String {
     match app.patch().name() {
         Some(name) => format!("{} \u{2014} deepmind control", name.as_str().trim()),
         None => "deepmind control".to_owned(),
@@ -95,7 +109,7 @@ fn title(app: &App) -> String {
 ///
 /// Nothing at all until a port is open, because a window with nothing to hear
 /// has nothing to redraw.
-fn subscription(app: &App) -> Subscription<Message> {
+pub(crate) fn subscription(app: &App) -> Subscription<Message> {
     if app.is_connected() {
         Subscription::run(ticks)
     } else {
@@ -135,7 +149,7 @@ fn ticks() -> impl Stream<Item = Message> {
 /// lit at the top where the light is, rather than the flat dark the theme's own
 /// background would give. It is the one surface in the window nothing is cut
 /// into, so it is drawn once, here, around all of it.
-fn view(app: &App) -> Element<'_, Message> {
+pub(crate) fn view(app: &App) -> Element<'_, Message> {
     container(
         column![header(app), surfaces(app)]
             .push(match app.view() {

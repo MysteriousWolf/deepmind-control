@@ -192,6 +192,22 @@ impl App {
         app
     }
 
+    /// Puts an already-open port in the window's hand.
+    ///
+    /// What choosing a port and pressing the connection does, for a caller that
+    /// opened the port itself. The previews do, because the one thing
+    /// [`open`] cannot hand back is the simulated unit's own front panel —
+    /// and a picture of the editor holding a sound needs somebody to have turned
+    /// the knobs. The picker is sat on the port as well, because a window whose
+    /// picker is empty while its display is full is a window in a state nobody
+    /// can reach.
+    #[cfg(feature = "previews")]
+    pub fn attach(&mut self, port: PortRef, link: Link) {
+        self.say(format!("Opening {port}\u{2026}"));
+        self.chosen = Some(port);
+        self.link = Some(link);
+    }
+
     /// Returns what the last scan found.
     #[must_use]
     pub fn ports(&self) -> &[PortRef] {

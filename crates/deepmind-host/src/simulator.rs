@@ -145,6 +145,19 @@ impl SimPort {
         if let Ok(name) = ProgramName::new("Simulator") {
             sound.set_name(name);
         }
+        Self::holding(memory, sound)
+    }
+
+    /// The same, for a unit that powers up with `sound` in its edit buffer.
+    ///
+    /// What [`new`](Self::new) does with the blank sound, for a caller that has
+    /// one of its own. A sound reached through [`Panel`] is the same sound by a
+    /// longer road — two hundred and forty-two knobs turned one at a time, each
+    /// one reported back — and there are things that want the unit to be
+    /// *holding* something rather than to have been played: a picture of the
+    /// editor with a sound in it, or a test that starts from one.
+    #[must_use]
+    pub fn holding(memory: Pack, sound: Program) -> (Self, Panel) {
         let (turns, pending) = mpsc::channel();
         let port = Self {
             synth: Synth::with_library(DeviceId::Unit(0), sound, memory),

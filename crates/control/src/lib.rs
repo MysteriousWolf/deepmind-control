@@ -43,6 +43,8 @@
 mod app;
 mod files;
 mod librarian;
+#[cfg(feature = "previews")]
+pub mod preview;
 mod shelf;
 mod window;
 

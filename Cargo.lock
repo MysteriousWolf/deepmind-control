@@ -538,6 +538,7 @@ dependencies = [
  "deepmind-host",
  "deepmind-midi",
  "iced",
+ "png",
  "rfd",
 ]
 
