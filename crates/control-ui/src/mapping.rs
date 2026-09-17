@@ -245,10 +245,12 @@ impl Reach {
     ///
     /// Which *way* it swings is assumed too, and it is the second thing: a
     /// routing from an LFO swings a control about where it sits and one from an
-    /// envelope rides up from it, and what a source does with a depth is not
-    /// published either. So the band runs from where the control sits to as far
-    /// as the depth reaches in the direction the depth's own sign gives, which
-    /// is what the fader holding it already says out loud.
+    /// envelope rides up from it, and what a source puts out is not published
+    /// either. So the band runs from where the control sits to as far as the
+    /// depth reaches in the direction the depth's own sign gives, which is what
+    /// the fader holding it already says out loud, and which is right for a
+    /// wheel and wrong for an LFO. Asked for in
+    /// [deepmind-midi#41](https://github.com/MysteriousWolf/deepmind-midi/issues/41).
     #[must_use]
     pub fn swing(self, value: u8) -> (f32, f32) {
         let span = f32::from(self.at.max().saturating_sub(self.at.min())).max(1.0);

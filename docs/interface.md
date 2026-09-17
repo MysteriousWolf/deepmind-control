@@ -712,8 +712,38 @@ Mod 1   [ LFO 1        v]  ->  [ VCF Freq      ] [map]    [======|========]
   How far a band reaches is **assumed**, the same assumption the drag makes:
   full depth is taken to move a control over the whole of its range. So is which
   way it swings — a routing from an LFO moves a control about where it sits and
-  one from an envelope rides up from it, and what a source does with a depth is
-  not published either. Both are in the open list rather than quietly correct.
+  one from an envelope rides up from it, and what a source puts out is not
+  published either. Both are in the open list rather than quietly correct.
+
+### The patch bay
+
+Beside the eight rows, on the instrument's own glass: the sources written down
+one side, the destinations down the other, and a line for every routing between
+them.
+
+It is the one thing the table cannot show. Eight rows read one sentence each,
+and what somebody wants to know about a modulation matrix is the *shape* of it —
+that one LFO is driving three things, that two routings are fighting over the
+filter corner, that the aftertouch goes nowhere. Reading that off eight rows
+means holding eight sentences in your head at once; the glass is the same eight
+facts arranged so that the shape is the picture.
+
+Only the routings the patch has actually wired are drawn. The instrument ships
+with all eight sitting on `Off`, and eight lines from `Off` to `Off` is a
+picture of nothing drawn eight times. The names are cut to what a cell holds,
+which is what a display does and what this one is a picture of.
+
+Every line is solid. The ink a line is laid down in distinguishes one line from
+the next and never says how much of anything there is — that rule is written
+down in `lcd.rs` and this is the first drawing that had a reason to want to
+break it. How much is the depth, and the depth is the fader beside the glass.
+
+**What is not drawn yet is a 7 by 7 cell for each name**: an LFO's wave, an
+envelope's corner, a wheel, a filter's knee, in place of the two columns of
+abbreviations. Those are the library's to publish for the same reason the effect
+families' marks were — a picture of `LFO 1` is a fact about the instrument, and
+one drawn here would be this window making one up. Asked for in
+[deepmind-midi#40](https://github.com/MysteriousWolf/deepmind-midi/issues/40).
 
   Nothing edits the sound while it is up. The sections still open, the panel
   still scrolls, the lists still say what they are showing, and the one thing a

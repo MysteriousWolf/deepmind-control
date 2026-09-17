@@ -70,6 +70,8 @@ use iced_core::alignment::Vertical;
 use iced_core::{Background, Font, Length, Theme, border, text::Renderer as TextRenderer};
 use iced_widget::{Space, button, column, combo_box, container, row, text};
 
+use crate::glyphs;
+use crate::lcd::{self, Ink, Screen, Size};
 use crate::mapping::{Mapper, Mapping, Reach, Sent};
 use crate::panel::{Choice, Message, Room, choices, control, readout};
 use crate::style::{self, chrome, field, materials, reading, shortlist};
@@ -88,7 +90,12 @@ const SOURCE: f32 = 150.0;
 const DESTINATION: f32 = 200.0;
 
 /// How long the depth fader's travel is.
-const DEPTH: f32 = 260.0;
+///
+/// Shorter than it was, because the glass beside the rows wanted the room and
+/// wanted it more: a depth is one byte and 130 points of travel is already
+/// finer than a hand can be, where the patch bay is eight routings and cannot
+/// be read at all if the two columns of names meet in the middle.
+const DEPTH: f32 = 130.0;
 
 /// How much room the arrow between a source and its destination takes.
 const ARROW: f32 = 18.0;
@@ -211,6 +218,53 @@ pub(crate) fn moved(patch: &Patch, firmware: Version) -> Vec<ParamId> {
     moved
 }
 
+/// One routing as the instrument's own display would name it: where it comes
+/// from, where it goes, and what backs both.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Wire {
+    /// The source's name, as the display prints it.
+    from: &'static str,
+    /// The destination's, the same way.
+    to: &'static str,
+    /// The weaker of the two claims, because a line drawn between a fact and a
+    /// guess is a guess.
+    claim: Confidence,
+}
+
+/// Returns the routings the patch has actually wired, in the order the matrix
+/// reads them.
+///
+/// Both names are the library's own value tables, asked for the firmware that
+/// answered — the same call the row above makes when it draws either as a list.
+/// A routing with nothing at one end is not a wire and is not drawn: the
+/// instrument ships with all eight sitting on `Off`, and eight lines from `Off`
+/// to `Off` is a picture of nothing drawn eight times.
+pub(crate) fn wiring(patch: &Patch, firmware: Version) -> Vec<Wire> {
+    let named = |parameter: ParamId| -> Option<&'static str> {
+        let value = patch.value(parameter)?;
+        let name = choices(parameter, firmware, Some(value))?
+            .into_iter()
+            .find(|choice| choice.byte() == value)?
+            .name();
+        // `Off` is the instrument saying this end is not wired, and it is the
+        // library's own word for it rather than this window's.
+        (!name.eq_ignore_ascii_case("off")).then_some(name)
+    };
+    Group::ORDER
+        .iter()
+        .copied()
+        .filter_map(of)
+        .flatten()
+        .filter_map(|routing| {
+            Some(Wire {
+                from: named(routing.source)?,
+                to: named(routing.destination)?,
+                claim: patch.claim_across([routing.source, routing.destination]),
+            })
+        })
+        .collect()
+}
+
 /// Every routing the patch holds, against the control each one lands on.
 ///
 /// The same walk [`moved`] makes and one more question asked of it: not only
@@ -297,9 +351,7 @@ where
                 ]
                 .spacing(2)
             )
-            .width(Length::Fixed(LABEL))
-            .height(Length::Fill)
-            .align_y(Vertical::Center),
+            .width(Length::Fixed(LABEL)),
             cell(patch, routing.source, firmware, Room::listed(SOURCE), sent),
             arrow(),
             going(patch, routing, firmware, mapper, sent),
@@ -309,18 +361,168 @@ where
         .align_y(Vertical::Bottom)
         .into()
     });
+    let read = column![header]
+        .extend(rows)
+        // What the mode is, while it is up. On the page the routing is on
+        // rather than beside the control somebody is about to take hold of,
+        // because the whole point of it is that they are about to go
+        // somewhere else in the window.
+        .extend(mapping.map(mapping_note))
+        .spacing(8);
+    // And the shape of the whole thing beside the eight sentences, on the
+    // instrument's own glass. The rows say what each routing is; the glass says
+    // what they add up to, which is the question the rows cannot answer however
+    // carefully somebody reads down them.
     Some(
-        column![header]
-            .extend(rows)
-            // What the mode is, while it is up. On the page the routing is on
-            // rather than beside the control somebody is about to take hold of,
-            // because the whole point of it is that they are about to go
-            // somewhere else in the window.
-            .extend(mapping.map(mapping_note))
-            .spacing(8)
-            .into(),
+        row![
+            read,
+            container(bay(patch, firmware)).width(Length::Fixed(lcd::room(BAY))),
+        ]
+        .spacing(BESIDE)
+        .align_y(Vertical::Top)
+        .into(),
     )
 }
+
+/// How much panel there is between the eight rows and the glass beside them.
+const BESIDE: f32 = 14.0;
+
+/// Draws the patch bay: which sources are wired to which destinations.
+///
+/// The one thing the table cannot show. Eight rows read one sentence each, and
+/// what somebody wants to know about a modulation matrix is the *shape* of it —
+/// that one LFO is driving three things, that two routings are fighting over
+/// the filter, that the aftertouch goes nowhere. Sources down one side,
+/// destinations down the other, a line for every routing between them, and the
+/// fan-out is the picture.
+///
+/// It is on the instrument's own glass, at the pitch every display in this
+/// window shares, and it takes the band it is given — more dots, not bigger
+/// ones, which is the rule the chain's glass is cut under too.
+///
+/// # What is not drawn yet
+///
+/// A **7 by 7 cell for each name**, which is what the instrument's own display
+/// would have room for and what would turn two columns of abbreviations into
+/// two columns of pictures: an LFO's wave, an envelope's corner, a wheel, a
+/// filter's knee. Those are the library's to publish for the same reason the
+/// effect families' marks were — a mark for `LFO 1` is a fact about the
+/// instrument and a drawing invented here would be this window making one up.
+/// Asked for in
+/// [deepmind-midi#40](https://github.com/MysteriousWolf/deepmind-midi/issues/40),
+/// recorded in [`docs/waiting.md`](https://github.com/MysteriousWolf/deepmind-control/blob/main/docs/waiting.md),
+/// and until it lands the cells are the names the display already prints.
+fn bay<'a, Renderer>(patch: &Patch, firmware: Version) -> Element<'a, Renderer>
+where
+    Renderer: iced_core::Renderer + 'a,
+{
+    let wires = wiring(patch, firmware);
+    // The weakest claim any wire on it makes, which is the rule everything drawn
+    // as one thing out of several follows here: a glass that called itself the
+    // synthesizer's because seven of its eight lines were is the one lie this
+    // crate exists to avoid.
+    let claim = wires.iter().fold(Confidence::Confirmed, |claim, wire| {
+        match (claim, wire.claim) {
+            (Confidence::Unknown, _) | (_, Confidence::Unknown) => Confidence::Unknown,
+            (Confidence::Assumed, _) | (_, Confidence::Assumed) => Confidence::Assumed,
+            _ => Confidence::Confirmed,
+        }
+    });
+    let ends = |pick: fn(&Wire) -> &'static str| -> Vec<&'static str> {
+        let mut ends: Vec<&'static str> = Vec::new();
+        for name in wires.iter().map(pick) {
+            if !ends.contains(&name) {
+                ends.push(name);
+            }
+        }
+        ends
+    };
+    let (sources, destinations) = (ends(|wire| wire.from), ends(|wire| wire.to));
+    let lanes = i32::try_from(sources.len().max(destinations.len()))
+        .unwrap_or(1)
+        .max(1);
+    let deep = MARGIN * 2 + lanes * LINE + (lanes - 1).max(0) * APART;
+    let mut screen = Screen::new(BAY, deep);
+    // Where each name's lane sits, so that a line is drawn to the row the name
+    // is written on rather than to a row that happens to line up.
+    let row_of =
+        |index: usize| -> i32 { MARGIN + i32::try_from(index).unwrap_or(0) * (LINE + APART) };
+    // Each name in its own cell, cut to what the cell holds. The right-hand
+    // column is set against the right-hand edge, so the two read as two columns
+    // rather than as one column and some words.
+    let cut = |name: &'static str| -> String {
+        name.chars()
+            .take(usize::try_from(CELL).unwrap_or(0))
+            .collect()
+    };
+    for (index, name) in sources.iter().enumerate() {
+        screen.write(MARGIN, row_of(index), &cut(name), Size::Small);
+    }
+    for (index, name) in destinations.iter().enumerate() {
+        let written = cut(name);
+        let at = BAY - MARGIN - Screen::width_of(&written, Size::Small);
+        screen.write(at, row_of(index), &written, Size::Small);
+    }
+    // And a line for each routing, from the middle of its source's lane to the
+    // middle of its destination's. Solid, every one of them: the ink a line is
+    // laid down in distinguishes one line from the next and never says how much
+    // of anything there is — how much is the depth, and the depth is the fader
+    // beside this glass.
+    let from_x = BAY / 2 - LINK / 2;
+    let to_x = BAY / 2 + LINK / 2;
+    for wire in &wires {
+        let (Some(source), Some(destination)) = (
+            sources.iter().position(|name| *name == wire.from),
+            destinations.iter().position(|name| *name == wire.to),
+        ) else {
+            continue;
+        };
+        let middle = LINE / 2;
+        screen.line(
+            (from_x, row_of(source) + middle),
+            (to_x, row_of(destination) + middle),
+            Ink::Solid,
+        );
+    }
+    lcd::lcd(screen, claim)
+}
+
+/// How many characters of a name the glass has room for either side.
+///
+/// A display clips, which is what a display does and what this one is a picture
+/// of: the instrument's own screen prints these names abbreviated already, and
+/// the handful that run past ten characters lose their tail rather than push
+/// the two columns into each other. Ten is what fits beside eight rows of
+/// controls on the width the window opens at.
+const CELL: i32 = 10;
+
+/// How much glass the lines have to cross.
+///
+/// Enough that a line from the top of one column to the bottom of the other is
+/// a line and not a corner. Below this the drawing is two columns of names with
+/// a smudge between them.
+const LINK: i32 = 16;
+
+/// How many dots across the patch bay is drawn.
+///
+/// Two cells, the gap the lines cross, and the glass around it. A fixed count
+/// rather than whatever the band divides into, which is the one place in this
+/// window that rule is not followed: the eight rows beside it are as wide as
+/// eight rows of controls are, and glass that took the room left over would be
+/// glass whose width was decided by how long a destination's name is.
+const BAY: i32 = MARGIN * 2 + GUTTER * 2 + LINK + (CELL * (glyphs::ADVANCE) - glyphs::GAP) * 2;
+
+/// How much glass there is around the drawing.
+const MARGIN: i32 = 2;
+
+/// How tall one line of writing is on it.
+const LINE: i32 = 7;
+
+/// How much glass there is between two lanes.
+const APART: i32 = 3;
+
+/// How much glass there is between a name and the line leaving it.
+const GUTTER: i32 = 2;
 
 /// Draws where a routing goes: the name, the search it is found in, and the
 /// press that asks the window instead.
@@ -504,7 +706,6 @@ where
             }),
     )
     .width(Length::Fixed(ARROW))
-    .height(Length::Fill)
     .align_y(Vertical::Center)
     .into()
 }

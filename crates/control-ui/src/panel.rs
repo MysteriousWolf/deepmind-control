@@ -1511,6 +1511,11 @@ impl Choice {
     pub(crate) fn byte(self) -> u8 {
         u8::try_from(self.value).unwrap_or(u8::MAX)
     }
+
+    /// Returns the name the instrument's own display prints for it.
+    pub(crate) const fn name(self) -> &'static str {
+        self.name
+    }
 }
 
 impl fmt::Display for Choice {
