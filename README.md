@@ -24,10 +24,10 @@ DeepMind <--MIDI--> port <--bytes--> deepmind-midi <--events--> the interface
 **Status: the editor and the librarian work. What is left is polish, and then
 the plugin.** See [the plan](docs/plan.md) for the order.
 
-## The three surfaces
+## The two surfaces, and what opens over them
 
-The window has three surfaces and a switch between them. The patch survives the
-switch.
+The window has two surfaces and a switch between them, and a sheet that opens
+over either. The patch survives all of it.
 
 ### Front panel
 
@@ -41,11 +41,19 @@ functions the library publishes; each screen is a sample loop over one.
 
 ### Editor
 
-Fourteen panels, one press behind the panel or the section bar, covering all 242
-parameters. Every panel is generated from the library's parameter table rather
-than laid out by hand, and values the synthesizer reported are drawn differently
-from values this window set. The modulation matrix reads its eight routings
-across as rows, with a patch bay beside them drawn from the routings themselves.
+Fourteen panels, one `EDIT` press behind the front panel, covering all 242
+parameters. A press opens its section as a sheet across the window with the
+panel still underneath it, which is what the press does on the instrument: its
+display becomes that section and its front does not move. Escape, the mark on
+the sheet, or a press on the window around it puts the sheet away.
+
+Every panel is generated from the library's parameter table rather than laid out
+by hand, and values the synthesizer reported are drawn differently from values
+this window set. The modulation matrix reads its eight routings across as rows,
+with a patch bay beside them drawn from the routings themselves.
+
+Four of the fourteen have no plate on the front panel to carry an `EDIT`, so
+nothing opens them: see [to do](docs/todo.md).
 
 ![The modulation matrix](docs/previews/mod-matrix.png)
 
@@ -58,7 +66,7 @@ library's edge lists rather than from the topology's name.
 
 ![The effects page](docs/previews/effects.png)
 
-The librarian is the third surface: it reads and writes `.syx` files, reads a
+The librarian is the second surface: it reads and writes `.syx` files, reads a
 bank off the instrument with a progress bar and a stop button, browses what it
 found in slot order, and loads any of it into the edit buffer as a difference
 rather than as 242 parameters.
@@ -99,6 +107,7 @@ Nothing here has been run against a synthesizer yet.
 | [Plan](docs/plan.md) | What is being built, in what order, and the decisions behind it |
 | [Interface](docs/interface.md) | What a control looks like, and its three states |
 | [Waiting](docs/waiting.md) | What has been asked of the library, and what each answer changes here |
+| [To do](docs/todo.md) | What a change here left open, and who has to decide it |
 | [Protocol](https://github.com/MysteriousWolf/deepmind-midi/blob/main/docs/midi-spec.md) | Lives in the library, with the specification it is generated from |
 | [NOTICE](NOTICE) | Trademarks, and where the marks come from |
 
@@ -134,7 +143,8 @@ ports.
 ### Previews
 
 `docs/previews/` holds a picture of every surface: the front panel, each of the
-fourteen sections, and the shelf. The application takes them itself.
+fourteen sections as the sheet an `EDIT` opens over it, and the shelf. The
+application takes them itself.
 
 ```
 tools/previews.fish                 # a new set, from a seed off the clock

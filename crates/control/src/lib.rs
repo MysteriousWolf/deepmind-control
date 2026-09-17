@@ -26,19 +26,25 @@
 //! The library's simulated synthesizer is in the port list like any other
 //! choice, so all of that works with nothing plugged in.
 //!
-//! # Three surfaces, one window
+//! # Two surfaces and a sheet
 //!
 //! [`View::Panel`] is the instrument's own front: the handful of controls it
 //! puts a fader under, and on every section the press it calls `EDIT`. It is
-//! where the window opens and where the other two are reached from.
+//! where the window opens.
 //!
-//! [`View::Editor`] is one of the fourteen sections, which is what an `EDIT`
-//! opens, and [`View::Library`] is the sounds somebody keeps. The second is the librarian: a [`Shelf`] filled by
-//! opening a `.syx` file or by reading a bank off the instrument, browsed in
-//! slot order, and loaded into the edit buffer one program at a time. It is
-//! written here rather than in `control-ui` because bank and librarian
-//! operations are desktop only; the editing surface above it is the crate both
+//! [`View::Library`] is the other one, and it is the librarian: a [`Shelf`]
+//! filled by opening a `.syx` file or by reading a bank off the instrument,
+//! browsed in slot order, and loaded into the edit buffer one program at a
+//! time. It is written here rather than in `control-ui` because bank and
+//! librarian operations are desktop only; the editing surface is the crate both
 //! builds share.
+//!
+//! There is no third. One of the fourteen sections is what an `EDIT` press
+//! opens, and it opens *over* the panel rather than instead of it: a sheet with
+//! the instrument still underneath, which is what the hardware does when a
+//! section button is pressed and its own front stays where it is. Which one is
+//! open is [`App::editing`], and escape, the mark on the sheet and a press on
+//! the window around it all put it away.
 
 mod app;
 mod files;

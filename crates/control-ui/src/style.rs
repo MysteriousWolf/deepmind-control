@@ -6,10 +6,11 @@
 //!
 //! The same rule now covers type and the chrome. [`printed`] and [`reading`]
 //! are the two faces anything in either build is set in, and
-//! [`ground`], [`chrome`], [`selector`], [`shortlist`] and [`bay`] are what the parts of the
-//! window that are not parameters are drawn as: a port picker cut into the
-//! panel like a fader's track, and a button with a metal rim rather than a
-//! toolkit's own grey. The panel is for parameters and the toolkit is correct
+//! [`ground`], [`chrome`], [`selector`], [`shortlist`], [`bay`] and [`unlit`] are what the
+//! parts of the window that are not parameters are drawn as: a port picker cut
+//! into the panel like a fader's track, a button with a metal rim rather than a
+//! toolkit's own grey, and the panel with the light off it while a sheet is
+//! lying over it. The panel is for parameters and the toolkit is correct
 //! everywhere else, but everywhere else is still on the instrument.
 
 use std::sync::LazyLock;
@@ -756,6 +757,66 @@ pub fn bay(theme: &Theme) -> container::Style {
             color: material.recess_edge,
             width: 1.0,
             radius: 3.into(),
+        },
+        ..container::Style::default()
+    }
+}
+
+/// What the window is drawn as while a sheet is lying over it.
+///
+/// The panel in the shadow the sheet casts, which is one thing rather than two:
+/// a modal that dimmed the window by painting grey over it would be a grey
+/// window, and what is behind a sheet is the instrument with the light off it.
+/// So it is the recess, the darkest material this panel has, at the alpha that
+/// leaves the plates behind still legible as plates.
+///
+/// Translucent rather than opaque because the thing it is covering is the thing
+/// the sheet was opened *from*. A `VCF` opened off the panel's own `VCF` plate
+/// should still have that plate under it: an editor whose detail view replaced
+/// the instrument would be back to being an application that happens to control
+/// a synthesizer.
+#[must_use]
+pub fn unlit(theme: &Theme) -> container::Style {
+    container::Style {
+        background: Some(Background::Color(Color {
+            a: SHADED,
+            ..materials(theme).recess
+        })),
+        ..container::Style::default()
+    }
+}
+
+/// How much of the shadow is shadow.
+///
+/// Three fifths. Less and the panel behind competes with the sheet for the eye,
+/// which is the failure a modal exists to avoid; more and it is a black window
+/// with a panel on it, which loses the one thing the translucency is for, that
+/// what is behind the sheet is where the sheet came from. At this much the
+/// plates behind a sheet are still plates and nothing on them can be read,
+/// which is the pair of things wanted.
+const SHADED: f32 = 0.6;
+
+/// What a sheet lying over the window is drawn as.
+///
+/// The panel, lifted off the window and lit along its edge, which is the one
+/// edge in this window that is a thing standing *above* another rather than a
+/// recess cut into one: the light catches the near edge of a raised plate and
+/// the far wall of a cut one.
+///
+/// The panel and not [`bay`], which is the face plate. What goes on a sheet is a
+/// rack, and a rack draws its own face plate: a sheet in the same material would
+/// be a plate on a plate, with the rack's own border the only thing saying where
+/// one ended. On the panel it sits exactly as it sat on the window, which is
+/// what a sheet is meant to be — the same rack, brought forward.
+#[must_use]
+pub fn lifted(theme: &Theme) -> container::Style {
+    let material = materials(theme);
+    container::Style {
+        background: Some(Background::Color(material.panel)),
+        border: Border {
+            color: material.lit,
+            width: 1.0,
+            radius: 4.into(),
         },
         ..container::Style::default()
     }

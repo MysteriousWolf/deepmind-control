@@ -56,7 +56,11 @@ use crate::window;
 pub struct Page {
     /// The surface the window is put on.
     view: View,
-    /// Which of the fourteen sections, where the surface is one of them.
+    /// The section open over it, where the picture is of one.
+    ///
+    /// A section is not a surface any more: it is a sheet over the panel, so a
+    /// picture of one is a picture of the panel with that sheet on it, which is
+    /// what somebody pressing `EDIT` actually sees.
     section: Option<Group>,
 }
 
@@ -64,15 +68,15 @@ impl Page {
     /// Returns the file this page is written to, without its suffix.
     ///
     /// The section's own name, lowered and hyphenated. `LFO 1` is `lfo-1` and
-    /// `Mod Matrix` is `mod-matrix`, so the file is the thing the tab says and
-    /// a plate renamed in the library renames its picture.
+    /// `Mod Matrix` is `mod-matrix`, so the file is the thing the sheet's own
+    /// bar says and a group renamed in the library renames its picture.
     #[must_use]
     pub fn slug(self) -> String {
         let name = match self.section {
             Some(group) => group.name(),
             None => match self.view {
                 View::Library => "library",
-                View::Panel | View::Editor => "front-panel",
+                View::Panel => "front-panel",
             },
         };
         let mut slug = String::with_capacity(name.len());
@@ -93,8 +97,16 @@ impl Page {
 /// Every surface the window has, in the order somebody meets them.
 ///
 /// The front panel, then the fourteen sections in the instrument's own order,
-/// then the shelf. Read off [`control_ui::sections`] rather than written out, so
-/// a group a later library adds gets a picture with nothing here to edit.
+/// each as the sheet an `EDIT` press opens over that panel, then the shelf.
+/// Read off [`control_ui::sections`] rather than written out, so a group a later
+/// library adds gets a picture with nothing here to edit.
+///
+/// Fourteen of the sixteen are drawn over the panel and not all of them can be
+/// reached from it: four sections have no plate with an `EDIT` on it, which is
+/// recorded in `docs/todo.md`. The pictures are taken by asking for the section
+/// rather than by pressing anything, so the set is complete while the window is
+/// not, which is the honest way round: a release that shipped thirteen pictures
+/// would be a release that hid the gap.
 #[must_use]
 pub fn pages() -> Vec<Page> {
     let mut pages = vec![Page {
@@ -102,7 +114,7 @@ pub fn pages() -> Vec<Page> {
         section: None,
     }];
     pages.extend(control_ui::sections().iter().copied().map(|group| Page {
-        view: View::Editor,
+        view: View::Panel,
         section: Some(group),
     }));
     pages.push(Page {
@@ -279,10 +291,13 @@ impl Session {
         let Some(page) = self.pages.get(self.at).copied() else {
             return;
         };
-        if let Some(group) = page.section {
-            self.app
-                .update(Message::Ui(control_ui::Message::Show(group)));
-        }
+        // The sheet comes off before the surface moves, or a picture of the
+        // shelf would be a picture of the shelf under whatever the last section
+        // was.
+        self.app.update(Message::Ui(match page.section {
+            Some(group) => control_ui::Message::Show(group),
+            None => control_ui::Message::Close,
+        }));
         self.app.update(Message::Show(page.view));
         self.stage = Stage::Posing;
         self.since = Instant::now();

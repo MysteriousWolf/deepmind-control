@@ -17,7 +17,7 @@
 //! # What it produces
 //!
 //! [`Message`], which says a parameter should move, or which section should be
-//! on the screen, and nothing else. What an edit costs on a wire, when it is
+//! on the screen, or that what is on it should come off, and nothing else. What an edit costs on a wire, when it is
 //! sent, and what it is sent behind is the host crate's problem: the views do
 //! not know that a wire has a speed.
 //!
@@ -25,10 +25,12 @@
 //!
 //! [`Mapper`] is the modulation matrix asking the rest of the window a question.
 //! A routing mapped onto the window lights every control the matrix can reach,
-//! on all three surfaces at once, and the next one somebody takes hold of is
-//! where the routing goes: a click chooses it and a drag sets the depth as
-//! well. The application owns the state because the mode outlives the page it
-//! was started on, which is the whole point of it.
+//! everywhere at once, and the next one somebody takes hold of is where the
+//! routing goes: a click chooses it and a drag sets the depth as well. The
+//! application owns the state because the mode outlives the page it was started
+//! on, which is the whole point of it — and more so now that the page is a
+//! [sheet](modal): the matrix is on one, a sheet covers what is under it, and
+//! putting the sheet away to reach the control is what the mode is *for*.
 //!
 //! # The panel, and then the fourteen behind it
 //!
@@ -67,14 +69,22 @@
 //! display has no moving part to fill and the [name](name_characters) field
 //! answered that question first.
 //!
-//! # Fourteen panels, one at a time
+//! # Fourteen panels, one at a time, over the panel they were opened from
 //!
-//! [`group`] draws one section as the instrument lays it out, and
-//! [`section_bar`] draws the bar that chooses which. Every parameter the
-//! synthesizer has is reachable through the two of them, drawn from the
-//! library's own table: what a control looks like is what the library says the
-//! parameter is, so a panel nobody has laid out by hand is complete before it
-//! is beautiful.
+//! [`group`] draws one section as the instrument lays it out, and [`modal`]
+//! puts it in front of somebody: a sheet over the window, the front panel still
+//! visible underneath in the shadow it casts, and three ways back out from
+//! under it. That is what an `EDIT` press opens, because it is what an `EDIT`
+//! press does on the instrument — the display becomes the section and the front
+//! of the synthesizer does not move.
+//!
+//! There was a bar of fourteen tabs instead, on a surface of its own. Tabs say
+//! the sections are peers of the panel; they are the detail behind one press on
+//! it, and a modal is what that shape of thing is.
+//!
+//! Every parameter the synthesizer has is still drawn from the library's own
+//! table: what a control looks like is what the library says the parameter is,
+//! so a panel nobody has laid out by hand is complete before it is beautiful.
 //!
 //! Nothing here re-tabulates the library, the order of the panels included:
 //! [`sections`] is read off the parameter table's own offsets rather than
@@ -163,6 +173,7 @@ mod logo;
 mod mapping;
 mod mark;
 mod matrix;
+mod modal;
 mod name;
 mod panel;
 mod patch;
@@ -171,23 +182,25 @@ mod section;
 mod sequencer;
 mod style;
 
-pub use badge::{ABOUT, ARROW, Badge, DOWN, MAP, PLUGGED, PORT, READ, RESCAN, SIDE, UP, WHO};
+pub use badge::{ABOUT, ARROW, Badge, DOWN, MAP, PLUGGED, PORT, READ, RESCAN, SHUT, SIDE, UP, WHO};
 pub use confidence::Confidence;
 pub use effect::width as effects_width;
 pub use fader::{Axis, Fader, fader};
 pub use footer::footer;
-pub use home::{panel, panel_width, panelled, screen};
+pub use home::{panel, panel_width, panelled, screen, ways_in};
 pub use knob::{Knob, knob};
 pub use lcd::{Band, Ink, PITCH, Screen, Size, lcd, stencil, swatch};
 pub use logo::logo;
 pub use mapping::{Mapper, Mapping, Reach};
+pub use modal::{margins, modal, sheet};
 pub use name::characters as name_characters;
 pub use panel::{Message, group};
 pub use patch::Patch;
-pub use section::{first_section, section_bar, sections};
+pub use section::sections;
 pub use style::{
     Materials, READABLE, bay, chrome, contrast, deepmind, ground, ink_on, is_negative, legible,
-    marked, materials, mix, negative, printed, reading, selector, shortlist, tint, written,
+    lifted, marked, materials, mix, negative, printed, reading, selector, shortlist, tint, unlit,
+    written,
 };
 
 /// A piece of interface, produced by the views in this crate.

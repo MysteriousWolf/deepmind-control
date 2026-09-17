@@ -601,10 +601,24 @@ every group the press it calls `EDIT`, which puts that group on the display. The
 The window does the same, for the instrument's own reason: somebody who has just
 plugged a synthesizer in wants to see the sound rather than a list of fourteen
 sections, and the section they want is one press away either way. So the front
-panel is the surface a window opens on, the fourteen racks are what an `EDIT`
-opens, and the librarian is the third surface beside them. The section bar and
-the panel's `EDIT` are the same press, so there is one idea of "open that
-section" rather than two.
+panel is the surface a window opens on, and the librarian is the other one.
+
+**A rack is a sheet over that panel, not a surface beside it.** An `EDIT` press
+on the instrument makes its one display become that section and moves nothing
+else: the faders stay where they are and the front of the synthesizer stays
+where it is. So an `EDIT` here opens a modal — the rack across the window, the
+panel underneath it in the shadow it casts, and three ways back out: escape, a
+mark on the sheet's own bar, or a press on the window around it.
+
+It was a third surface with a bar of fourteen tabs above it. Tabs say the
+sections are peers of one another and of the panel; what they are is the detail
+behind one press on a panel that does not move.
+
+**Four sections have no `EDIT`, and the tab bar was what reached them.** The
+panel is drawn from the library's table of what has a fader on it, so the
+modulation matrix, the effects, the control sequencer and the program's own
+settings have no plate to carry a press. Recorded in [to do](todo.md), with the
+options, and pinned by a test so the gap cannot move unnoticed.
 
 **Every plate has a display, and the instrument has one.** This is the one place
 the panel is deliberately not the instrument, and the reason is the one thing a
@@ -785,7 +799,7 @@ needed.
 | 0 | Workspace | **Done.** Four crates, pinned dependencies, CI running the four commands in the README, licence and notice files. |
 | 1 | `deepmind-host` | **Done.** Port enumeration, `Port` over midir, `Clock`, the device thread, commands in and events out, the simulator as a selectable port. Tested against `sim` with no hardware. |
 | 2 | First light | **Done.** Desktop window, port picker, identity, read the edit buffer, VCF editable end to end with assumed and confirmed drawn differently. |
-| 3 | Every parameter | **Done.** All fourteen groups from `Group::parameters`, one at a time behind a section bar, because a complete ugly editor beats a beautiful partial one. Every panel that is not a rack is laid out: the program's name, the three envelopes, the modulation matrix and the control sequencer. |
+| 3 | Every parameter | **Done.** All fourteen groups from `Group::parameters`, one at a time behind the `EDIT` that opens it, because a complete ugly editor beats a beautiful partial one. Every panel that is not a rack is laid out: the program's name, the three envelopes, the modulation matrix and the control sequencer. |
 | 4 | The librarian | **Done.** Read and write `.syx`, read a bank with progress and cancel, browse a pack on a surface of its own, and load a program into the edit buffer as a difference. |
 | 5 | The effects | **Done.** Four engines and 35 algorithms from the tables 26.2 published ([#18](https://github.com/MysteriousWolf/deepmind-midi/issues/18)), laid out on the FX page's own grid with the shape each algorithm's figure draws, opening on a picture of the chain, both published in 26.3 ([#22](https://github.com/MysteriousWolf/deepmind-midi/issues/22), [#23](https://github.com/MysteriousWolf/deepmind-midi/issues/23)). 26.4 finished it: the mark of each algorithm's family, the three engines that can be switched out of circuit saying so, and a screen on the two whose response is published ([#30](https://github.com/MysteriousWolf/deepmind-midi/issues/30), [#31](https://github.com/MysteriousWolf/deepmind-midi/issues/31), [#33](https://github.com/MysteriousWolf/deepmind-midi/issues/33)). |
 | 6 | The plugin | Simple mode, then state, then advanced mode in the same window. The CLAP comes out first, having nothing to settle; then the AU, once the bundle signs and `auval` passes; then the VST3, once Steinberg's terms are accepted. |

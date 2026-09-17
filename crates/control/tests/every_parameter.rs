@@ -2,9 +2,9 @@
 //! synthesizer.
 //!
 //! Stage 2 proved one group end to end. What this proves is that there is
-//! nothing special about that group: all 242 parameters are reachable from the
-//! section bar, all of them move, and all of them survive the round trip out to
-//! a synthesizer and back as the values that were sent.
+//! nothing special about that group: all 242 parameters are drawn on one of the
+//! fourteen sheets an `EDIT` opens, all of them move, and all of them survive
+//! the round trip out to a synthesizer and back as the values that were sent.
 //!
 //! Drawn is not the same as editable, and a panel generated from the library's
 //! table is exactly where a parameter with an awkward range hides: `Program
@@ -23,7 +23,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use control::{App, Message};
-use control_ui::{Confidence, first_section, sections};
+use control_ui::{Confidence, sections};
 use deepmind_host::PortRef;
 use deepmind_midi::param::{Group, ParamId};
 
@@ -155,13 +155,13 @@ fn every_parameter_survives_the_wire() {
 }
 
 #[test]
-fn every_section_holds_parameters_and_the_bar_holds_every_section() {
+fn every_section_holds_parameters_and_the_list_holds_every_section() {
     let mut app = read();
 
     for section in sections().iter().copied() {
         app.update(Message::Ui(control_ui::Message::Show(section)));
 
-        assert_eq!(app.section(), section);
+        assert_eq!(app.editing(), Some(section));
         assert!(
             section.parameters().next().is_some(),
             "{section} is an empty panel"
@@ -174,11 +174,12 @@ fn every_section_holds_parameters_and_the_bar_holds_every_section() {
 }
 
 #[test]
-fn a_window_opens_on_a_panel_the_instrument_has() {
+fn a_window_opens_with_nothing_over_it() {
     let app = read();
 
-    assert_eq!(app.section(), first_section());
-    assert!(Group::ALL.contains(&app.section()));
+    // The instrument's own front is not a section and does not open one: a
+    // player looks at the panel first and presses `EDIT` second.
+    assert_eq!(app.editing(), None);
 }
 
 #[test]
@@ -190,6 +191,6 @@ fn the_panel_somebody_is_looking_at_outlives_the_port() {
 
     // The sound went away and the person did not.
     assert!(!app.patch().is_known());
-    assert_eq!(app.section(), Group::Effects);
+    assert_eq!(app.editing(), Some(Group::Effects));
     assert_eq!(app.patch().claim_of(Group::Effects), Confidence::Unknown);
 }

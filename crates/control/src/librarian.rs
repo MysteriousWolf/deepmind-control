@@ -175,7 +175,7 @@ fn card(index: usize, held: &Held, loaded: bool) -> Element<'_, Message> {
         .into()
 }
 
-/// The style a chosen thing is drawn in, which is the section bar's.
+/// The style a chosen thing is drawn in, which is the surface switch's.
 ///
 /// Not a colour of its own: the thing that has been pressed is the face plate a
 /// rack sits on, and everything else is the panel it is cut into. It is the same

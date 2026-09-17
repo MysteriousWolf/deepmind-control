@@ -102,8 +102,9 @@ where
     // A routing mapped onto the window is a mode, and a mode with nothing on the
     // screen saying it is up is a window that has stopped answering for reasons
     // nobody can see. The footer is where it is said, because the footer is the
-    // one thing under all three surfaces, and somebody in this mode is by
-    // definition somewhere other than the page they turned it on from.
+    // one thing under every surface and under every sheet, and somebody in this
+    // mode is by definition somewhere other than the page they turned it on
+    // from.
     if let Some(mapped) = mapped {
         across = across.push(mode(mapped));
         // And what is already wired to whatever the pointer is over, by name.

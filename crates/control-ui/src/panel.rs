@@ -395,12 +395,13 @@ impl Room {
 
 /// What a view in this crate asks for.
 ///
-/// Seven things, and the last four never reach a wire: a parameter should move,
+/// Eight things, and the last five never reach a wire: a parameter should move,
 /// the program should be called something, a section should be the one on the
-/// screen, the pointer has come to rest on a control or on a press, a routing
-/// is being mapped onto the window, or a drag while it is mapped has said where
-/// and how much. What an edit costs on a wire, when it goes out and what it
-/// goes out behind is the host crate's business.
+/// screen, whatever is open over the window should close, the pointer has come
+/// to rest on a control or on a press, a routing is being mapped onto the
+/// window, or a drag while it is mapped has said where and how much. What an
+/// edit costs on a wire, when it goes out and what it goes out behind is the
+/// host crate's business.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Message {
     /// A parameter should move to this value.
@@ -423,7 +424,20 @@ pub enum Message {
     /// laid out on the instrument as one surface either. Which panel is in
     /// front of somebody is the application's state and not the synthesizer's,
     /// so this is the one message that goes nowhere near the port.
+    ///
+    /// What the front panel's `EDIT` sends, and what opens that section as a
+    /// [modal](crate::modal) over the panel it was pressed on.
     Show(Group),
+    /// Whatever is open over the window should close.
+    ///
+    /// The other half of [`Show`](Message::Show), and the one message three
+    /// different things send: the mark on a sheet's own bar, a press on the
+    /// panel around it, and the escape key, which the application hears for
+    /// this crate because a key is not a press and this crate has no runtime.
+    ///
+    /// It says nothing about *what* is open, because one thing is: a second
+    /// sheet over the first would be a window nobody can find the bottom of.
+    Close,
     /// The pointer is over this control, or has left the one it was over.
     ///
     /// A panel of forty faders under four-letter legends is only readable

@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use control_ui::{Mapper, Patch, first_section};
+use control_ui::{Mapper, Patch};
 use deepmind_host::{Command, Event, Link, Outcome, PortRef, open, ports};
 use deepmind_midi::device::Event as DeviceEvent;
 use deepmind_midi::ids::{Bank, PROGRAMS_PER_BANK, ProgramNumber};
@@ -15,12 +15,18 @@ use deepmind_midi::wire::Channel;
 use crate::files;
 use crate::shelf::{self, Shelf};
 
-/// Which of the three things this window is, at the moment somebody looks at it.
+/// Which of the two things this window is, at the moment somebody looks at it.
 ///
-/// The instrument's own front, one section of it, and the sounds somebody
-/// keeps. They are one application looking at three things rather than three
-/// windows, and which one is showing is this window's own business and nothing
-/// the synthesizer is told about.
+/// The instrument's own front, and the sounds somebody keeps. They are one
+/// application looking at two things rather than two windows, and which one is
+/// showing is this window's own business and nothing the synthesizer is told
+/// about.
+///
+/// There were three. The middle one held whichever of the fourteen sections was
+/// open, reached by a bar of tabs, and it is gone: a section is not a third
+/// thing this application is, it is the detail behind one press on the first,
+/// so it opens as a sheet over the panel rather than instead of it. See
+/// [`editing`](App::editing).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum View {
     /// The front panel: the sound as the instrument itself shows it.
@@ -30,8 +36,6 @@ pub enum View {
     /// section the press it calls `EDIT`.
     #[default]
     Panel,
-    /// One of the fourteen panels: everything behind one of those presses.
-    Editor,
     /// The shelf: the sounds a file or a bank read put there.
     Library,
 }
@@ -54,7 +58,7 @@ pub enum Message {
     Read,
     /// Fold in whatever the device thread has said since the last message.
     Tick,
-    /// Show the front panel, a section of it, or the librarian.
+    /// Show the front panel or the librarian.
     Show(View),
     /// Turn the displays over, and back.
     Invert,
@@ -101,8 +105,8 @@ pub struct App {
     channel: Option<Channel>,
     /// The sound, as far as this window knows it.
     patch: Patch,
-    /// The section the bar has pressed in.
-    section: Group,
+    /// The section open over the window, where one is.
+    editing: Option<Group>,
     /// The control the pointer is over, which the footer describes.
     ///
     /// Not part of the sound and never sent anywhere: it is where somebody is
@@ -128,7 +132,7 @@ pub struct App {
     shelf: Shelf,
     /// The bank the picker is sitting on, which is the one a read would read.
     bank: Bank,
-    /// Which of the three surfaces is showing.
+    /// Which of the two surfaces is showing.
     view: View,
     /// Whether the displays are drawn the other way up.
     ///
@@ -159,7 +163,7 @@ impl App {
             identity: None,
             channel: None,
             patch: Patch::new(),
-            section: first_section(),
+            editing: None,
             pointed: None,
             hinted: None,
             mapper: Mapper::new(DEFAULT_FIRMWARE),
@@ -294,16 +298,18 @@ impl App {
         &self.patch
     }
 
-    /// Returns the section the bar has pressed in.
+    /// Returns the section open over the window, where one is.
     ///
-    /// Which panel somebody is looking at, which is this window's business and
-    /// nothing the synthesizer is told about. It survives a port being put
-    /// down, because the sound went away and the person did not. It is also
-    /// what the front panel's `EDIT` sets, so the two surfaces agree on which
-    /// section is open.
+    /// `None` is a window with nothing over it, which is where it opens: the
+    /// front panel is the instrument and a sheet is what one of its `EDIT`
+    /// presses put in front of it.
+    ///
+    /// Which panel somebody is looking at is this window's business and nothing
+    /// the synthesizer is told about. It survives a port being put down,
+    /// because the sound went away and the person did not.
     #[must_use]
-    pub const fn section(&self) -> Group {
-        self.section
+    pub const fn editing(&self) -> Option<Group> {
+        self.editing
     }
 
     /// Returns whether the displays are drawn the other way up.
@@ -324,7 +330,7 @@ impl App {
         self.bank
     }
 
-    /// Returns which of the three surfaces is showing.
+    /// Returns which of the two surfaces is showing.
     #[must_use]
     pub const fn view(&self) -> View {
         self.view
@@ -356,14 +362,19 @@ impl App {
             Message::SavePatch => self.save_patch(),
             Message::SavePack => self.save_pack(),
             Message::Load(index) => self.load(index),
-            // A section asked for is a section opened, whichever surface asked:
-            // the front panel's `EDIT` and the section bar's own tabs are the
-            // same press, and the hardware answers both by putting that section
-            // on the display.
-            Message::Ui(control_ui::Message::Show(section)) => {
-                self.section = section;
-                self.view = View::Editor;
-            }
+            // A section asked for is a section opened, which is what the
+            // instrument's own `EDIT` does: the display becomes that section
+            // and the front of the synthesizer does not move. Here the sheet
+            // comes up over the panel the press is on.
+            //
+            // One at a time. A second sheet over the first would be a window
+            // nobody can find the bottom of, so asking for a section while one
+            // is open is the same press the hardware's second `EDIT` is: the
+            // sheet becomes the other section.
+            Message::Ui(control_ui::Message::Show(section)) => self.editing = Some(section),
+            // And the way back out: the mark on the sheet's own bar, a press on
+            // the panel around it, or the escape key, all of which arrive here.
+            Message::Ui(control_ui::Message::Close) => self.editing = None,
             Message::Ui(control_ui::Message::Edit { parameter, value }) => {
                 self.moved(parameter, value);
                 // A routing pointed at the window is asking where it goes, and

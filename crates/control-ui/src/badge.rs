@@ -263,6 +263,33 @@ pub const MAP: Badge = Badge::new(
     SIDE,
 );
 
+/// Put what is open away: a cross.
+///
+/// The one press whose subject is a window rather than the instrument or the
+/// sound in it, and the only shape that has ever meant this. A cross is two
+/// strokes corner to corner, so at nine dots it is the one mark here that
+/// needs no thickening: the diagonals cross at the middle dot, which is what
+/// [`SIDE`] is an odd number for.
+///
+/// It is the third of the three ways out of a modal and the only one that is
+/// drawn. The other two are the key and the panel around the sheet, neither of
+/// which is a thing on the screen, and a sheet whose only way out is a gesture
+/// nobody was told about is a sheet somebody is stuck behind.
+pub const SHUT: Badge = Badge::new(
+    &[
+        0b1_0000_0001,
+        0b0_1000_0010,
+        0b0_0100_0100,
+        0b0_0010_1000,
+        0b0_0001_0000,
+        0b0_0010_1000,
+        0b0_0100_0100,
+        0b0_1000_0010,
+        0b1_0000_0001,
+    ],
+    SIDE,
+);
+
 /// Move this routing up the matrix: an arrow, pointing that way.
 ///
 /// A solid triangle, [seven dots across](ARROW) and four down, because of where
@@ -286,10 +313,10 @@ pub const DOWN: Badge = Badge::new(&[0b111_1111, 0b011_1110, 0b001_1100, 0b000_1
 
 #[cfg(test)]
 mod tests {
-    use super::{ABOUT, ARROW, Badge, DOWN, MAP, PLUGGED, PORT, READ, RESCAN, SIDE, UP, WHO};
+    use super::{ABOUT, ARROW, Badge, DOWN, MAP, PLUGGED, PORT, READ, RESCAN, SHUT, SIDE, UP, WHO};
 
     /// Every mark this module publishes.
-    const ALL: [(&str, Badge); 9] = [
+    const ALL: [(&str, Badge); 10] = [
         ("who", WHO),
         ("read", READ),
         ("rescan", RESCAN),
@@ -297,6 +324,7 @@ mod tests {
         ("plugged", PLUGGED),
         ("about", ABOUT),
         ("map", MAP),
+        ("shut", SHUT),
         ("up", UP),
         ("down", DOWN),
     ];

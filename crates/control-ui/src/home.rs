@@ -941,6 +941,32 @@ pub fn panelled() -> Vec<ParamId> {
         .collect()
 }
 
+/// Returns every section one of the panel's `EDIT` presses opens.
+///
+/// In the order the panel puts them, and each one once: two plates open the
+/// oscillators and two open the filter, because a window has room the front of
+/// a synthesizer does not and both of those sections are drawn as more than one
+/// plate.
+///
+/// **It is not every section the instrument has, and that is the point of
+/// publishing it.** The front panel is the library's own table of what has a
+/// fader on it, so the sections with no fader anywhere have no plate and no way
+/// in: nothing here decides that and nothing here can fix it by writing a
+/// fifteenth plate down. What the window does about the gap is a layout
+/// question this crate does not answer; what it must not do is lose track of
+/// which sections are in it, so this is the question asked out loud and
+/// `control`'s own tests are where it is checked against `docs/todo.md`.
+#[must_use]
+pub fn ways_in() -> Vec<Group> {
+    let mut opened: Vec<Group> = Vec::new();
+    for plate in rows().iter().flat_map(|row| row.iter()) {
+        if !opened.contains(&plate.opens) {
+            opened.push(plate.opens);
+        }
+    }
+    opened
+}
+
 /// Draws one group of the panel: its name, its controls, and its way in.
 ///
 /// How wide it is drawn is the row's business rather than the plate's (see

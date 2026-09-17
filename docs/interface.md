@@ -209,20 +209,55 @@ The rest of the panel's rules:
   slice of its parameters' own names, and an envelope's four faders are the
   parameters whose short names match the four the section carries.
 
-## Fourteen panels, one press behind it
+## Fourteen panels, each one a sheet over the panel it was opened from
 
 Two hundred and forty-two parameters do not fit on a screen, and the instrument
-does not put them on one surface either: a player presses a section and the
-display becomes that section. So does this. A bar of fourteen tabs sits above
-the rack, it does not scroll with it, and the panel below it is the one section.
+does not put them on one surface either: a player presses `EDIT` on a section
+and the display becomes that section. Nothing about the front of the instrument
+moves while that happens. The faders are where they were, the plate is where it
+was, and what changed is what is *over* it.
 
-The bar and the front panel's `EDIT` are the same press: one asks for a section
-and the window shows it, whichever surface asked. The way back is named after
-the section it holds rather than "Editor", so that somebody who pressed `VCF`
-can see where they would be returning to.
+So a section here is a modal. The rack comes up on a sheet across the window,
+the front panel stays visible underneath in the shadow the sheet casts, and
+putting the sheet away puts somebody back exactly where they were. A second
+`EDIT` swaps the sheet rather than stacking one, the way a second press on the
+instrument makes its one display show the other section.
 
-**The order of the tabs is not written down anywhere.** A parameter's offset is
-its NRPN number and its place in a dump, the library's parameter table is in
+There was a bar of fourteen tabs instead, on a surface of its own. Tabs say the
+sections are peers of one another and of the panel; what they actually are is
+the detail behind one press on a panel that does not move, and a modal is what
+that shape of thing is.
+
+**A sheet takes almost the window and never all of it.** The margin is one of
+the three ways out, and a hand that misses the sheet has to land on something: a
+border two points wide is a target nobody hits on purpose.
+
+**There are three ways out, and one of them is drawn.**
+
+| | |
+| --- | --- |
+| A press on the window around the sheet | Anywhere outside it. Why the margin exists |
+| The mark on the sheet's own bar | The one that is drawn, because the other two are gestures and a gesture nobody was told about is not a way out |
+| The escape key | Heard by the application rather than by the view layer: a key is an event before it is a press, and `control-ui` has no runtime to listen in |
+
+All three send one message. What it says is that whatever is open should close,
+and never which thing, because one thing is open: a second sheet over the first
+would be a window nobody can find the bottom of.
+
+**A sheet is made of what the window is already made of.** The face plate every
+rack already sits on, the bar a plate on the front panel prints its name in, a
+mark stencilled the way the chrome's other marks are, and behind it the panel's
+own darkest material at three-quarters alpha. Not a dialog borrowed from a
+toolkit and not a grey invented for one.
+
+**A sheet carries the claim of what is on it**, as the same dot the legend
+explains, beside the section's name. Each of the fourteen tabs used to carry
+one, and a bar of green dots with one copper one among them read as "the sound
+is the synthesizer's, except the part I moved" without opening anything. One
+sheet at a time cannot say that, and what replaces it is [open](todo.md).
+
+**The order of the sections is not written down anywhere.** A parameter's offset
+is its NRPN number and its place in a dump, the library's parameter table is in
 offset order, and so the order the groups first appear in that table is the
 order the instrument keeps them in: LFOs, oscillators, filter, the envelopes and
 the VCA, voicing, modulation, sequencing, effects, and the program's own
@@ -231,23 +266,27 @@ here and one less thing to edit when the library grows a group. What it is not
 is alphabetical, which is how the library hands the groups over and which puts
 the effects third and the oscillators eighth.
 
-**Each tab carries its own section's claim**, as the same dot the legend
-explains, and a section is as confirmed as its least confirmed parameter. That
-keeps one panel at a time from hiding the thing this editor is for: a bar of
-green dots with one copper one among them reads as "the sound is the
-synthesizer's, except the part I moved" without opening anything.
-
 Which section somebody is looking at is this window's business and never the
 synthesizer's. It outlives a port being put down, because the sound went away
 and the person did not.
 
-## Three surfaces, and the sound survives the switch
+**Four sections have no `EDIT` to open them.** The panel is the library's table
+of what the instrument puts a fader under, so a section with no fader anywhere
+has no plate and no way in: the modulation matrix, the effects, the control
+sequencer and the program's own settings. The tab bar reached them and nothing
+does now. See [to do](todo.md), which is where the four are listed and where
+what to do about them is still open.
 
-The panel is the instrument. The editor is one section of it. The library is the
-sounds somebody keeps. They are one application looking at three things, so they
-are three surfaces of one window: a switch above them, and everything below it
-changes. The patch does not. Putting a pack down to look at a filter and finding
-the filter gone is the wrong thing to teach anybody about an editor.
+## Two surfaces, and the sound survives the switch
+
+The panel is the instrument. The library is the sounds somebody keeps. They are
+one application looking at two things, so they are two surfaces of one window: a
+switch above them, and everything below it changes. The patch does not. Putting
+a pack down to look at a filter and finding the filter gone is the wrong thing
+to teach anybody about an editor.
+
+There were three, and the middle one held whichever section was open. It is gone
+with the tab bar: a section is not a third thing this application is.
 
 **The shelf is a grid and not a list.** A pack is 128 programs, and the one
 thing this surface can offer that the instrument's two-line display cannot is
@@ -255,9 +294,9 @@ all of them at once: four across at the window's opening width, in slot order,
 with the slot written the way the front panel writes it and the name beside it.
 A column of 128 rows would show a quarter as much.
 
-**A program is drawn like a section tab**, because it is the same idea: the one
-that has been pressed is the face plate a rack sits on, lit along its edge, and
-the rest are the panel they are cut into.
+**A program is drawn like the surface switch**, because it is the same idea: the
+one that has been pressed is the face plate a rack sits on, lit along its edge,
+and the rest are the panel they are cut into.
 
 **A slot that names nothing is drawn as naming nothing.** A stored dump carries
 its bank and program; an edit buffer dump carries neither, because the edit
@@ -864,7 +903,7 @@ where the modulation comes from, an arrow, where it goes, and how much.
   same number of parameters: value order, and the library says outright that
   nothing makes one of them narrower.
 - **A mode says so where somebody can see it.** The footer carries the routing's
-  name while it is pointed, on all three surfaces, and pressing it stops. A mode
+  name while it is pointed, wherever it is drawn, and pressing it stops. A mode
   that could only be left from the page it was started on is a mode somebody
   gets stuck in, and somebody in this one is by definition somewhere else.
 
@@ -966,7 +1005,7 @@ has drawn keeps the empty box.
 ### Effects
 
 All four engines at once, in the two-by-two the four of them make, each cut into
-the group's face plate the way a section tab is cut into the panel. The chain
+the group's face plate the way a recess is cut into the panel. The chain
 runs across the top of the block, at the width it needs to name what each engine
 is running, and the two settings that shape it, the connection mode and whether
 the effects are inserted, sent or bypassed, stand in the band under it.
