@@ -12,7 +12,13 @@ authors.workspace = true
 control-ui = { path = "../control-ui" }
 deepmind-host = { path = "../deepmind-host" }
 deepmind-midi = { workspace = true }
-iced = { workspace = true }
+iced = { workspace = true, features = [
+    # The project's own name is a file rather than a drawing: `docs/wordmark.svg`
+    # carries the outlined letters and the five slices that are the mark, so
+    # what the header draws is the banner's own geometry at whatever size the
+    # window has for it. See `window::wordmark`.
+    "svg",
+] }
 # The system's own file chooser, and the only new dependency the librarian
 # needs. The XDG portal backend rather than the GTK one: it is Rust the whole way
 # down, so a Linux build needs no GTK development headers, and it blocks on

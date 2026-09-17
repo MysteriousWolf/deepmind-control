@@ -4,8 +4,8 @@
 //! [`tint`] a claim is drawn in. Nothing else in this repository writes down a
 //! colour, so restyling the editor is editing this file and nothing near it.
 //!
-//! The same rule now covers type and the chrome. [`printed`], [`wordmark`] and
-//! [`reading`] are the three faces anything in either build is set in, and
+//! The same rule now covers type and the chrome. [`printed`] and [`reading`]
+//! are the two faces anything in either build is set in, and
 //! [`ground`], [`chrome`], [`selector`], [`shortlist`] and [`bay`] are what the parts of the
 //! window that are not parameters are drawn as: a port picker cut into the
 //! panel like a fader's track, and a button with a metal rim rather than a
@@ -51,15 +51,6 @@ const FAMILY: &str = if cfg!(target_os = "linux") {
 #[must_use]
 pub const fn printed() -> Font {
     Font::with_name(FAMILY)
-}
-
-/// The same face, bold, which is what the mark sets the name in.
-#[must_use]
-pub const fn wordmark() -> Font {
-    Font {
-        weight: iced_core::font::Weight::Bold,
-        ..printed()
-    }
 }
 
 /// The face anything the synthesizer's own display would show is set in.

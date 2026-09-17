@@ -133,8 +133,8 @@
 //! screen would be the one thing in this window pretending to be something
 //! else.
 //!
-//! The same file holds the three faces anything is set in — [`printed`],
-//! [`wordmark`] and [`reading`] — and what the parts of a window that are not
+//! The same file holds the two faces anything is set in — [`printed`] and
+//! [`reading`] — and what the parts of a window that are not
 //! parameters are drawn as: [`ground`] is the panel gradient the whole window
 //! stands on, and [`chrome`], [`selector`], [`shortlist`] and [`bay`] are a
 //! button, a picker, the list it opens and a panel of words in the instrument's
@@ -179,7 +179,7 @@ pub use footer::footer;
 pub use home::{panel, panel_width, panelled, screen};
 pub use knob::{Knob, knob};
 pub use lcd::{Band, Ink, PITCH, Screen, Size, lcd, stencil, swatch};
-pub use logo::{logo, sliced};
+pub use logo::logo;
 pub use mapping::{Mapper, Mapping, Reach};
 pub use name::characters as name_characters;
 pub use panel::{Message, group};
@@ -187,8 +187,7 @@ pub use patch::Patch;
 pub use section::{first_section, section_bar, sections};
 pub use style::{
     Materials, READABLE, bay, chrome, contrast, deepmind, ground, ink_on, is_negative, legible,
-    marked, materials, mix, negative, printed, reading, selector, shortlist, tint, wordmark,
-    written,
+    marked, materials, mix, negative, printed, reading, selector, shortlist, tint, written,
 };
 
 /// A piece of interface, produced by the views in this crate.

@@ -6,9 +6,10 @@
 //! the same case made wide, with the project's name beside the faders in the
 //! metal of one of those caps.
 //!
-//! Two things live here, and they are the two halves of that drawing: the case
-//! with its faders, which is the mark, and the slices, which are what the name
-//! is cut with.
+//! What lives here is the case with its faders, which is the mark. The name
+//! beside it on the banner is not drawn: it is `docs/wordmark.svg`, cut out of
+//! the banner and rendered as a file, because a word is letterforms and a
+//! lookalike set in whatever bold sans a machine has is not the mark.
 //!
 //! **The mark is the application's icon**, and it is not in the window. It was,
 //! for a while, on a case with wooden end cheeks across the top — but a banner
@@ -17,14 +18,14 @@
 //! icon belongs where an icon goes. It is drawn here rather than loaded so that
 //! whatever asks for it gets it in the theme it is being shown in.
 //!
-//! # Why it is drawn and not loaded
+//! # Why this one is drawn and the name is not
 //!
-//! An `SVG` would need a renderer feature, a file beside the binary or a blob
-//! inside it, and a second copy of the geometry either way. What it would buy
-//! is the one thing this window does not want: a mark that ignores the theme.
-//! Every surface here asks the theme what it is made of — that is what makes
-//! the displays turn over on one press — and a mark that did not would be the
-//! only part of the window that could not.
+//! The mark is a *surface*: wood, a panel, a recess, three caps of lit metal.
+//! Every surface in this window asks the theme what it is made of — that is
+//! what makes the displays turn over on one press — and a mark loaded from a
+//! file could not. The name has no surfaces in it. It is a shape, it is the
+//! same shape in either theme, and the one thing it needs is to be *that*
+//! shape, which only the file can promise.
 //!
 //! # The slices
 //!
@@ -33,14 +34,10 @@
 //! mark they cross the fader caps, and the cap heights in the file are chosen so
 //! that a slice falls through the middle of a cap and never at its edge.
 //!
-//! They survive here and they do not survive on the name beside it. Measured
-//! against the file's own 128-unit box, the eight run from 1 unit to 3.6, which
-//! at a mark of forty-odd points is a third of a point to one and a third — thin
-//! at the top of the run and solid at the bottom, which is what they are on the
-//! mark itself. The same proportions against a 22-point word are every slice
-//! under a point, which is not a slice: it is a smudge, and the mark is not
-//! improved by being approximated. So the name is the metal without them, which
-//! is what [`crate::style::wordmark`] was already for.
+//! Measured against the file's own 128-unit box, the eight run from 1 unit to
+//! 3.6, which at a mark of forty-odd points is a third of a point to one and a
+//! third — thin at the top of the run and solid at the bottom, which is what
+//! they are on the mark itself.
 
 use iced_core::gradient::Linear;
 use iced_core::layout::{self, Layout};
@@ -112,111 +109,6 @@ where
     Renderer: iced_core::Renderer + 'a,
 {
     Element::new(Logo { side })
-}
-
-/// Lays the wordmark's own slices over a word set in the mark's face.
-///
-/// `docs/banner.svg` sets the project's name in the metal of a fader cap and
-/// cuts five horizontal lines through it, spaced evenly and thickening as they
-/// fall. The slices are the mark; the name without them is a word in a bold
-/// sans.
-///
-/// This draws the lines and nothing else, so it goes *over* the word rather
-/// than through it — a slice is the panel showing between two pieces of metal,
-/// and the panel is what the word is standing on, so drawing the panel over the
-/// word is the same picture by a shorter route than a mask would be.
-///
-/// # Where they land
-///
-/// Measured off the file, in ems of the face rather than in points, so that the
-/// name can be set at any size and get the mark's own proportions. The banner's
-/// name has an ascender height of 56.65 units and its five cuts fall between
-/// 25.2 and 5.0 units above the baseline: at the face's ascender of 0.905 em
-/// that is 0.403 em above the baseline, 0.081 em apart, thickening from a
-/// sixtieth of an em to a twentieth.
-///
-/// The baseline is one em below the top of the line box, which is what iced's
-/// default line height of 1.3 leaves once the face's ascender and descender are
-/// centred in it. That is a property of the face and not of this drawing, so a
-/// fallback sans with a slightly different ascender moves the slices by a
-/// fraction of a point inside letters they cross the whole lower half of.
-#[must_use]
-pub fn sliced<'a, Renderer>(size: f32) -> crate::Element<'a, Renderer>
-where
-    Renderer: iced_core::Renderer + 'a,
-{
-    Element::new(Sliced { size })
-}
-
-/// The five lines, and nothing else.
-#[derive(Debug)]
-struct Sliced {
-    size: f32,
-}
-
-/// How far above the baseline the first slice falls, in ems.
-const FIRST: f32 = 0.4030;
-
-/// How far apart two of them are, in ems.
-const STEP: f32 = 0.0806;
-
-/// How thick each is, in ems, thinnest first.
-const THICK: [f32; 5] = [0.0161, 0.0228, 0.0296, 0.0376, 0.0457];
-
-/// How far below the top of a line box the baseline sits, in ems.
-///
-/// What iced's default line height of 1.3 leaves once the face's ascender and
-/// descender are centred in it: the leading is a sixth of an em, half of it
-/// above, and the ascender is nine tenths — which comes to one em, near enough
-/// that the difference is a twentieth of a point on a forty point word.
-const BASELINE: f32 = 1.0;
-
-impl<Message, Renderer> Widget<Message, Theme, Renderer> for Sliced
-where
-    Renderer: iced_core::Renderer,
-{
-    fn size(&self) -> Size<Length> {
-        Size::new(Length::Fill, Length::Fill)
-    }
-
-    fn layout(
-        &mut self,
-        _tree: &mut Tree,
-        _renderer: &Renderer,
-        limits: &layout::Limits,
-    ) -> layout::Node {
-        layout::atomic(limits, Length::Fill, Length::Fill)
-    }
-
-    fn draw(
-        &self,
-        _tree: &Tree,
-        renderer: &mut Renderer,
-        theme: &Theme,
-        _style: &renderer::Style,
-        layout: Layout<'_>,
-        _cursor: mouse::Cursor,
-        _viewport: &Rectangle,
-    ) {
-        let bounds = layout.bounds();
-        let baseline = bounds.y + BASELINE * self.size;
-        let panel = materials(theme).panel;
-        for (step, thick) in THICK.into_iter().enumerate() {
-            #[expect(clippy::cast_precision_loss, reason = "one of the five the mark cuts")]
-            let above = FIRST - step as f32 * STEP;
-            renderer.fill_quad(
-                renderer::Quad {
-                    bounds: Rectangle {
-                        y: baseline - above * self.size,
-                        height: thick * self.size,
-                        ..bounds
-                    },
-                    ..renderer::Quad::default()
-                },
-                Background::Color(panel),
-            );
-        }
-    }
 }
 
 /// The case, and the three faders in it.
@@ -413,35 +305,7 @@ const HIGHLIGHT: f32 = 0.45;
 
 #[cfg(test)]
 mod tests {
-    use super::{BOX, CAP, CAPS, SLICES, SLOT, SLOTS};
-
-    #[test]
-    fn a_slice_crosses_a_cap_through_its_middle_or_misses_it_altogether() {
-        // The one thing about this drawing that is not arbitrary. The cap
-        // heights in `docs/logo.svg` were chosen against the slices: two of the
-        // three are cut through the middle, and the highest stands clear of the
-        // run of lines entirely. A cap a couple of units off either would be a
-        // cap with a slice shaving its corner, which reads as a mistake rather
-        // than as a mark.
-        let (_, deep) = CAP;
-        let mut crossed = 0;
-        for cap in CAPS {
-            let crossing: Vec<(f32, f32)> = SLICES
-                .into_iter()
-                .filter(|(at, thick)| at + thick > cap && *at < cap + deep)
-                .collect();
-            let Some((at, thick)) = crossing.first().copied() else {
-                continue;
-            };
-            assert_eq!(crossing.len(), 1, "the cap at {cap} is cut twice");
-            assert!(
-                at > cap + 1.0 && at + thick < cap + deep - 1.0,
-                "the slice at {at} shaves the edge of the cap at {cap}"
-            );
-            crossed += 1;
-        }
-        assert_eq!(crossed, 2, "the file cuts two of the three");
-    }
+    use super::{BOX, CAP, CAPS, SLOT, SLOTS};
 
     #[test]
     fn nothing_in_the_mark_falls_outside_the_box_it_is_drawn_in() {

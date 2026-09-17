@@ -21,8 +21,9 @@
 //! The same constraint the [marks](crate::mark) are drawn under: this crate is
 //! generic over the renderer, and what every renderer behind
 //! [`iced_core::Renderer`] can do is fill a rounded rectangle. A texture is
-//! therefore a few hundred of them — hairlines for a brushed face, a coarse
-//! stipple for a worn one, a fine one for a degraded one — laid down from a
+//! therefore a few hundred of them — hairlines for a brushed face, blotches
+//! and scratches for a worn one, a broken diagonal for a degraded one — laid
+//! down from a
 //! sequence that is the same on every frame, because a surface that reshuffled
 //! itself sixty times a second would be a surface nobody could look at.
 //!
@@ -59,12 +60,17 @@ pub(crate) enum Finish {
     /// A unit from before effects were digital: worn, and rubbed where hands
     /// go.
     ///
-    /// Coarser than brushed, and unevenly lit: the grain is a stipple rather
-    /// than a set of lines, the corners are darker than the middle the way a
-    /// panel that has been handled for thirty years is, and two long creases
-    /// run across it.
+    /// Coarser than brushed and unevenly lit: broad blotches where the light
+    /// has not fallen evenly, short scratches over them where things have gone
+    /// past, a few long rubs where a hand goes, and corners darker than the
+    /// middle the way a panel that has been handled for thirty years is.
     Worn,
-    /// A unit that degrades what goes through it: finer, noisier, harder.
+    /// A unit that degrades what goes through it: a fine diagonal grain, with
+    /// blocks missing out of it.
+    ///
+    /// The one face on the page that does not run the way everything standing
+    /// on it does, which is what keeps a grain this fine underneath a legend
+    /// rather than behind it.
     Gritty,
 }
 
@@ -84,17 +90,8 @@ impl Finish {
         }
     }
 
-    /// How many marks are laid down across the face.
-    const fn marks(self) -> u32 {
-        match self {
-            Self::Brushed => 90,
-            Self::Worn => 260,
-            Self::Gritty => 420,
-        }
-    }
-
-    /// How hard a mark is laid down, as a share of the way from the case
-    /// towards the light on it or the shadow in it.
+    /// How hard this finish's pattern is laid down, as a share of the way from
+    /// the case towards the light on it or the shadow in it.
     ///
     /// Enough to feel and not enough to read as a pattern: the test is whether
     /// a legend printed over it is any harder to read, which is the same test
@@ -102,8 +99,8 @@ impl Finish {
     const fn ink(self) -> f32 {
         match self {
             Self::Brushed => 0.055,
-            Self::Worn => 0.13,
-            Self::Gritty => 0.10,
+            Self::Worn => 0.09,
+            Self::Gritty => 0.075,
         }
     }
 }
@@ -152,77 +149,11 @@ struct Face<Ink> {
     chassis: Ink,
 }
 
-/// One mark on a face: where it is, how big, and how far towards the ink.
-#[derive(Debug, Clone, Copy)]
-struct Scuff {
-    /// Across the face, as a share of its width.
-    x: f32,
-    /// Down it, the same way.
-    y: f32,
-    /// How wide, as a share of the width.
-    wide: f32,
-    /// How tall, in points, because a hairline is a hairline at any size.
-    tall: f32,
-    /// How far towards the ink, and which way: positive lights the case and
-    /// negative darkens it.
-    lift: f32,
-}
-
-impl<Ink> Face<Ink> {
-    /// Returns the marks this face carries.
-    ///
-    /// Counted out rather than stored: a few hundred numbers hashed from a
-    /// counter cost less than the table that would hold them, and the table
-    /// would have to be regenerated whenever a number in it changed.
-    fn scuffs(&self) -> impl Iterator<Item = Scuff> {
-        let finish = self.finish;
-        let seed = self.seed;
-        (0..finish.marks()).map(move |index| {
-            let one = hash(seed, index * 4);
-            let two = hash(seed, index * 4 + 1);
-            let three = hash(seed, index * 4 + 2);
-            let four = hash(seed, index * 4 + 3);
-            let sign = if four < 0.45 { -1.0 } else { 1.0 };
-            match finish {
-                // Hairlines the long way, as a brush leaves them.
-                Finish::Brushed => Scuff {
-                    x: one * 0.9,
-                    y: two,
-                    wide: 0.06 + three * 0.22,
-                    tall: 1.0,
-                    lift: sign * (0.5 + four * 0.5),
-                },
-                // A coarse, uneven grain — the pebbling of a covered box —
-                // with the odd long rub across it where a hand has been.
-                Finish::Worn => Scuff {
-                    x: one,
-                    y: two,
-                    wide: if three > 0.90 {
-                        0.06 + three * 0.12
-                    } else {
-                        0.004 + three * 0.016
-                    },
-                    tall: if three > 0.90 { 1.0 } else { 1.0 + three * 3.0 },
-                    lift: sign * (0.35 + four * 0.65),
-                },
-                // Fine, dense and hard: dust on a converter.
-                Finish::Gritty => Scuff {
-                    x: one,
-                    y: two,
-                    wide: 0.002 + three * 0.004,
-                    tall: 1.0,
-                    lift: sign * (0.6 + four * 0.4),
-                },
-            }
-        })
-    }
-}
-
 /// Returns a number between nothing and one, from `seed` and `step`.
 ///
 /// A counter through a hash rather than a generator with state: the same pair
 /// is the same number on every frame and in every process, which is what makes
-/// a scuff a property of the algorithm rather than of when the page was drawn.
+/// a face a property of the algorithm rather than of when the page was drawn.
 fn hash(seed: u32, step: u32) -> f32 {
     let mut word = seed
         .wrapping_mul(0x9E37_79B9)
@@ -237,6 +168,83 @@ fn hash(seed: u32, step: u32) -> f32 {
     let fraction = (word % 100_003) as f32 / 100_003.0;
     fraction
 }
+
+/// How far apart the lines of a brushed face run, in points.
+///
+/// Close enough that the face reads as drawn in one direction and far enough
+/// that the lines are lines: a brushed panel under a lamp is a few dozen of
+/// them across a rack unit, not a hatch.
+const BRUSH: f32 = 3.0;
+
+/// How many scuffs a worn face carries, per thousand square points of it.
+///
+/// Density rather than a count, so that a wide case and a narrow one are the
+/// same material rather than the same number of marks stretched over different
+/// room.
+const SCUFFS: f32 = 6.0;
+
+/// How long a scuff is, as a share of the face's width: the shortest, and how
+/// much longer the longest is.
+///
+/// Short. What wears a panel is a hand going past it, and what that leaves is a
+/// streak an inch long — not a line across the unit, which is what the
+/// [rubs](rubbed) are and there are five of those.
+const SCUFF: (f32, f32) = (0.03, 0.13);
+
+/// How many blotches are laid under them, per thousand square points.
+///
+/// Far fewer than scuffs and far larger: the two together are what a surface
+/// that has been in a room for thirty years looks like, which is unevenly lit
+/// at arm's length and scratched at reading distance. Either alone is a
+/// texture; both is a material.
+const BLOTCHES: f32 = 1.4;
+
+/// How large a blotch is, across and down, as a share of the shorter side.
+const BLOTCH: (f32, f32) = (0.18, 0.55);
+
+/// How hard a blotch is laid down, against a scuff.
+const SOFTLY: f32 = 0.27;
+
+/// How many rings a blotch is laid down in.
+///
+/// A quad has an edge, and a patch of uneven light does not. Three rectangles
+/// inside each other at a third of the weight each is a falloff rather than a
+/// rectangle: the edge is where one of the three stops, which at this weight is
+/// a step nobody can find, and the middle is where all three are.
+const FEATHER: u32 = 3;
+
+/// The same count, to divide by.
+const RINGS: f32 = 3.0;
+
+/// How far apart the diagonals of a degraded face run, in points.
+///
+/// A hatch rather than a field of dots. What a lattice of dots draws is a
+/// screen door — the eye finds the grid, and then the grid is the loudest thing
+/// on a plate whose controls are supposed to be. A broken diagonal has no grid
+/// in it to find: it reads as the surface being *made of* something, which is
+/// what lo-fi is a picture of.
+const HATCH: f32 = 6.0;
+
+/// How long one step of a diagonal is, in points.
+const DASH: f32 = 2.0;
+
+/// How much of a diagonal is actually laid down.
+const DRAWN: f32 = 0.55;
+
+/// How many dropouts a degraded face carries, per thousand square points.
+///
+/// The other half of what a converter running out of bits does: most of it is
+/// grain, and now and then a whole block of it goes.
+const DROPOUTS: f32 = 0.8;
+
+/// How large a dropout is, across and down, in points.
+const DROPOUT: (f32, f32) = (7.0, 3.0);
+
+/// How long the rubs across a worn face are, as a share of its width.
+const RUB: f32 = 0.45;
+
+/// How many of them there are.
+const RUBS: u32 = 5;
 
 /// How dark the corners of a worn face are, against its middle.
 const HANDLED: f32 = 0.16;
@@ -254,6 +262,27 @@ const BANDS: i32 = 7;
 
 /// The same count, to divide by.
 const EVERY: f32 = 7.0;
+
+/// How many marks are laid on a face at the very most.
+///
+/// A ceiling rather than a number anybody chose: the counts above are
+/// densities, and a window dragged to the size of a wall would otherwise be a
+/// window laying down quads until it stopped answering.
+const AT_MOST: u32 = 400;
+
+/// Returns how many marks a face of these bounds takes, at `per` marks to the
+/// thousand square points.
+fn many(bounds: Rectangle, per: f32) -> u32 {
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "a count of marks on a plate"
+    )]
+    let count = (bounds.width * bounds.height / 1000.0 * per)
+        .round()
+        .max(0.0) as u32;
+    count.min(AT_MOST)
+}
 
 impl<Message, Renderer, Ink> Widget<Message, Theme, Renderer> for Face<Ink>
 where
@@ -287,7 +316,7 @@ where
         if bounds.width <= 0.0 || bounds.height <= 0.0 {
             return;
         }
-        // Light and shadow rather than ink: a scuff is what the room does to a
+        // Light and shadow rather than ink: a finish is what the room does to a
         // surface, and it does the same thing to a cream panel as to a black
         // one. Every other mark on this page is mixed towards an *ink*, which
         // is the right rule for something printed and the wrong one for
@@ -295,30 +324,226 @@ where
         let case = (self.chassis)(theme);
         let lit = style::mix(case, Color::WHITE, self.finish.ink());
         let dark = style::mix(case, Color::BLACK, self.finish.ink());
-        // Everything is cut to the case, because a scuff laid across the plate
-        // beside it is a scuff on somebody else's unit.
+        // Everything is cut to the case, because a mark laid across the plate
+        // beside it is a mark on somebody else's unit.
         renderer.with_layer(bounds, |renderer| {
             fill(renderer, bounds, case);
-            if self.finish == Finish::Worn {
-                handled(renderer, bounds, Color::BLACK);
-            }
-            for scuff in self.scuffs() {
-                let shade = if scuff.lift < 0.0 { dark } else { lit };
-                let mark = Rectangle {
-                    x: bounds.x + scuff.x * bounds.width,
-                    y: bounds.y + scuff.y * bounds.height,
-                    width: (scuff.wide * bounds.width).max(1.0),
-                    height: scuff.tall,
-                };
-                if mark.x + mark.width > bounds.x + bounds.width
-                    || mark.y + mark.height > bounds.y + bounds.height
-                {
-                    continue;
+            match self.finish {
+                Finish::Brushed => brushed(renderer, bounds, self.seed, lit, dark),
+                Finish::Worn => {
+                    worn(renderer, bounds, self.seed, lit, dark);
+                    rubbed(renderer, bounds, self.seed, lit, dark);
+                    handled(renderer, bounds, Color::BLACK);
                 }
-                fill(renderer, mark, shade);
+                Finish::Gritty => gritty(renderer, bounds, self.seed, lit, dark),
             }
         });
     }
+}
+
+/// Draws a worn face's grain: blotches under scuffs, neither on a lattice.
+///
+/// Nothing here has a pitch. What a lattice draws — however hard its cells are
+/// jittered — is a *weave*, because the eye finds the row and the column and
+/// then cannot stop finding them; and a weave is a claim about the unit that
+/// the library never made. What wears a box is a room and a pair of hands, and
+/// neither works to a grid: the blotches are where the light has not fallen
+/// evenly for thirty years, and the scuffs are where something went past.
+fn worn<Renderer>(renderer: &mut Renderer, bounds: Rectangle, seed: u32, lit: Color, dark: Color)
+where
+    Renderer: iced_core::Renderer,
+{
+    let side = bounds.width.min(bounds.height);
+    let (least, more) = BLOTCH;
+    for blotch in 0..many(bounds, BLOTCHES) {
+        let across = hash(seed, blotch * 5);
+        let down = hash(seed, blotch * 5 + 1);
+        let wide = side * (least + more * hash(seed, blotch * 5 + 2));
+        let tall = side * (least + more * hash(seed, blotch * 5 + 3)) * 0.5;
+        let light = hash(seed, blotch * 5 + 4);
+        let mark = Rectangle {
+            x: bounds.x + (bounds.width - wide).max(0.0) * across,
+            y: bounds.y + (bounds.height - tall).max(0.0) * down,
+            width: wide,
+            height: tall,
+        };
+        let shade = if light > 0.5 { lit } else { dark };
+        for ring in 0..FEATHER {
+            #[expect(
+                clippy::cast_precision_loss,
+                reason = "a handful of rings, counted out"
+            )]
+            let step = ring as f32 / RINGS / 2.0;
+            fill(
+                renderer,
+                Rectangle {
+                    x: mark.x + wide * step,
+                    y: mark.y + tall * step,
+                    width: (wide - wide * step * 2.0).max(0.0),
+                    height: (tall - tall * step * 2.0).max(0.0),
+                },
+                Color {
+                    a: SOFTLY / RINGS,
+                    ..shade
+                },
+            );
+        }
+    }
+    let (least, more) = SCUFF;
+    for scuff in 0..many(bounds, SCUFFS) {
+        let across = hash(seed, 104_729 + scuff * 4);
+        let down = hash(seed, 104_729 + scuff * 4 + 1);
+        let along = hash(seed, 104_729 + scuff * 4 + 2);
+        let light = hash(seed, 104_729 + scuff * 4 + 3);
+        let width = bounds.width * (least + more * along);
+        let mark = Rectangle {
+            x: bounds.x + (bounds.width - width).max(0.0) * across,
+            y: bounds.y + (bounds.height - 1.0).max(0.0) * down,
+            width,
+            height: 1.0,
+        };
+        let shade = if light > 0.55 { lit } else { dark };
+        // Most of them are barely there. A face whose every scratch caught the
+        // light is a face that has been drawn on rather than used.
+        fill(
+            renderer,
+            mark,
+            Color {
+                a: 0.25 + light * 0.75,
+                ..shade
+            },
+        );
+    }
+}
+
+/// Draws a brushed face: lines the long way, at one pitch, at many weights.
+///
+/// What a brush leaves is a direction. The pitch is even — a face whose lines
+/// were scattered is a face that has been sanded rather than brushed — and what
+/// varies is how hard each one is laid down and how far along the face it runs,
+/// which is what keeps a few dozen parallel lines from reading as a hatch.
+fn brushed<Renderer>(renderer: &mut Renderer, bounds: Rectangle, seed: u32, lit: Color, dark: Color)
+where
+    Renderer: iced_core::Renderer,
+{
+    for (line, y) in steps(bounds.height, BRUSH) {
+        let weight = hash(seed, line * 3);
+        let from = hash(seed, line * 3 + 1);
+        let along = hash(seed, line * 3 + 2);
+        // A line that is barely there is most of them: the ones that catch are
+        // what the eye reads, and a face of equal lines is a grating.
+        if weight < 0.35 {
+            continue;
+        }
+        let width = bounds.width * (0.35 + along * 0.65);
+        let mark = Rectangle {
+            x: bounds.x + (bounds.width - width) * from,
+            y: bounds.y + y,
+            width,
+            height: 1.0,
+        };
+        fill(renderer, mark, if weight > 0.68 { lit } else { dark });
+    }
+}
+
+/// Draws the long rubs across a worn face, where a hand has been.
+fn rubbed<Renderer>(renderer: &mut Renderer, bounds: Rectangle, seed: u32, lit: Color, dark: Color)
+where
+    Renderer: iced_core::Renderer,
+{
+    for rub in 0..RUBS {
+        let down = hash(seed, 7919 + rub * 2);
+        let along = hash(seed, 7919 + rub * 2 + 1);
+        let width = bounds.width * RUB;
+        let mark = Rectangle {
+            x: bounds.x + (bounds.width - width) * along,
+            y: bounds.y + bounds.height * down,
+            width,
+            height: 1.0,
+        };
+        if !inside(bounds, mark) {
+            continue;
+        }
+        fill(renderer, mark, if down > 0.5 { lit } else { dark });
+    }
+}
+
+/// Draws a degraded face: a broken diagonal grain, and blocks where it drops
+/// out altogether.
+///
+/// Diagonal because neither of the other two faces is, and because it is the
+/// one direction nothing else on this page runs in: the legends are across, the
+/// brushing is across, the columns are down. A surface that runs the other way
+/// to everything standing on it stays underneath them.
+fn gritty<Renderer>(renderer: &mut Renderer, bounds: Rectangle, seed: u32, lit: Color, dark: Color)
+where
+    Renderer: iced_core::Renderer,
+{
+    let reach = bounds.width + bounds.height;
+    for (line, from) in steps(reach, HATCH) {
+        let catches = hash(seed, line * 2) > 0.62;
+        for (step, along) in steps(bounds.height, DASH) {
+            if hash(seed, line * 8191 + step) > DRAWN {
+                continue;
+            }
+            let mark = Rectangle {
+                x: bounds.x + from - bounds.height + along,
+                y: bounds.y + along,
+                width: DASH,
+                height: 1.0,
+            };
+            if !inside(bounds, mark) {
+                continue;
+            }
+            fill(renderer, mark, if catches { lit } else { dark });
+        }
+    }
+    let (wide, tall) = DROPOUT;
+    for dropout in 0..many(bounds, DROPOUTS) {
+        let across = hash(seed, 65_537 + dropout * 3);
+        let down = hash(seed, 65_537 + dropout * 3 + 1);
+        let light = hash(seed, 65_537 + dropout * 3 + 2);
+        let mark = Rectangle {
+            x: bounds.x + (bounds.width - wide).max(0.0) * across,
+            y: bounds.y + (bounds.height - tall).max(0.0) * down,
+            width: wide,
+            height: tall,
+        };
+        fill(
+            renderer,
+            mark,
+            Color {
+                a: SOFTLY,
+                ..if light > 0.5 { lit } else { dark }
+            },
+        );
+    }
+}
+
+/// Returns the cells of one axis at `pitch`, counted out with their positions.
+fn steps(length: f32, pitch: f32) -> impl Iterator<Item = (u32, f32)> {
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "a count of cells across a plate"
+    )]
+    let count = (length / pitch).floor().max(0.0) as u32;
+    (0..count).map(move |cell| {
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "a count of cells across a plate"
+        )]
+        let at = cell as f32 * pitch;
+        (cell, at)
+    })
+}
+
+/// Whether a mark falls wholly inside the face it is on.
+fn inside(bounds: Rectangle, mark: Rectangle) -> bool {
+    mark.x >= bounds.x
+        && mark.y >= bounds.y
+        && mark.x + mark.width <= bounds.x + bounds.width
+        && mark.y + mark.height <= bounds.y + bounds.height
 }
 
 /// Darkens the edges of a face, the way a panel that has been handled darkens.

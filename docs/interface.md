@@ -1306,14 +1306,27 @@ second row readable down against the first.
   those are facts about the *box* rather than about the signal, and they are the
   two a surface can carry:
 
-  - **vintage** is *worn*: a coarse, uneven grain with the odd long rub across
-    it, and corners darker than the middle the way a panel that has been handled
-    for thirty years is;
-  - **lo-fi** is *gritty*: a fine, dense, harder speckle, which is what dust on
-    a converter looks like;
+  - **vintage** is *worn*: broad soft blotches where the light has not fallen
+    evenly for thirty years, short scratches scattered over them where things
+    have gone past, a few long rubs where a hand goes, and corners darker than
+    the middle the way a handled panel is;
+  - **lo-fi** is *gritty*: a fine broken diagonal grain with blocks missing out
+    of it, which is a converter running out of bits;
   - everything else is *brushed*, which is still not flat — a few dozen
     hairlines the long way, because four large blocks of one colour on a page is
     the one way a case measured off a photograph gives itself away.
+
+  **None of the three is on a lattice**, and two of them were. A grid of
+  jittered cells is the obvious way to draw a texture out of quads and it is the
+  wrong one: however hard the cells are shaken, the eye finds the row and the
+  column, and then a plate whose controls are supposed to be the loudest thing
+  on it is a plate with a screen door over it. So the worn face is scattered —
+  blotches and scratches at free positions, counted by *density* so that a wide
+  case and a narrow one are the same material rather than the same number of
+  marks stretched differently — and the gritty one runs diagonally, which is the
+  one direction nothing standing on the page runs in. A blotch is laid down as
+  three rectangles inside each other at a third of the weight each, because a
+  quad has an edge and a patch of uneven light does not.
 
   A Tel-Ray delay is both vintage and lo-fi, and the box is the older fact, so
   vintage decides. The rest of the characters leave the face alone: a stereo
@@ -1434,9 +1447,8 @@ second row readable down against the first.
   so more than half of that case was blank panel, and a rack unit with nothing
   on its lower half is a rack unit somebody looks for the missing knobs on.
 
-  So the grid is drawn as deep as the algorithm on it, and the lines saying what
-  a display shows stand under the row their own slot is on rather than at the
-  foot of the plate. What is still reserved is the shape of a row, which is what
+  So the grid is drawn as deep as the algorithm on it. What is still reserved is
+  the shape of a row, which is what
   makes the columns line up: a column stands a column's height whether or not a
   slot is in it, a run keeps the room a strip takes whether or not it has a
   name, and a control stands in a band of one depth whether the figure calls for
@@ -1452,6 +1464,16 @@ second row readable down against the first.
 - **Units land on one line.** A title is set in a box two lines tall whatever it
   needs, so a name that wraps pushes nothing down but itself and the readings
   across a row are read along one line rather than up and down a ragged one.
+- **A plate does not print the value table.** Every slot whose display shows
+  names rather than a number used to print all of them under its row: `FCL Delay
+  Factor, left shows 1/4, 1/3, 1/2, 2/3, 3/4, 1, 4/3, 3/2, 2, 3`, two of those
+  under one row of a delay, nine reverb presets wrapped onto two lines under
+  another. It is the instrument's own table set out in full beneath a control
+  that is already sitting on one of its entries — and the entry it is sitting on
+  is the one thing the line did not say. What somebody playing needs from a knob
+  is what it is *on*, which the reading under it gives, and how many places it
+  stops at, which the line under that still says: `10 settings`. Where the name
+  of a setting matters, the control is a list and the list has the names in it.
 - **The modulation dot has a second state here.** Every slot is addressable from
   the matrix as `Fx n Param m`, and the library says which ones the engine acts
   on. A routing pointed somewhere the engine ignores draws the mark as an
@@ -1625,10 +1647,11 @@ plugin bundle rather than a line of code. Until it is taken, the family is named
 in one place — `control-ui/src/style.rs`, beside the palette — and asked for
 there by both builds.
 
-**The name is set as the mark sets it**: bold, in the metal of a fader cap, over
-the panel. Without the wordmark's slices through it, which at 22 points are a
-smudge rather than a slice — the mark is not improved by being approximated at a
-tenth of its size.
+**The name is not set at all**: it is `docs/wordmark.svg`, the banner's own
+outlined letters in the metal of a fader cap, with the banner's own five slices
+through them. Nothing about it depends on which bold sans a machine has, and the
+slices are in the path's coordinates rather than in points, so they are cuts at
+whatever height the window gives the file.
 
 ## The window is a panel, and so is its chrome
 
@@ -1745,29 +1768,31 @@ it was three ornaments deep. The mark is the application's icon, where an icon
 belongs. `editor and librarian` is what a banner says and what a window does not
 have to, because a window says it by being one.
 
-**What is left is sliced.** The banner cuts five horizontal lines through the
-name and the lines *are* the mark — the name without them is a word in a bold
-sans. They are drawn over the word rather than through it: a slice is the panel
-showing between two pieces of metal, the word is standing on the panel, and
-drawing the panel over the word is the same picture by a shorter route than a
-mask would be.
+**What is left is the banner's own name, as a file.** `docs/wordmark.svg` is
+cut out of `docs/banner.svg`: the same outlined path, the same metal gradient
+down it, and the same five horizontal slices, carried across as the mask they
+already were and cropped to the box the path measures. The window renders it.
 
-They are placed in **ems of the face** rather than in points, off the file's own
-box: the banner's name has an ascender height of 56.65 units and its five cuts
-fall between 25.2 and 5.0 units above the baseline, which at the face's ascender
-of 0.905 em is 0.403 em above the baseline, 0.081 em apart, thickening from a
-sixtieth of an em to a twentieth. So the name can be set at any size and get the
-mark's own proportions.
+It was drawn instead, for a while, and it is drawn no longer. The name was set
+in a bold sans with five thin quads laid over it, placed in ems of the face so
+that any size got the mark's proportions — and what came out on a screen was
+five hairlines landing where the renderer rounded them to, across letters whose
+own shapes were whichever bold sans the machine had. Two approximations, one
+over the other. The result read as a striped word rather than a sliced one,
+which is the failure the ems were supposed to prevent.
 
-At the twenty-two points the name used to be set at, every one of those five was
-under a point, and a line under a point across a word is a smudge rather than a
-slice. It is set at thirty-four now, where they run from about six tenths of a
-point to a point and two thirds — the banner's own range. The mark is not
-improved by being approximated; it is improved by being given the room it needs.
+A vector file has neither problem. The letterforms are the banner's, not a
+lookalike the machine happened to ship; the slices are in the path's own
+coordinates, so the renderer scales them with everything else and a cut stays a
+cut at any height. This is the one drawing in the window that is loaded rather
+than drawn, and the reason is the reason the rest are drawn: a mark should be
+*the* mark. The application's icon stays drawn, because it is a
+case with faders in it and it has to be able to turn over with the theme; a
+wordmark is a shape and has no surfaces in it to light.
 
 The press and the picker beside it sit on the name's **baseline** rather than in
-the middle of the line it stands in. A thirty-four point word beside a
-twenty-four point press, centred, is a press floating in the middle of a word.
+the middle of the line it stands in. A word this size beside a twenty-four point
+press, centred, is a press floating in the middle of a word.
 
 ## Movement
 

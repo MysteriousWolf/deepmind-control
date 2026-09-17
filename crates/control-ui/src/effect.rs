@@ -265,16 +265,6 @@ const BAND: f32 = 13.0;
 /// Close, because it belongs to that row and stands in the same block.
 const UNDER_STRIP: f32 = 3.0;
 
-/// How far apart two lines saying what a slot's display shows stand.
-const SHOWN_APART: f32 = 1.0;
-
-/// How far one of them stands under the row it belongs to.
-///
-/// Close: it is a line about a control on that row, and the row under it is
-/// [`BETWEEN_ROWS`] away, so the gap is what says which of the two it belongs
-/// to.
-const UNDER_ROW: f32 = 2.0;
-
 /// How tall one column of the grid stands.
 ///
 /// Every part of a slot at its own height, added up: where it lives, the band
@@ -1020,23 +1010,24 @@ where
             }),
         )
     });
-    // What the display will show where one of this row's slots shows names
-    // rather than a number, printed under that row. It used to be printed
-    // under the whole grid, which put `PST Preset shows Ambience, Church, …`
-    // at the foot of the case with two rows of controls between it and the
-    // knob it is about — and the reference at the head of it was the only
-    // thing saying which knob that was.
-    let shown: Vec<Element<'a, Renderer>> = displays(line).map(Element::from).collect();
-    if shown.is_empty() {
-        return row(runs).spacing(BESIDE_BAND).into();
-    }
-    column![
-        row(runs).spacing(BESIDE_BAND),
-        column(shown).spacing(SHOWN_APART),
-    ]
-    .spacing(UNDER_ROW)
-    .into()
+    row(runs).spacing(BESIDE_BAND).into()
 }
+
+/// What is no longer printed under a row, and why.
+///
+/// Every slot whose display shows names rather than a number used to print them
+/// all: `FCL Delay Factor, left shows 1/4, 1/3, 1/2, 2/3, 3/4, 1, 4/3, 3/2, 2,
+/// 3`, two of those under one row of a delay, and nine reverb presets wrapped
+/// onto two lines under another. It is the instrument's own value table, set
+/// out in full, under a control that is already sitting on one of those values
+/// — and the byte it is sitting on is the one thing the line did not say.
+///
+/// For somebody playing the instrument that is a specification printed on the
+/// panel. What they need from a knob is what it is *on*, which the reading
+/// under it gives, and how many places it stops at, which the line under that
+/// still says: `10 settings`. Where the exact name of a setting matters, the
+/// control is a list and the list has the names in it.
+const fn _the_names_a_display_shows() {}
 
 /// The pale strip a band's name is knocked out of.
 ///
@@ -1971,50 +1962,6 @@ fn quantity(what: Quantity) -> Option<&'static str> {
     })
 }
 
-/// The names a row's slots show on the instrument's display.
-///
-/// One line per slot that shows names instead of a number, printed under the
-/// row rather than in the slot, because that is what they are: a reading and
-/// not something to send. The manual gives the names and never the bytes they
-/// sit at, so the control stays the byte and this says what the display will
-/// make of it.
-///
-/// Under its own row rather than under the whole grid. A line naming nine
-/// reverb presets is two lines long on a case this wide, and printing all of
-/// them at the foot of the plate put the longest thing on it furthest from the
-/// control it describes.
-fn displays<'a, Renderer>(
-    line: &Line,
-) -> impl Iterator<Item = iced_widget::Text<'a, Theme, Renderer>>
-where
-    Renderer: TextRenderer<Font = Font>,
-{
-    shows(line)
-        .into_iter()
-        .map(|line| printing(line, On::Face).size(9).font(reading_face()))
-}
-
-/// What those lines say, as words.
-///
-/// Split out from the drawing so that a test can read them: which row a line
-/// belongs under is the whole of this change, and it is not a thing an
-/// `Element` will answer.
-fn shows(line: &Line) -> Vec<String> {
-    line.iter()
-        .flatten()
-        .filter_map(|lane| lane.slot)
-        .filter(|slot| slot.is_selector())
-        .map(|slot| {
-            format!(
-                "{} {} shows {}",
-                slot.reference,
-                slot.title,
-                slot.values.join(", ")
-            )
-        })
-        .collect()
-}
-
 /// Returns a parameter's name with the engine's own taken off the front.
 ///
 /// The rule a slot's title follows against its group, one level down: the plate
@@ -2046,7 +1993,7 @@ mod tests {
 
     use super::{
         FxSlot, Lane, On, claimed, engines, hint, ink, lanes, legend, placed, quantity, settings,
-        shows, spans, switched_on, within,
+        spans, switched_on, within,
     };
     use crate::style::{READABLE, contrast, deepmind, legible, tint};
     use crate::{Confidence, Patch};
@@ -2165,44 +2112,6 @@ mod tests {
                     );
                 }
             }
-        }
-    }
-
-    #[test]
-    fn a_display_name_line_stands_under_the_row_its_own_slot_is_on() {
-        // The line is a reading of one control, and it used to be printed at
-        // the foot of the case whatever row that control was on. Every one of
-        // them names a slot of the row it is under now, and every slot that
-        // shows names has a line somewhere.
-        for algorithm in Algorithm::all() {
-            let lanes = under(algorithm, Engine::One);
-            let (rows, _) = placed(&lanes, Some(algorithm.panel()));
-            let mut printed = 0;
-            for line in &rows {
-                for said in shows(line) {
-                    printed += 1;
-                    let named = line
-                        .iter()
-                        .flatten()
-                        .filter_map(|lane| lane.slot)
-                        .any(|slot| said.starts_with(slot.reference));
-                    assert!(
-                        named,
-                        "{} prints {said:?} under a row that slot is not on",
-                        algorithm.full_name
-                    );
-                }
-            }
-            let selectors = lanes
-                .iter()
-                .filter_map(|lane| lane.slot)
-                .filter(|slot| slot.is_selector())
-                .count();
-            assert_eq!(
-                printed, selectors,
-                "{} loses a display name between the grid and the rows",
-                algorithm.full_name
-            );
         }
     }
 

@@ -8,7 +8,7 @@ use deepmind_midi::param::ParamId;
 use iced::futures::Stream;
 use iced::futures::channel::mpsc;
 use iced::widget::{
-    button, column, container, pick_list, row, scrollable, space, stack, text, tooltip,
+    button, column, container, pick_list, row, scrollable, space, svg, text, tooltip,
 };
 use iced::{Background, Center, Element, Fill, Length, Subscription, Theme, border};
 
@@ -516,42 +516,40 @@ fn about(app: &App) -> Element<'_, Message> {
     .into()
 }
 
-/// The project's own name, set the way the mark sets it.
+/// The project's own name, as `docs/wordmark.svg` sets it.
 ///
-/// `docs/banner.svg` puts it across the panel in the metal of a fader cap, in
-/// the mark's own bold sans, with five horizontal lines cut through it — and
-/// the lines are the mark. The name without them is a word in a bold sans.
+/// A file rather than a drawing. The name is the banner's name — outlined from
+/// the mark's own face, tracked the way the banner tracks it, and cut by the
+/// five slices that *are* the mark — and what this window was doing instead was
+/// setting the word in a font and laying five rectangles over it, each of them
+/// under two points tall and each rounded to whatever the pointer's device
+/// gives it. Five lines from a sixtieth of an em to a twentieth, rounded
+/// independently, are five bands of grey at five weights the mark does not
+/// have: what somebody sees is stripes rather than a slice.
 ///
-/// So the lines are drawn, over the word rather than through it: a slice is the
-/// panel showing between two pieces of metal, the word is standing on the
-/// panel, and drawing the panel over the word is the same picture by a shorter
-/// route than a mask would be. They are placed in ems of the face rather than
-/// in points — see [`control_ui::sliced`] — so the name is the banner's
-/// proportions at whatever size a header has room for.
-///
-/// `editor and librarian` stood under it, which is what a banner says and what
-/// a window does not have to: a window says it by being one.
+/// As vector it is the same geometry at any size, which is the whole of what
+/// the mark asks for — and it is the *same file's* geometry as the banner, so
+/// the two cannot drift.
 fn wordmark() -> Element<'static, Message> {
-    stack![
-        text("deepmind control")
-            .font(control_ui::wordmark())
-            .size(NAME)
-            .style(|theme: &Theme| text::Style {
-                color: Some(control_ui::materials(theme).metal),
-            }),
-    ]
-    .push(Element::from(control_ui::sliced(NAME)).map(Message::Ui))
-    .into()
+    svg(svg::Handle::from_memory(WORDMARK))
+        .width(Length::Shrink)
+        .height(Length::Fixed(NAME))
+        .into()
 }
 
-/// How large the name is set.
+/// The name, as the bytes of the file that draws it.
 ///
-/// Large enough that the mark's own slices are lines rather than smudges. At
-/// this size the five run from about six tenths of a point to a point and two
-/// thirds, which is the banner's own range at the banner's own proportions;
-/// at the twenty-two points this was set at they were every one of them under a
-/// point, which is not a slice.
-const NAME: f32 = 34.0;
+/// Carried in the binary rather than read from disk: it is the application's
+/// own name, not something a user chooses, and a window whose title depended on
+/// a file beside the executable is a window that can be shipped without one.
+const WORDMARK: &[u8] = include_bytes!("../../../docs/wordmark.svg");
+
+/// How tall the name is drawn.
+///
+/// The width follows from it, because the file knows its own proportions. It is
+/// the height of the ink and the slices together — the word plus what hangs
+/// below it — so a header built around it has the room the mark actually needs.
+const NAME: f32 = 54.0;
 
 /// A press whose whole face is a mark, and what it says about itself.
 ///
