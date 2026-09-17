@@ -630,19 +630,22 @@ under, because they are the library's:
   at all: a filter assembled from four values the synthesizer described and one
   this window invented is a picture of no filter.
 
-**A wave is drawn about the line it swings around.** Every shape in the
-library's table starts at the bottom of its range, so that the seven can be
-drawn side by side without one looking shifted — which means one turn of a sine
-is a hill. It leaves the floor, reaches the top and comes back, and a picture of
-that reads as a bump rather than as something going round. So an LFO gets at
-least two turns however slow its rate is, and a dotted rule for the level it
-swings about. The two turns are this window's; the level is
-`Generator::rest`, which 26.5 publishes
+**A wave is drawn about the line it swings around**, and one turn of it is
+enough. The level is `Generator::rest`, which 26.5 publishes
 ([#35](https://github.com/MysteriousWolf/deepmind-midi/issues/35)) — the middle
 for an LFO read as it swings and the floor for one read unipolar, and the
 library is what knows which. The same release put `Slew Rate` into the shape
 itself, so corners round and a square becomes a ramp between its levels with
 nothing here to do about it.
+
+An LFO used to get **two** turns however slow its rate was, for a reason that
+has gone with that release: the shape this window drew started at the bottom of
+its range, so one turn of a sine was a hill — it left the floor, reached the top
+and came back, which reads as a bump rather than as something going round — and
+the second turn was what said it repeated. Drawn across its rest line, one turn
+is a crest and a trough either side of it, which is the picture of a cycle at
+twice the size the same glass gave two of them. The rate still reads as more of
+them, because more of it is more of them.
 
 Where the left edge of a picture is a moment the instrument *has* is published
 too, as `Generator::anchored`. An LFO whose `Key Sync` is on restarts with each

@@ -114,13 +114,18 @@ fn turns(travel: f32, least: f32, most: f32) -> f32 {
 
 /// Fewest turns of an LFO the glass is ever given.
 ///
-/// Two, and never one. Every shape in the library's table starts at the bottom
-/// of its range so that the seven can be drawn side by side without one looking
-/// shifted, which means one turn of the sine is a hill: it leaves the floor,
-/// reaches the top and comes back, and a picture of that is a bump rather than
-/// something going round. The second turn is what says it repeats, and what it
-/// swings about is [`centre`].
-const LEAST_TURNS: f32 = 2.0;
+/// One, now that the library draws the shape about the line it rests on.
+///
+/// It was two, and for a reason that has gone: the shape this file used to draw
+/// started at the bottom of its range, so one turn of a sine was a hill — it
+/// left the floor, reached the top and came back — and a hill is a bump rather
+/// than something going round. The second turn was what said it repeated.
+///
+/// [`Generator::rest`] is published now, the wave is drawn crossing it, and one
+/// turn of a sine is a crest and a trough either side of a line: the picture of
+/// a cycle, at twice the size the same glass gave two of them. The rate still
+/// reads as more of them, because more of it *is* more of them.
+const LEAST_TURNS: f32 = 1.0;
 
 /// Most turns of one it is given, at the top of the rate's travel.
 const MOST_TURNS: f32 = 8.0;
