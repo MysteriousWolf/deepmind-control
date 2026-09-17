@@ -26,7 +26,7 @@
 //! [`Mapper`] is the modulation matrix asking the rest of the window a question.
 //! A routing mapped onto the window lights every control the matrix can reach,
 //! on all three surfaces at once, and the next one somebody takes hold of is
-//! where the routing goes — a click chooses it and a drag sets the depth as
+//! where the routing goes: a click chooses it and a drag sets the depth as
 //! well. The application owns the state because the mode outlives the page it
 //! was started on, which is the whole point of it.
 //!
@@ -46,16 +46,16 @@
 //! because the instrument's own screen is a dot matrix and a curve on one is
 //! the dots nearest a curve.
 //!
-//! The panel leaves a screen-shaped hole for the application to fill —
-//! [`screen`] is the blank one, sized to the hole — and puts another over every
+//! The panel leaves a screen-shaped hole for the application to fill, with
+//! [`screen`] as the blank one sized to that hole, and puts another over every
 //! plate's faders, drawn from what that plate's controls are: the shapes the
 //! oscillators are making, where the filter's corner is, the gates the
 //! arpeggiator is opening. The envelopes get the one drawing no `DeepMind` can
 //! show, which is all three of them at once.
 //!
 //! What those drawings are shapes *of* is not in this crate. `deepmind-midi`
-//! 26.4 publishes them as functions — an envelope's bends, an LFO's wave, a
-//! filter's roll-off about its own corner, the arpeggiator's gates — and a
+//! 26.4 publishes them as functions, an envelope's bends, an LFO's wave, a
+//! filter's roll-off about its own corner and the arpeggiator's gates, and a
 //! screen here is a sample loop over one: where a filter's corner sits for a
 //! byte is a fact about the instrument, and a window is the wrong place to keep
 //! it right.
@@ -99,8 +99,8 @@
 //! What an engine *is* comes from the same place. Every algorithm belongs to one
 //! of nine families and every family has a mark, published as strokes
 //! and laid out here; three of the 35 carry a switch that takes them out of
-//! circuit and the other 32 have no such thing; and two of them — the tap
-//! delays — have a response that follows from their own parameters, so those
+//! circuit and the other 32 have no such thing; and two of them, the tap
+//! delays, have a response that follows from their own parameters, so those
 //! two get a screen and the other 33 get the blank a library that refuses to
 //! guess leaves behind.
 //!
@@ -133,8 +133,8 @@
 //! screen would be the one thing in this window pretending to be something
 //! else.
 //!
-//! The same file holds the two faces anything is set in — [`printed`] and
-//! [`reading`] — and what the parts of a window that are not
+//! The same file holds the two faces anything is set in, [`printed`] and
+//! [`reading`], and what the parts of a window that are not
 //! parameters are drawn as: [`ground`] is the panel gradient the whole window
 //! stands on, and [`chrome`], [`selector`], [`shortlist`] and [`bay`] are a
 //! button, a picker, the list it opens and a panel of words in the instrument's

@@ -89,9 +89,9 @@ pub(crate) const PRESS: f32 = 28.0;
 /// front panel, which is the tightest room a named set is ever lit in.
 ///
 /// Given rather than taken, because a column is laid out into the room it was
-/// given and a legend past the end of that room is drawn no lines tall — which
-/// is a set that silently names fewer things than the library says it has,
-/// rather than one that overflows where somebody would see it.
+/// given and a legend past the end of that room is drawn no lines tall. That is
+/// a set silently naming fewer things than the library says it has, rather than
+/// one that overflows where somebody would see it.
 pub(crate) const LIT: f32 = 13.0;
 
 /// How far apart two lit legends stand.
@@ -148,7 +148,7 @@ pub(crate) struct Room {
     /// A list is the honest control for a set too long to read at a glance,
     /// and how long that is depends on the room: a rack's slot has none to
     /// spare, and the strip of legends beside the instrument's own LFO faders
-    /// has seven. It is room and not identity — the same enumerated parameter,
+    /// has seven. It is room and not identity: the same enumerated parameter,
     /// from the same table, with the same values under it.
     legends: bool,
     /// Which shape a control that sweeps a range takes.
@@ -156,9 +156,9 @@ pub(crate) struct Room {
     /// The last thing hand layout is allowed to change about a control, and
     /// the newest: the library publishes what shape each effect algorithm's
     /// own figure draws, and 29 of the 35 are knobs. A knob and a fader are the
-    /// same control over the same byte with the same drag — see
-    /// [`knob`](crate::knob) — so this belongs here, beside the axis a fader
-    /// runs along, rather than anywhere near what a parameter is.
+    /// same control over the same byte with the same drag (see
+    /// [`knob`](crate::knob)), so this belongs beside the axis a fader runs
+    /// along rather than anywhere near what a parameter is.
     form: Form,
     /// How big the thing a hand takes hold of is drawn, when the room is more
     /// than the control's own size.
@@ -173,10 +173,10 @@ pub(crate) struct Room {
     ///
     /// One, everywhere the instrument itself lights a set: `Sine`, `Triangle`,
     /// `Square` beside an LFO's faders are a column, because that is how they
-    /// are silkscreened. A set too long to read down in one — the ten
-    /// topologies the effects block can be wired in — is the same lamps in
-    /// several, which is a shape a page has room for where a column of ten is
-    /// a page of nothing else.
+    /// are silkscreened. A set too long to read down in one, such as the ten
+    /// topologies the effects block can be wired in, is the same lamps in
+    /// several columns, which is a shape a page has room for where a column of
+    /// ten is a page of nothing else.
     across: usize,
     /// Whether the control takes the room left over rather than its own.
     ///
@@ -255,11 +255,10 @@ impl Room {
 
     /// Room to light a long named set in `across` columns of legends.
     ///
-    /// What a set too long to read down in one column gets when the page has
-    /// the width for it: the same lamps, in the same order, wrapped. The
-    /// height is taken rather than given — as many rows as the columns need —
-    /// because a set laid out to be read whole is a set where a legend past
-    /// the end of the room would be one of the choices silently missing.
+    /// What a set too long to read down in one column gets when the page has the
+    /// width for it: the same lamps, in the same order, wrapped. The height is
+    /// taken rather than given, as many rows as the columns need, because a
+    /// legend past the end of the room is one of the choices silently missing.
     pub(crate) const fn spread(width: f32, across: usize) -> Self {
         Self {
             axis: Axis::Down,
@@ -429,8 +428,8 @@ pub enum Message {
     ///
     /// A panel of forty faders under four-letter legends is only readable
     /// because a hand can ask what one of them is, and this is the asking. The
-    /// answer is drawn somewhere else — the application decides where a footer
-    /// goes — so all a view does is say what is under the pointer.
+    /// answer is drawn somewhere else, because the application decides where a
+    /// footer goes, so all a view does is say what is under the pointer.
     ///
     /// It never reaches a wire. Looking at a control is not editing it.
     Pointed(Option<ParamId>),
@@ -440,9 +439,9 @@ pub enum Message {
     /// for the things in this window that are not parameters: the marks along
     /// the header and the foot, and the two presses that move a routing up and
     /// down the matrix. A press whose whole face is a nine-dot mark has nowhere
-    /// to put a word, and a word beside it is a word on the panel whether or
-    /// not anybody is asking — so the answer goes where this window already
-    /// says what is under the pointer.
+    /// to put a word, and a word beside it is a word on the panel whether or not
+    /// anybody is asking, so the answer goes where this window already says what
+    /// is under the pointer.
     ///
     /// It is what the press says about itself rather than anything read from
     /// the instrument, which is why it is a string and not a parameter.
@@ -484,7 +483,7 @@ pub enum Message {
     ///
     /// Nothing about the sound changes. The eight routings are read as a set
     /// and the instrument does not care which of them says what, so this is a
-    /// rearrangement for whoever has to read the table next — which is the one
+    /// rearrangement for whoever has to read the table next, which is the one
     /// thing a matrix of eight identical slots gives somebody no way to do.
     Swap {
         /// One routing's source, destination and depth.
@@ -675,8 +674,8 @@ pub(crate) fn control<'a, Renderer>(
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
-    // Every control in this editor is drawn through here — a lane of the front
-    // panel, a slot of a rack, a step of the sequencer, a byte of an effect — so
+    // Every control in this editor is drawn through here: a lane of the front
+    // panel, a slot of a rack, a step of the sequencer, a byte of an effect. So
     // this is the one place that has to notice a pointer for all of them to say
     // what they are. It is also the one place that has to answer the modulation
     // matrix when a routing is mapped onto the window, for the same reason: a
@@ -692,7 +691,7 @@ where
     };
     // Over the control rather than around it. A border drawn in a container
     // would be two points of layout this panel does not have, and every control
-    // in the window would move the moment a routing was pointed — which is a
+    // in the window would move the moment a routing was pointed, which is a
     // window that jumps when somebody is about to map onto something in it.
     let reached = sent.mapping().names(parameter, firmware);
     // What is already there, drawn on the control it is already there on.
@@ -857,9 +856,9 @@ where
         //
         // Brightest at the foot and falling away across it, because that is
         // what a lamp behind a panel does and it is the rule every other lit
-        // surface in this window is already drawn under — the display's own
-        // glass is two stops of the same argument. A flat fill of one colour is
-        // a highlight; this is a light.
+        // surface in this window is drawn under; the display's own glass is two
+        // stops of the same argument. A flat fill of one colour is a highlight;
+        // this is a light.
         renderer.fill_quad(
             renderer::Quad {
                 bounds,
@@ -1018,8 +1017,8 @@ where
 
 /// Returns where a control stands when this window has no value to stand it at.
 ///
-/// Nothing is drawn to take hold of either way — see the cap in
-/// [`fader`](crate::fader) — so this is where the *track* is read from, and for
+/// Nothing is drawn to take hold of either way (see the cap in
+/// [`fader`](crate::fader)), so this is where the *track* is read from, and for
 /// a value read about a centre that is the centre. A modulation depth nobody
 /// has read, drawn at the floor of its own range, is a control sitting at
 /// `-128` on a page whose whole subject is how much of something arrives: the
@@ -1095,7 +1094,7 @@ where
     // The one gesture the two modes share. While the matrix is mapping, the
     // drag is the same drag over the same range with the same relative grab,
     // and what comes out of it is the depth that travel asks for rather than
-    // the value it would have reached — so the number under the hand is still
+    // the value it would have reached, so the number under the hand is still
     // "how far did I move it", which is the only question a hand can answer
     // about an amount it has not heard yet.
     let moved = move |to: u8| match asked {
@@ -1149,13 +1148,13 @@ where
 /// button is moulded, and lit across its crown rather than filled flat, so that
 /// a row of them along the foot of a plate reads as the row of buttons a
 /// photograph of the instrument shows. What the panel prints about it goes
-/// beside the cap and never on it — the front panel prints its legends under
-/// the buttons, which is [`home`](crate::home)'s business rather than this
-/// one's — and what stays on the face is the reading, which is the one thing
-/// the hardware's own lamp says by being lit.
+/// beside the cap and never on it, since the front panel prints its legends
+/// under the buttons, which is [`home`](crate::home)'s business rather than this
+/// one's. What stays on the face is the reading, which is the one thing the
+/// hardware's own lamp says by being lit.
 ///
-/// A switch nobody has read is drawn as the switch it is — the shape of a
-/// control does not depend on whether a sound has arrived — but as the hole
+/// A switch nobody has read is drawn as the switch it is, because the shape of a
+/// control does not depend on whether a sound has arrived, but as the hole
 /// without the cap in it, the way a fader nobody has read is a track with
 /// nothing to take hold of. That distinction used to be carried by the word
 /// printed inside the cap, which is the one job the words were really doing;
@@ -1176,8 +1175,8 @@ where
     // Nothing is written on the cap. A button on the instrument is a blank
     // piece of rubber that is lit or is not, and the word `off` printed inside
     // an unlit one is this window explaining a control the control already
-    // states — while every legend the panel does print is silkscreened beside
-    // the cap, where a finger cannot cover it.
+    // states, and every legend the panel does print is silkscreened beside the
+    // cap, where a finger cannot cover it.
     let face = button(Space::new())
         .width(Length::Fixed(CAP.min(room.width)))
         .height(Length::Fixed(PRESS))
@@ -1202,8 +1201,8 @@ where
 /// Draws a named set as legends, one of them lit.
 ///
 /// A column of them, which is how the instrument silkscreens a set beside the
-/// faders it belongs to, or several columns where the room says so — see
-/// [`Room::spread`]. Down each column and then across, so that reading it the
+/// faders it belongs to, or several columns where the room says so (see
+/// [`Room::spread`]). Down each column and then across, so that reading it the
 /// way the instrument numbers the values is reading down.
 fn legends<'a, Renderer>(
     parameter: ParamId,
@@ -1322,8 +1321,8 @@ where
 /// the instrument's own LFO faders, where the light is behind the name rather
 /// than under a finger, and seven moulded caps in the room two faders leave
 /// would be seven buttons nobody can press. So this carries the claim the same
-/// way a cap does — filled for a fact, an outline for a claim, neither for a
-/// value nobody has read — and nothing else about it is a button.
+/// way a cap does, filled for a fact, an outline for a claim and neither for a
+/// value nobody has read, and nothing else about it is a button.
 fn lit(theme: &Theme, on: bool, claim: Confidence) -> button::Style {
     let material = materials(theme);
     let colour = tint(theme, claim);
@@ -1371,7 +1370,7 @@ fn capped(theme: &Theme, on: bool, claim: Confidence, status: button::Status) ->
     // drawing its track and no cap. Nothing is written on these any more, so
     // this is what tells an unread switch from one that is switched off, and a
     // flat recess against a moulded cap is a difference in relief rather than
-    // in colour — it survives the greyscale the rest of the panel survives.
+    // in colour, so it survives the greyscale the rest of the panel survives.
     if matches!(claim, Confidence::Unknown) {
         return button::Style {
             background: Some(Background::Color(material.recess)),
@@ -1653,7 +1652,7 @@ mod tests {
         // it did not claim stays in it. Two ways to lose a parameter: a table
         // that claims one twice, and a rack that filters one out for a table
         // that was not drawing it. A group nobody has laid out by hand passes
-        // this trivially, which is the point — the rule is the same for all
+        // this trivially, which is the point: the rule is the same for all
         // fourteen.
         for group in Group::ALL.iter().copied() {
             let routed = matrix::routed(group);

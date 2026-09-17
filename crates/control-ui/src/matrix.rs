@@ -16,7 +16,7 @@
 //! The arrangement. Every control in the table is the control the generated
 //! rack drew: a list where the library names every value a parameter accepts,
 //! a fader where it does not, and the same claim under both. What the library
-//! says a parameter is is still the only thing that decides that — a routing
+//! says a parameter is is still the only thing that decides that, so a routing
 //! whose depth a later library gives a value table arrives as a list here
 //! without a line of this file changing.
 //!
@@ -34,16 +34,16 @@
 //! a list that can be typed into rather than one that has to be scrolled: three
 //! letters and `VCF Envelope Attack` is the only one left. The names are the
 //! parameter's own value table, asked of the library for the firmware that
-//! answered, which is the same call the rack makes when it draws that parameter
-//! — and where the library has no complete table, the row keeps whatever
+//! answered, which is the same call the rack makes when it draws that
+//! parameter. Where the library has no complete table, the row keeps whatever
 //! control the library says the parameter is, with nothing here to decide.
 //!
 //! **Mapping**, for somebody who knows the *control*. `map` sends the
 //! routing out into the window: every control the matrix can reach lights up on
 //! all three surfaces, everything else is passed over, and taking hold of one
-//! is the answer — a click chooses it, and a drag sets the depth as well, from
-//! how far the drag would have moved it. See [`Mapper`](crate::Mapper), which is also
-//! where the one assumption on this page is written down.
+//! is the answer: a click chooses it, and a drag sets the depth as well, from
+//! how far the drag would have moved it. See [`Mapper`](crate::Mapper), which is
+//! also where the one assumption on this page is written down.
 //!
 //! Mapping is the one an editor has and a front panel does not, and it is the
 //! answer to the real difficulty of this column: a destination is an
@@ -56,13 +56,13 @@
 //! ends in `Source` with a `Destination` and a `Depth` sharing its prefix is a
 //! routing, and three parameters that do not make one stay in the rack. A
 //! library that grows a ninth routing draws a ninth row; a group with a lone
-//! `Source` in it — the oscillators have one — is not a matrix and is not
-//! drawn as one.
+//! `Source` in it, as the oscillators have, is not a matrix and is not drawn as
+//! one.
 //!
 //! The same rule covers where a routing may be mapped. Which controls light up
-//! is `ValueEntry::parameters` read backwards — the destinations that name the
-//! parameter under the pointer — so a firmware that moves a destination lights
-//! a different set of controls with nothing in this file to edit.
+//! is `ValueEntry::parameters` read backwards, the destinations that name the
+//! parameter under the pointer, so a firmware that moves a destination lights a
+//! different set of controls with nothing in this file to edit.
 
 use deepmind_midi::param::{Group, Kind, ParamId};
 use deepmind_midi::pixels::Pixels;
@@ -80,20 +80,19 @@ use crate::{Confidence, Element, Patch, tint};
 
 /// How far the numeral beside a row is carried from the plate towards the metal.
 ///
-/// Most of the way. It is a mark on a panel rather than a reading — the row
-/// says what the routing does and this says which of the eight is saying it —
-/// but it is also what the two presses either side of it move, and a label on a
+/// Most of the way. It is a mark on a panel rather than a reading, since the row
+/// says what the routing does and this says which of the eight is saying it, but
+/// it is also what the two presses either side of it move, and a label on a
 /// control has to be as legible as the control.
 const NUMERAL: f32 = 0.78;
 
 /// How much room the routing's number and the two presses that move it take.
 ///
-/// It was that number over the three addresses the routing occupies, which is
-/// fifty points of every row spent on a prefix the heading already says and
-/// three offsets nobody edits a program by. The number stays — it is what the
-/// glass beside the rows prints against every source and destination it
-/// touches — and the addresses are in that glass's heading, once, which is how
-/// many times a run of twenty-four needs saying.
+/// The number alone. Printing it over the three addresses the routing occupies
+/// spends fifty points of every row on a prefix the heading already says and
+/// three offsets nobody edits a program by. The number is what the glass beside
+/// the rows prints against every source and destination it touches, and the
+/// addresses are in that glass's heading, once.
 const LABEL: f32 = 20.0;
 
 /// What share of the room the two lists have between them a source takes.
@@ -169,9 +168,9 @@ impl Routing {
     /// Which of the group's routings this is, counting from one.
     ///
     /// The digits off the end of what the library calls it: `Mod 3` is the
-    /// third. Read rather than counted, so that a library that numbered them
-    /// differently — or named them something other than `Mod` — is what the
-    /// row prints.
+    /// third. Read rather than counted, so a library that numbered them
+    /// differently, or named them something other than `Mod`, is what the row
+    /// prints.
     fn number(self) -> &'static str {
         self.label
             .rsplit(' ')
@@ -306,7 +305,7 @@ struct End {
     name: &'static str,
     /// The library's picture of it, where there is one.
     ///
-    /// A source's is `ValueTable::cell_of` — an LFO's wave, a wheel, an
+    /// A source's is `ValueTable::cell_of`, an LFO's wave, a wheel or an
     /// envelope's corner, drawn once in the library so that every host draws
     /// the same picture. A destination's is the glyph of the narrowest
     /// parameter it moves: a destination is a set of program parameters and the
@@ -333,8 +332,8 @@ fn cell_from(parameter: ParamId, value: u8, firmware: Version) -> Option<&'stati
 
 /// Returns the picture of the destination `value` names, where there is one.
 ///
-/// A destination is not a value with a cell — it is a set of program
-/// parameters — so the picture is the glyph of the narrowest of them, which is
+/// A destination is a set of program parameters rather than a value with a cell
+/// of its own, so the picture is the glyph of the narrowest of them, which is
 /// the same parameter [`Mapping::names`](crate::mapping::Mapping::names) would
 /// have chosen coming the other way. `VCF Freq` draws a filter's corner because
 /// `VCF Frequency` does, and the same picture stands on the fader itself.
@@ -357,7 +356,8 @@ fn cell_to(parameter: ParamId, value: u8, firmware: Version) -> Option<&'static 
 /// reads them.
 ///
 /// Both names are the library's own value tables, asked for the firmware that
-/// answered — the same call the row above makes when it draws either as a list.
+/// answered, which is the call the row above makes when it draws either as a
+/// list.
 /// A routing with nothing at one end is not a wire and is not drawn: the
 /// instrument ships with all eight sitting on `Off`, and eight lines from `Off`
 /// to `Off` is a picture of nothing drawn eight times.
@@ -407,8 +407,8 @@ pub(crate) fn wiring(patch: &Patch, firmware: Version) -> Vec<Wire> {
 /// A routing whose destination nobody has read reaches nothing, for the reason
 /// [`moved`] draws no mark for one: a band drawn from a value this window has
 /// not seen is a band that says the instrument is doing something it may not
-/// be. A depth nobody has read is the same — the destination may be known and
-/// the amount not, and a band of an assumed width on a known destination is the
+/// be. A depth nobody has read is the same: the destination may be known and the
+/// amount not, and a band of an assumed width on a known destination is the
 /// worse of the two errors.
 pub(crate) fn reaching(patch: &Patch, firmware: Version) -> Vec<Reach> {
     let mut reaches = Vec::new();
@@ -475,9 +475,9 @@ where
     };
     let first = routings.first().copied()?;
     // The two lists take what the window has spare, in the proportion their
-    // names need it — see [`SOURCE`] and [`DESTINATION`]. Everything else in
-    // the row is the size of what is drawn in it, so a wider window is a wider
-    // pair of lists rather than a wider everything.
+    // names need it: see [`SOURCE`] and [`DESTINATION`]. Everything else in the
+    // row is the size of what is drawn in it, so a wider window is a wider pair
+    // of lists rather than a wider everything.
     let header = row![
         Space::new().width(Length::Fixed(LABEL)),
         heading(
@@ -519,8 +519,8 @@ where
                 ),
                 mapping_press(routing, mapper),
                 // A knob rather than a fader lying down. A depth is read about
-                // its centre — `-128` at one end, `+127` at the other and no
-                // modulation in the middle — and a dial is the control that
+                // its centre, `-128` at one end, `+127` at the other and no
+                // modulation in the middle, and a dial is the control that
                 // shows a middle by pointing at it. Eight faders at four
                 // different places along their tracks are eight positions to
                 // compare; eight dials are eight hands on eight clocks.
@@ -536,9 +536,8 @@ where
             .align_y(Vertical::Center);
             // Each row on a card of its own. Eight rows of controls at four
             // heights, floating on the plate the rack stands on, are eight rows
-            // nothing lines up against — every one of them looked a little out,
-            // because there was nothing for them to be in. A routing is one
-            // sentence and this is the paper it is written on.
+            // nothing lines up against. A routing is one sentence and this is
+            // the paper it is written on.
             container(reading)
                 .height(Length::Fixed(ROW))
                 .padding([0.0, BESIDE_ROW])
@@ -603,9 +602,9 @@ const BESIDE_ROW: f32 = 10.0;
 /// Fixed rather than however tall the tallest thing in it happens to be,
 /// because the glass beside the rows has to be exactly as deep as they are:
 /// a patch bay that stopped two rows short of the table it is a picture of
-/// would be a picture of something else. It is the tallest a row needs — one
-/// line of controls and a little card either side of them — and every row is
-/// that whatever is in it, which is the rule a rack's slots already follow.
+/// would be a picture of something else. It is the tallest a row needs, one line
+/// of controls and a little card either side of them, and every row is that
+/// whatever is in it, which is the rule a rack's slots already follow.
 ///
 /// It was half again as tall when every control printed its value underneath.
 /// The footer already says what is under the pointer, which for anything in
@@ -647,15 +646,15 @@ fn deep(rows: usize) -> i32 {
 /// Draws the patch bay: which sources are wired to which destinations.
 ///
 /// The one thing the table cannot show. Eight rows read one sentence each, and
-/// what somebody wants to know about a modulation matrix is the *shape* of it —
+/// what somebody wants to know about a modulation matrix is the *shape* of it:
 /// that one LFO is driving three things, that two routings are fighting over
 /// the filter, that the aftertouch goes nowhere. Sources down one side,
 /// destinations down the other, a line for every routing between them, and the
 /// fan-out is the picture.
 ///
 /// It is on the instrument's own glass, at the pitch every display in this
-/// window shares, and it takes the band it is given — more dots, not bigger
-/// ones, which is the rule the chain's glass is cut under too.
+/// window shares, and it takes the band it is given as more dots rather than
+/// bigger ones, which is the rule the chain's glass is cut under too.
 ///
 /// # The cells are pictures
 ///
@@ -664,9 +663,9 @@ fn deep(rows: usize) -> i32 {
 /// the other. 26.5 publishes the sources' as `ValueTable::cell_of` and the
 /// parameters' as [`ParamId::glyph`]
 /// ([deepmind-midi#40](https://github.com/MysteriousWolf/deepmind-midi/issues/40)),
-/// so a column of abbreviations is a column of pictures now — which is the
-/// thing a patch bay is for, because the shape of a matrix is something you
-/// read at a glance or not at all.
+/// so a column of abbreviations is a column of pictures, which is what a patch
+/// bay is for: the shape of a matrix is something you read at a glance or not at
+/// all.
 ///
 /// They are the library's for the reason the effect families' marks were: a
 /// mark for `LFO 1` is a fact about the instrument and one drawn here would be
@@ -708,15 +707,14 @@ where
 /// # A name is drawn once, and what leaves it is a list
 ///
 /// One cell per source and one per destination, however many routings touch
-/// them — because that is the picture: one LFO driving three things is one cell
+/// them, because that is the picture: one LFO driving three things is one cell
 /// with three wires out of it, and the same thing drawn as three cells reading
 /// `LFO 1` is a table with lines on it.
 ///
-/// What each of those three wires *carries* is written at the end it leaves
-/// from: the routing's number and its depth, one line each, down the source's
-/// own cell. So the numbers are beside the wires they belong to rather than in
-/// a block along the foot of the glass — which is where the eight depths went
-/// when every cell was a name and there was nowhere else to put them.
+/// What each of those wires *carries* is written at the end it leaves from: the
+/// routing's number and its depth, one line each, down the source's own cell. So
+/// the numbers are beside the wires they belong to rather than in a block along
+/// the foot of the glass.
 fn drawn(wires: &[Wire], deep: i32, of: usize, run: &str) -> Screen {
     let mut screen = Screen::new(BAY, deep);
     // The heading, inverted, which is how a display with one colour of light
@@ -812,8 +810,8 @@ const LINE: i32 = 7;
 /// How deep a cell with `lines` readings written down it is.
 ///
 /// The name, a line for each routing that leaves it, and the glass above and
-/// below. A destination has none — what arrives at it is written at the end it
-/// left from — so it is a cell one line deep.
+/// below. A destination has none, because what arrives at it is written at the
+/// end it left from, so it is a cell one line deep.
 fn cell_deep(lines: usize) -> i32 {
     let lines = i32::try_from(lines).unwrap_or(0);
     2 + LINE + lines * (APART + LINE) + 2
@@ -886,7 +884,7 @@ fn node(screen: &mut Screen, at: i32, top: i32, end: End, lines: &[String], side
         Size::Small,
     );
     // What leaves it, one line per routing, against the edge the wires go out
-    // of — so a reading and its own wire are the same line of the drawing.
+    // of, so a reading and its own wire are the same line of the drawing.
     for (line, said) in lines.iter().enumerate() {
         let at = at + CELL_ACROSS - GUTTER - Screen::width_of(said, Size::Small);
         screen.write(at, reading_at(top, line), said, Size::Small);
@@ -945,7 +943,7 @@ const LANE: i32 = 2;
 /// How much of each corner is taken off.
 ///
 /// Three dots, which at this pitch is a corner that reads as turned rather than
-/// as mitred — the most a dot matrix can say about a radius.
+/// as mitred, and the most a dot matrix can say about a radius.
 const CHAMFER: i32 = 3;
 
 /// How many characters of a name a cell's field holds without scrolling.
@@ -1013,8 +1011,8 @@ const MARGIN: i32 = 3;
 ///
 /// A press is dead where there is nothing to trade: the top row cannot go up,
 /// the bottom cannot go down, and a routing whose bytes nobody has read cannot
-/// be moved anywhere — there is nothing to move, and writing a value this window
-/// has not seen into a slot is the one thing it does not do.
+/// be moved anywhere, because writing a value this window has not seen into a
+/// slot is the one thing it does not do.
 fn shifts<'a, Renderer>(patch: &Patch, routings: &[Routing], index: usize) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1039,8 +1037,8 @@ where
         let live = swap.filter(|(one, other)| known(*one) && known(*other));
         // The mark on the panel, in the metal a hand touches where the press
         // does something and most of the way back to the panel where it does
-        // not — which is how a rack unit's own case says a control is not
-        // wired to anything.
+        // not, which is how a rack unit's own case says a control is not wired
+        // to anything.
         let arrow = lcd::stencil(mark.screen(), move |theme: &Theme| {
             let material = materials(theme);
             style::mix(
@@ -1075,9 +1073,9 @@ where
     // is the one that does it.
     //
     // Printed in the display's own dots, which is the numeral an effect
-    // engine's case already carries — and the numeral the glass beside these
-    // rows prints against every source and destination the routing touches, so
-    // the table and the picture are saying the same thing in the same hand.
+    // engine's case already carries, and the numeral the glass beside these rows
+    // prints against every source and destination the routing touches, so the
+    // table and the picture say the same thing in the same hand.
     column![press(
         crate::UP,
         "Move this routing up the matrix, trading places with the one above it.",
@@ -1127,20 +1125,18 @@ const SHIFT_APART: f32 = 2.0;
 ///
 /// **One component for both ends.** A source is one of 24 names and a
 /// destination one of 133, which is a difference in how long the list is and in
-/// nothing else — and they were drawn as two different controls, a picker with
-/// a handle beside a field with a caret, in one row, four points apart. Both
-/// are searchable lists now, because the one that is hard to scroll decides:
-/// three letters and `VCF Envelope Attack` is the only one left, and the same
-/// three letters cost a source nothing.
+/// nothing else. Both are searchable lists, because the one that is hard to
+/// scroll decides: three letters and `VCF Envelope Attack` is the only one left,
+/// and the same three letters cost a source nothing.
 ///
 /// Where the library has no complete table for an end, the row keeps whatever
-/// control the library says that parameter is — which is not a decision this
-/// file makes, and is why the list is asked for rather than assumed.
+/// control the library says that parameter is, which is not a decision this file
+/// makes and is why the list is asked for rather than assumed.
 ///
 /// # The picture
 ///
 /// The library's own drawing of whatever this end is set to, seven dots square,
-/// beside the list it was chosen from — the same picture the patch bay puts
+/// beside the list it was chosen from. It is the picture the patch bay puts
 /// against the same name, so a routing reads the same on the row and on the
 /// glass. A source's is `ValueTable::cell_of` and a destination's is the glyph
 /// of the parameter it moves, both published in 26.5
@@ -1203,10 +1199,10 @@ where
 
 /// Returns the library's picture of whatever `parameter` is set to.
 ///
-/// A source and a destination are drawn from two different accessors — the
+/// A source and a destination are drawn from two different accessors, because
 /// sources carry cells of their own and a destination is a set of program
-/// parameters whose glyph is the picture — so which one answers is decided by
-/// which of the three parameters of a routing this is. A routing's own
+/// parameters whose glyph is the picture. Which one answers is decided by which
+/// of the three parameters of a routing this is. A routing's own
 /// [`Routing::source`] is what says so, rather than the parameter's name.
 fn cell_of(parameter: ParamId, value: u8, firmware: Version) -> Option<&'static Pixels> {
     if is_source(parameter) {
@@ -1234,9 +1230,9 @@ fn is_source(parameter: ParamId) -> bool {
 ///
 /// Printed on the card rather than lit on glass, because it is a mark beside a
 /// control and not a display: the same call the numeral beside the row goes
-/// through. An end nobody has drawn keeps the empty frame it always had —
-/// drawn as a frame rather than as a dotted one, because seven dots square is
-/// too small for a dotted line to read as anything but scatter.
+/// through. An end nobody has drawn keeps the empty frame, drawn as a frame
+/// rather than as a dotted one, because seven dots square is too small for a
+/// dotted line to read as anything but scatter.
 fn picture<'a, Renderer>(cell: Option<&'static Pixels>) -> Element<'a, Renderer>
 where
     Renderer: iced_core::Renderer + 'a,
@@ -1267,20 +1263,17 @@ const WAITING: f32 = 0.55;
 /// other controls are two recesses and a dial had a rounded rectangle sitting
 /// in the middle of it.
 ///
-/// It was the word `MAP`. What the press does is put the routing over the
-/// panel and wait for somebody to aim it at a control, which is a thing with a
-/// picture — so it has the picture, and the word it used to carry is in the
-/// footer as the sentence the pointer brings up, the same as every other press
-/// in this window. That is also what makes the press square: a press whose face
-/// is a word is as wide as the word, and one whose face is a mark is the size
-/// of the mark.
+/// What the press does is put the routing over the panel and wait for somebody
+/// to aim it at a control, which is a thing with a picture, so it carries the
+/// picture and the word is in the footer as the sentence the pointer brings up.
+/// That is also what makes the press square: a press whose face is a word is as
+/// wide as the word, and one whose face is a mark is the size of the mark.
 ///
 /// What changes while the mode is up is the ink. It goes to the one saturated
-/// colour on the panel — the same cyan every control the routing can reach is
-/// lit in at that moment — because the press and the lit controls are one thing
-/// happening, so they are one colour. The mark does not change: a press that
-/// showed a reticle and then a cross would be two marks to learn, and the
-/// colour already says which of the two states it is in.
+/// colour on the panel, the same cyan every control the routing can reach is lit
+/// in, because the press and the lit controls are one thing happening. The mark
+/// does not change: a press that showed a reticle and then a cross would be two
+/// marks to learn, and the colour already says which state it is in.
 fn mapping_press<'a, Renderer>(routing: Routing, mapper: &Mapper) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1481,7 +1474,7 @@ mod tests {
         );
 
         // And a destination that moves one parameter draws what that parameter
-        // does — the same picture the fader itself stands under.
+        // does, which is the picture the fader itself stands under.
         let Kind::Enumerated(table) = ParamId::Mod1Destination.kind() else {
             unreachable!("a destination is chosen from a table")
         };
@@ -1517,8 +1510,8 @@ mod tests {
     #[test]
     fn a_source_with_three_destinations_is_one_cell_and_three_wires() {
         // The whole of why the bay exists. The table says it three times, once
-        // per row; the glass says it once, as a fan — and each of the three
-        // lines leaving that one cell says how much it carries.
+        // per row; the glass says it once, as a fan, with each of the three
+        // lines leaving that one cell saying how much it carries.
         let wires = wired(&[
             ("LFO 1", "VCF Freq"),
             ("LFO 1", "VCA Level"),
@@ -1575,7 +1568,7 @@ mod tests {
         // Not a line between two points. The glass is as deep as eight rows of
         // controls and the gap is a fifth of that across, so a single sweep
         // between two distant nodes comes out as a near-vertical scratch that
-        // could have started anywhere. Flat out, down a track, flat in — and a
+        // could have started anywhere. Flat out, down a track, flat in, and a
         // track each, so that two wires down the same part of the glass are two
         // wires rather than one heavier one.
         let wires = wired(&[("A", "B"), ("A", "C"), ("A", "D"), ("A", "E")]);
@@ -1649,9 +1642,9 @@ mod tests {
     fn nothing_is_drawn_for_a_matrix_nobody_has_wired() {
         // The instrument ships with all eight sitting on `Off`, and eight lines
         // from `Off` to `Off` is a picture of nothing drawn eight times.
-        // The heading is still printed — it says nothing is wired, which is a
-        // reading rather than a drawing — so what has to be empty is the glass
-        // under it.
+        // The heading is still printed, because it says nothing is wired, which
+        // is a reading rather than a drawing, so what has to be empty is the
+        // glass under it.
         let screen = shown(&[]);
         let under = super::MARGIN * 2 + super::LINE;
 

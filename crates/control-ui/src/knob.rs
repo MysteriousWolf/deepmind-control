@@ -12,7 +12,7 @@
 //! Everything about the control is the fader's, because the two are the same
 //! control and the arrangement is what differs: the same relative grab, so a
 //! press never jumps; the same shift for a fine drag and the same wheel; the
-//! same claim in the fill of the thing that moves — filled metal for what the
+//! same claim in the fill of the thing that moves: filled metal for what the
 //! synthesizer reported, the metal as a stroke for what this window claims, and
 //! no knob at all for a value nobody has read, because the host crate refuses
 //! an edit before anything is known.
@@ -122,8 +122,8 @@ impl<Message> Knob<'_, Message> {
     /// The claim already answers that for a value nobody has read, and this is
     /// the other reason: the modulation matrix mapped onto the window makes a
     /// control the matrix cannot reach something to look past rather than
-    /// something to move. The drawing is untouched — the cap is where the value
-    /// is, in the colour the claim is worth — and what goes is the grab.
+    /// something to move. The drawing is untouched, with the cap where the value
+    /// is and in the colour the claim is worth, and what goes is the grab.
     #[must_use]
     pub fn live(mut self, live: bool) -> Self {
         self.live = live;

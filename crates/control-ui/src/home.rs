@@ -3,7 +3,7 @@
 //! A `DeepMind` is two rows of section plates with a screen between them.
 //! Twenty-odd faders under four-letter legends, a few lit buttons under each
 //! group, and a yellow `EDIT` on every section that opens that section on the
-//! display. Everything else — 242 parameters' worth — is behind one of those.
+//! display. The rest of the 242 parameters are behind one of those.
 //!
 //! This is that panel, and it is the window's home for the same reason it is
 //! the instrument's: somebody who has just plugged a synthesizer in wants to
@@ -16,8 +16,8 @@
 //!
 //! Which parameters have a physical control, what is silkscreened over each
 //! one, what a hand touches and which row it is in used to be a table in this
-//! file — the only one in this repository, kept because the library published
-//! what exists and what has a CC and nothing that said what has a fader.
+//! file, the only one in this repository: the library published what exists and
+//! what has a CC, and nothing that said what has a fader.
 //!
 //! `deepmind-midi` 26.3 publishes it: [`front::sections`] is that table, on the
 //! side of the split the rest of the instrument lives on, with a loader check
@@ -33,10 +33,10 @@
 //!
 //! The oscillators become `OSC 1` and `OSC 2`, which is the pair of brackets
 //! the instrument prints inside its own `DCO 1 & 2` plate. The envelopes become
-//! one plate each, because the hardware has four envelope faders and three
-//! envelopes and a button to point the one set at the other — and a window can
-//! simply draw twelve faders and three screens. They get a row of their own,
-//! which is what the instrument had no room to give them.
+//! one plate each, because the hardware has four envelope faders, three
+//! envelopes and a button to point the one set at the other, where a window can
+//! draw twelve faders and three screens. They get a row of their own, which is
+//! what the instrument had no room to give them.
 //!
 //! Both are derived rather than written down: the oscillator's bracket is a
 //! slice of the library's own parameter name, and an envelope's four faders are
@@ -151,7 +151,7 @@ const SWITCH: f32 = 58.0;
 /// How much room a way into a section is given.
 ///
 /// The cap it holds and no more. The cap is the rack's own and does not stretch
-/// with the panel — see [`way`] — so the lane it stands in starts at its width
+/// with the panel (see [`way`]), so the lane it stands in starts at its width
 /// and grows around it rather than under it.
 const WAY: f32 = crate::panel::CAP;
 
@@ -194,11 +194,10 @@ const UNDER: f32 = 2.0;
 ///
 /// So the numbers below are a proportion rather than a measurement: the widest
 /// row is measured at its written size, divided into the room there actually
-/// is, and everything — the lanes, the travel of a fader, the buttons, the type,
-/// the gaps between plates and the gaps inside them — is drawn through the
-/// result. Scaling the gaps is the half that is easy to forget and the half
-/// that decides whether it looks like an instrument or like a panel with its
-/// parts pushed apart.
+/// is, and everything is drawn through the result. That is the lanes, the travel
+/// of a fader, the buttons, the type, and the gaps between and inside the
+/// plates. Scaling the gaps is the half that decides whether it looks like an
+/// instrument or like a panel with its parts pushed apart.
 ///
 /// The displays are the one thing that does not simply get bigger. A screen
 /// given more room gets more dots at the same pitch, which is what
@@ -266,10 +265,9 @@ fn widest() -> f32 {
 /// How wide the panel stands in a window `room` points across.
 ///
 /// All of it, less the gap a row keeps at its end, and every line
-/// [drawn out](Share) to that — a front panel is a rectangle — until the window
-/// is wider than the panel is allowed to grow. Past that the panel is as wide
-/// as it is ever drawn and stands in the middle of the room, which is where an
-/// instrument on a desk that size would be.
+/// [drawn out](Share) to that, because a front panel is a rectangle. Past the
+/// width the panel is allowed to grow to it stands in the middle of the room,
+/// which is where an instrument on a desk that size would be.
 ///
 /// The two agree at the point they meet: the panel stops growing where
 /// [`Scale::filling`] stops, so nothing jumps as a window is dragged past it.
@@ -318,9 +316,9 @@ fn count(of: usize) -> f32 {
 
 /// What stands in one row of the panel: its plates, and the screen among them.
 ///
-/// A row is not only plates — the instrument cuts its display into the top row
-/// between what a player reaches for and the voicing — and the two are laid out
-/// by the same arithmetic, so they are one type while it is being done.
+/// A row is not only plates, because the instrument cuts its display into the
+/// top row between what a player reaches for and the voicing. The two are laid
+/// out by the same arithmetic, so they are one type while it is being done.
 #[derive(Debug, Clone, Copy)]
 enum Standing<'a> {
     /// One of the library's sections, as a plate of the panel.
@@ -351,7 +349,7 @@ impl Standing<'_> {
 /// What stands in `plates`' row, with the screen cut in where it belongs.
 ///
 /// At the end of it. The instrument cuts its display in before the *last* plate
-/// of the top row — between what a player reaches for and the voicing — and the
+/// of the top row, between what a player reaches for and the voicing, and the
 /// voicing is not in that row any more, so the end of the row is where the
 /// display's own neighbour went.
 fn standing_in(plates: &[Plate], holds_screen: bool) -> Vec<Standing<'_>> {
@@ -395,8 +393,8 @@ fn lines<'a>(row: &[Standing<'a>], across: f32, scale: Scale) -> Vec<Vec<Standin
 
 /// How a line's spare width is shared out among its plates.
 ///
-/// The panel is as wide as its widest row and the others measure less — the
-/// signal path by a plate's worth, the envelopes by two plates' — and a row
+/// The panel is as wide as its widest row and the others measure less, the
+/// signal path by a plate's worth and the envelopes by two plates', so a row
 /// drawn at what it measures leaves that difference as bare panel at its right
 /// hand end. There is no such thing on the instrument: a row of a front panel
 /// runs the whole width of the instrument, because the plates are cut to fill
@@ -477,7 +475,7 @@ pub(crate) struct Control {
 /// One group of controls, as a plate of this window's panel.
 ///
 /// Built from the library's own [`Section`] rather than written down here. Two
-/// sections are unfolded into more than one plate on the way — see [`plates`] —
+/// sections are unfolded into more than one plate on the way (see [`plates`]),
 /// so a plate is not always a section, which is why this is a type of its own.
 #[derive(Debug, Clone)]
 pub(crate) struct Plate {
@@ -522,8 +520,8 @@ impl Plate {
     ///
     /// Worked out rather than given: a plate that took the width it was offered
     /// would be a row of one, because a row of plates is only a row while each
-    /// of them is as wide as what it holds. The wider of its two rows wins —
-    /// `HPF` is one fader over a button and a way in, and the buttons are what
+    /// of them is as wide as what it holds. The wider of its two rows wins, so
+    /// on `HPF`, which is one fader over a button and a way in, the buttons
     /// decide it.
     fn width(&self, scale: Scale) -> f32 {
         let lanes = count(self.faders.len()) * scale.of(LANE + 2.0)
@@ -580,8 +578,8 @@ pub(crate) fn rows() -> &'static [Vec<Plate>] {
 /// in both cases for the reason the panel has a screen on every plate where the
 /// hardware has one screen in the middle: a window has room the front of a
 /// synthesizer does not. What a control *is* stays the library's answer in
-/// both — the parameter, the legend printed over it and the shape a hand
-/// touches all come from the table a single-plate panel would use.
+/// both: the parameter, the legend printed over it and the shape a hand touches
+/// all come from the table a single-plate panel would use.
 ///
 /// **The oscillators become two plates.** The instrument prints `DCO 1 & 2`
 /// across one plate and then prints `OSC 1` and `OSC 2` in brackets over the
@@ -592,23 +590,23 @@ pub(crate) fn rows() -> &'static [Vec<Plate>] {
 ///
 /// **The envelopes become one plate each.** The instrument has four envelope
 /// faders and three envelopes, and `VCA`, `VCF` and `MOD` buttons that choose
-/// which of the three those four faders address — which the library says out
-/// loud in that section's own note. A window does not have to multiplex: each
-/// envelope gets the same four legends over its *own* parameters, and its own
-/// display, which is what it was really short of. Three envelopes sharing one
-/// screen were three panes of a strip; three plates are three full drawings.
+/// which of the three those four faders address, which the library says in that
+/// section's own note. A window does not have to multiplex: each envelope gets
+/// the same four legends over its *own* parameters, and its own display. Three
+/// envelopes sharing one screen are three panes of a strip; three plates are
+/// three full drawings.
 ///
-/// **The amplifier stands at the head of the envelope row.** `VCA` is one
-/// fader — how loud the voice is — and the plate immediately after it is
+/// **The amplifier stands at the head of the envelope row.** `VCA` is one fader,
+/// how loud the voice is, and the plate immediately after it is
 /// `VCA ENVELOPE`, which is what moves that fader while a note is held. On the
 /// instrument they are two rows apart because the envelopes are multiplexed
 /// onto four faders in the middle of the panel; unfolded, the amplifier and its
 /// own envelope are two plates that belong beside each other, and the row reads
 /// as the level and the three shapes that drive levels.
 ///
-/// **The voicing drops to the [second row](VOICING_ROW).** It is one fader and
-/// a strip of lamps — how many voices a note takes and how far they are detuned
-/// — which is about the voice the signal path builds rather than about the two
+/// **The voicing drops to the [second row](VOICING_ROW).** It is one fader and a
+/// strip of lamps, how many voices a note takes and how far they are detuned,
+/// which is about the voice the signal path builds rather than about the two
 /// modulators and the arpeggiator it was printed beside. The instrument has it
 /// in the top row because that is where its front had the room, and taking it
 /// out of that row is also what lets the display stand at the end of one rather
@@ -651,11 +649,11 @@ fn plates() -> Vec<Vec<Plate>> {
 
 /// Which row the voicing stands in, counting from the top.
 ///
-/// The second. It is one fader and a row of lamps, and what it does — how many
-/// voices a note takes and how far they are detuned from each other — is about
-/// the voice the row under it builds rather than about the two modulators and
-/// the arpeggiator it was printed beside. The instrument has it up there
-/// because that is where its front panel had the room.
+/// The second. It is one fader and a row of lamps, and how many voices a note
+/// takes and how far they are detuned is about the voice the row under it builds
+/// rather than about the two modulators and the arpeggiator it was printed
+/// beside. The instrument has it up there because that is where its front panel
+/// had the room.
 const VOICING_ROW: usize = 1;
 
 /// Which end of its new row a moved plate stands at.
@@ -796,7 +794,7 @@ fn envelopes(section: &'static Section) -> Option<Vec<Plate>> {
             .map(|group| Plate {
                 // The library's own name for the group, in the caps the rest of
                 // the panel is printed in. Not the one word the hardware prints
-                // on the button — `VCA` beneath an `ENVELOPES` heading is
+                // on the button: `VCA` beneath an `ENVELOPES` heading is
                 // unambiguous, and `VCA` on a plate of its own beside the
                 // amplifier's `VCA` plate is two plates with one name.
                 name: group.name().to_uppercase(),
@@ -837,10 +835,10 @@ fn addressed(control: &'static PanelControl, group: Group) -> Option<Control> {
 
 /// Draws the front panel, with `screen` where the instrument's display sits.
 ///
-/// The screen is the caller's: what it says is the application's business and
-/// not the synthesizer's — which sound is on it, what backs that, and what the
-/// last thing to happen was — and a plugin has different answers than a desktop
-/// window does.
+/// The screen is the caller's, because what it says is the application's
+/// business rather than the synthesizer's: which sound is on it, what backs
+/// that, and what last happened. A plugin answers those differently from a
+/// desktop window.
 #[must_use]
 pub fn panel<'a, Renderer>(
     patch: &'a Patch,
@@ -915,9 +913,9 @@ where
 
 /// A blank screen the size of the hole the panel leaves at its written size.
 ///
-/// The panel paints its own now — only it knows how wide the hole came out at
-/// the scale the window forced — so this is what a test, or anything else with
-/// no window to measure, writes on to see what a display would say.
+/// The panel paints its own, because only it knows how wide the hole came out at
+/// the scale the window forced. This is what a test, or anything else with no
+/// window to measure, writes on to see what a display would say.
 #[must_use]
 pub fn screen() -> Screen {
     blank(Scale::NATURAL)
@@ -945,8 +943,8 @@ pub fn panelled() -> Vec<ParamId> {
 
 /// Draws one group of the panel: its name, its controls, and its way in.
 ///
-/// How wide it is drawn is the row's business rather than the plate's — see
-/// [`Share`] — because a plate's width is what makes a row fill the panel, and
+/// How wide it is drawn is the row's business rather than the plate's (see
+/// [`Share`]), because a plate's width is what makes a row fill the panel, and
 /// a plate given its own measured width is a row that stops short. How tall it
 /// [stands](standing) is every plate's, so that a row has one edge along the
 /// bottom of it.
@@ -1037,9 +1035,9 @@ where
 /// instrument prints every one of them, and how a person finds `VCF` without
 /// reading the whole panel.
 /// What the library records about the plate beyond its controls is said in the
-/// footer while the pointer is on this bar — which is where this window already
-/// says what is under the pointer, and the only place a sentence about a
-/// *plate* can go without being printed on every plate that has one.
+/// footer while the pointer is on this bar. That is where this window already
+/// says what is under the pointer, and the only place a sentence about a *plate*
+/// can go without being printed on every plate that has one.
 fn heading<'a, Renderer>(
     name: &'a str,
     note: Option<&'static str>,
@@ -1175,9 +1173,9 @@ fn named(control: Control, firmware: Version) -> usize {
 /// How much room a strip of lit legends naming `named` things is given.
 ///
 /// A whole lane: the fader's travel, the gap under it and the reading it would
-/// have had. A strip has no reading — the lit legend is the reading — so this
-/// is the room a lane spends on a number, spent on the words instead, and the
-/// two stand the same height whatever the window is doing.
+/// have had. A strip has no reading of its own, because the lit legend is the
+/// reading, so the room a lane spends on a number is spent on the words instead
+/// and the two stand the same height whatever the window is doing.
 ///
 /// And never less than the set itself needs. A column of legends is laid out
 /// into the room it is given and the ones past the end of it are drawn no lines
@@ -1227,7 +1225,7 @@ where
 ///
 /// Over a fader, which is where the instrument prints it and where a rack's
 /// slot does not: the hardware has a screen to put readings on and no room
-/// under a fader. Under a button, for the same reason read the other way — a
+/// under a fader. Under a button, for the same reason read the other way. A
 /// `DeepMind` silkscreens `POLY` and `EDIT` on the panel *below* the cap they
 /// belong to, because a finger on a button covers what is printed above it and
 /// a lit cap with nothing over it is the thing the eye finds first.
@@ -1264,11 +1262,11 @@ where
 {
     column![
         // In the room a button of the row beside it is drawn in, and standing
-        // in the middle of it. The cap is the rack's own — the same width and
-        // the same height as the lamp on the next plate along — because the
-        // band along the foot of a plate is one band, and two sizes of button
-        // in it is a row of presses that do not line up. That band is the one
-        // part of the panel the window does not stretch, so neither is this.
+        // in the middle of it. The cap is the rack's own, the same width and
+        // height as the lamp on the next plate along, because the band along the
+        // foot of a plate is one band and two sizes of button in it is a row of
+        // presses that do not line up. That band is the one part of the panel
+        // the window does not stretch, so neither is this.
         container(
             button(Space::new().width(Length::Fill).height(Length::Fill))
                 .width(Length::Fixed(crate::panel::CAP))
@@ -1288,9 +1286,9 @@ where
 
 /// The screen, cut into the panel where the instrument's own display sits.
 ///
-/// The glass is the display's own — it draws the recess it is cut into, the
-/// way every other display in this window does — so what is left here is the
-/// hole it stands in, as tall as the plates either side of it.
+/// The glass is the display's own, and it draws the recess it is cut into the
+/// way every other display in this window does, so what is left here is the hole
+/// it stands in, as tall as the plates either side of it.
 fn display<'a, Renderer>(
     patch: &Patch,
     paint: &impl Fn(&mut Screen),
@@ -1410,10 +1408,10 @@ mod tests {
     #[test]
     fn the_window_opens_wide_enough_for_the_arrangement() {
         // Two rows and a screen between them is the arrangement, and a window
-        // narrower than the panel wraps a row rather than clipping it — which
-        // is readable and is no longer the instrument's own front. So the
-        // window opens at what the panel measures, and this is what says that
-        // number is a window somebody could actually have.
+        // narrower than the panel wraps a row rather than clipping it, which is
+        // readable and is no longer the instrument's own front. So the window
+        // opens at what the panel measures, and this is what says that number is
+        // a window somebody could actually have.
         let wanted = panel_width();
 
         assert!(wanted > 0.0, "the panel measures nothing");
@@ -1519,7 +1517,8 @@ mod tests {
         // The complaint this exists to prevent: the signal path is a plate
         // narrower than the top row and the envelopes are two plates narrower,
         // and drawn at what they measure they leave that difference as bare
-        // panel at the right hand end — a front panel with the end sawn off.
+        // panel at the right hand end, which is a front panel with the end sawn
+        // off.
         let panel = span(panel_width(), Scale::NATURAL);
 
         for (index, plates) in rows().iter().enumerate() {
@@ -1629,7 +1628,7 @@ mod tests {
         // ones past the end of that room are drawn no lines tall, which is a
         // panel that quietly names five of the instrument's seven LFO shapes.
         // The room is the tightest it ever is at the written size, so this is
-        // where an eighth shape in a later table fails — loudly, here, rather
+        // where an eighth shape in a later table fails: loudly, here, rather
         // than by dropping off the bottom of a plate.
         for plate in rows().iter().flat_map(|row| row.iter()) {
             let Some(control) = plate.lamps else {
@@ -1654,10 +1653,10 @@ mod tests {
     fn the_screen_fits_the_hole_the_plates_leave_it_at_any_size() {
         // The screen is cut to the plates either side of it, and the dots are
         // cut to the screen. Two of the things a plate is made of do not grow
-        // with the window — the strip over its faders gains dots instead, and
-        // the buttons along its foot are drawn in the rack's own room — so a
-        // hole worked out by scaling one number would be the wrong height
-        // everywhere except where that number was written.
+        // with the window: the strip over its faders gains dots instead, and the
+        // buttons along its foot are drawn in the rack's own room. So a hole
+        // worked out by scaling one number would be the wrong height everywhere
+        // except where that number was written.
         for scale in [
             Scale::NATURAL,
             Scale::filling(widest() * 1.4),
@@ -1773,8 +1772,8 @@ mod tests {
         // the end of it now that the voicing it was cut in before has gone
         // down a row.
         assert_eq!(named(0), vec!["ARP / SEQ", "LFO 1", "LFO 2"]);
-        // The signal path, left to right, with the oscillators unfolded — and
-        // the voicing at the end of it, which is the voice this row builds.
+        // The signal path, left to right, with the oscillators unfolded, and the
+        // voicing at the end of it, which is the voice this row builds.
         assert_eq!(named(1), vec!["OSC 1", "OSC 2", "VCF", "HPF", "POLY"]);
         // The row the instrument had no room for: the level, and the three
         // shapes that drive levels, with the one that drives *this* level

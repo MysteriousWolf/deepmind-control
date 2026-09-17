@@ -89,9 +89,9 @@ impl Patch {
     ///
     /// The same rule a section follows, for anything that is drawn as one thing
     /// and stored as several: the weakest claim any of them makes. The name is
-    /// what needs it — seventeen parameters under one display, and a display
-    /// that called itself the synthesizer's because sixteen of its characters
-    /// were would be the one lie this crate exists to avoid.
+    /// what needs it, because it is seventeen parameters under one display, and
+    /// a display that called itself the synthesizer's because sixteen of its
+    /// characters were would be the one lie this crate exists to avoid.
     #[must_use]
     pub fn claim_across(&self, parameters: impl IntoIterator<Item = ParamId>) -> Confidence {
         if self.program.is_none() {
@@ -191,9 +191,9 @@ impl Patch {
     ///
     /// The instrument is the other editor: a hand on the front panel gets here,
     /// and last writer wins. `confirmed` is what the host crate said about the
-    /// sound it tracks with the report applied — an NRPN carries the whole value
-    /// and a control change carries seven bits of it — so a coarse report is
-    /// drawn as the assumption it is rather than quietly rounded into a fact.
+    /// sound it tracks with the report applied, and an NRPN carries the whole
+    /// value where a control change carries seven bits of it, so a coarse report
+    /// is drawn as the assumption it is rather than quietly rounded into a fact.
     ///
     /// A report about a sound nobody has read changes nothing: one value is not
     /// a program, and there is nowhere to put it.

@@ -3,15 +3,15 @@
 //! `deepmind-midi` 26.4 publishes one per family
 //! ([deepmind-midi#31](https://github.com/MysteriousWolf/deepmind-midi/issues/31)):
 //! nine of them across the 35 algorithms. 26.5 publishes a finer one where an
-//! effect's kind is something a symbol can carry — a plate reverb as a plate
-//! with wavefronts leaving it, a hall as wavefronts far from their source —
-//! and `Algorithm::mark` hands back whichever applies, so a window that asks
+//! effect's kind is something a symbol can carry, a plate reverb as a plate with
+//! wavefronts leaving it and a hall as wavefronts far from their source, and
+//! `Algorithm::mark` hands back whichever applies, so a window that asks
 //! for a mark got the better one with nothing here to change. They are the same
 //! language either way, which is what keeps the four engines reading as one
 //! set whichever marks they land on.
 //!
-//! What is published is the strokes and not the picture — a polyline in a unit
-//! box, an arc, a sine, a filled disc — for the same reason the effect panels
+//! What is published is the strokes and not the picture, a polyline in a unit
+//! box, an arc, a sine and a filled disc, for the same reason the effect panels
 //! are published as data: this window and the plugin want the same mark at two
 //! sizes, and neither can theme an image it did not lay out.
 //!
@@ -20,8 +20,8 @@
 //!
 //! # Drawn in quads, because that is what a renderer here has
 //!
-//! This crate is generic over the renderer — the desktop build and the plugin
-//! do not have to agree on one — and what every renderer behind
+//! This crate is generic over the renderer, because the desktop build and the
+//! plugin do not have to agree on one, and what every renderer behind
 //! [`iced_core::Renderer`] can do is fill a rounded rectangle. A stroke is
 //! therefore a run of round-capped quads along its own path, the way the
 //! [envelope](crate::envelope) drawing is a run of them along its outline, and a
@@ -93,7 +93,7 @@ const HANGS: f32 = 0.35;
 ///
 /// Much less. Weight is a share of the side, so the same rule that keeps a
 /// badge's lines visible at sixteen points gives a hero lines a quarter of an
-/// inch thick — which is not faint at any colour.
+/// inch thick, which is not faint at any colour.
 const HERO_WEIGHT: f32 = 0.38;
 
 /// Draws `mark` large and faint across the case it is the mark of.
@@ -112,8 +112,8 @@ const HERO_WEIGHT: f32 = 0.38;
 /// [`Relief`] is how the mark meets the case it is on, and it is read off what
 /// kind of unit the case is: a mark on a worn panel is *stamped into* it, one
 /// on a modern face is *raised off* it, and one on a case that is neither is
-/// printed flat. A stamping is two edges — the light that catches on one side
-/// and the shadow that falls on the other — so a relieved hero is the same nine
+/// printed flat. A stamping is two edges, the light that catches on one side and
+/// the shadow that falls on the other, so a relieved hero is the same nine
 /// strokes laid down three times, a dot apart, and which of the two edges comes
 /// first is the whole difference between an indent and a boss.
 #[must_use]
@@ -147,9 +147,8 @@ pub(crate) enum Relief {
     #[default]
     Flat,
     /// Standing off it: lit along its top-left edge and casting below-right,
-    /// which is what a boss does under a light that comes from the top left —
-    /// the same light every cap, plate and display in this window is drawn
-    /// under.
+    /// which is what a boss does under a light from the top left, the same light
+    /// every cap, plate and display in this window is drawn under.
     Raised,
     /// Stamped into it: the same two edges the other way round.
     Sunk,
@@ -193,7 +192,7 @@ struct Drawing<Ink> {
     ///
     /// A badge is a square of its own and fills it. A hero takes whatever room
     /// it is put in, draws itself larger than that room's shorter side, and
-    /// hangs off the far corner — so `at` is answering a different question and
+    /// hangs off the far corner, so `at` is answering a different question and
     /// `size` is a different answer.
     anchored: bool,
     /// How the mark meets the surface it is on.
@@ -214,13 +213,13 @@ struct Drawing<Ink> {
 /// one side, the imaging mark uses less than half the height, and the delay's
 /// bars use nearly all of it. Drawn straight onto the room they are given, nine
 /// marks side by side are nine different sizes hanging at nine different
-/// heights — which is what a row of engine strips showed.
+/// heights, which is what a row of engine strips showed.
 ///
 /// So the window measures what each one reaches and lays *that* into the room:
 /// centred, and as large as fits in the direction it is longer, keeping its
 /// aspect. The library's box is a coordinate system and not a claim about
-/// relative sizes — it never says a rotary mark is larger than an imaging one —
-/// and drawn at that box's own scale the nine come out between seven and
+/// relative sizes, since it never says a rotary mark is larger than an imaging
+/// one, and drawn at that box's own scale the nine come out between seven and
 /// thirteen points tall in a sixteen point space. Where the strokes sit inside
 /// the box is the library's business and how big the drawing is on a strip is
 /// this window's, which is the same division the effect panels are laid out

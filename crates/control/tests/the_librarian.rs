@@ -4,7 +4,7 @@
 //! The property a librarian is for is that a patch which leaves this application
 //! loses nothing on the way out, so most of what is below is a round trip: bytes
 //! in, programs on a shelf, bytes out, and the same programs back. The only file
-//! format is the protocol's, which is what makes that testable at all — there is
+//! format is the protocol's, which is what makes that testable at all: there is
 //! no project format to lose anything in.
 //!
 //! The rest is the two claims the window makes about a shelf. That a program

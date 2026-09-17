@@ -121,7 +121,7 @@ pub struct App {
     ///
     /// Not part of the sound and never sent anywhere. Two things: the routing
     /// somebody is pointing at the window, if any, and the searchable list each
-    /// of the eight destinations is chosen from — which is state because what a
+    /// of the eight destinations is chosen from, which is state because what a
     /// list of that kind remembers is what has been typed into it.
     mapper: Mapper,
     /// The sounds that are kept rather than played.
@@ -196,9 +196,9 @@ impl App {
     ///
     /// What choosing a port and pressing the connection does, for a caller that
     /// opened the port itself. The previews do, because the one thing
-    /// [`open`] cannot hand back is the simulated unit's own front panel —
-    /// and a picture of the editor holding a sound needs somebody to have turned
-    /// the knobs. The picker is sat on the port as well, because a window whose
+    /// [`open`] cannot hand back is the simulated unit's own front panel, and a
+    /// picture of the editor holding a sound needs somebody to have turned the
+    /// knobs. The picker is sat on the port as well, because a window whose
     /// picker is empty while its display is full is a window in a state nobody
     /// can reach.
     #[cfg(feature = "previews")]
@@ -367,10 +367,10 @@ impl App {
             Message::Ui(control_ui::Message::Edit { parameter, value }) => {
                 self.moved(parameter, value);
                 // A routing pointed at the window is asking where it goes, and
-                // this is the answer arriving: whichever of the two ways said
-                // it — a name chosen from the searchable list, or a control
-                // taken hold of somewhere else in the window — the question has
-                // been answered and the mode comes down.
+                // this is the answer arriving. Whichever of the two ways said
+                // it, a name chosen from the searchable list or a control taken
+                // hold of somewhere else in the window, the question has been
+                // answered and the mode comes down.
                 if self
                     .mapper
                     .mapped()

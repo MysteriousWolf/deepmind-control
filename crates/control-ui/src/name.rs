@@ -10,8 +10,9 @@
 //! editor whose control covers more than one parameter. It is the instrument's
 //! own display: sixteen characters of it, in the same mono face the readouts
 //! use, cut into the plate as a recess like every other control here. What a
-//! keystroke costs on the wire is unchanged — a character is still one NRPN to
-//! one parameter — and [`Patch::rename`] is where a word becomes those edits.
+//! keystroke costs on the wire is unchanged, because a character is still one
+//! NRPN to one parameter, and [`Patch::rename`] is where a word becomes those
+//! edits.
 //!
 //! The field is seventeen parameters wide and sixteen characters long, because
 //! the seventeenth byte is the terminator and belongs to the field rather than
@@ -68,8 +69,9 @@ pub fn begins(parameter: ParamId) -> bool {
 
 /// Draws the name as the instrument's display shows it.
 ///
-/// A slot like any other — the address above, the control, the reading, the
-/// title — except that the address is a run of them and the control is a word.
+/// A slot like any other, with the address above, the control, the reading and
+/// the title, except that the address is a run of them and the control is a
+/// word.
 pub(crate) fn field<'a, Renderer>(patch: &Patch) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,

@@ -152,9 +152,9 @@ impl SimPort {
     ///
     /// What [`new`](Self::new) does with the blank sound, for a caller that has
     /// one of its own. A sound reached through [`Panel`] is the same sound by a
-    /// longer road — two hundred and forty-two knobs turned one at a time, each
-    /// one reported back — and there are things that want the unit to be
-    /// *holding* something rather than to have been played: a picture of the
+    /// longer road, two hundred and forty-two knobs turned one at a time and
+    /// each one reported back, and some things want the unit to be *holding*
+    /// something rather than to have been played: a picture of the
     /// editor with a sound in it, or a test that starts from one.
     #[must_use]
     pub fn holding(memory: Pack, sound: Program) -> (Self, Panel) {
@@ -191,7 +191,7 @@ impl SimPort {
 /// not: a value read about a centre has its zero in the middle, so a program
 /// built out of minimums is one with every modulation depth at full negative,
 /// every detune at the bottom of its swing and every pan hard left. That is not
-/// a blank sound, it is a particular and rather strange one — and eight
+/// a blank sound, it is a particular and rather strange one, and eight
 /// modulation depths reading `-128` in a window that has just opened look like
 /// the window's own default rather than the instrument's answer.
 ///

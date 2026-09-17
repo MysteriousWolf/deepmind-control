@@ -5,12 +5,12 @@
 //! dot-matrix display cannot ask anybody for anything: it has a grid, and a
 //! letter on it is whichever dots of that grid are lit. So the glyphs are here,
 //! five dots across and seven down, which is the cell every display of this
-//! kind has used since they were made — small enough that two lines fit on a
+//! kind has used since they were made: small enough that two lines fit on a
 //! plate's screen, and large enough that a `5` is not an `S`.
 //!
 //! It is not a transcription of anybody's typeface. Five by seven is a grid
 //! with one obvious letter in most of its cells, these are those letters, and
-//! the ones with a choice in them — the single-storey `a`, the tailless `g` —
+//! the ones with a choice in them, the single-storey `a` and the tailless `g`,
 //! were chosen to be read at three points rather than to look like anything.
 //!
 //! A character the table has no glyph for is drawn as the hollow box every

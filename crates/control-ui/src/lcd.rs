@@ -4,7 +4,7 @@
 //! dot matrix: a curve on it is not a curve but the dots nearest one, and the
 //! gaps between them are as much of the picture as the dots are. Drawing that
 //! as a smooth line on a black rectangle would be drawing some other
-//! instrument's display, so this is the grid itself — one quad per printed dot,
+//! instrument's display, so this is the grid itself: one quad per printed dot,
 //! at a pitch every display in the window shares.
 //!
 //! # It is a lit panel, and the dots are dark on it
@@ -14,7 +14,7 @@
 //! surface on the whole instrument that gives off light rather than catching
 //! it, and the reason a photograph of the panel has one bright rectangle in the
 //! middle of it. A window that drew pale dots on a dark pane would be drawing
-//! the negative of the instrument it is a picture of — every other synthesizer
+//! the negative of the instrument it is a picture of: every other synthesizer
 //! of the decade, and not this one.
 //!
 //! # One pitch, and a bigger screen is more dots
@@ -36,7 +36,7 @@
 //! # A screen has no moving part, so the claim is how hard it is printed
 //!
 //! Every control in this editor carries what backs its value in the fill of the
-//! thing that moves — filled for a fact, an outline for a claim, nothing at all
+//! thing that moves: filled for a fact, an outline for a claim, nothing at all
 //! for a value nobody has read. A display has nothing that moves. It is the
 //! same position the [name](crate::name) field is in, and the pale ground
 //! answers it better than a dark one could: [`written`](crate::written) prints a fact
@@ -159,8 +159,8 @@ const HOLD: f32 = 1.5;
 ///
 /// One screen, one colour, and three things to tell apart on it: the ink is
 /// what does that, the way a dashed line does it on any other drawing. It is
-/// never what says how much a value is trusted — that is the colour of the
-/// whole screen — so a pattern here only ever distinguishes one curve from
+/// never what says how much a value is trusted, because that is the colour of
+/// the whole screen, so a pattern here only ever distinguishes one curve from
 /// the next.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Ink {
@@ -539,7 +539,7 @@ impl Screen {
     /// Nothing scrolls that fits: a field only moves when moving is the only
     /// way to say all of it, so a page of short names is a still page.
     ///
-    /// It **holds, travels and holds**, then starts again — rather than running
+    /// It **holds, travels and holds**, then starts again, rather than running
     /// round and round with the tail of the name chasing its head. A name that
     /// wraps is two names on the glass at once for as long as the gap between
     /// them takes to cross, and the first thing somebody wants from a label is
@@ -574,7 +574,7 @@ impl Screen {
     /// instrument: every field in the window travels together, at one rate,
     /// because they are one screen as far as a reader is concerned.
     ///
-    /// It advances with the window's own redraws — every frame while a port is
+    /// It advances with the window's own redraws: every frame while a port is
     /// open, and not at all while the application is idle. A window with
     /// nothing to hear is a window with nothing to say, and a still label on
     /// one is not a label that has stopped working.
@@ -594,8 +594,8 @@ impl Screen {
 
     /// Writes `words` at `x`, keeping only what falls inside `field`.
     ///
-    /// `field` is where a scrolling name is allowed to be seen — its left edge
-    /// and how wide it is — and `None` is the whole screen, which is what an
+    /// `field` is where a scrolling name is allowed to be seen, its left edge
+    /// and how wide it is, and `None` is the whole screen, which is what an
     /// ordinary write is.
     fn written(
         &mut self,
@@ -722,10 +722,10 @@ impl Screen {
     /// Blits one of the library's one-bit grids, a lit pixel to a printed dot.
     ///
     /// Three things in the library are drawn on one grid at [`pixels::SIDE`] a
-    /// side — an effect's mark, a modulation source's cell, and the glyph of
-    /// what a parameter does — for exactly this display: one with no room to
-    /// stroke anything, where which of forty-nine dots are lit is the whole of
-    /// the design.
+    /// side, an effect's mark, a modulation source's cell and the glyph of what
+    /// a parameter does, for exactly this display: one with no room to stroke
+    /// anything, where which of forty-nine dots are lit is the whole of the
+    /// design.
     ///
     /// Walked the way the library documents: the origin is the top left, and a
     /// pixel outside the grid answers unlit, so nothing here bounds-check it.
@@ -749,8 +749,8 @@ impl Screen {
 /// How many dots one of the library's grids is, across and down.
 ///
 /// Seven, which is [`pixels::SIDE`] and also the cell this display writes a
-/// character in — the two being the same size is what lets a picture stand
-/// beside a name without either of them being resampled.
+/// character in. The two being the same size is what lets a picture stand beside
+/// a name without either of them being resampled.
 #[expect(
     clippy::cast_possible_truncation,
     clippy::cast_possible_wrap,
@@ -778,8 +778,8 @@ where
 /// Draws `screen` as dots stencilled on whatever is behind them, in `ink`.
 ///
 /// The same grid, the same pitch and the same square dots as [`lcd`], with the
-/// glass, the moulding and the light on it all left out — so what is left is
-/// the printing rather than the display. A number stencilled on the case of a
+/// glass, the moulding and the light on it all left out, so what is left is the
+/// printing rather than the display. A number stencilled on the case of a
 /// rack unit is a dot matrix too, and one set in a typeface beside a window
 /// full of screens is the one piece of writing on the page in a face nothing
 /// else uses.
@@ -788,7 +788,7 @@ where
 /// carry: [`lcd`] takes a [`Confidence`] and colours the whole screen with it,
 /// and a marking on a case is a fact about the case. It takes a theme rather
 /// than a colour for the same reason every other painted part of this window
-/// does — the panel can be turned over while the window is open.
+/// does: the panel can be turned over while the window is open.
 #[must_use]
 pub fn stencil<'a, Renderer, Ink>(screen: Screen, ink: Ink) -> crate::Element<'a, Renderer>
 where
@@ -1024,7 +1024,7 @@ where
             }),
         );
 
-        // The ink is the claim's, which is the theme's answer — except on the
+        // The ink is the claim's, which is the theme's answer, except on the
         // press that turns the displays over, where the whole point is that the
         // glass is the other one and the ink has to be the other one with it.
         let ink = match self.polarity {
@@ -1046,8 +1046,8 @@ where
 ///
 /// The one place a dot's size and its place in the grid are decided, because a
 /// screen printed on the panel and a screen printed on glass are the same dots
-/// at the same pitch — the glass is what is not the same, and it is drawn
-/// before this is called or not at all.
+/// at the same pitch. The glass is what is not the same, and it is drawn before
+/// this is called or not at all.
 fn print_dots<Renderer>(renderer: &mut Renderer, screen: &Screen, x: f32, y: f32, colour: Color)
 where
     Renderer: iced_core::Renderer,
