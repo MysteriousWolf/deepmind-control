@@ -431,7 +431,10 @@ pub const PANEL: Badge = Badge::new(
 /// this is where you change it, and a pencil says *changed and changeable
 /// again* in a way a pen does not.
 ///
-/// Held at the angle a hand holds one, with the point at the bottom left. A
+/// Held at the angle a hand holds one, point up and to the right, which is a
+/// pencil being *offered* rather than one being written with. The press is an
+/// invitation and the mark is what an invitation looks like: the working end
+/// towards whoever is reading it. A
 /// diagonal band at nine dots is a slash if nothing else is done to it, and two
 /// **Outlined rather than filled**, which is what finally made a diagonal one
 /// work. A solid band is a stack of squares with the gaps showing along both
@@ -441,8 +444,8 @@ pub const PANEL: Badge = Badge::new(
 ///
 /// Drawn as its two edges instead, one dot each and two columns apart, it is a
 /// barrel with room inside it — the room being what a pencil has and a stroke
-/// does not. A blunt cap across the top joins them, and below the last full row
-/// they converge on a single dot, which is the sharpened point.
+/// does not. A blunt cap across the bottom joins them, and above the last full
+/// row they converge on a single dot, which is the sharpened point.
 ///
 /// The barrel is solid, and that is a thing nine dots cost. A groove down the
 /// shaft would carry the hexagon, and drawn on a diagonal it breaks the band
@@ -452,13 +455,13 @@ pub const PANEL: Badge = Badge::new(
 pub(crate) const PENCIL: Badge = Badge::new(
     &[
         0b0_0000_0000,
-        0b0_0000_0111,
+        0b0_0000_0100,
         0b0_0000_1010,
         0b0_0001_0100,
         0b0_0010_1000,
         0b0_0101_0000,
         0b0_1010_0000,
-        0b0_0100_0000,
+        0b1_1100_0000,
         0b0_0000_0000,
     ],
     SIDE,

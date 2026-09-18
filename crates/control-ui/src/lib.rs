@@ -212,7 +212,7 @@ pub use knob::{Knob, knob};
 pub use lcd::{Band, Ink, PITCH, Screen, Size, lcd, stencil, swatch};
 pub use logo::logo;
 pub use mapping::{Mapper, Mapping, Reach};
-pub use modal::{margins, modal, sheet};
+pub use modal::{margins, modal, page, sheet};
 pub use name::characters as name_characters;
 pub use panel::{Message, group};
 pub use patch::Patch;

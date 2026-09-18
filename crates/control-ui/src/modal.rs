@@ -195,19 +195,74 @@ pub fn sheet<'a, Renderer>(
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
+    framed(name, claim, body, true)
+}
+
+/// The same frame, standing on the window rather than over it.
+///
+/// What a section reached from the [band of ways in](crate::ways) is drawn on.
+/// Those four are not behind an `EDIT` on a plate — no plate carries them —
+/// so they are not the detail behind a press on the panel, they are places of
+/// their own, and the band is a row of tabs. A tab that opened a sheet would be
+/// a tab that covers the surface it is part of.
+///
+/// Identical to [`sheet`] but for the way out, which it does not have: a page
+/// you are *on* is left by going somewhere else, and the row that brought you
+/// here is still lit above it. The heading, the claim beside the name and the
+/// scroll are the sheet's, because a section is the same rack either way.
+pub fn page<'a, Renderer>(
+    name: &'a str,
+    claim: Confidence,
+    body: impl Into<Element<'a, Renderer>>,
+) -> Element<'a, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    framed(name, claim, body, false)
+}
+
+/// The frame both are drawn on.
+///
+/// The two differ in more than the way out. A sheet is *lifted*: it has the
+/// panel under it, so it is padded, styled and only as tall as its own rack,
+/// and what is left of the window round it is the shade. A page has nothing
+/// under it, so it is none of those things — it is the heading and a scroll
+/// that fills, which is exactly what the front panel is, and for the same
+/// reason.
+///
+/// That is also the difference that made the effects page work. A scrollable
+/// has to be given a bounded height by whatever holds it, and a `Fill`
+/// scrollable inside a `Fill` column inside a padded container is not given
+/// one: the effects rack ran off the bottom of the window and drew its last two
+/// engine cases over the footer. The panel had never had the problem because
+/// its scroll is the surface.
+fn framed<'a, Renderer>(
+    name: &'a str,
+    claim: Confidence,
+    body: impl Into<Element<'a, Renderer>>,
+    over: bool,
+) -> Element<'a, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    let scroll = scrollable(body.into()).direction(scrollable::Direction::Vertical(
+        scrollable::Scrollbar::new().width(BAR).spacing(BESIDE),
+    ));
+    if !over {
+        return column![heading(name, claim, false), scroll.height(Length::Fill)]
+            .spacing(WITHIN)
+            .height(Length::Fill)
+            .into();
+    }
     container(
         column![
-            heading(name, claim),
+            heading(name, claim, true),
             // Shrink, so the sheet is as tall as its rack. A scrollable given
             // no height of its own takes its content's, up to the room it was
             // offered, and scrolls past that: which is the section that fits
             // standing at its own height and the section that does not filling
             // the window.
-            scrollable(body.into())
-                .direction(scrollable::Direction::Vertical(
-                    scrollable::Scrollbar::new().width(BAR).spacing(BESIDE),
-                ))
-                .height(Length::Shrink),
+            scroll.height(Length::Shrink),
         ]
         .spacing(WITHIN),
     )
@@ -224,36 +279,35 @@ where
 /// darker band, the same caps, and at the right-hand end the one press. A
 /// heading with nothing at that end would be a sheet whose only ways out are
 /// two gestures.
-fn heading<'a, Renderer>(name: &'a str, claim: Confidence) -> Element<'a, Renderer>
+fn heading<'a, Renderer>(name: &'a str, claim: Confidence, over: bool) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
-    container(
-        row![
-            dot(claim),
-            text(name).size(14).font(printed()),
-            space::horizontal(),
-            shut(),
-        ]
-        .spacing(8)
-        .align_y(Vertical::Center),
-    )
-    .width(Length::Fill)
-    .height(Length::Fixed(HEAD))
-    .padding([0.0, WITHIN])
-    .style(|theme: &Theme| {
-        let material = materials(theme);
-        container::Style {
-            background: Some(Background::Color(material.recess)),
-            border: Border {
-                color: material.recess_edge,
-                width: 1.0,
-                radius: 2.into(),
-            },
-            ..container::Style::default()
-        }
-    })
-    .into()
+    let mut bar = row![
+        dot(claim),
+        text(name).size(14).font(printed()),
+        space::horizontal(),
+    ];
+    if over {
+        bar = bar.push(shut());
+    }
+    container(bar.spacing(8).align_y(Vertical::Center))
+        .width(Length::Fill)
+        .height(Length::Fixed(HEAD))
+        .padding([0.0, WITHIN])
+        .style(|theme: &Theme| {
+            let material = materials(theme);
+            container::Style {
+                background: Some(Background::Color(material.recess)),
+                border: Border {
+                    color: material.recess_edge,
+                    width: 1.0,
+                    radius: 2.into(),
+                },
+                ..container::Style::default()
+            }
+        })
+        .into()
 }
 
 /// The press that puts the sheet away.

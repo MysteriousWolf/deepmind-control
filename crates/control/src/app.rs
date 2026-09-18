@@ -38,6 +38,14 @@ pub enum View {
     Panel,
     /// The shelf: the sounds a file or a bank read put there.
     Library,
+    /// One of the four sections no plate on the front panel carries.
+    ///
+    /// A surface and not a sheet, which is the whole difference between the
+    /// band of ways in and a plate's `EDIT`. Those four are behind no press on
+    /// the instrument's front, so they are not the detail behind one: they are
+    /// places, the band is a row of tabs, and a tab that covered the surface it
+    /// is part of would be a modal wearing a tab's clothes.
+    Section(Group),
 }
 
 /// Everything that happens to the window.
@@ -337,7 +345,13 @@ impl App {
     pub const fn showing(&self) -> Way {
         match (self.view, self.editing) {
             (View::Library, _) => Way::Library,
-            (View::Panel, Some(section)) => Way::Section(section),
+            // A section, either way it is being shown: the surface a tab
+            // opened, or the sheet a plate's `EDIT` laid over the panel. The
+            // second lights nothing, because the band carries only the four
+            // sections no plate does and a sheet is never one of them — which
+            // is the band's own list deciding rather than a rule written here,
+            // and is why the two are one arm.
+            (View::Section(section), _) | (View::Panel, Some(section)) => Way::Section(section),
             (View::Panel, None) => Way::Panel,
         }
     }
@@ -407,14 +421,21 @@ impl App {
             // nobody can find the bottom of, so asking for a section while one
             // is open is the same press the hardware's second `EDIT` is: the
             // sheet becomes the other section.
+            // A plate's `EDIT`: the section as a sheet over the front panel,
+            // which is what the press does on the instrument. Asking for one
+            // from anywhere else brings the panel back under it, because that
+            // is what the sheet is laid over.
             Message::Ui(control_ui::Message::Show(section)) => {
-                // A section is a sheet over the *panel*, so asking for one from
-                // the shelf is asking for both: the surface underneath it comes
-                // back with it. Which is what the band being one row rather than
-                // two is for — a cap says where to be, and where to be is a
-                // surface and whatever is over it.
                 self.view = View::Panel;
                 self.editing = Some(section);
+            }
+            // A cap of the band: the section as the surface itself. Whatever
+            // sheet was over the panel comes down with it, the way it does for
+            // the shelf, because a sheet belongs to the surface it was opened
+            // from.
+            Message::Ui(control_ui::Message::Open(section)) => {
+                self.view = View::Section(section);
+                self.editing = None;
             }
             // The shelf, which is the one cap of the band that is a surface
             // rather than a section. Whatever sheet was over the panel comes

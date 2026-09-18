@@ -1511,7 +1511,7 @@ where
     .width(Length::Fixed(width))
     .height(Length::Fill)
     .on_press(match cap {
-        Way::Section(section) => Message::Show(section),
+        Way::Section(section) => Message::Open(section),
         Way::Library => Message::Shelf,
         Way::Panel => Message::Front,
     })

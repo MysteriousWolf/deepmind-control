@@ -481,6 +481,21 @@ pub enum Message {
     /// It says nothing about *what* is open, because one thing is: a second
     /// sheet over the first would be a window nobody can find the bottom of.
     Close,
+    /// A section should be the surface on the screen.
+    ///
+    /// The other half of [`Show`](Message::Show), and the difference between
+    /// them is the difference between a tab and a sheet. A plate's `EDIT` opens
+    /// a section *over* the panel, because that is what it is — the detail
+    /// behind one press on the front of the instrument, and the instrument
+    /// leaves its own front exactly where it was. The four sections no plate
+    /// carries are behind no press at all, so they are not the detail behind
+    /// anything: they are places of their own, and the band that reaches them
+    /// is a row of tabs.
+    ///
+    /// A tab that opened a sheet would be a tab that covers the surface it is
+    /// part of, which is what this window did until somebody looked at the
+    /// effects on one.
+    Open(Group),
     /// The instrument's own front should be the surface on the screen, with
     /// nothing over it.
     ///

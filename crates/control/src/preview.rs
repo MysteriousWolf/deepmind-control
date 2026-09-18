@@ -56,11 +56,12 @@ use crate::window;
 pub struct Page {
     /// The surface the window is put on.
     view: View,
-    /// The section open over it, where the picture is of one.
+    /// The section open *over* it, where the picture is of a sheet.
     ///
-    /// A section is not a surface any more: it is a sheet over the panel, so a
-    /// picture of one is a picture of the panel with that sheet on it, which is
-    /// what somebody pressing `EDIT` actually sees.
+    /// The ten sections a plate carries an `EDIT` for are sheets laid over the
+    /// front panel, so a picture of one is a picture of the panel with that
+    /// sheet on it, which is what pressing `EDIT` actually shows. The other
+    /// four are surfaces of their own and arrive in [`Page::view`] instead.
     section: Option<Group>,
 }
 
@@ -77,6 +78,7 @@ impl Page {
             None => match self.view {
                 View::Library => "library",
                 View::Panel => "front-panel",
+                View::Section(group) => control_ui::section_name(group),
             },
         };
         let mut slug = String::with_capacity(name.len());
@@ -97,25 +99,38 @@ impl Page {
 /// Every surface the window has, in the order somebody meets them.
 ///
 /// The front panel, then the fourteen sections in the instrument's own order,
-/// each as the sheet an `EDIT` press opens over that panel, then the shelf.
-/// Read off [`control_ui::sections`] rather than written out, so a group a later
-/// library adds gets a picture with nothing here to edit.
+/// then the shelf. Read off [`control_ui::sections`] rather than written out,
+/// so a group a later library adds gets a picture with nothing here to edit.
 ///
-/// Fourteen of the sixteen are drawn over the panel and not all of them can be
-/// reached from it: four sections have no plate with an `EDIT` on it, which is
-/// recorded in `docs/todo.md`. The pictures are taken by asking for the section
-/// rather than by pressing anything, so the set is complete while the window is
-/// not, which is the honest way round: a release that shipped thirteen pictures
-/// would be a release that hid the gap.
+/// Each section is photographed as the window actually shows it, which is two
+/// different things: the ten a plate carries an `EDIT` for are sheets over the
+/// front panel, and the four no plate carries are surfaces the band's own tabs
+/// open. Which is which comes from [`control_ui::unplated`], the same list the
+/// band is built from, so a section that gains a plate in a later library stops
+/// being photographed as a tab without anybody editing this.
 #[must_use]
 pub fn pages() -> Vec<Page> {
+    // Which of the two a section is drawn as is the window's own answer, asked
+    // rather than written down here: the band carries exactly the sections no
+    // plate does, so a section that gains a plate in a later library stops
+    // being photographed as a tab without anybody editing this.
+    let tabbed = control_ui::unplated();
     let mut pages = vec![Page {
         view: View::Panel,
         section: None,
     }];
-    pages.extend(control_ui::sections().iter().copied().map(|group| Page {
-        view: View::Panel,
-        section: Some(group),
+    pages.extend(control_ui::sections().iter().copied().map(|group| {
+        if tabbed.contains(&group) {
+            Page {
+                view: View::Section(group),
+                section: None,
+            }
+        } else {
+            Page {
+                view: View::Panel,
+                section: Some(group),
+            }
+        }
     }));
     pages.push(Page {
         view: View::Library,
@@ -291,14 +306,15 @@ impl Session {
         let Some(page) = self.pages.get(self.at).copied() else {
             return;
         };
-        // The sheet comes off before the surface moves, or a picture of the
-        // shelf would be a picture of the shelf under whatever the last section
-        // was.
+        // The surface first and then the sheet, because asking for a sheet is
+        // also asking for the panel under it: doing it the other way round
+        // would put every sheet back on a window that had just moved to the
+        // panel anyway, and would leave a tab's page carrying the last sheet.
+        self.app.update(Message::Show(page.view));
         self.app.update(Message::Ui(match page.section {
             Some(group) => control_ui::Message::Show(group),
             None => control_ui::Message::Close,
         }));
-        self.app.update(Message::Show(page.view));
         self.stage = Stage::Posing;
         self.since = Instant::now();
     }

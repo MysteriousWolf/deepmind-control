@@ -263,6 +263,14 @@ fn showing(app: &App) -> Element<'_, Message> {
         .height(Fill)
         .into(),
         View::Library => librarian::view(app),
+        // A section the band opened: the same rack the sheet would carry, on
+        // the page frame rather than the sheet's, taking the whole surface.
+        View::Section(section) => control_ui::page(
+            control_ui::section_name(section),
+            app.patch().claim_of(section),
+            control_ui::group(app.patch(), section, app.firmware(), app.mapper()),
+        )
+        .map(Message::Ui),
     };
     // And over it, where a way in has been pressed, the section it opened. What
     // is underneath is still drawn: it is where the sheet came from and where

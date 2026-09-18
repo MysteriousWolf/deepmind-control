@@ -124,9 +124,9 @@ The rest of the panel's rules:
   one with a dotted line standing out in the low part of the wave: a second,
   later falling edge, which is where the `PWM` fader beside the press would move
   the one that is drawn — two linked rings on `SYNC`, a driver seen face on for the high-pass `BOOST`,
-  and a pencil on every `EDIT`, drawn as its two barrel edges on the diagonal a
-  hand holds one at, because what is behind that press is where the section is
-  changed. The pencil is the offer;
+  and a pencil on every `EDIT`, drawn as its two barrel edges with the point up
+  and to the right — a pencil being offered rather than one being written with —
+  because what is behind that press is where the section is changed. The pencil is the offer;
   a drawing of the display becoming the section would be a drawing of the
   machinery.
   Where a grid that size has no honest answer a press may keep its word, and no
@@ -415,8 +415,16 @@ hand, is another place this window can be — so it is the last cap of the band
 now, and one row of presses does what two did. `Way` is what that row is a list
 of: the panel, the sections no plate carries, and the shelf.
 
-**A cap of the band is a place and the escape key is not.** Pressing `FRONT
-PANEL` puts you on the front panel from wherever you were, shelf included.
+**A cap of the band opens a tab and a plate's `EDIT` opens a sheet**, and the
+difference is not a style. An `EDIT` is on the front of the instrument, so what
+is behind it is the detail behind one press on that front: a sheet, with the
+panel still there underneath. The four sections no plate carries are behind no
+press at all, so they are not the detail behind anything — they are places, and
+the band is a row of tabs. A tab that opened a sheet would be a tab that covers
+the surface it is part of, which is what the effects looked like when they did.
+
+**A cap of the band is a place and the escape key is not.** Pressing `FRONT`
+puts you on the front panel from wherever you were, shelf included.
 Escape, the mark on a sheet's bar and a press on the shade all mean *put away
 what is over the window*, which says nothing about the surface underneath: escape
 on the shelf leaves you on the shelf.
