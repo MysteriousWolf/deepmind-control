@@ -120,9 +120,10 @@ The rest of the panel's rules:
   a cap is large enough to hold one. A power symbol on the arpeggiator's
   `ON/OFF`, a padlock on its `HOLD`, a low shelf on the high-pass `BOOST`, a
   sawtooth and a pulse on the pair that choose the first oscillator's mix —
-  those two the instrument's own silkscreen, and its pulse is drawn with a
-  *dotted* falling edge because that is the edge the `PWM` fader beside it moves
-  — two linked rings on `SYNC`, a driver seen face on for the high-pass `BOOST`,
+  those two the instrument's own silkscreen, and its pulse is drawn as a narrow
+  one with a dotted line standing out in the low part of the wave: a second,
+  later falling edge, which is where the `PWM` fader beside the press would move
+  the one that is drawn — two linked rings on `SYNC`, a driver seen face on for the high-pass `BOOST`,
   and a pencil on every `EDIT`, held at the angle a hand holds one, because what
   is behind that press is where the section is changed. The pencil is the offer;
   a drawing of the display becoming the section would be a drawing of the

@@ -433,15 +433,15 @@ pub const PANEL: Badge = Badge::new(
 ///
 /// Held at the angle a hand holds one, with the point at the bottom left. A
 /// diagonal band at nine dots is a slash if nothing else is done to it, and two
-/// things are: the end is blunt, three dots across and standing clear of the
-/// corner, and the last two rows step three to two to one — a sharpened cone,
-/// which is the one thing a pen does not have.
+/// things are: the head is three dots across where the shaft is two, and the
+/// shaft ends in a point one dot across.
 ///
-/// Three dots and not four, which is a fact about the *display* rather than
-/// about pencils: these dots are printed with glass between them, so a band on
-/// a diagonal is a stack of squares with the gaps showing along both its edges.
-/// Four wide, that reads as a blob; three wide, the shaft is thin enough that
-/// the diagonal is the shape and the stepping is its texture.
+/// Two dots and not four, which is a fact about the *display* rather than about
+/// pencils. These dots are printed with glass between them, so a band drawn on
+/// a diagonal is a stack of squares with the gaps showing along both its edges,
+/// and every dot of width is another row of steps: four wide is a blob and
+/// three is not much better. Two wide is a line with a thickness, which is what
+/// a pencil looks like from across a desk.
 ///
 /// The barrel is solid, and that is a thing nine dots cost. A groove down the
 /// shaft would carry the hexagon, and drawn on a diagonal it breaks the band
@@ -452,12 +452,12 @@ pub(crate) const PENCIL: Badge = Badge::new(
     &[
         0b0_0000_0000,
         0b0_0000_1110,
-        0b0_0001_1100,
-        0b0_0011_1000,
-        0b0_0111_0000,
-        0b0_1110_0000,
+        0b0_0001_1000,
+        0b0_0011_0000,
+        0b0_0110_0000,
         0b0_1100_0000,
         0b0_1000_0000,
+        0b0_0000_0000,
         0b0_0000_0000,
     ],
     SIDE,
@@ -603,30 +603,29 @@ pub(crate) const SAW: Badge = Badge::new(
 
 /// A pulse with a dotted falling edge, which is the other one.
 ///
-/// Traced off the instrument rather than invented: a `DeepMind` draws this one
-/// as a pulse whose *falling* edge is a dotted line, because that edge is the
-/// one that moves — the `PWM` fader beside the press is what moves it, and the
-/// wave is drawn showing what the fader does to it. Every other waveform on the
-/// panel is drawn solid.
+/// Traced off the instrument rather than invented, a dot at a time off a
+/// photograph of the panel, which took three goes and is the only way this one
+/// was ever going to come out right. Every other waveform on the front is drawn
+/// solid; this is the one that carries a dotted line, because the `PWM` fader
+/// beside the press is what moves the edge it marks.
 ///
-/// Drawn as one cycle rising out of the baseline rather than as the
-/// instrument's two, which is a difference nine dots force. The hardware's
-/// glyph has a rising edge at each end with the low bar between them, and at
-/// this size two full-height verticals with short bars off them is a rectangle
-/// with a speck in it — the eye closes the box before it sees the wave. One
-/// solid rising edge, a solid top, a dashed falling edge and a baseline running
-/// out past both sides cannot close, and the asymmetry between the two edges is
-/// the whole of what the mark is saying.
+/// What the instrument draws is a *narrow* pulse and then a dotted line
+/// somewhere out in the low part of the wave: a tall thin `⊓` at the left, the
+/// low bar running right from its falling edge, the next rising edge at the far
+/// right, and a dashed vertical standing between them. The dashes are not the
+/// falling edge drawn dotted — they are a second, later falling edge, which is
+/// where `PWM` would move the one that is drawn. A width, shown as the two
+/// places its edge can be.
 pub(crate) const PULSE: Badge = Badge::new(
     &[
         0b0_0000_0000,
-        0b0_0111_1100,
-        0b0_0100_0100,
-        0b0_0100_0000,
-        0b0_0100_0100,
-        0b0_0100_0000,
-        0b0_0100_0100,
-        0b1_1100_0111,
+        0b0_1110_0010,
+        0b0_1010_1010,
+        0b0_1010_0010,
+        0b0_1010_1010,
+        0b0_1010_0010,
+        0b0_1010_1010,
+        0b0_1011_1110,
         0b0_0000_0000,
     ],
     SIDE,
