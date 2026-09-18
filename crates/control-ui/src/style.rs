@@ -108,9 +108,10 @@ const PALETTE: Palette = Palette {
 /// | --- | --- |
 /// | [`WAY_IN`] | a press that opens a section, which is what the hardware's amber `EDIT` does |
 /// | [`MODULATION`] | something other than a hand can move this control, and the hardware's cyan button is the one named `MOD` |
+/// | [`PLAIN`] | a switch that turns something on and changes nothing about what the other controls mean |
 ///
 /// Everything else on the panel is the panel, the metal or the ink, so a mark
-/// in either of these is one of the few things on a rack of forty that is not.
+/// in one of these is one of the few things on a rack of forty that is not.
 #[expect(
     clippy::unreadable_literal,
     reason = "a colour is read as a colour, and `0x00ff_be3d` is not one"
@@ -125,6 +126,21 @@ pub const WAY_IN: Color = color!(0xffbe3d);
     reason = "a colour is read as a colour, and `0x0040_d0e6` is not one"
 )]
 pub const MODULATION: Color = color!(0x40d0e6);
+
+/// The white the instrument lights a plain switch in.
+///
+/// The third lamp, and the one that is not a colour. `SYNC`, `BOOST`, `2 POLE`,
+/// `INVERT` and the waveform pair are lit white on a `DeepMind`: a switch that
+/// turns something on and does not change what anything else means gets no hue,
+/// which is what makes the amber and the cyan mean something when they appear.
+///
+/// A shade off white, because it is an LED behind a translucent cap and not a
+/// pixel: the cap's own diffuser carries it the rest of the way at the middle.
+#[expect(
+    clippy::unreadable_literal,
+    reason = "a colour is read as a colour, and `0x00e4_e9f3` is not one"
+)]
+pub const PLAIN: Color = color!(0xe4e9f3);
 
 /// What a drawn control is made of.
 ///

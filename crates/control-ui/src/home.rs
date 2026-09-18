@@ -844,6 +844,41 @@ const SILKSCREEN: &[Silkscreen] = &[
     },
 ];
 
+/// The presses a `DeepMind` lights cyan rather than white.
+///
+/// The instrument has three lamp colours and spends them on a rule rather than
+/// at random: amber on a press that changes what the *display* is showing, and
+/// cyan on one that changes what the other controls *mean* — `CHORD` and
+/// `POLY CHORD`, which change what a key plays; `TAP/HOLD`, which changes what
+/// letting go of one does; `MOD`, which is the modulation matrix; and `CURVES`,
+/// which points the four envelope faders at the curves instead of the times.
+/// Everything else is white.
+///
+/// Of those, one is a program parameter this window puts a cap under, so this
+/// list is one long. The rest are either not parameters at all or are drawn
+/// somewhere other than a cap.
+///
+/// Transcribed, like [`SILKSCREEN`] and for the same reason: which lamp is
+/// behind a button is a fact about the front of the instrument, and
+/// `front::PanelControl` does not carry one. It is in
+/// [deepmind-midi#45](https://github.com/MysteriousWolf/deepmind-midi/issues/45)
+/// with the rest.
+const CYAN: &[ParamId] = &[ParamId::ArpHold];
+
+/// The colour of the lamp behind the press that moves `parameter`.
+///
+/// White unless the instrument lights it cyan, which is [`CYAN`]. The amber is
+/// not here, because nothing amber on the instrument is a parameter: every
+/// press it lights amber changes what the display is showing, and in this
+/// window those are the ways in and the band, which carry no value at all.
+pub(crate) fn lamp_of(parameter: ParamId) -> iced_core::Color {
+    if CYAN.contains(&parameter) {
+        crate::style::MODULATION
+    } else {
+        crate::style::PLAIN
+    }
+}
+
 /// What the silkscreen prints on the plate called `name`.
 fn printed_on(name: &str) -> Silkscreen {
     SILKSCREEN
@@ -1279,9 +1314,9 @@ where
         // the band is a row of buttons whichever one is chosen.
         move |_: &Theme| {
             if chosen {
-                crate::cap::Face::Lit(lamp(cap))
+                crate::cap::Face::lit(lamp(cap))
             } else {
-                crate::cap::Face::Rubber
+                crate::cap::Face::RUBBER
             }
         },
         container(plaque)
@@ -1765,7 +1800,7 @@ where
             crate::cap::cap(
                 // Lit the whole time it is powered, which is the state the
                 // instrument leaves every `EDIT` in.
-                |_: &Theme| crate::cap::Face::Lit(crate::style::WAY_IN),
+                |_: &Theme| crate::cap::Face::lit(crate::style::WAY_IN),
                 Space::new().width(Length::Fill).height(Length::Fill),
             )
             .width(Length::Fixed(crate::panel::CAP))

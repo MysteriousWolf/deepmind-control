@@ -1192,7 +1192,7 @@ where
     // an unlit one is this window explaining a control the control already
     // states, and every legend the panel does print is silkscreened beside the
     // cap, where a finger cannot cover it.
-    let face = crate::cap::cap(capped(on, claim), Space::new())
+    let face = crate::cap::cap(capped(parameter, on, claim), Space::new())
         .width(Length::Fixed(CAP.min(room.width)))
         .height(Length::Fixed(PRESS));
     let face = if live {
@@ -1372,25 +1372,32 @@ fn lit(theme: &Theme, on: bool, claim: Confidence) -> button::Style {
 /// wearing one name. So off is the rubber and on is the rubber with a lamp
 /// under it, and what lighting it changes is the light and never the shape.
 ///
-/// # Why the lamp is the claim and not the hardware's own colour
+/// # The lamp is the instrument's and the ring is this window's
 ///
-/// A `DeepMind` lights its plain switches white, and this window lights them in
-/// [the claim](tint): green for a value the synthesizer reported, copper for one
-/// this window is only asserting. That is the one thing the window knows that
-/// the instrument's own panel cannot say — the hardware has no way to light a
-/// button *differently* for a value it has not been told — and spending the
-/// lamp on it is the whole reason this editor draws a panel rather than
-/// photographs one. The hardware's own amber is still exactly where the
-/// hardware puts it, on every press that changes what the display is showing.
-fn capped(on: bool, claim: Confidence) -> impl Fn(&Theme) -> Face {
+/// A `DeepMind` lights a plain switch white and a handful of them cyan, by a
+/// rule of its own: cyan is a press that changes what the *other* controls
+/// mean. This window lights them the same way, because a panel that recoloured
+/// the instrument's own livery to say something else would be a panel you
+/// cannot read a photograph against.
+///
+/// What it adds is the ring. A backlit cap already has a band between its bezel
+/// and its hot middle — that is what a diffuser does at the edge of its own
+/// aperture — and that band carries the claim: green for a value the
+/// synthesizer reported, copper for one this window is only asserting. It is
+/// the one thing the hardware cannot say, since it lights a button the same
+/// whether it was told or has assumed, and it is the whole reason this editor
+/// draws a panel instead of photographing one.
+///
+/// The ring is on an unlit cap too, because *off* is as much a value as *on*
+/// and can be assumed just as easily.
+fn capped(parameter: ParamId, on: bool, claim: Confidence) -> impl Fn(&Theme) -> Face {
     move |theme: &Theme| {
         if matches!(claim, Confidence::Unknown) {
             return Face::Empty;
         }
-        if on {
-            Face::Lit(tint(theme, claim))
-        } else {
-            Face::Rubber
+        Face::Cap {
+            lamp: on.then(|| crate::home::lamp_of(parameter)),
+            ring: Some(tint(theme, claim)),
         }
     }
 }

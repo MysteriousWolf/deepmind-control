@@ -44,13 +44,24 @@ use iced_core::{
 
 use crate::style::{self, materials, mix};
 
-/// How round the corner of a cap is.
+/// How round the corner of a cap is, as a share of how tall it stands.
 ///
-/// A `DeepMind`'s buttons are moulded rubber: the corners are turned far enough
-/// that the cap reads as something soft pushed through a hole in the panel, and
-/// not so far that it becomes a lozenge. A measurement rather than a taste, so
-/// it is written down once and every cap in the window is cut to it.
-pub const MOULD: f32 = 6.0;
+/// A *share* and not a measurement, because the caps in this window are not all
+/// one size: the ones on the panel are the instrument's own, and the ones in
+/// the band of ways in are four times as wide and half again as tall. A fixed
+/// radius on both is a panel button that reads as moulded rubber and a tab that
+/// reads as a slab with the corners filed, which is the same drawing stretched
+/// rather than the same button made bigger.
+///
+/// A quarter, which is what a `DeepMind`'s cap measures: turned far enough that
+/// it reads as something soft pushed through the panel, and not so far that it
+/// becomes a lozenge.
+const MOULD: f32 = 0.25;
+
+/// How round a cap `tall` points high is cut.
+fn mould(tall: f32) -> f32 {
+    tall * MOULD
+}
 
 /// How thick the bezel round a cap is.
 ///
@@ -83,12 +94,14 @@ const RELIEF: f32 = 1.0;
 /// another one shows at the size a cap is drawn.
 const GLOW: usize = 6;
 
-/// How much smaller each of those steps is than the cap itself.
+/// How far apart the steps of the diffuser stand, as a share of the cap's own
+/// height.
 ///
-/// The `step`th quad stands at `1 - GATHER * step` of the cap's own size about
-/// its middle, so the last of the six is a third of it: a hot point rather than
-/// a bar.
-const GATHER: f32 = 0.11;
+/// The `step`th quad is inset by `GATHER * step` of the height on every side,
+/// so the last of the six sits a third of the height in from the rim. A
+/// distance and not a proportion, because that is what a falloff is: see the
+/// loop that draws it.
+const GATHER: f32 = 0.055;
 
 /// How hard one step of the diffuser is laid down.
 ///
@@ -97,7 +110,7 @@ const GATHER: f32 = 0.11;
 /// started on.
 const SPREAD: f32 = 0.17;
 
-/// What is in the slot.
+/// What is in the bezel.
 ///
 /// Three states and not two, because a window that has not been told the value
 /// of a switch cannot draw one. That is the same refusal a fader makes by
@@ -105,22 +118,56 @@ const SPREAD: f32 = 0.17;
 /// whether a sound has arrived, but what a hand takes hold of does.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) enum Face {
-    /// No cap in the hole: the slot, flat and unlit.
+    /// No cap in the bezel: the hole, flat and unlit.
     ///
     /// Not an off button. A cap that is off is still a piece of rubber standing
     /// out of the panel, and the difference between the two is relief rather
     /// than colour, which is what makes it survive a greyscale print.
     Empty,
-    /// A cap with no lamp behind it, which is the pale rubber it is moulded
-    /// from.
+    /// A cap, with what is behind it and what it is ringed in.
     ///
     /// **Unlit is not dark.** The buttons on a `DeepMind` are a translucent
-    /// off-white, and one that is not lit still catches the room and reads as
-    /// pale against a panel this dark. A cap drawn at the panel's own colour is
-    /// a hole, and the instrument has none.
-    Rubber,
-    /// A cap with a lamp behind it, in the colour that lamp is.
-    Lit(Color),
+    /// off-white, and one with no lamp behind it still catches the room and
+    /// reads as pale against a panel this dark. A cap drawn at the panel's own
+    /// colour is a hole, and the instrument has none.
+    Cap {
+        /// The colour of the lamp behind it, where there is one.
+        ///
+        /// The instrument's own: amber on a press that changes what the display
+        /// is showing, cyan on one that changes what the other controls *mean*,
+        /// and white on a plain switch.
+        lamp: Option<Color>,
+        /// The ring just inside the bezel, where the cap is carrying a claim.
+        ///
+        /// A backlit cap on the instrument already has a ring: a saturated
+        /// band of the lamp's own colour between the bezel and the hot middle,
+        /// which is what a diffuser does at the edge of its own aperture. This
+        /// window spends it. The lamp says what the press *is*, the way the
+        /// hardware does, and the ring says whether the value under it came
+        /// from the synthesizer or from this window — which is the one thing a
+        /// `DeepMind`'s own panel has no way to show, since it lights a button
+        /// the same whether it was told or has assumed.
+        ///
+        /// `None` on every press that is not a parameter: a way in has nothing
+        /// to claim.
+        ring: Option<Color>,
+    },
+}
+
+impl Face {
+    /// A cap with nothing behind it and nothing to claim.
+    pub(crate) const RUBBER: Self = Self::Cap {
+        lamp: None,
+        ring: None,
+    };
+
+    /// A cap lit in `lamp`, with nothing to claim.
+    pub(crate) const fn lit(lamp: Color) -> Self {
+        Self::Cap {
+            lamp: Some(lamp),
+            ring: None,
+        }
+    }
 }
 
 impl Face {
@@ -140,16 +187,33 @@ impl Face {
             // material is nearly white and the panel is nearly black. Coming
             // near one lifts it further, which is the whole of what hovering
             // means on a panel that has no cursor.
-            Self::Rubber => mix(
+            Self::Cap { lamp: None, .. } => mix(
                 material.panel,
                 material.metal,
                 if hovered { RAISED } else { MOULDING },
             ),
-            // The lamp's own colour, deepened. What a lit cap's rim is on the
-            // instrument is a saturated ring — orange round the yellow-white of
-            // an `EDIT`, blue round the cyan of `TAP/HOLD` — and it is the ring
-            // that carries which colour the lamp *is*.
-            Self::Lit(colour) => mix(colour, Color::BLACK, if hovered { KINDLED } else { BANKED }),
+            // The lamp's own colour, deepened, so the hot middle has somewhere
+            // to go. A face drawn at the lamp itself has no falloff, and a cap
+            // with no falloff is a coloured rectangle.
+            Self::Cap {
+                lamp: Some(colour), ..
+            } => mix(colour, Color::BLACK, if hovered { KINDLED } else { BANKED }),
+        }
+    }
+
+    /// The lamp behind it, where there is one.
+    const fn lamp(self) -> Option<Color> {
+        match self {
+            Self::Empty => None,
+            Self::Cap { lamp, .. } => lamp,
+        }
+    }
+
+    /// The ring just inside the bezel, where it is carrying one.
+    const fn ring(self) -> Option<Color> {
+        match self {
+            Self::Empty => None,
+            Self::Cap { ring, .. } => ring,
         }
     }
 
@@ -379,7 +443,7 @@ where
         renderer.fill_quad(
             renderer::Quad {
                 bounds,
-                border: Border::default().rounded(MOULD + RIM),
+                border: Border::default().rounded(mould(bounds.height) + RIM),
                 ..renderer::Quad::default()
             },
             Background::Color(style::mix(material.panel, Color::BLACK, BEZEL)),
@@ -400,7 +464,7 @@ where
         renderer.fill_quad(
             renderer::Quad {
                 bounds: rubber,
-                border: Border::default().rounded(MOULD),
+                border: Border::default().rounded(mould(rubber.height)),
                 ..renderer::Quad::default()
             },
             style::moulded(colour, held),
@@ -418,23 +482,27 @@ where
         // a white diffuser with the room's light in it rather than an LED's,
         // which is why it reads as the same object switched off instead of as a
         // different object.
-        let core = match face {
-            Face::Lit(lamp) => mix(lamp, Color::WHITE, CORE),
-            _ => mix(material.metal, Color::WHITE, GLARE),
+        let core = match face.lamp() {
+            Some(lamp) => mix(lamp, Color::WHITE, CORE),
+            None => mix(material.metal, Color::WHITE, GLARE),
         };
         for step in 1..=GLOW {
             #[expect(
                 clippy::cast_precision_loss,
                 reason = "GLOW is six, and six converts exactly"
             )]
-            // Scaled about the middle rather than inset by a fixed amount,
-            // because a cap is half again as wide as it is tall: insetting both
-            // sides equally collapses the innermost quads into a bar across the
-            // cap, and what is under there is a point of light, not a strip
-            // light.
-            let held_in = 1.0 - GATHER * step as f32;
-            let width = rubber.width * held_in;
-            let height = rubber.height * held_in;
+            // Inset by a distance rather than scaled by a fraction, and the
+            // distance is read off the cap's *height*. Which is the whole
+            // difference between a bigger button and the same button stretched:
+            // light falls away from the rim of a diffuser over the width of the
+            // rubber above it, which is a thickness and not a proportion, so a
+            // cap four times as wide has the same falloff at its edges and a
+            // longer even middle — exactly what a wide lens over a lamp looks
+            // like. Scaling it instead gives a cap whose glow is a magnified
+            // photograph of a small one.
+            let inset = rubber.height * GATHER * step as f32;
+            let width = (rubber.width - inset * 2.0).max(1.0);
+            let height = (rubber.height - inset * 2.0).max(1.0);
             renderer.fill_quad(
                 renderer::Quad {
                     bounds: Rectangle {
@@ -442,18 +510,40 @@ where
                         // The hot point sits a little above the middle, because
                         // the light is behind the crown and the crown is the
                         // part of a domed cap nearest the eye.
-                        y: rubber.y + (rubber.height - height) / 2.0
-                            - rubber.height * OFFSET * (1.0 - held_in),
+                        y: rubber.y + (rubber.height - height) / 2.0 - inset * OFFSET,
                         width,
                         height,
                     },
-                    border: Border::default().rounded(MOULD * held_in),
+                    border: Border::default().rounded(mould(height)),
                     ..renderer::Quad::default()
                 },
                 Background::Color(Color {
                     a: if held { SPREAD / 2.0 } else { SPREAD },
                     ..core
                 }),
+            );
+        }
+
+        // The ring, just inside the bezel: what the claim under this press is,
+        // in the band a backlit cap already has between its bezel and its hot
+        // middle. Drawn last of the cap's own layers so the diffuser does not
+        // wash it out at the corners, where the rounding brings the two within
+        // a point of each other.
+        if let Some(ring) = face.ring() {
+            renderer.fill_quad(
+                renderer::Quad {
+                    bounds: rubber,
+                    border: Border {
+                        color: Color {
+                            a: if held { RINGING / 2.0 } else { RINGING },
+                            ..ring
+                        },
+                        width: BAND,
+                        radius: mould(rubber.height).into(),
+                    },
+                    ..renderer::Quad::default()
+                },
+                Background::Color(Color::TRANSPARENT),
             );
         }
 
@@ -484,8 +574,23 @@ const CORE: f32 = 0.62;
 const GLARE: f32 = 0.72;
 
 /// How far above the middle the hot point of the diffuser sits, as a share of
-/// the cap's own height.
-const OFFSET: f32 = 0.22;
+/// how far in each step of it stands.
+const OFFSET: f32 = 0.5;
+
+/// How thick the ring inside the bezel is.
+///
+/// Two points, which is the bezel's own thickness: the band between a backlit
+/// cap's rim and its hot middle is about that wide on the instrument, so a ring
+/// drawn there is the cap's own anatomy carrying something rather than a
+/// decoration laid over it.
+const BAND: f32 = 2.0;
+
+/// How hard the ring is laid down.
+///
+/// Not quite solid. It is a colour *in* the rubber and not printed on top of
+/// it, so the cap's own dome still shows through the ring the way it shows
+/// through everything else on the face.
+const RINGING: f32 = 0.85;
 
 impl<'a, Message, Renderer> From<Cap<'a, Message, Renderer>>
     for Element<'a, Message, Theme, Renderer>
@@ -521,7 +626,7 @@ mod tests {
         // panel has gone back to being a row of holes.
         let theme = crate::style::deepmind();
         let panel = materials(&theme).panel;
-        let rubber = Face::Rubber.of(&theme, false);
+        let rubber = Face::RUBBER.of(&theme, false);
 
         assert!(
             contrast(rubber, panel) > 2.0,
@@ -535,7 +640,7 @@ mod tests {
         // becomes the colour itself, the cap has stopped being a material.
         let theme = crate::style::deepmind();
         let lamp = crate::style::WAY_IN;
-        let lit = Face::Lit(lamp).of(&theme, false);
+        let lit = Face::lit(lamp).of(&theme, false);
 
         assert!(
             (lit.r - lamp.r).abs() + (lit.g - lamp.g).abs() + (lit.b - lamp.b).abs() > 0.02,
