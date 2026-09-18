@@ -276,7 +276,7 @@ fn showing(app: &App) -> Element<'_, Message> {
 /// what a modal is a change to.
 fn opened(app: &App, section: Group) -> Element<'_, Message> {
     control_ui::sheet(
-        section.name(),
+        control_ui::section_name(section),
         app.patch().claim_of(section),
         control_ui::group(app.patch(), section, app.firmware(), app.mapper()),
     )

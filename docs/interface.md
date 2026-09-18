@@ -111,18 +111,19 @@ The rest of the panel's rules:
   whichever section was pressed last; here each plate carries the drawing of its
   own part, and the envelopes carry the drawing no DeepMind can show, all three
   at once. See [Display](#display).
-- **A legend is printed over a fader and under a button**, because that is where
-  the instrument prints each. The hardware has a screen for readings and no room
-  under a fader, and it silkscreens `POLY` and `EDIT` below the caps they name,
-  where a finger cannot cover them.
+- **A legend is printed over the control it names**, fader or button alike,
+  because that is where the instrument prints it: `RATE` over its fader and
+  `ON/OFF` over its cap, all the way along the panel. Two of the presses are
+  silkscreened with a waveform instead of a word — a sawtooth and a pulse, over
+  the pair that choose an oscillator's mix — and the mark goes in the same line
+  the words stand in, because the wave is the name of the thing.
 - **Every plate carries the press the hardware calls `EDIT`**, and the
   envelopes' `VCA`, `VCF` and `MOD` are the three ways into the three envelope
   panels, which is what the hardware uses them for.
 - **And above the panel there is a band of caps for the sections no plate
   carries.** The plates are the library's table of what the instrument puts a
   *fader* under, so four sections have no plate and had no way in at all: the
-  modulation matrix, the effects, the control sequencer and the program's own
-  settings. A `DeepMind` reaches all four from buttons rather than from faders,
+  modulation matrix, the effects, the sequencer and the program's own settings. A `DeepMind` reaches all four from buttons rather than from faders,
   so the band is that arrangement continued rather than an invention. It is
   described with the panel because it is the way into the sections, and it is
   drawn by the window: see [the band of ways in](#the-band-of-ways-in).
@@ -132,14 +133,32 @@ The rest of the panel's rules:
   row of those along the foot of every plate is the first thing you see in a
   photograph. So the legend is printed where the panel prints it, and what is
   pressed is the lamp, lit at rest and brighter under the pointer.
-- **A button is moulded, and the same cap wherever it is.** Square-ish, as wide
-  as a fader and a little over half that tall, cut to a round corner, its face a
-  gradient lit across the crown and shadowed at the foot, which is what a soft
-  thing standing proud of a dark panel looks like. Pressing turns that gradient
-  over rather than reaching for a second colour. An unlit button is moulded too.
+- **A button is a rubber cap, and the same cap wherever it is.** Square-ish, as
+  wide as a fader and a little over half that tall, and built out of the four
+  things that make one read as rubber rather than as a coloured rectangle: a
+  dark bezel all the way round, because the cap is moulded into a rim and there
+  is no metal edge anywhere on it; a dome down its own height, so the light
+  lands on the crown and the foot sits in shadow; a diffuser, which is the
+  falloff from a single point of light under the middle out to the rim, drawn as
+  a stack of rounded quads standing inside one another because a renderer here
+  has no radial gradient; and relief, which pressing spends. Pressing turns the
+  dome over rather than reaching for a second colour.
+- **An unlit cap is pale, not dark.** The buttons on a DeepMind are moulded from
+  a translucent off-white, and one with no lamp behind it still catches the room
+  and reads as pale against a panel this dark. A cap drawn at the panel's own
+  colour is a hole, and the instrument has none — which is also why what is
+  printed on a cap is printed in dark ink whether the cap is lit or not. The
+  slot with genuinely nothing in it is what a switch nobody has read is drawn
+  as, and it is a difference in relief rather than in colour.
   The band along the foot of a plate is one band, so the `EDIT` press and the
   switch beside it are the same cap at the same size, and that band is the one
   part of the panel the window does not stretch.
+- **A thin rule divides the clusters inside a plate**, where the instrument
+  prints one: `VCF` is ruled between `RES` and `ENV`, so the filter's own two
+  faders are separated from the three that modulate it. The oscillators and the
+  LFOs are ruled on the hardware too, and this window already draws each of
+  those as two plates, so the rule is what is left of that idea inside a plate
+  it kept whole.
 - **The plate's name is knocked out of a light bar**, which is how the
   instrument prints `ARP / SEQ`, `VCF` and `ENVELOPES`: a pale strip across the
   top of each group with the name dark on it. It is what the eye follows across

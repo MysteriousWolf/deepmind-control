@@ -129,6 +129,23 @@
 //! assert_eq!(patch.claim(ParamId::VcfResonance), Confidence::Confirmed);
 //! ```
 //!
+//! # A button is a piece of rubber
+//!
+//! `cap` draws one, and every press on the panel is one: the `EDIT`
+//! on a plate, the switches beside it, and the band of ways in over the
+//! surface. A `DeepMind`'s buttons are moulded from a pale translucent rubber
+//! with a lamp behind them, and four things are what make one read as that
+//! rather than as a coloured rectangle — the dark bezel it is moulded into, the
+//! dome down its own height, the falloff from a single point of light under the
+//! middle, and the relief that pressing spends. The third of those is a radial
+//! gradient, which a renderer that can only fill rounded rectangles does not
+//! have, so it is a stack of quads standing inside one another, the way a
+//! mark is a run of them along a stroke.
+//!
+//! That is also why it is a widget rather than a styled button: a
+//! `button::Style` carries one background, one border and one shadow, which is
+//! a rounded rectangle with a gradient in it and nothing more.
+//!
 //! # One palette, in one file
 //!
 //! [`deepmind`] is the theme both builds are drawn in, and `style.rs` is the
@@ -158,6 +175,7 @@
 //! [`iced_core::Theme`] is what both of them have.
 
 mod badge;
+mod cap;
 mod case;
 mod chain;
 mod confidence;
@@ -197,7 +215,7 @@ pub use modal::{margins, modal, sheet};
 pub use name::characters as name_characters;
 pub use panel::{Message, group};
 pub use patch::Patch;
-pub use section::sections;
+pub use section::{name as section_name, sections};
 pub use style::{
     Materials, READABLE, bay, chrome, contrast, deepmind, ground, ink_on, is_negative, legible,
     lifted, marked, materials, mix, negative, printed, reading, selector, shortlist, tint, unlit,

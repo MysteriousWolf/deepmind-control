@@ -38,6 +38,7 @@ use iced_core::{
 };
 use iced_widget::{Space, button, column, container, mouse_area, pick_list, row, stack, text};
 
+use crate::cap::Face;
 use crate::effect;
 use crate::envelope;
 use crate::fader::{self, Axis, fader};
@@ -1191,11 +1192,9 @@ where
     // an unlit one is this window explaining a control the control already
     // states, and every legend the panel does print is silkscreened beside the
     // cap, where a finger cannot cover it.
-    let face = button(Space::new())
+    let face = crate::cap::cap(capped(on, claim), Space::new())
         .width(Length::Fixed(CAP.min(room.width)))
-        .height(Length::Fixed(PRESS))
-        .padding(0)
-        .style(move |theme: &Theme, status| capped(theme, on, claim, status));
+        .height(Length::Fixed(PRESS));
     let face = if live {
         face.on_press(Message::Edit {
             parameter,
@@ -1359,64 +1358,40 @@ fn lit(theme: &Theme, on: bool, claim: Confidence) -> button::Style {
     }
 }
 
-/// The style a cap is drawn in: lit, outlined, or dark.
+/// What is in a switch's slot: a lit cap, a dark one, or nothing.
 ///
-/// The same rule the fader's cap follows. Filled for what the synthesizer
-/// reported, an outline for what this window claims, and neither for a value
-/// nobody has read, so the fill carries the difference and the colour agrees
-/// with it.
+/// The same rule the fader's cap follows. A value nobody has read draws no cap,
+/// the way a fader nobody has read draws its track and nothing to take hold of;
+/// what is left is the slot, flat and unlit, which is a difference in relief
+/// rather than in colour and so survives the greyscale the rest of the panel
+/// survives.
 ///
-/// Whatever it is carrying, it is [moulded](style::moulded): an unlit button on
-/// the instrument is still a rubber cap standing in the panel, and drawing that
-/// one as a hole and the lit one as a light would be two controls wearing one
-/// name. So the dark state is the panel's own colour moulded, and what lighting
-/// it changes is the colour and not the shape.
-fn capped(theme: &Theme, on: bool, claim: Confidence, status: button::Status) -> button::Style {
-    let material = materials(theme);
-    let colour = tint(theme, claim);
-    let confirmed = claim.is_confirmed();
-    let held = matches!(status, button::Status::Pressed);
-    // A cap a pointer is over is lit a little before it is pressed, which is
-    // the whole of what hovering means on a panel that has no cursor.
-    let hover = matches!(status, button::Status::Hovered);
-    // Nothing read is the hole with no cap in it: the recess the cap would be
-    // moulded into, flat and unlit, which is the same thing a fader says by
-    // drawing its track and no cap. Nothing is written on these any more, so
-    // this is what tells an unread switch from one that is switched off, and a
-    // flat recess against a moulded cap is a difference in relief rather than
-    // in colour, so it survives the greyscale the rest of the panel survives.
-    if matches!(claim, Confidence::Unknown) {
-        return button::Style {
-            background: Some(Background::Color(material.recess)),
-            text_color: material.metal_low,
-            border: border::rounded(style::MOULD)
-                .width(1.0)
-                .color(material.recess_edge),
-            ..button::Style::default()
-        };
-    }
-    let face = match (on, confirmed) {
-        (true, true) => colour,
-        (true, false) => style::mix(material.panel, colour, 0.22),
-        (false, _) => style::mix(
-            material.panel,
-            material.metal_low,
-            if hover { 0.22 } else { 0.12 },
-        ),
-    };
-    button::Style {
-        background: Some(style::moulded(face, held)),
-        text_color: if on {
-            if confirmed { material.panel } else { colour }
+/// A switch that is *off* is a cap all the same. An unlit button on the
+/// instrument is still a piece of pale rubber standing in the panel, and
+/// drawing that one as a hole and the lit one as a light would be two controls
+/// wearing one name. So off is the rubber and on is the rubber with a lamp
+/// under it, and what lighting it changes is the light and never the shape.
+///
+/// # Why the lamp is the claim and not the hardware's own colour
+///
+/// A `DeepMind` lights its plain switches white, and this window lights them in
+/// [the claim](tint): green for a value the synthesizer reported, copper for one
+/// this window is only asserting. That is the one thing the window knows that
+/// the instrument's own panel cannot say — the hardware has no way to light a
+/// button *differently* for a value it has not been told — and spending the
+/// lamp on it is the whole reason this editor draws a panel rather than
+/// photographs one. The hardware's own amber is still exactly where the
+/// hardware puts it, on every press that changes what the display is showing.
+fn capped(on: bool, claim: Confidence) -> impl Fn(&Theme) -> Face {
+    move |theme: &Theme| {
+        if matches!(claim, Confidence::Unknown) {
+            return Face::Empty;
+        }
+        if on {
+            Face::Lit(tint(theme, claim))
         } else {
-            material.metal_low
-        },
-        border: border::rounded(style::MOULD).width(1.0).color(if on {
-            colour
-        } else {
-            material.recess_edge
-        }),
-        ..button::Style::default()
+            Face::Rubber
+        }
     }
 }
 

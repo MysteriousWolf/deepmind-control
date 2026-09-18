@@ -12,7 +12,7 @@
 //! other control in this editor, and each section's way in is the same press
 //! the hardware uses.
 //!
-//! # Nothing here is transcribed any more
+//! # Almost nothing here is transcribed
 //!
 //! Which parameters have a physical control, what is silkscreened over each
 //! one, what a hand touches and which row it is in used to be a table in this
@@ -23,6 +23,16 @@
 //! side of the split the rest of the instrument lives on, with a loader check
 //! that a plate's controls belong to the group its name claims. The table here
 //! is deleted and `docs/waiting.md` records the ask as answered.
+//!
+//! What came back is four rows of [`SILKSCREEN`], and it is a much smaller kind
+//! of thing: three presses the instrument has along a section's foot whose
+//! parameters the library already carries and whose *buttons* its front-panel
+//! table does not list, and one thin rule the panel prints between two clusters
+//! of faders. It names no parameter, no range and no meaning — only where on
+//! the front of the instrument something the library already describes is
+//! printed. [deepmind-midi#45](https://github.com/MysteriousWolf/deepmind-midi/issues/45)
+//! is the ask that empties it, and a test fails on the day it lands, so the
+//! table cannot quietly outlive its reason.
 //!
 //! # Two sections are drawn as more than one plate
 //!
@@ -50,8 +60,13 @@
 //! amber and the cyan for the two jobs it has that need a colour: amber opens a
 //! section, which is what the instrument's `EDIT` does, and cyan marks a
 //! control something other than a hand can move, which is what its `MOD` does.
-//! A way in is a legend silkscreened on the panel over a lit square, because
-//! that is what it is on the instrument and not a word in a box.
+//! A way in is a legend silkscreened on the panel over a lit [cap](crate::cap),
+//! because that is what it is on the instrument and not a word in a box.
+//!
+//! The band of ways in takes that pairing literally, one cap at a time: the
+//! instrument lights every press that changes what its display is showing in
+//! amber and exactly one of them in cyan instead, the one marked `MOD`, so the
+//! cap that opens the modulation matrix here is the cyan one. See [`lamp`].
 //!
 //! The row of twelve lamps over the hardware's `POLY` section is missing for a
 //! different reason: it says how many voices are sounding, and nothing on a
@@ -64,7 +79,7 @@ use deepmind_midi::param::{Group, ParamId};
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::alignment::{Horizontal, Vertical};
 use iced_core::{Background, Border, Font, Length, Theme, text::Renderer as TextRenderer};
-use iced_widget::{Space, button, column, container, mouse_area, responsive, row, text};
+use iced_widget::{Space, column, container, mouse_area, responsive, row, text};
 
 use crate::badge::Badge;
 use crate::envelope;
@@ -471,6 +486,13 @@ pub(crate) struct Control {
     legend: &'static str,
     /// The parameter it moves.
     parameter: ParamId,
+    /// The mark printed over it instead of the word, where the panel prints
+    /// one.
+    ///
+    /// Two of the instrument's presses are silkscreened with a waveform and no
+    /// word, because the wave is the name. Everything else on the panel is a
+    /// word, so this is `None` almost everywhere.
+    mark: Option<Badge>,
 }
 
 /// One group of controls, as a plate of this window's panel.
@@ -496,6 +518,10 @@ pub(crate) struct Plate {
     lamps: Option<Control>,
     /// The controls the hardware puts in the row of buttons under the faders.
     switches: Vec<Control>,
+    /// Where the silkscreen rules a hairline between clusters of faders.
+    ///
+    /// How many lanes stand to the left of each rule. See [`SILKSCREEN`].
+    rules: &'static [usize],
     /// What the specification records about this plate beyond its controls.
     ///
     /// `front::Section::note`: which fader of the instrument's is missing from
@@ -526,6 +552,7 @@ impl Plate {
     /// decide it.
     fn width(&self, scale: Scale) -> f32 {
         let lanes = count(self.faders.len()) * scale.of(LANE + 2.0)
+            + count(self.rules.len()) * scale.of(RULE + 2.0)
             + if self.lamps.is_some() {
                 scale.of(LAMPS + 2.0)
             } else {
@@ -703,17 +730,127 @@ fn whole(section: &'static Section, name: &str, controls: &[&'static PanelContro
             .map(|control| Control {
                 legend: control.legend(),
                 parameter: control.parameter(),
+                mark: None,
             })
             .collect()
     };
+    let printed = printed_on(name);
+    let mut switches = of(PanelShape::Button);
+    switches.extend(printed.presses.iter().copied().filter(|press| {
+        // Skipped once the library carries it, so the day `front::` grows the
+        // press is the day this table stops doing anything, rather than the day
+        // a plate shows the same button twice.
+        !section
+            .controls()
+            .iter()
+            .any(|control| control.parameter() == press.parameter)
+    }));
     Plate {
         name: name.to_owned(),
         opens: section.group(),
         faders: of(PanelShape::Fader),
         lamps: of(PanelShape::Lamps).first().copied(),
-        switches: of(PanelShape::Button),
+        switches,
+        rules: printed.rules,
         note: section.note(),
     }
+}
+
+/// What the instrument's silkscreen has on one plate that the library's
+/// front-panel table does not carry.
+///
+/// # Why there is a table here at all
+///
+/// Everything else about this panel is read off `front::sections()`, and
+/// deleting the transcription that used to stand in its place is the whole of
+/// what [deepmind-midi#26](https://github.com/MysteriousWolf/deepmind-midi/issues/26)
+/// was for. This is what is left over, and it is left over because the
+/// library's table is a table of *controls it has published so far*: a
+/// `DeepMind`'s front panel has a few presses and a few printed rules that are
+/// not in it yet.
+///
+/// So this is not a second panel. It names nothing the library does not already
+/// have a parameter for; it says where on the front the instrument prints one,
+/// which is the fact `front::` is missing.
+/// [deepmind-midi#45](https://github.com/MysteriousWolf/deepmind-midi/issues/45)
+/// is the ask for it, and `docs/waiting.md` carries the row.
+///
+/// Both halves are written to disappear on their own. A press the library
+/// starts carrying is dropped in [`whole`] rather than drawn twice, and
+/// [`the_silkscreen_table_is_still_needed`](tests::the_silkscreen_table_is_still_needed)
+/// fails when a row of it has become dead weight.
+#[derive(Debug, Clone, Copy)]
+struct Silkscreen {
+    /// The plate it is printed on, by the name that plate is drawn under.
+    ///
+    /// The plate's name and not its group, because two of the fourteen sections
+    /// are drawn as more than one plate and `OSC 1` is where these two presses
+    /// are: on the instrument they sit at the left-hand end of the oscillator
+    /// block, which is the end the first oscillator's faders are at.
+    plate: &'static str,
+    /// The presses the hardware has along that plate's foot and the library
+    /// does not list.
+    presses: &'static [Control],
+    /// How many fader lanes stand to the left of each hairline the panel rules.
+    ///
+    /// A `DeepMind` divides a wide plate into the clusters its faders belong
+    /// to with a thin printed line: the filter's own two are ruled off from the
+    /// three depths that modulate it, the way the oscillator block is ruled
+    /// between its two oscillators. This window already draws that second one
+    /// as two plates, so what is left is the rules inside a plate it kept
+    /// whole.
+    rules: &'static [usize],
+}
+
+/// Nothing printed on a plate the table says nothing about.
+const BARE: Silkscreen = Silkscreen {
+    plate: "",
+    presses: &[],
+    rules: &[],
+};
+
+/// Every plate the silkscreen has something on that the library does not carry.
+const SILKSCREEN: &[Silkscreen] = &[
+    Silkscreen {
+        // The two presses at the left-hand end of the `DCO 1 & 2` block, which
+        // choose which of the first oscillator's two waveforms are in the mix.
+        // The panel prints the waves over them and no words.
+        plate: "OSC 1",
+        presses: &[
+            Control {
+                legend: "SAW",
+                parameter: ParamId::Osc1SawEnable,
+                mark: Some(crate::badge::SAW),
+            },
+            Control {
+                legend: "PULSE",
+                parameter: ParamId::Osc1PulseEnable,
+                mark: Some(crate::badge::PULSE),
+            },
+        ],
+        rules: &[],
+    },
+    Silkscreen {
+        // `INVERT` stands between `2 POLE` and `EDIT` along the filter's foot,
+        // and the filter's own two faders are ruled off from the three that
+        // modulate it.
+        plate: "VCF",
+        presses: &[Control {
+            legend: "INVERT",
+            parameter: ParamId::VcfEnvelopePolarity,
+            mark: None,
+        }],
+        rules: &[2],
+    },
+];
+
+/// What the silkscreen prints on the plate called `name`.
+fn printed_on(name: &str) -> Silkscreen {
+    SILKSCREEN
+        .iter()
+        .copied()
+        .find(|printed| printed.plate == name)
+        .unwrap_or(BARE)
 }
 
 /// What an oscillator's parameters are named after on this instrument.
@@ -798,7 +935,7 @@ fn envelopes(section: &'static Section) -> Option<Vec<Plate>> {
                 // on the button: `VCA` beneath an `ENVELOPES` heading is
                 // unambiguous, and `VCA` on a plate of its own beside the
                 // amplifier's `VCA` plate is two plates with one name.
-                name: group.name().to_uppercase(),
+                name: crate::section::name(group).to_uppercase(),
                 opens: group,
                 faders: section
                     .controls()
@@ -807,6 +944,7 @@ fn envelopes(section: &'static Section) -> Option<Vec<Plate>> {
                     .collect(),
                 lamps: None,
                 switches: Vec::new(),
+                rules: &[],
                 // The section's own note, which on this one is what the
                 // unfolding is *about*: the instrument multiplexes three
                 // envelopes onto four faders and says so here.
@@ -831,6 +969,7 @@ fn addressed(control: &'static PanelControl, group: Group) -> Option<Control> {
     Some(Control {
         legend: control.legend(),
         parameter,
+        mark: None,
     })
 }
 
@@ -1079,7 +1218,7 @@ where
         // its words to say what it opens.
         let wanted: Vec<f32> = caps
             .iter()
-            .map(|cap| lcd::room(plaque(*cap).columns()) + PAD * 2.0)
+            .map(|cap| lcd::room(plaque(*cap).columns()) + PAD * 2.0 + crate::cap::BEZELS)
             .collect();
         let gutters = ACROSS * to_f32(caps.len().saturating_sub(1));
         let slack = (room.width - gutters - wanted.iter().sum::<f32>()).max(0.0);
@@ -1131,23 +1270,51 @@ where
     // Lit when what this cap puts on the screen is what is on it already, which
     // is the one cap in the band that would do nothing if it were pressed.
     let chosen = cap == showing;
-    let plaque = lcd::stencil(plaque(cap), move |theme: &Theme| {
-        crate::style::on_cap(theme, chosen)
-    });
-    button(
+    let plaque = lcd::stencil(plaque(cap), crate::style::on_cap);
+    crate::cap::cap(
+        // The hardware's own amber, because this is the hardware's own press:
+        // `EDIT` and everything in the programmer that changes what the display
+        // is showing is lit in it, and that is exactly what a cap of this band
+        // does. Unlit is the pale rubber it is moulded from and not a hole, so
+        // the band is a row of buttons whichever one is chosen.
+        move |_: &Theme| {
+            if chosen {
+                crate::cap::Face::Lit(lamp(cap))
+            } else {
+                crate::cap::Face::Rubber
+            }
+        },
         container(plaque)
             .center_x(Length::Fill)
             .center_y(Length::Fill),
     )
     .width(Length::Fixed(width))
     .height(Length::Fill)
-    .padding(0)
-    .style(move |theme: &Theme, status| crate::style::way_in(theme, chosen, status))
     .on_press(match cap {
         Some(section) => Message::Show(section),
         None => Message::Close,
     })
     .into()
+}
+
+/// The colour the lamp behind a cap of the band is.
+///
+/// The instrument's own, cap by cap. A `DeepMind` lights every press that
+/// changes what its display is showing in amber — `EDIT`, `PROG`, `FX`,
+/// `GLOBAL` — and lights exactly one of them in cyan instead, the press marked
+/// `MOD`, which is the modulation matrix. This band is that row of presses, so
+/// it is lit the way that row is lit, and the matrix arrives in the window
+/// wearing the colour it wears on the instrument.
+///
+/// It is not decoration. Cyan is already what this window means by *something
+/// other than a hand can move this control*, which is what a routing in the
+/// matrix does to everything it reaches, so the one cap that is not amber is
+/// the one cap that opens the page those routings are made on.
+fn lamp(cap: Option<Group>) -> iced_core::Color {
+    match cap {
+        Some(Group::ModMatrix) => crate::style::MODULATION,
+        _ => crate::style::WAY_IN,
+    }
 }
 
 /// How much glass stands between a section's mark and its name.
@@ -1195,7 +1362,7 @@ fn printing(cap: Option<Group>) -> (Option<Badge>, String) {
         Group::Program => Some(crate::badge::PROGRAM),
         _ => None,
     };
-    (mark, section.name().to_uppercase())
+    (mark, crate::section::name(section).to_uppercase())
 }
 
 /// What the way home is called.
@@ -1225,7 +1392,10 @@ where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
     let mut controls = row![].spacing(scale.of(2.0)).align_y(Vertical::Top);
-    for control in plate.faders.iter().copied() {
+    for (lanes, control) in plate.faders.iter().copied().enumerate() {
+        if plate.rules.contains(&lanes) {
+            controls = controls.push(hairline(scale));
+        }
         controls = controls.push(lane(patch, control, firmware, scale, sent));
     }
     if let Some(control) = plate.lamps {
@@ -1470,6 +1640,7 @@ where
 {
     let parameter = control.parameter;
     column![
+        marked(control, scale),
         crate::panel::control(
             parameter,
             patch.value(parameter),
@@ -1478,7 +1649,6 @@ where
             Room::listed(scale.of(SWITCH)),
             sent,
         ),
-        legend(control.legend, scale),
     ]
     .spacing(scale.of(UNDER))
     .width(Length::Fixed(scale.of(SWITCH)))
@@ -1488,12 +1658,12 @@ where
 
 /// What the panel prints with a control.
 ///
-/// Over a fader, which is where the instrument prints it and where a rack's
-/// slot does not: the hardware has a screen to put readings on and no room
-/// under a fader. Under a button, for the same reason read the other way. A
-/// `DeepMind` silkscreens `POLY` and `EDIT` on the panel *below* the cap they
-/// belong to, because a finger on a button covers what is printed above it and
-/// a lit cap with nothing over it is the thing the eye finds first.
+/// Above it, every time, because that is where the instrument silkscreens it:
+/// `RATE` over its fader and `ON/OFF` over its cap, all the way along the
+/// panel. It used to be printed under the buttons here on the argument that a
+/// finger covers what is over a cap, which is true of a finger and not of a
+/// pointer, and cost the panel the one line every legend on the front of a
+/// `DeepMind` shares.
 fn legend<'a, Renderer>(printed_as: &'a str, scale: Scale) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -1513,6 +1683,64 @@ where
     .into()
 }
 
+/// What the panel prints over a button: its word, or its mark where it has one.
+///
+/// Two of the instrument's presses are silkscreened with a waveform instead of
+/// a word, because the wave is the name of the thing. The mark is stencilled in
+/// the display's own dots at the size every other small drawing in this window
+/// is drawn at, and it stands in the same line the words beside it stand in, so
+/// a row of buttons is one row whichever way each of them is named.
+fn marked<'a, Renderer>(control: Control, scale: Scale) -> Element<'a, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    let Some(mark) = control.mark else {
+        return legend(control.legend, scale);
+    };
+    container(lcd::stencil(mark.screen(), |theme: &Theme| {
+        materials(theme).metal_low
+    }))
+    .height(Length::Fixed(scale.of(LEGEND)))
+    .width(Length::Fill)
+    .align_x(Horizontal::Center)
+    .align_y(Vertical::Center)
+    .into()
+}
+
+/// The hairline the silkscreen rules between two clusters of faders.
+///
+/// A `DeepMind` divides a wide plate into the clusters its faders belong to
+/// with a thin printed line, and the line is printed rather than cut: it is the
+/// same white the legends are, a hair wide, standing the height of the lanes
+/// either side of it. The plate's own border says where the *section* stops,
+/// and this says where the filter stops being a filter and starts being three
+/// things pointed at one.
+///
+/// It stands in the room the lanes stand in, so a rule never changes how tall a
+/// plate is. What it costs is its own width, which is why the panel only rules
+/// one: see [`SILKSCREEN`].
+fn hairline<'a, Renderer>(scale: Scale) -> Element<'a, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    container(
+        container(Space::new().width(Length::Fixed(1.0)).height(Length::Fill)).style(
+            |theme: &Theme| container::Style {
+                background: Some(Background::Color(materials(theme).metal_low)),
+                ..container::Style::default()
+            },
+        ),
+    )
+    .width(Length::Fixed(scale.of(RULE)))
+    .height(Length::Fixed(lit(scale, 0)))
+    .align_x(Horizontal::Center)
+    .padding([scale.of(2.0), 0.0])
+    .into()
+}
+
+/// How much of a plate's width one ruled hairline takes.
+const RULE: f32 = 7.0;
+
 /// The way into a section, which is the button the hardware calls `EDIT`.
 ///
 /// Two things and not one. On the instrument the word is silkscreened on the
@@ -1526,6 +1754,7 @@ where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
     column![
+        legend(label, scale),
         // In the room a button of the row beside it is drawn in, and standing
         // in the middle of it. The cap is the rack's own, the same width and
         // height as the lamp on the next plate along, because the band along the
@@ -1533,15 +1762,18 @@ where
         // presses that do not line up. That band is the one part of the panel
         // the window does not stretch, so neither is this.
         container(
-            button(Space::new().width(Length::Fill).height(Length::Fill))
-                .width(Length::Fixed(crate::panel::CAP))
-                .height(Length::Fixed(crate::panel::PRESS))
-                .style(|theme: &Theme, status| crate::style::way_in(theme, true, status))
-                .on_press(Message::Show(group)),
+            crate::cap::cap(
+                // Lit the whole time it is powered, which is the state the
+                // instrument leaves every `EDIT` in.
+                |_: &Theme| crate::cap::Face::Lit(crate::style::WAY_IN),
+                Space::new().width(Length::Fill).height(Length::Fill),
+            )
+            .width(Length::Fixed(crate::panel::CAP))
+            .height(Length::Fixed(crate::panel::PRESS))
+            .on_press(Message::Show(group)),
         )
         .height(Length::Fixed(crate::panel::BUTTON))
         .align_y(Vertical::Center),
-        legend(label, scale),
     ]
     .spacing(scale.of(UNDER))
     .width(Length::Fixed(scale.of(WAY)))
@@ -1583,16 +1815,110 @@ where
     reason = "a failed expectation is the test failure"
 )]
 mod tests {
+    use deepmind_midi::front;
     use deepmind_midi::param::{Group, ParamId};
 
     use deepmind_midi::param::DEFAULT_FIRMWARE;
 
-    use super::{ACROSS, DOWN, GAP, LEGEND, NARROWEST, PAD, Plate, SCREEN, SWITCH, Scale};
-    use super::{Share, UNDER, WAY, WITHIN, rows};
+    use super::{ACROSS, DOWN, GAP, LEGEND, NARROWEST, PAD, Plate, SCREEN, SILKSCREEN, SWITCH};
+    use super::{Scale, Share, UNDER, WAY, WITHIN, rows};
     use super::{
         blank, count, lcd, lines, lit, panel_width, panelled, row_width, span, standing,
         standing_in, widest,
     };
+
+    #[test]
+    fn the_silkscreen_table_is_still_needed() {
+        // The table of what the front of the instrument has and
+        // `front::sections()` does not exists to be deleted. Every row of it is
+        // a press or a rule this window draws from a hand transcription, and
+        // the moment the library publishes one the row is dead weight that
+        // nobody would otherwise notice: the panel would carry on looking
+        // right, drawn half from the table and half from a transcription of the
+        // same thing.
+        //
+        // So when deepmind-midi#45 lands, this is what fails, and what it wants
+        // is the row taken out.
+        for printed in SILKSCREEN {
+            for press in printed.presses {
+                let listed = front::sections().iter().any(|section| {
+                    section
+                        .controls()
+                        .iter()
+                        .any(|control| control.parameter() == press.parameter)
+                });
+                assert!(
+                    !listed,
+                    "the library now puts {} on its own front panel: \
+                     take the row out of SILKSCREEN",
+                    press.parameter
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_silkscreen_is_printed_on_a_plate_the_panel_has() {
+        // A row naming a plate this window does not draw is a press nobody will
+        // ever see and a rule nobody will ever notice, which is the one way a
+        // hand transcription fails silently.
+        let drawn: Vec<&str> = rows()
+            .iter()
+            .flat_map(|row| row.iter())
+            .map(Plate::name)
+            .collect();
+
+        for printed in SILKSCREEN {
+            assert!(
+                drawn.contains(&printed.plate),
+                "{} is not a plate of this panel",
+                printed.plate
+            );
+        }
+    }
+
+    #[test]
+    fn an_extra_press_belongs_to_the_section_its_plate_opens() {
+        // The same rule every control on this panel is under, held for the
+        // handful that did not come from the library's table: a press on the
+        // filter's plate has to move a parameter of the filter, or pressing it
+        // opens one section and edits another.
+        for plate in rows().iter().flat_map(|row| row.iter()) {
+            for control in plate.switches.iter().filter(|control| {
+                SILKSCREEN.iter().any(|printed| {
+                    printed
+                        .presses
+                        .iter()
+                        .any(|press| press.parameter == control.parameter)
+                })
+            }) {
+                assert_eq!(
+                    control.parameter.group(),
+                    plate.opens,
+                    "{} is on the {} plate and in another section",
+                    control.parameter,
+                    plate.name
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_rule_stands_between_two_faders_and_not_at_an_end() {
+        // A hairline before the first lane or after the last one is a line down
+        // the edge of a plate that already has a border, which says nothing and
+        // costs a lane's worth of panel.
+        for plate in rows().iter().flat_map(|row| row.iter()) {
+            for lanes in plate.rules {
+                assert!(
+                    *lanes > 0 && *lanes < plate.faders.len(),
+                    "{} rules a line with {lanes} of its {} lanes to the left of it",
+                    plate.name,
+                    plate.faders.len()
+                );
+            }
+        }
+    }
 
     #[test]
     fn a_control_is_on_the_panel_once() {

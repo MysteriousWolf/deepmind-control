@@ -216,7 +216,9 @@ fn described(parameter: ParamId, patch: &Patch, firmware: Version) -> Vec<Part> 
         line.push(Part::Pictured(glyph.pixels()));
     }
     line.push(Part::Name(parameter.name().to_owned()));
-    line.push(Part::Quiet(parameter.group().name().to_owned()));
+    line.push(Part::Quiet(
+        crate::section::name(parameter.group()).to_owned(),
+    ));
     line.push(Part::Reading(reading_of(parameter, patch, firmware)));
     line.push(Part::Quiet(range_of(parameter)));
     if let Some(controller) = Controller::for_parameter(parameter) {

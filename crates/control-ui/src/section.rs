@@ -23,6 +23,38 @@ pub fn sections() -> &'static [Group] {
     Group::ORDER
 }
 
+/// What this window prints a section as.
+///
+/// The library's own name for it, with one exception, and the exception is why
+/// this function exists rather than a call to [`Group::name`] everywhere.
+///
+/// # The one word this repository spells differently
+///
+/// `Group::ControlSequencer` is what the manual's NRPN table calls the section,
+/// and the front of the instrument does not call it that: it prints `ARP / SEQ`
+/// on the plate the arpeggiator and the sequencer share. `CONTROL SEQUENCER` is
+/// the longest name of the fourteen, it is a quarter of the band of ways in on
+/// its own, and the word doing the work in it is the last one. So the window
+/// prints `SEQUENCER`.
+///
+/// Nothing else is renamed and nothing here is a second table: this is the
+/// library's string unless the group is that one, so a section a later library
+/// adds is printed under whatever the library calls it.
+#[must_use]
+pub fn name(group: Group) -> &'static str {
+    match group {
+        Group::ControlSequencer => SEQUENCER,
+        other => other.name(),
+    }
+}
+
+/// What the window prints instead of `Control Sequencer`.
+///
+/// Written here rather than sliced off the library's own string, because a
+/// slice would be this file quietly depending on the library spelling it as two
+/// words with the useful one second.
+const SEQUENCER: &str = "Sequencer";
+
 #[cfg(test)]
 #[expect(
     clippy::expect_used,

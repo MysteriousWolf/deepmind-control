@@ -421,17 +421,55 @@ pub const PANEL: Badge = Badge::new(
     SIDE,
 );
 
+/// A sawtooth, which is what the panel prints over one of the two presses that
+/// choose an oscillator's waveform.
+///
+/// The hardware prints the wave itself and no word, because the wave *is* the
+/// name: a ramp rising to the right and dropping straight back is a sawtooth
+/// wherever it is drawn, and `SAW` set in the panel's own caps would be this
+/// window explaining a symbol every synthesizer shares.
+pub(crate) const SAW: Badge = Badge::new(
+    &[
+        0b0_0000_0000,
+        0b0_0000_0010,
+        0b0_0000_0110,
+        0b0_0000_1010,
+        0b0_0001_0010,
+        0b0_0010_0010,
+        0b0_0100_0010,
+        0b0_1000_0010,
+        0b0_0000_0000,
+    ],
+    SIDE,
+);
+
+/// A pulse, which is the other one.
+pub(crate) const PULSE: Badge = Badge::new(
+    &[
+        0b0_0000_0000,
+        0b0_0000_0000,
+        0b0_0111_1100,
+        0b0_0100_0100,
+        0b0_0100_0100,
+        0b0_0100_0100,
+        0b1_1100_0111,
+        0b0_0000_0000,
+        0b0_0000_0000,
+    ],
+    SIDE,
+);
+
 #[cfg(test)]
 mod tests {
     use super::{ABOUT, ARROW, Badge, CHAIN, DOWN, MAP, MATRIX, PANEL, PLUGGED, PORT, PROGRAM};
-    use super::{READ, RESCAN, SHUT, SIDE, STEPS, UP, WHO};
+    use super::{PULSE, READ, RESCAN, SAW, SHUT, SIDE, STEPS, UP, WHO};
 
     /// Every mark this module publishes.
     ///
     /// All of them, and it is a list somebody has to add to: the four the band
     /// of ways in wears were written under the ten the chrome wears and were
     /// checked by nothing for it.
-    const ALL: [(&str, Badge); 15] = [
+    const ALL: [(&str, Badge); 17] = [
         ("who", WHO),
         ("read", READ),
         ("rescan", RESCAN),
@@ -447,6 +485,8 @@ mod tests {
         ("chain", CHAIN),
         ("steps", STEPS),
         ("program", PROGRAM),
+        ("saw", SAW),
+        ("pulse", PULSE),
     ];
 
     #[test]

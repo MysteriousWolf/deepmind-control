@@ -73,7 +73,7 @@ impl Page {
     #[must_use]
     pub fn slug(self) -> String {
         let name = match self.section {
-            Some(group) => group.name(),
+            Some(group) => control_ui::section_name(group),
             None => match self.view {
                 View::Library => "library",
                 View::Panel => "front-panel",

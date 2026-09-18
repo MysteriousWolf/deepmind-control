@@ -470,42 +470,42 @@ pub fn legible(ink: Color, surface: Color, theme: &Theme) -> Color {
 /// How finely [`legible`] looks for the least it can move an ink.
 const STEPS: u8 = 16;
 
-/// How round the corner of a button's cap is./// How round the corner of a button's cap is.
-///
-/// A `DeepMind`'s buttons are moulded rubber and not keycaps: the corners are
-/// turned far enough that the cap reads as something soft pushed through a hole
-/// in the panel. It is most of what separates a lit button from a coloured
-/// rectangle, and it is a measurement rather than a taste, so it is written
-/// down once and every cap in the window is cut to it.
-pub const MOULD: f32 = 7.0;
-
 /// The face of a button's cap, moulded rather than filled.
 ///
-/// What makes a button on the instrument read as rubber: the cap stands proud
-/// of the panel, the room's light falls across its crown, and its foot sits in
-/// its own shadow. So a cap is a gradient down its own height and never one
+/// The body of a rubber cap, down its own height: the room's light lands on the
+/// crown, the face is the material's own colour, and the foot sits in the
+/// shadow the cap casts into its own slot. So a cap is a gradient and never one
 /// flat colour, which is the same reason [`ground`] is a gradient rather than
 /// the dark end of one.
+///
+/// Four stops rather than three, and the reason is what a moulded cap actually
+/// is: the crown is nearly flat, the sides turn away quickly, and the last of
+/// it is in shadow. A gradient that ran evenly from top to bottom is a bevel,
+/// which is a hard thing with a chamfer on it.
 ///
 /// `pressed` turns it over. A cap pushed into the panel catches the light along
 /// its foot instead, which is the same face seen from the other side of the
 /// press and is why nothing here needs a second colour to say it is held down.
+///
+/// What this does not draw is the sheen, the lamp and the slot: see
+/// [`cap`](crate::cap), which lays those on in quads because there is no radial
+/// gradient to light a cap from its middle with.
 #[must_use]
 pub fn moulded(face: Color, pressed: bool) -> Background {
-    let (crown, foot) = if pressed {
-        (shade(face, -0.22), shade(face, 0.14))
+    let (crown, shoulder, foot) = if pressed {
+        (shade(face, -0.26), shade(face, -0.1), shade(face, 0.16))
     } else {
-        (shade(face, 0.24), shade(face, -0.28))
+        (shade(face, 0.2), shade(face, 0.05), shade(face, -0.34))
     };
     Background::Gradient(Gradient::Linear(
         // Down the cap, like the panel behind it: the light end at the top,
         // where the light is.
         Linear::new(Radians(std::f32::consts::PI))
             .add_stop(0.0, crown)
-            // Past the middle rather than at it, because the crown of a moulded
-            // cap is flatter than its sides and a gradient that turned halfway
-            // down is a bevel.
-            .add_stop(0.58, face)
+            // The crown holds its tone most of the way down, because the top of
+            // a moulded cap is a plateau and not the peak of a curve.
+            .add_stop(0.34, shoulder)
+            .add_stop(0.66, face)
             .add_stop(1.0, foot),
     ))
 }
@@ -605,139 +605,29 @@ pub fn marked(theme: &Theme, status: button::Status) -> button::Style {
     }
 }
 
-/// What a press that opens a section is drawn as: a lamp behind a cap.
-///
-/// The hardware's `EDIT` is not a word on the panel. It is a rubber button that
-/// is lit amber all the time, with `EDIT` silkscreened on the panel beside it,
-/// and a row of them along the bottom of every plate is the thing you see first
-/// in a photograph of the instrument. So this is a lamp rather than a label: it
-/// carries no text, because the text is printed under it where the panel prints
-/// it.
-///
-/// It is [moulded](moulded) like every other cap in the window, so what is lit
-/// is a soft thing standing proud of the panel rather than a filled rectangle.
-/// Pressing takes the cap off the lamp, so the face goes to the full colour and
-/// the rim with it, and hovering is halfway there so that the press has
-/// somewhere to go. A button with nothing to open loses the lamp altogether and
-/// keeps the panel, which is a hole where a light should be and reads as
-/// unavailable at a glance.
-///
-/// `lit` is whether there is a lamp behind it at all. An `EDIT` on a plate is
-/// always lit, because that is the state the instrument leaves them in; a cap
-/// in the [band of ways in](crate::ways) is lit only while the section it opens
-/// is the one on the screen, which is what makes that band a row of tabs rather
-/// than a row of buttons. **Unlit is not off.** It is the same cap with no lamp
-/// under it: the pale translucent rubber a `DeepMind`'s buttons are moulded
-/// from, catching the room's light instead of giving off its own, which is
-/// exactly what [`crate::panel`] draws a switch that is not engaged as. A cap
-/// that lost its relief when it lost its lamp would be two controls wearing one
-/// name.
-#[must_use]
-pub fn way_in(theme: &Theme, lit: bool, status: button::Status) -> button::Style {
-    let material = materials(theme);
-    let held = matches!(status, button::Status::Pressed);
-    if !lit {
-        let face = mix(material.panel, material.metal_low, rubber(status));
-        return button::Style {
-            background: Some(moulded(face, held)),
-            text_color: material.metal_low,
-            border: border::rounded(MOULD)
-                .width(1.0)
-                .color(material.recess_edge),
-            // No lamp is no spill. A cap that glowed while it was dark would be
-            // the one thing on this panel lit from nowhere.
-            ..button::Style::default()
-        };
-    }
-    let through = lamp(status);
-    let face = mix(material.panel, WAY_IN, through);
-    button::Style {
-        background: Some(moulded(face, held)),
-        // Nothing is set in it by the toolkit, and a colour that would be
-        // unreadable if something were is a trap for whoever puts a word there
-        // later. What this window prints on a cap it prints in [`on_cap`].
-        text_color: material.ink,
-        border: border::rounded(MOULD).width(1.0).color(mix(
-            material.recess,
-            WAY_IN,
-            through.max(0.2) * 0.6,
-        )),
-        shadow: Shadow {
-            color: Color {
-                a: through * 0.55,
-                ..WAY_IN
-            },
-            // A cap that is not held down stands off the panel, and the light
-            // it spills falls a little below it; held, it is level with the
-            // panel and the spill is level with it too.
-            offset: iced_core::Vector::new(0.0, if held { 0.0 } else { 1.5 }),
-            blur_radius: 6.0,
-        },
-        ..button::Style::default()
-    }
-}
-
-/// How much of the lamp reaches the face of a lit cap.
-///
-/// A lit button on a dark panel is still a cap over a lamp and not the lamp
-/// itself, so even the pressed state keeps a little of the panel in it.
-fn lamp(status: button::Status) -> f32 {
-    match status {
-        button::Status::Active => 0.54,
-        button::Status::Hovered => 0.78,
-        button::Status::Pressed => 0.92,
-        button::Status::Disabled => 0.0,
-    }
-}
-
-/// How much metal is in the face of an unlit one.
-///
-/// The same two figures the panel's own unlit caps are moulded in, because it
-/// is the same cap: barely any, so that what a hand gets back for coming near
-/// one is the cap lifting a little out of the panel rather than a second
-/// colour.
-fn rubber(status: button::Status) -> f32 {
-    match status {
-        button::Status::Active => 0.12,
-        button::Status::Hovered => 0.22,
-        button::Status::Pressed => 0.30,
-        button::Status::Disabled => 0.06,
-    }
-}
-
 /// The ink something printed on a cap is stencilled in.
 ///
-/// Two inks, because a cap is two surfaces. On a lit one the printing is dark:
-/// the face is a lamp shining through amber rubber, which is the one place in
-/// this window where something is printed on a surface brighter than itself, so
-/// the ink is carried barely at all from the dark towards the panel. On an unlit
-/// one it is the pale metal the panel prints its legends in, because an unlit
-/// cap *is* panel-dark and dark ink on it is ink nobody can read.
+/// Dark, whichever cap it is. Every cap in this window is a pale thing now —
+/// lit, it is a lamp behind amber rubber; unlit, it is the off-white the rubber
+/// itself is moulded from — so both are brighter than anything the panel prints
+/// its legends in, and both take the ink the instrument silkscreens *on* a pale
+/// surface rather than the metal it silkscreens on a dark one.
 ///
-/// Both are mixed off the theme's own materials rather than written down as
-/// colours, so a window someone has themed differently prints on its caps in
-/// its own ink.
+/// That was not true while an unlit cap was drawn at the panel's own colour,
+/// which is why this used to be two inks. It is one because the cap changed.
+///
+/// Mixed off the theme's own materials rather than written down as a colour, so
+/// a window someone has themed differently prints on its caps in its own ink.
 #[must_use]
-pub fn on_cap(theme: &Theme, lit: bool) -> Color {
+pub fn on_cap(theme: &Theme) -> Color {
     let material = materials(theme);
-    if lit {
-        mix(material.recess, material.panel, PRINTED)
-    } else {
-        mix(material.panel, material.metal, LEGEND)
-    }
+    mix(material.recess, material.panel, PRINTED)
 }
 
-/// How far the printing on a lit cap is carried from the dark towards the panel.
+/// How far the printing on a cap is carried from the dark towards the panel.
 ///
-/// Barely at all: it is ink on a lamp.
+/// Barely at all: it is ink on something lit.
 const PRINTED: f32 = 0.2;
-
-/// How far the printing on an unlit one is carried from the panel towards the
-/// metal.
-///
-/// The chrome's own weight, which is what every other mark stencilled on this
-/// panel is drawn at.
-const LEGEND: f32 = 0.82;
 
 /// What something chosen from a list is drawn as.
 ///
