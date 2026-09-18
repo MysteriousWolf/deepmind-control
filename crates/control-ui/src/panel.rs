@@ -70,18 +70,27 @@ pub(crate) const BUTTON: f32 = fader::WIDTH;
 
 /// How wide the cap of a button that lights is.
 ///
-/// A fader's width, so that a lamp in a rack's slot is the same width as the
-/// fader in the slot beside it and a row of controls is one row.
-pub(crate) const CAP: f32 = fader::WIDTH;
+/// Wide enough for the mark the panel prints on it, at the proportions the
+/// instrument's own caps have.
+///
+/// It was a fader's width, so that a lamp in a rack's slot was exactly as wide
+/// as the fader beside it. What broke that is the printing: a press here
+/// carries a nine-dot mark, which is twenty-two points across whatever else the
+/// window is doing, and a cap that cannot hold one is a cap with its picture
+/// under the bezel.
+///
+/// So the cap is sized from the mark and then cut to the instrument's own
+/// proportion, which is five to three: a `DeepMind`'s caps measure about 43 by
+/// 26 in a photograph of the front. It is still one size everywhere, so a row
+/// of presses is still one row.
+pub(crate) const CAP: f32 = 50.0;
 
 /// How tall that cap stands.
 ///
-/// Square-ish, and taller than a line of text needs. The buttons on a
-/// `DeepMind` are moulded rubber about half again as wide as they are tall, and
-/// a cap drawn as tall as its own label is a menu item with a light behind it:
-/// the height is what makes it read as something a finger presses rather than
-/// something a pointer clicks.
-pub(crate) const PRESS: f32 = 28.0;
+/// [`CAP`] at the instrument's own proportion, which is what makes it read as
+/// something a finger presses rather than something a pointer clicks. A cap
+/// drawn as tall as its own label is a menu item with a light behind it.
+pub(crate) const PRESS: f32 = 30.0;
 
 /// How tall one lit legend of a named set stands.
 ///
@@ -144,6 +153,14 @@ pub(crate) struct Room {
     height: Length,
     /// How long a fader's travel is when it runs down the panel.
     travel: f32,
+    /// The mark the panel prints on this control's cap, where it prints one.
+    ///
+    /// The last thing hand layout is allowed to change about a control, and the
+    /// most literal: what a press has printed on it is a fact about the front
+    /// of the instrument rather than about the byte underneath, so a rack's
+    /// slot carries no mark and the front panel carries the instrument's own.
+    /// It reaches nothing but the cap.
+    mark: Option<crate::badge::Badge>,
     /// Whether there is room to light a named set rather than list it.
     ///
     /// A list is the honest control for a set too long to read at a glance,
@@ -210,6 +227,7 @@ impl Room {
     /// forty that jostles is a rack nobody can read across.
     pub(crate) const SLOT: Self = Self {
         axis: Axis::Down,
+        mark: None,
         width: fader::WIDTH + 28.0,
         height: Length::Fixed(fader::HEIGHT),
         travel: fader::HEIGHT,
@@ -228,6 +246,7 @@ impl Room {
     pub(crate) const fn lane(width: f32, travel: f32) -> Self {
         Self {
             axis: Axis::Down,
+            mark: None,
             width,
             height: Length::Fixed(travel),
             travel,
@@ -243,6 +262,7 @@ impl Room {
     pub(crate) const fn lamps(width: f32, height: f32) -> Self {
         Self {
             axis: Axis::Down,
+            mark: None,
             width,
             height: Length::Fixed(height),
             travel: height,
@@ -263,6 +283,7 @@ impl Room {
     pub(crate) const fn spread(width: f32, across: usize) -> Self {
         Self {
             axis: Axis::Down,
+            mark: None,
             width,
             height: Length::Shrink,
             travel: fader::HEIGHT,
@@ -293,6 +314,7 @@ impl Room {
     pub(crate) const fn listed(width: f32) -> Self {
         Self {
             axis: Axis::Down,
+            mark: None,
             width,
             height: Length::Fixed(BUTTON),
             travel: fader::HEIGHT,
@@ -302,6 +324,18 @@ impl Room {
             across: 1,
             fills: false,
         }
+    }
+
+    /// The same room, with `mark` printed on the cap.
+    ///
+    /// What the front panel says about a press that the parameter table cannot:
+    /// the instrument silkscreens a waveform over one button and a padlock over
+    /// none of them, and which of its presses carry a picture rather than a word
+    /// is a fact about the front. Nothing else about the control changes.
+    #[must_use]
+    pub(crate) const fn marked(mut self, mark: crate::badge::Badge) -> Self {
+        self.mark = Some(mark);
+        self
     }
 
     /// The same, taking the room it is given rather than a width of its own.
@@ -323,6 +357,7 @@ impl Room {
     pub(crate) const fn step(width: f32) -> Self {
         Self {
             axis: Axis::Down,
+            mark: None,
             width,
             height: Length::Fixed(fader::HEIGHT),
             travel: fader::HEIGHT,
@@ -338,6 +373,7 @@ impl Room {
     pub(crate) const fn across(width: f32) -> Self {
         Self {
             axis: Axis::Across,
+            mark: None,
             width,
             height: Length::Fixed(fader::WIDTH),
             travel: fader::HEIGHT,
@@ -1211,9 +1247,22 @@ where
     // an unlit one is this window explaining a control the control already
     // states, and every legend the panel does print is silkscreened beside the
     // cap, where a finger cannot cover it.
-    let face = crate::cap::cap(capped(parameter, on, claim), Space::new())
-        .width(Length::Fixed(CAP.min(room.width)))
-        .height(Length::Fixed(PRESS));
+    // What the panel prints on the cap, where it prints anything. Stencilled in
+    // the display's own dots, which is what every small drawing in this window
+    // is made of, and in the ink a cap takes: a cap is the one surface here
+    // brighter than the panel, lit or not, so what is printed on it is dark.
+    let printing: Element<'a, Renderer> = match room.mark {
+        Some(mark) => crate::lcd::stencil(mark.screen(), crate::style::on_cap),
+        None => Space::new().into(),
+    };
+    let face = crate::cap::cap(
+        capped(parameter, on, claim),
+        container(printing)
+            .center_x(Length::Fill)
+            .center_y(Length::Fill),
+    )
+    .width(Length::Fixed(CAP.min(room.width)))
+    .height(Length::Fixed(PRESS));
     let face = if live {
         face.on_press(Message::Edit {
             parameter,

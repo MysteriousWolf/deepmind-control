@@ -111,12 +111,21 @@ The rest of the panel's rules:
   whichever section was pressed last; here each plate carries the drawing of its
   own part, and the envelopes carry the drawing no DeepMind can show, all three
   at once. See [Display](#display).
-- **A legend is printed over the control it names**, fader or button alike,
-  because that is where the instrument prints it: `RATE` over its fader and
-  `ON/OFF` over its cap, all the way along the panel. Two of the presses are
-  silkscreened with a waveform instead of a word — a sawtooth and a pulse, over
-  the pair that choose an oscillator's mix — and the mark goes in the same line
-  the words stand in, because the wave is the name of the thing.
+- **A legend is printed over a fader**, because that is where the instrument
+  prints it: `RATE` over its fader, all the way along the panel.
+- **A press carries its mark instead**, on the cap, in the display's own dots.
+  The band of ways in has done that since it was drawn, and the panel's presses
+  had words above them, which is two languages for the same row of buttons: a
+  nine-dot mark is what every other small drawing in this window is made of, and
+  a cap is large enough to hold one. A power symbol on the arpeggiator's
+  `ON/OFF`, a padlock on its `HOLD`, a low shelf on the high-pass `BOOST`, a
+  sawtooth and a pulse on the pair that choose an oscillator's mix — those two
+  the instrument's own silkscreen — and a display with writing on it on every
+  `EDIT`, because what an `EDIT` does is make the display become that section.
+  **Where a grid that size has no honest answer the press keeps its word**,
+  which on this panel is `SYNC`: every nine-dot drawing of *the second
+  oscillator restarts with the first* is either the sawtooth on the cap beside
+  it or the arrow the chrome already spends on a rescan.
 - **Every plate carries the press the hardware calls `EDIT`**, and the
   envelopes' `VCA`, `VCF` and `MOD` are the three ways into the three envelope
   panels, which is what the hardware uses them for.
@@ -133,8 +142,11 @@ The rest of the panel's rules:
   row of those along the foot of every plate is the first thing you see in a
   photograph. So the legend is printed where the panel prints it, and what is
   pressed is the lamp, lit at rest and brighter under the pointer.
-- **A button is a rubber cap, and the same cap wherever it is.** Square-ish, as
-  wide as a fader and a little over half that tall, and built out of the four
+- **A button is a rubber cap, and the same cap wherever it is.** Five wide by
+  three tall, which is what a DeepMind's caps measure in a photograph of the
+  front, and large enough to hold a nine-dot mark — which is what set the size,
+  since a cap that cannot hold its own printing is a cap with its picture under
+  the bezel. Built out of the four
   things that make one read as rubber rather than as a coloured rectangle: a
   dark bezel all the way round, because the cap is moulded into a rim and there
   is no metal edge anywhere on it; a dome down its own height, so the light

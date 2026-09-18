@@ -730,7 +730,7 @@ fn whole(section: &'static Section, name: &str, controls: &[&'static PanelContro
             .map(|control| Control {
                 legend: control.legend(),
                 parameter: control.parameter(),
-                mark: None,
+                mark: marking(control.parameter()),
             })
             .collect()
     };
@@ -843,6 +843,43 @@ const SILKSCREEN: &[Silkscreen] = &[
         rules: &[2],
     },
 ];
+
+/// What the panel prints on a press, where it prints a picture rather than a
+/// word.
+///
+/// The band of ways in carries a mark on every cap and the panel's own presses
+/// carried words above them, which is two languages for the same row of
+/// buttons. This is the panel speaking the band's: a nine-dot mark in the
+/// display's own dots, stencilled on the cap, which is what every other small
+/// drawing in this window is made of.
+///
+/// **Not every press gets one**, and that is the rule `badge` is written under:
+/// where a grid this size has no honest answer, the press keeps its word. `SYNC`
+/// is the one on this panel — what oscillator sync *is* is the second
+/// oscillator restarting with the first, and every nine-dot drawing of that is
+/// either the sawtooth already on the cap beside it or the arrow the chrome
+/// already spends on a rescan. So `SYNC` is still silkscreened above its cap,
+/// the way the instrument prints it, and the rest are pictures.
+///
+/// Two of them are the instrument's own printing rather than this window's
+/// choice: it draws a sawtooth and a pulse over the pair that choose the first
+/// oscillator's mix, and no words at all. Those come in through
+/// [`SILKSCREEN`], because they are a fact about the front of the instrument;
+/// these are a fact about this window, which has room for a picture where a
+/// silkscreen had room for five letters.
+const MARKED: &[(ParamId, Badge)] = &[
+    (ParamId::ArpOnOff, crate::badge::POWER),
+    (ParamId::ArpHold, crate::badge::LATCH),
+    (ParamId::VcfBassBoost, crate::badge::SHELF_LIFT),
+];
+
+/// The mark printed on the press that moves `parameter`, where there is one.
+fn marking(parameter: ParamId) -> Option<Badge> {
+    MARKED
+        .iter()
+        .find(|(marked, _)| *marked == parameter)
+        .map(|(_, mark)| *mark)
+}
 
 /// The presses a `DeepMind` lights cyan rather than white.
 ///
@@ -1509,7 +1546,7 @@ where
         buttons = buttons.push(switch(patch, control, firmware, scale, sent));
     }
     // Every plate has a way in, and it is the press the hardware calls EDIT.
-    buttons = buttons.push(way("EDIT", plate.opens, scale));
+    buttons = buttons.push(way(plate.opens, scale));
     container(
         column![
             heading(plate.name(), plate.note, scale),
@@ -1742,14 +1779,30 @@ where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
     let parameter = control.parameter;
+    let room = Room::listed(scale.of(SWITCH));
+    let room = match control.mark {
+        Some(mark) => room.marked(mark),
+        None => room,
+    };
     column![
-        marked(control, scale),
+        // The word only where there is no picture. A press that carries its
+        // mark carries its whole name, so printing the word over it as well
+        // would be the panel saying the same thing twice; the room stays, so a
+        // row of presses is still one row whichever way each of them is named.
+        legend(
+            if control.mark.is_some() {
+                ""
+            } else {
+                control.legend
+            },
+            scale
+        ),
         crate::panel::control(
             parameter,
             patch.value(parameter),
             patch.claim(parameter),
             firmware,
-            Room::listed(scale.of(SWITCH)),
+            room,
             sent,
         ),
     ]
@@ -1783,30 +1836,6 @@ where
     .height(Length::Fixed(scale.of(LEGEND)))
     .width(Length::Fill)
     .align_x(Horizontal::Center)
-    .into()
-}
-
-/// What the panel prints over a button: its word, or its mark where it has one.
-///
-/// Two of the instrument's presses are silkscreened with a waveform instead of
-/// a word, because the wave is the name of the thing. The mark is stencilled in
-/// the display's own dots at the size every other small drawing in this window
-/// is drawn at, and it stands in the same line the words beside it stand in, so
-/// a row of buttons is one row whichever way each of them is named.
-fn marked<'a, Renderer>(control: Control, scale: Scale) -> Element<'a, Renderer>
-where
-    Renderer: TextRenderer<Font = Font> + 'a,
-{
-    let Some(mark) = control.mark else {
-        return legend(control.legend, scale);
-    };
-    container(lcd::stencil(mark.screen(), |theme: &Theme| {
-        materials(theme).metal_low
-    }))
-    .height(Length::Fixed(scale.of(LEGEND)))
-    .width(Length::Fill)
-    .align_x(Horizontal::Center)
-    .align_y(Vertical::Center)
     .into()
 }
 
@@ -1852,12 +1881,15 @@ const RULE: f32 = 7.0;
 /// first thing anybody sees in a photograph of a `DeepMind`. So the label is
 /// printed under it in the same ink as every other legend, and what is pressed
 /// is the lamp.
-fn way<'a, Renderer>(label: &'a str, group: Group, scale: Scale) -> Element<'a, Renderer>
+fn way<'a, Renderer>(group: Group, scale: Scale) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
     column![
-        legend(label, scale),
+        // No word over it. The mark on the cap is the name, the way it is on
+        // every other press of this panel, and `EDIT` printed above a cap that
+        // already says *open this section* is the panel saying it twice.
+        legend("", scale),
         // In the room a button of the row beside it is drawn in, and standing
         // in the middle of it. The cap is the rack's own, the same width and
         // height as the lamp on the next plate along, because the band along the
@@ -1869,7 +1901,15 @@ where
                 // Lit the whole time it is powered, which is the state the
                 // instrument leaves every `EDIT` in.
                 |_: &Theme| crate::cap::Face::lit(crate::style::WAY_IN),
-                Space::new().width(Length::Fill).height(Length::Fill),
+                // And carrying the mark for what pressing it does: the display
+                // becomes this section, which is what `EDIT` is on the
+                // instrument and what it is here.
+                container(lcd::stencil(
+                    crate::badge::SECTION.screen(),
+                    crate::style::on_cap,
+                ))
+                .center_x(Length::Fill)
+                .center_y(Length::Fill),
             )
             .width(Length::Fixed(crate::panel::CAP))
             .height(Length::Fixed(crate::panel::PRESS))
@@ -2022,6 +2062,13 @@ mod tests {
             }
         }
     }
+
+    /// How far over its window a panel may measure before it has overflowed.
+    ///
+    /// A rounding error and nothing else. Both sides of that comparison are a
+    /// sum of a dozen widths each multiplied by the same scale, and the order
+    /// the sums are taken in decides the last bit.
+    const ROUNDING: f32 = 0.01;
 
     #[test]
     fn a_control_is_on_the_panel_once() {
@@ -2190,8 +2237,12 @@ mod tests {
             .map(|(index, plates)| row_width(plates, index == 0, wide))
             .fold(0.0_f32, f32::max);
 
+        // Within a rounding error, because both sides are a sum of a dozen
+        // scaled widths and the last bit of an `f32` is not a layout: a panel
+        // over its window by a ten-thousandth of a point is a panel that fits.
+        // What this is watching for is a plate's worth of overflow.
         assert!(
-            widened <= room,
+            widened <= room + ROUNDING,
             "{widened} points of panel in {room} of window"
         );
         // Not exactly the room, and deliberately: the plates holding one or two

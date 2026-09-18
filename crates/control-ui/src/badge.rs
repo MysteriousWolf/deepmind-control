@@ -421,6 +421,88 @@ pub const PANEL: Badge = Badge::new(
     SIDE,
 );
 
+/// The section: a display with writing on it, which is what an `EDIT` opens.
+///
+/// The press this window puts on every plate, and the one mark here that is a
+/// picture of *what the press does* rather than of what is behind it. Pressing
+/// `EDIT` on a `DeepMind` does not move a fader or change a sound — it makes
+/// the one display become that section — so the mark is the display with
+/// something on it.
+pub(crate) const SECTION: Badge = Badge::new(
+    &[
+        0b0_0000_0000,
+        0b0_1111_1110,
+        0b0_1000_0010,
+        0b0_1011_1010,
+        0b0_1000_0010,
+        0b0_1011_0010,
+        0b0_1000_0010,
+        0b0_1111_1110,
+        0b0_0000_0000,
+    ],
+    SIDE,
+);
+
+/// A power symbol: the press that turns a thing on and off.
+///
+/// The broken ring with the bar through it, which is the one mark in this set
+/// that nobody has to be told. It is on the arpeggiator, where the instrument
+/// silkscreens `ON/OFF`.
+pub(crate) const POWER: Badge = Badge::new(
+    &[
+        0b0_0000_0000,
+        0b0_0001_0000,
+        0b0_0101_0100,
+        0b0_1001_0010,
+        0b0_1000_0010,
+        0b0_1000_0010,
+        0b0_0100_0100,
+        0b0_0011_1000,
+        0b0_0000_0000,
+    ],
+    SIDE,
+);
+
+/// A closed padlock: what is being held is held until somebody lets it go.
+///
+/// The arpeggiator's `HOLD`, which keeps playing the notes after the keys are
+/// let go. A latch is the thing a padlock *is*, which is why this is a padlock
+/// and not a hand.
+pub(crate) const LATCH: Badge = Badge::new(
+    &[
+        0b0_0000_0000,
+        0b0_0011_1000,
+        0b0_0100_0100,
+        0b0_0100_0100,
+        0b0_1111_1110,
+        0b0_1001_0010,
+        0b0_1001_0010,
+        0b0_1111_1110,
+        0b0_0000_0000,
+    ],
+    SIDE,
+);
+
+/// A low shelf: lifted at the bottom of the range and flat above it.
+///
+/// The high-pass filter's `BOOST`, which puts back the bottom the filter took
+/// out. A response curve, drawn the way every other response in this window is:
+/// the axis runs low to high across the mark, so what is lifted is on the left.
+pub(crate) const SHELF_LIFT: Badge = Badge::new(
+    &[
+        0b0_0000_0000,
+        0b0_0000_0000,
+        0b0_1111_0000,
+        0b0_0001_0000,
+        0b0_0001_0000,
+        0b0_0001_0000,
+        0b0_0001_1111,
+        0b0_0000_0000,
+        0b0_0000_0000,
+    ],
+    SIDE,
+);
+
 /// The shelf: a row of sounds standing side by side, on the shelf they stand on.
 ///
 /// The library is a bank of programs and nothing else in this window is, so the
@@ -484,14 +566,15 @@ pub(crate) const PULSE: Badge = Badge::new(
 #[cfg(test)]
 mod tests {
     use super::{ABOUT, ARROW, Badge, CHAIN, DOWN, MAP, MATRIX, PANEL, PLUGGED, PORT, PROGRAM};
-    use super::{PULSE, READ, RESCAN, SAW, SHELF, SHUT, SIDE, STEPS, UP, WHO};
+    use super::{LATCH, POWER, PULSE, READ, RESCAN, SAW, SECTION, SHELF, SHELF_LIFT, SHUT};
+    use super::{SIDE, STEPS, UP, WHO};
 
     /// Every mark this module publishes.
     ///
     /// All of them, and it is a list somebody has to add to: the four the band
     /// of ways in wears were written under the ten the chrome wears and were
     /// checked by nothing for it.
-    const ALL: [(&str, Badge); 18] = [
+    const ALL: [(&str, Badge); 22] = [
         ("who", WHO),
         ("read", READ),
         ("rescan", RESCAN),
@@ -510,6 +593,10 @@ mod tests {
         ("saw", SAW),
         ("pulse", PULSE),
         ("shelf", SHELF),
+        ("section", SECTION),
+        ("power", POWER),
+        ("latch", LATCH),
+        ("shelf lift", SHELF_LIFT),
     ];
 
     #[test]
