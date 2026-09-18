@@ -1499,11 +1499,15 @@ fn printing(cap: Way) -> (Option<Badge>, String) {
 
 /// What the way home is called.
 ///
+/// One word, because the mark beside it is a rack of faders and the two
+/// together are unambiguous: `FRONT PANEL` spent a sixth of the row saying
+/// *panel* to a row of caps that are all panels.
+///
 /// What it goes back to, and not what it does. `BACK` is a direction and
 /// `CLOSE` is a thing happening to a sheet; this row is a row of places, so the
 /// cap that is not a section is named after the place it is: the instrument's
 /// own front, which is what the window is when nothing is over it.
-const HOME: &str = "FRONT PANEL";
+const HOME: &str = "FRONT";
 
 /// What the shelf is called.
 ///

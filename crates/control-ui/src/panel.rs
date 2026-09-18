@@ -80,9 +80,10 @@ pub(crate) const BUTTON: f32 = fader::WIDTH;
 /// under the bezel.
 ///
 /// So the cap is sized from the mark and then cut to the instrument's own
-/// proportion, which is five to three: a `DeepMind`'s caps measure about 43 by
-/// 26 in a photograph of the front. It is still one size everywhere, so a row
-/// of presses is still one row.
+/// proportion, which is four to three: a `DeepMind`'s lit face measures about
+/// 43 by 32 in a photograph of the front, and the bezel round it makes the
+/// whole cap squarer still. It is one size everywhere, so a row of presses is
+/// one row.
 pub(crate) const CAP: f32 = 50.0;
 
 /// How tall that cap stands.
@@ -90,7 +91,12 @@ pub(crate) const CAP: f32 = 50.0;
 /// [`CAP`] at the instrument's own proportion, which is what makes it read as
 /// something a finger presses rather than something a pointer clicks. A cap
 /// drawn as tall as its own label is a menu item with a light behind it.
-pub(crate) const PRESS: f32 = 30.0;
+///
+/// Measured twice. The first reading was 43 by 26, taken off a crop that cut
+/// the bottom of the cap off, and five to three is visibly flatter than the
+/// instrument: a `DeepMind`'s presses are nearly square. The lit face is 43 by
+/// 32.
+pub(crate) const PRESS: f32 = 38.0;
 
 /// How tall one lit legend of a named set stands.
 ///

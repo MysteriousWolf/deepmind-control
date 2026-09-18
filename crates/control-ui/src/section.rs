@@ -28,22 +28,29 @@ pub fn sections() -> &'static [Group] {
 /// The library's own name for it, with one exception, and the exception is why
 /// this function exists rather than a call to [`Group::name`] everywhere.
 ///
-/// # The one word this repository spells differently
+/// # The two words this repository spells differently
+///
+/// Both for one reason: the band of ways in is a row of presses across the top
+/// of the window, every cap in it is as wide as its own printing, and a name
+/// with a word in it that is doing no work spends the row's width on nothing.
+/// The word doing the work is the one the window prints.
 ///
 /// `Group::ControlSequencer` is what the manual's NRPN table calls the section,
-/// and the front of the instrument does not call it that: it prints `ARP / SEQ`
-/// on the plate the arpeggiator and the sequencer share. `CONTROL SEQUENCER` is
-/// the longest name of the fourteen, it is a quarter of the band of ways in on
-/// its own, and the word doing the work in it is the last one. So the window
-/// prints `SEQUENCER`.
+/// and the front of the instrument does not: it prints `ARP / SEQ` on the plate
+/// the arpeggiator and the sequencer share. `CONTROL SEQUENCER` was the longest
+/// of the fourteen. So the window prints `SEQUENCER`.
+///
+/// `Group::ModMatrix` is `MOD MATRIX`, and a `DeepMind` has one matrix. So the
+/// window prints `MATRIX`, which is also the word anybody would say out loud.
 ///
 /// Nothing else is renamed and nothing here is a second table: this is the
-/// library's string unless the group is that one, so a section a later library
-/// adds is printed under whatever the library calls it.
+/// library's string unless the group is one of those two, so a section a later
+/// library adds is printed under whatever the library calls it.
 #[must_use]
 pub fn name(group: Group) -> &'static str {
     match group {
         Group::ControlSequencer => SEQUENCER,
+        Group::ModMatrix => MATRIX,
         other => other.name(),
     }
 }
@@ -54,6 +61,9 @@ pub fn name(group: Group) -> &'static str {
 /// slice would be this file quietly depending on the library spelling it as two
 /// words with the useful one second.
 const SEQUENCER: &str = "Sequencer";
+
+/// What it prints instead of `Mod Matrix`, for the same reason.
+const MATRIX: &str = "Matrix";
 
 #[cfg(test)]
 #[expect(
