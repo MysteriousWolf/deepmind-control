@@ -431,24 +431,34 @@ pub const PANEL: Badge = Badge::new(
 /// this is where you change it, and a pencil says *changed and changeable
 /// again* in a way a pen does not.
 ///
-/// **Upright, and that is what makes it a pencil.** Held at an angle it is a
-/// diagonal band, and a diagonal band at nine dots is a slash whatever is done
-/// to its ends: the taper that says *sharpened* and the facets that say
-/// *hexagonal* both run along the shaft, and neither survives being drawn on a
-/// diagonal. Upright, the barrel is three vertical lines — two edges and the
-/// ridge between two faces of a six-sided pencil — over a collar where the
-/// paint stops, a two-row taper of bare wood, and a point one dot across.
+/// Held at the angle a hand holds one, with the point at the bottom left. A
+/// diagonal band at nine dots is a slash if nothing else is done to it, and two
+/// things are: the end is blunt, three dots across and standing clear of the
+/// corner, and the last two rows step three to two to one — a sharpened cone,
+/// which is the one thing a pen does not have.
+///
+/// Three dots and not four, which is a fact about the *display* rather than
+/// about pencils: these dots are printed with glass between them, so a band on
+/// a diagonal is a stack of squares with the gaps showing along both its edges.
+/// Four wide, that reads as a blob; three wide, the shaft is thin enough that
+/// the diagonal is the shape and the stepping is its texture.
+///
+/// The barrel is solid, and that is a thing nine dots cost. A groove down the
+/// shaft would carry the hexagon, and drawn on a diagonal it breaks the band
+/// into disconnected runs: what comes out is not a faceted pencil, it is a
+/// scatter. So the shape says *pencil* and the facets are the part that does not
+/// fit, which is the trade every mark in this module makes somewhere.
 pub(crate) const PENCIL: Badge = Badge::new(
     &[
         0b0_0000_0000,
-        0b0_0111_1100,
-        0b0_0101_0100,
-        0b0_0101_0100,
-        0b0_0101_0100,
-        0b0_0101_0100,
-        0b0_0111_1100,
+        0b0_0000_1110,
+        0b0_0001_1100,
         0b0_0011_1000,
-        0b0_0001_0000,
+        0b0_0111_0000,
+        0b0_1110_0000,
+        0b0_1100_0000,
+        0b0_1000_0000,
+        0b0_0000_0000,
     ],
     SIDE,
 );
@@ -599,18 +609,24 @@ pub(crate) const SAW: Badge = Badge::new(
 /// wave is drawn showing what the fader does to it. Every other waveform on the
 /// panel is drawn solid.
 ///
-/// So it is a rising edge at the left, a high bar, a dotted fall in the middle,
-/// a low bar, and the next rising edge at the right.
+/// Drawn as one cycle rising out of the baseline rather than as the
+/// instrument's two, which is a difference nine dots force. The hardware's
+/// glyph has a rising edge at each end with the low bar between them, and at
+/// this size two full-height verticals with short bars off them is a rectangle
+/// with a speck in it — the eye closes the box before it sees the wave. One
+/// solid rising edge, a solid top, a dashed falling edge and a baseline running
+/// out past both sides cannot close, and the asymmetry between the two edges is
+/// the whole of what the mark is saying.
 pub(crate) const PULSE: Badge = Badge::new(
     &[
         0b0_0000_0000,
-        0b0_1111_0010,
-        0b0_1001_0010,
-        0b0_1000_0010,
-        0b0_1001_0010,
-        0b0_1000_0010,
-        0b0_1001_1110,
-        0b0_0000_0000,
+        0b0_0111_1100,
+        0b0_0100_0100,
+        0b0_0100_0000,
+        0b0_0100_0100,
+        0b0_0100_0000,
+        0b0_0100_0100,
+        0b1_1100_0111,
         0b0_0000_0000,
     ],
     SIDE,
