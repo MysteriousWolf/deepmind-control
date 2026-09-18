@@ -55,7 +55,7 @@ with a patch bay beside them drawn from the routings themselves.
 Four of the fourteen have no plate on the front panel to carry an `EDIT`, so
 nothing opens them: see [to do](docs/todo.md).
 
-![The modulation matrix](docs/previews/mod-matrix.png)
+![The modulation matrix](docs/previews/matrix.png)
 
 ### Effects
 
