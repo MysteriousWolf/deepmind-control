@@ -22,7 +22,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use control::{App, Message, View};
-use control_ui::{Confidence, panelled, sections, unplated, ways_in};
+use control_ui::{Confidence, band, panelled, sections, unplated, ways_in};
 use deepmind_host::PortRef;
 use deepmind_midi::param::{Group, ParamId};
 
@@ -199,6 +199,74 @@ fn every_section_the_instrument_has_has_a_way_in() {
         unreachable,
         Vec::<&'static str>::new(),
         "a section has no way in; the panel's last band is supposed to be the one that catches them"
+    );
+}
+
+/// Which caps of the band are lit while `showing` is what the window has up.
+///
+/// The band's own rule, asked the way it is drawn: a cap is lit when what it
+/// puts on the screen is what is already on it.
+fn lit(showing: Option<Group>) -> Vec<Option<Group>> {
+    band().into_iter().filter(|cap| *cap == showing).collect()
+}
+
+#[test]
+fn the_band_lights_exactly_the_cap_for_what_is_open() {
+    let mut app = read();
+
+    // A window with nothing over it is a window looking at the front panel, and
+    // the front panel has a cap of its own: the row says where somebody is
+    // before it says where they can go.
+    assert_eq!(app.editing(), None);
+    assert_eq!(lit(app.editing()), vec![None], "the way home is not lit");
+
+    // And each section the band carries lights its own cap and nothing else,
+    // which is the difference between a row of tabs and a row of buttons.
+    for section in unplated() {
+        app.update(Message::Ui(control_ui::Message::Show(section)));
+        assert_eq!(app.editing(), Some(section));
+        assert_eq!(
+            lit(app.editing()),
+            vec![Some(section)],
+            "{section} is open and its cap is not the lit one"
+        );
+    }
+}
+
+#[test]
+fn a_section_with_a_plate_lights_nothing_in_the_band() {
+    let mut app = read();
+
+    // The ten sections a plate opens are not in the band, so a sheet of one of
+    // them leaves every cap unlit — including the way home, because a sheet is
+    // up and the front panel is not what somebody is looking at. Lighting the
+    // way home there would be the row claiming a place nobody is in.
+    app.update(Message::Ui(control_ui::Message::Show(Group::Vcf)));
+
+    assert!(!band().contains(&Some(Group::Vcf)), "VCF has a plate");
+    assert_eq!(lit(app.editing()), Vec::new(), "something in the band lit");
+
+    // The way home still works from there, which is why it is a cap and not a
+    // fifth section: it is the one press in the band that means anything while
+    // a plate's own sheet is up.
+    app.update(Message::Ui(control_ui::Message::Close));
+    assert_eq!(app.editing(), None);
+    assert_eq!(lit(app.editing()), vec![None]);
+}
+
+#[test]
+fn the_band_is_the_way_home_and_then_what_no_plate_carries() {
+    let caps = band();
+
+    assert_eq!(
+        caps.first(),
+        Some(&None),
+        "the way home is not the first cap of the band"
+    );
+    assert_eq!(
+        caps.into_iter().flatten().collect::<Vec<Group>>(),
+        unplated(),
+        "the band and the sections with no plate have come apart"
     );
 }
 

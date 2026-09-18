@@ -180,33 +180,24 @@ fn ticks() -> impl Stream<Item = Message> {
 /// lit at the top where the light is, rather than the flat dark the theme's own
 /// background would give. It is the one surface in the window nothing is cut
 /// into, so it is drawn once, here, around all of it.
+///
+/// Four bands down: the header, the switch between the two surfaces, the band
+/// of ways into the sections no plate carries, and then the surface itself with
+/// whatever sheet is lying over it. The footer is under all of them.
 pub(crate) fn view(app: &App) -> Element<'_, Message> {
+    let mut window = column![header(app), surfaces(app)];
+    // The band of tabs, on the panel and not on the shelf: what it opens is a
+    // section of the sound, and the shelf is the other thing this application
+    // is. It stands *outside* the sheet's shade, which is the whole of what
+    // makes it a row of tabs: a press on it while a section is open swaps the
+    // sheet, the way the second `EDIT` on the instrument does, instead of
+    // landing on the shade and closing what is up.
+    if matches!(app.view(), View::Panel) {
+        window = window.push(control_ui::ways(app.editing()).map(Message::Ui));
+    }
     let window = container(
-        column![header(app), surfaces(app)]
-            .push(match app.view() {
-                // The panel scrolls for the same reason the rack does, and it
-                // did not have to before its plates carried displays: two rows
-                // of plates are taller than a window somebody has made short,
-                // and a front panel with its lower row below the fold is a
-                // front panel with the whole voice missing.
-                View::Panel => scrollable(
-                    control_ui::panel(app.patch(), app.firmware(), app.mapper(), |screen| {
-                        paint(screen, app);
-                    })
-                    .map(Message::Ui),
-                )
-                // The bar is cut into the window beside the panel rather than
-                // laid over it. The panel is drawn out to the room it is given
-                // now, so a bar that floated over the end of it would be a bar
-                // over the last plate of every row, and a panel that shrank away
-                // from one the moment there was enough of it to scroll.
-                .direction(scrollable::Direction::Vertical(
-                    scrollable::Scrollbar::new().spacing(BESIDE),
-                ))
-                .height(Fill)
-                .into(),
-                View::Library => librarian::view(app),
-            })
+        window
+            .push(showing(app))
             // Along the foot, under whichever surface is showing, because a
             // control is pointed at on all three of them and a footer that
             // moved with the surface would be a different footer each time.
@@ -217,16 +208,59 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
     .width(Fill)
     .height(Fill)
     .style(control_ui::ground);
-    // And over it, where one of the panel's `EDIT` presses has been pressed,
-    // the section that press opened. What is underneath is still drawn: it is
-    // where the sheet came from and where putting the sheet away goes back to.
+    window.into()
+}
+
+/// Whichever surface is showing, with whatever is open over it.
+///
+/// The sheet is laid over the surface rather than over the whole window, which
+/// is a change the band of tabs asked for: a shade across everything is a shade
+/// across the tabs, and a tab that shuts the sheet instead of changing it is not
+/// a tab. What is left under the shade is what a sheet is the detail of — the
+/// panel it was opened from — and what stays out from under it is the chrome
+/// that is true whatever is open: the port, the switch between the surfaces, the
+/// band, and the footer saying what is under the pointer.
+///
+/// The three ways out of a sheet are all still there. The margin around it is
+/// still a press on the window that closes, because the shade still reaches
+/// every edge of the surface.
+fn showing(app: &App) -> Element<'_, Message> {
+    let surface: Element<'_, Message> = match app.view() {
+        // The panel scrolls for the same reason the rack does, and it
+        // did not have to before its plates carried displays: two rows
+        // of plates are taller than a window somebody has made short,
+        // and a front panel with its lower row below the fold is a
+        // front panel with the whole voice missing.
+        View::Panel => scrollable(
+            control_ui::panel(app.patch(), app.firmware(), app.mapper(), |screen| {
+                paint(screen, app);
+            })
+            .map(Message::Ui),
+        )
+        // The bar is cut into the window beside the panel rather than
+        // laid over it. The panel is drawn out to the room it is given
+        // now, so a bar that floated over the end of it would be a bar
+        // over the last plate of every row, and a panel that shrank away
+        // from one the moment there was enough of it to scroll.
+        .direction(scrollable::Direction::Vertical(
+            scrollable::Scrollbar::new().spacing(BESIDE),
+        ))
+        .height(Fill)
+        .into(),
+        View::Library => librarian::view(app),
+    };
+    // And over it, where a way in has been pressed, the section it opened. What
+    // is underneath is still drawn: it is where the sheet came from and where
+    // putting the sheet away goes back to.
     match app.editing() {
-        Some(section) => control_ui::modal(
-            window,
+        Some(section) => container(control_ui::modal(
+            surface,
             opened(app, section),
             Message::Ui(control_ui::Message::Close),
-        ),
-        None => window.into(),
+        ))
+        .height(Fill)
+        .into(),
+        None => surface,
     }
 }
 

@@ -862,14 +862,12 @@ where
         let scale = Scale::filling(room.width);
         // What every line of the panel is drawn out to.
         let panel_across = span(room.width, scale);
+        // The rack, and nothing over it. The band of ways into the sections
+        // with no plate is drawn by [`ways`] and placed by the window, above
+        // the surface a sheet lies over: a tab under the shade is a tab nobody
+        // can press while a sheet is open, and it was pushed onto the top of
+        // this column until it had to be a tab.
         let mut panel = column![].spacing(scale.of(DOWN));
-        // The band of ways in stands over the rack rather than under it. The
-        // four it opens are the four with no fader anywhere, which means they
-        // are also the four nothing else on the panel can reach — and the panel
-        // is three racks deep, so a band under it is a band below the fold of
-        // any window somebody actually opens. A press that has to be scrolled
-        // to is the problem this row was added to solve.
-        panel = panel.push(sheets(scale, panel_across));
         let mut hole = true;
         for (index, plates) in rows().iter().enumerate() {
             let standing = standing_in(plates, index == 0);
@@ -1010,69 +1008,131 @@ pub fn unplated() -> Vec<Group> {
         .collect()
 }
 
-/// Draws the row of ways in for the sections no plate carries.
+/// Every cap of the [band of ways in](ways), as what pressing it puts on the
+/// screen.
 ///
-/// One press each, spread across the whole panel the way a row of plates is, so
-/// that the row reads as the last band of the instrument rather than as a strip
-/// of buttons stuck under it. Empty where every section has a plate, which is
-/// the state a later firmware could put this in and the one thing the row must
-/// not do is leave a gap of panel behind.
-fn sheets<'a, Renderer>(scale: Scale, across: f32) -> Element<'a, Renderer>
+/// `None` is the front panel itself, which is the state with nothing over it,
+/// and every other cap is the section it opens. So the band is a list of the
+/// things the window can be showing, in the order it shows them in, and which
+/// cap is lit is one comparison against what is open rather than a flag kept
+/// beside it.
+///
+/// The way home first and the sections after it, because it is the one cap that
+/// is not a section and a row whose odd one out is in the middle is a row
+/// somebody has to look twice at. The rest are [`unplated`], subtracted from the
+/// library rather than written down here.
+#[must_use]
+pub fn band() -> Vec<Option<Group>> {
+    let mut caps = vec![None];
+    caps.extend(unplated().into_iter().map(Some));
+    caps
+}
+
+/// Draws the band of ways in: which section is on the screen, and how to change
+/// it.
+///
+/// A row of tabs, and it behaves like one. `showing` is what the window has
+/// over it — [`None`] while the panel itself is what somebody is looking at —
+/// and exactly one cap of the band is lit for it, which is the cap that would
+/// do nothing if it were pressed. Every other cap is the same rubber unlit, so
+/// the row says where somebody is at the same time as it says where they can go.
+///
+/// **It is drawn above whatever a sheet is lying over rather than on the panel.**
+/// A tab under the shade is a tab that cannot be pressed while a sheet is open,
+/// and a row of tabs you have to close a sheet to use is a row of buttons. That
+/// is why this is published and the window places it, rather than [`panel`]
+/// pushing it onto the top of the rack, which is where it was.
+///
+/// One press per section and no press for the panel's own plated ten, which are
+/// opened by the `EDIT` on the plate they are drawn on: a band carrying all
+/// fourteen would be the tab bar this window took out, and it would say the
+/// sections are peers of the panel when ten of them are printed on it.
+///
+/// Empty where every section has a plate, which is the state a later firmware
+/// could put this in: one cap saying `FRONT PANEL` to somebody already looking
+/// at the front panel is a band with nothing to do.
+///
+/// **Drawn at the size it is written at, whatever the window does.** The rack is
+/// stretched to fill the window it is in — every lane, every gap and every
+/// legend of it — and the header, the footer and the switch between the surfaces
+/// are not, because a window twice as wide is not a bigger *application*. This
+/// band left the panel to stand above the shade, so it is drawn with the things
+/// it stands among. Which is what the instrument does with the band its `EDIT`
+/// presses are in as well: the one band of the front panel this window never
+/// stretched. What the room it is given decides is how the slack is shared, and
+/// nothing else.
+#[must_use]
+pub fn ways<'a, Renderer>(showing: Option<Group>) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
-    let missing = unplated();
-    if missing.is_empty() {
+    let caps = band();
+    if caps.len() < 2 {
         return Space::new().into();
     }
-    // Each cap is as wide as its own printing needs, and the room the row has
-    // over that is shared out evenly. Four equal quarters would be four caps cut
-    // to the *shortest* name on the row, which is how `CONTROL SEQUENCER` came
-    // out as `CONTROL SEQUENCE`: a press whose word is cut off is a press that
-    // says the wrong thing, and this row has nothing but its words to say what
-    // it opens.
-    let wanted: Vec<f32> = missing
-        .iter()
-        .map(|section| lcd::room(plaque(*section).columns()) + scale.of(PAD * 2.0))
-        .collect();
-    let gutters = scale.of(ACROSS) * to_f32(missing.len().saturating_sub(1));
-    let slack = (across - gutters - wanted.iter().sum::<f32>()).max(0.0);
-    let spare = slack / to_f32(missing.len());
-    let mut line = row![].spacing(scale.of(ACROSS)).align_y(Vertical::Top);
-    for (section, width) in missing.into_iter().zip(wanted) {
-        line = line.push(sheet(section, scale, width + spare));
-    }
-    line.into()
+    container(responsive(move |room| {
+        // Each cap is as wide as its own printing needs, and the room the row
+        // has over that is shared out evenly. Equal fifths would be five caps
+        // cut to the *shortest* name on the row, which is how `CONTROL
+        // SEQUENCER` came out as `CONTROL SEQUENCE`: a press whose word is cut
+        // off is a press that says the wrong thing, and this row has nothing but
+        // its words to say what it opens.
+        let wanted: Vec<f32> = caps
+            .iter()
+            .map(|cap| lcd::room(plaque(*cap).columns()) + PAD * 2.0)
+            .collect();
+        let gutters = ACROSS * to_f32(caps.len().saturating_sub(1));
+        let slack = (room.width - gutters - wanted.iter().sum::<f32>()).max(0.0);
+        let spare = slack / to_f32(caps.len());
+        let mut line = row![].spacing(ACROSS).align_y(Vertical::Top);
+        for (cap, width) in caps.iter().copied().zip(wanted) {
+            line = line.push(tab(cap, showing, width + spare));
+        }
+        line.into()
+    }))
+    // As tall as one cap, which is a measurement and not a share of the window:
+    // a band given a height of its own would take whatever the column had left
+    // and stand its caps in the top of it.
+    .height(Length::Fixed(crate::panel::BUTTON))
+    .into()
 }
 
-/// A count of sections as a width can use it.
+/// A count of caps as a width can use it.
 #[expect(
     clippy::cast_precision_loss,
-    reason = "a count of sections, which is fourteen"
+    reason = "a count of caps in a band, which is five"
 )]
 fn to_f32(count: usize) -> f32 {
     count as f32
 }
 
-/// One of them: the section's mark and its name, stencilled on a cap.
+/// One cap of that band: the section's mark and its name, stencilled on it.
 ///
 /// Both in the display's own dots. Every small drawing in this window is made
-/// of them, and a row of presses at the foot of the panel carrying words set in
-/// the machine's sans would be the one band here that was not. The name is on
-/// the cap rather than in the footer because the band is as wide as a quarter
-/// of the panel: a mark alone in that much room is a mark somebody has to hover
-/// to read, and there is room for the word.
-fn sheet<'a, Renderer>(section: Group, scale: Scale, width: f32) -> Element<'a, Renderer>
+/// of them, and a row of presses over the panel carrying words set in the
+/// machine's sans would be the one band here that was not. The name is on the
+/// cap rather than in the footer because the band is drawn across the window: a
+/// mark alone in a fifth of that is a mark somebody has to hover to read, and
+/// there is room for the word.
+///
+/// Lit while it is the one on the screen, and what it sends is the other half
+/// of that: a section's cap opens it, and the panel's own cap puts away
+/// whatever is over the panel. Which is why the way home works from *any*
+/// sheet, including the ten a plate's `EDIT` opens, even though no cap here is
+/// lit while one of those is up.
+fn tab<'a, Renderer>(
+    cap: Option<Group>,
+    showing: Option<Group>,
+    width: f32,
+) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
-    let plaque = lcd::stencil(plaque(section), |theme: &Theme| {
-        // Dark on the cap, and not the pale metal a mark on the panel is
-        // printed in. These caps are lit, the way the `EDIT` beside every plate
-        // is, and pale printing on a lit cap is the one place in this window
-        // where the ink and the thing under it are the same brightness.
-        let material = materials(theme);
-        crate::style::mix(material.recess, material.panel, PRINTED)
+    // Lit when what this cap puts on the screen is what is on it already, which
+    // is the one cap in the band that would do nothing if it were pressed.
+    let chosen = cap == showing;
+    let plaque = lcd::stencil(plaque(cap), move |theme: &Theme| {
+        crate::style::on_cap(theme, chosen)
     });
     button(
         container(plaque)
@@ -1080,29 +1140,25 @@ where
             .center_y(Length::Fill),
     )
     .width(Length::Fixed(width))
-    .height(Length::Fixed(scale.of(crate::panel::BUTTON)))
+    .height(Length::Fill)
     .padding(0)
-    .style(crate::style::way_in)
-    .on_press(Message::Show(section))
+    .style(move |theme: &Theme, status| crate::style::way_in(theme, chosen, status))
+    .on_press(match cap {
+        Some(section) => Message::Show(section),
+        None => Message::Close,
+    })
     .into()
 }
-
-/// How far the printing on one of those caps is carried from the dark towards
-/// the panel.
-///
-/// Barely at all: it is ink on a lit cap, which is the one thing in this window
-/// printed on something brighter than itself.
-const PRINTED: f32 = 0.2;
 
 /// How much glass stands between a section's mark and its name.
 const BESIDE: i32 = 3;
 
-/// The mark and the name of a section, as one screen of dots.
-fn plaque(section: Group) -> Screen {
-    let name = section.name().to_uppercase();
+/// The mark and the name of a cap, as one screen of dots.
+fn plaque(cap: Option<Group>) -> Screen {
+    let (mark, name) = printing(cap);
     let word = Screen::width_of(&name, Size::Small);
     let line = Screen::height_of(Size::Small);
-    let mark = marked(section).map(Badge::screen);
+    let mark = mark.map(Badge::screen);
     let lead = mark.as_ref().map_or(0, |mark| mark.columns() + BESIDE);
     let tall = mark.as_ref().map_or(line, |mark| mark.rows().max(line));
     let mut screen = Screen::new(lead + word, tall);
@@ -1120,22 +1176,35 @@ fn plaque(section: Group) -> Screen {
     screen
 }
 
-/// Returns the mark a section with no plate is opened by, where it has one.
+/// What one of those caps says: its mark, where it has one, and its word.
 ///
-/// Four of the fourteen, which are the four the instrument has no fader for.
-/// A section that gained parameters but no fader in a later firmware would
-/// arrive here with no mark and be opened by its name alone, which is a press
-/// that still works and still says what it opens: the row is derived from the
-/// library and the drawings are not, so the drawings are what can be missing.
-const fn marked(section: Group) -> Option<Badge> {
-    match section {
+/// Four of the fourteen sections have a mark, which are the four the instrument
+/// has no fader for. A section that gained parameters but no fader in a later
+/// firmware would arrive here with no mark and be opened by its name alone,
+/// which is a press that still works and still says what it opens: the row is
+/// derived from the library and the drawings are not, so the drawings are what
+/// can be missing.
+fn printing(cap: Option<Group>) -> (Option<Badge>, String) {
+    let Some(section) = cap else {
+        return (Some(crate::badge::PANEL), HOME.to_owned());
+    };
+    let mark = match section {
         Group::ModMatrix => Some(crate::badge::MATRIX),
         Group::Effects => Some(crate::badge::CHAIN),
         Group::ControlSequencer => Some(crate::badge::STEPS),
         Group::Program => Some(crate::badge::PROGRAM),
         _ => None,
-    }
+    };
+    (mark, section.name().to_uppercase())
 }
+
+/// What the way home is called.
+///
+/// What it goes back to, and not what it does. `BACK` is a direction and
+/// `CLOSE` is a thing happening to a sheet; this row is a row of places, so the
+/// cap that is not a section is named after the place it is: the instrument's
+/// own front, which is what the window is when nothing is over it.
+const HOME: &str = "FRONT PANEL";
 
 /// Draws one group of the panel: its name, its controls, and its way in.
 ///
@@ -1467,7 +1536,7 @@ where
             button(Space::new().width(Length::Fill).height(Length::Fill))
                 .width(Length::Fixed(crate::panel::CAP))
                 .height(Length::Fixed(crate::panel::PRESS))
-                .style(crate::style::way_in)
+                .style(|theme: &Theme, status| crate::style::way_in(theme, true, status))
                 .on_press(Message::Show(group)),
         )
         .height(Length::Fixed(crate::panel::BUTTON))

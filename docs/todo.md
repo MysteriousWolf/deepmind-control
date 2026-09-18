@@ -21,30 +21,39 @@ and the front panel carries a claim per control, but nothing now says it about
 the sections that are not on the screen.
 
 Whether that is worth replacing, and where — the plate headings, the window's
-own display, the footer — is open.
+own display, the footer — is open. The band of ways in is a row of caps again
+and could carry a dot per cap, which would say it about four of the fourteen:
+the four it opens. That is a quarter of the answer and it is the quarter about
+the sections a player cannot see the state of anywhere else, so it is the first
+thing to try and it is still not the thing the bar did.
 
 ## Answered
 
 ### Four sections have no way in
 
-**Answered by a band of ways in over the rack.** The panel is drawn from the
+**Answered by a band of ways in above the surface.** The panel is drawn from the
 library's table of what the instrument puts a *fader* under, so the four
 sections with no fader anywhere had no plate to carry an `EDIT`: the modulation
 matrix, the effects, the control sequencer and the program's own settings. They
 were reachable only by the code that asked for them directly.
 
-The panel now opens with a band of four caps, one per section, each carrying the
-section's mark and its name in the display's own dots. `control_ui::unplated` is
-that list and it is *subtracted* rather than written down: it is every section
-the library has, less every section a plate opens, so a fifteenth arriving in a
-later firmware gets a way in without anybody noticing it had to. Which is also
-what `the_last_band_carries_exactly_what_no_plate_does` holds, beside
+The window now carries a band of caps above the surface, one per section, each
+carrying the section's mark and its name in the display's own dots, with a fifth
+in front of them for the front panel itself. `control_ui::unplated` is that list
+and it is *subtracted* rather than written down: it is every section the library
+has, less every section a plate opens, so a fifteenth arriving in a later
+firmware gets a way in without anybody noticing it had to. Which is also what
+`the_last_band_carries_exactly_what_no_plate_does` holds, beside
 `every_section_the_instrument_has_has_a_way_in`.
 
-**Over the rack and not under it**, which is the one thing about the layout that
-was not a free choice. The panel is three racks deep and a window opens on
-roughly one of them, so a band under the panel is a band below the fold — and a
-press that has to be scrolled to is the problem the band was added to solve.
+**Above the surface and not on the panel**, which is the one thing about the
+layout that was not a free choice. It was drawn at the foot of the panel first,
+which put it about 500pt below the fold of a window opened on a panel three
+racks deep; then at the head of the panel, which was reachable but inside the
+scroll and, worse, underneath the shade a sheet casts. A tab that cannot be
+pressed while a sheet is open is not a tab: pressing it landed on the shade and
+shut what was up. So the band is chrome now, drawn between the surface switch
+and the surface, and the shade covers the surface alone.
 
 The other options in this row's first draft, kept because they are what somebody
 would reach for next if this one ever stops working: putting them on the

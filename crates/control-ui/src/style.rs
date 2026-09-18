@@ -612,8 +612,7 @@ pub fn marked(theme: &Theme, status: button::Status) -> button::Style {
 /// and a row of them along the bottom of every plate is the thing you see first
 /// in a photograph of the instrument. So this is a lamp rather than a label: it
 /// carries no text, because the text is printed under it where the panel prints
-/// it, and it is lit when nothing is happening to it, because that is the state
-/// the instrument leaves them in.
+/// it.
 ///
 /// It is [moulded](moulded) like every other cap in the window, so what is lit
 /// is a soft thing standing proud of the panel rather than a filled rectangle.
@@ -622,24 +621,41 @@ pub fn marked(theme: &Theme, status: button::Status) -> button::Style {
 /// somewhere to go. A button with nothing to open loses the lamp altogether and
 /// keeps the panel, which is a hole where a light should be and reads as
 /// unavailable at a glance.
+///
+/// `lit` is whether there is a lamp behind it at all. An `EDIT` on a plate is
+/// always lit, because that is the state the instrument leaves them in; a cap
+/// in the [band of ways in](crate::ways) is lit only while the section it opens
+/// is the one on the screen, which is what makes that band a row of tabs rather
+/// than a row of buttons. **Unlit is not off.** It is the same cap with no lamp
+/// under it: the pale translucent rubber a `DeepMind`'s buttons are moulded
+/// from, catching the room's light instead of giving off its own, which is
+/// exactly what [`crate::panel`] draws a switch that is not engaged as. A cap
+/// that lost its relief when it lost its lamp would be two controls wearing one
+/// name.
 #[must_use]
-pub fn way_in(theme: &Theme, status: button::Status) -> button::Style {
+pub fn way_in(theme: &Theme, lit: bool, status: button::Status) -> button::Style {
     let material = materials(theme);
-    // How much of the lamp reaches the face. A lit button on a dark panel is
-    // still a cap over a lamp and not the lamp itself, so even the pressed
-    // state keeps a little of the panel in it.
-    let through = match status {
-        button::Status::Active => 0.54,
-        button::Status::Hovered => 0.78,
-        button::Status::Pressed => 0.92,
-        button::Status::Disabled => 0.0,
-    };
     let held = matches!(status, button::Status::Pressed);
+    if !lit {
+        let face = mix(material.panel, material.metal_low, rubber(status));
+        return button::Style {
+            background: Some(moulded(face, held)),
+            text_color: material.metal_low,
+            border: border::rounded(MOULD)
+                .width(1.0)
+                .color(material.recess_edge),
+            // No lamp is no spill. A cap that glowed while it was dark would be
+            // the one thing on this panel lit from nowhere.
+            ..button::Style::default()
+        };
+    }
+    let through = lamp(status);
     let face = mix(material.panel, WAY_IN, through);
     button::Style {
         background: Some(moulded(face, held)),
-        // Nothing is set in it, and a colour that would be unreadable if
-        // something were is a trap for whoever puts a word there later.
+        // Nothing is set in it by the toolkit, and a colour that would be
+        // unreadable if something were is a trap for whoever puts a word there
+        // later. What this window prints on a cap it prints in [`on_cap`].
         text_color: material.ink,
         border: border::rounded(MOULD).width(1.0).color(mix(
             material.recess,
@@ -660,6 +676,68 @@ pub fn way_in(theme: &Theme, status: button::Status) -> button::Style {
         ..button::Style::default()
     }
 }
+
+/// How much of the lamp reaches the face of a lit cap.
+///
+/// A lit button on a dark panel is still a cap over a lamp and not the lamp
+/// itself, so even the pressed state keeps a little of the panel in it.
+fn lamp(status: button::Status) -> f32 {
+    match status {
+        button::Status::Active => 0.54,
+        button::Status::Hovered => 0.78,
+        button::Status::Pressed => 0.92,
+        button::Status::Disabled => 0.0,
+    }
+}
+
+/// How much metal is in the face of an unlit one.
+///
+/// The same two figures the panel's own unlit caps are moulded in, because it
+/// is the same cap: barely any, so that what a hand gets back for coming near
+/// one is the cap lifting a little out of the panel rather than a second
+/// colour.
+fn rubber(status: button::Status) -> f32 {
+    match status {
+        button::Status::Active => 0.12,
+        button::Status::Hovered => 0.22,
+        button::Status::Pressed => 0.30,
+        button::Status::Disabled => 0.06,
+    }
+}
+
+/// The ink something printed on a cap is stencilled in.
+///
+/// Two inks, because a cap is two surfaces. On a lit one the printing is dark:
+/// the face is a lamp shining through amber rubber, which is the one place in
+/// this window where something is printed on a surface brighter than itself, so
+/// the ink is carried barely at all from the dark towards the panel. On an unlit
+/// one it is the pale metal the panel prints its legends in, because an unlit
+/// cap *is* panel-dark and dark ink on it is ink nobody can read.
+///
+/// Both are mixed off the theme's own materials rather than written down as
+/// colours, so a window someone has themed differently prints on its caps in
+/// its own ink.
+#[must_use]
+pub fn on_cap(theme: &Theme, lit: bool) -> Color {
+    let material = materials(theme);
+    if lit {
+        mix(material.recess, material.panel, PRINTED)
+    } else {
+        mix(material.panel, material.metal, LEGEND)
+    }
+}
+
+/// How far the printing on a lit cap is carried from the dark towards the panel.
+///
+/// Barely at all: it is ink on a lamp.
+const PRINTED: f32 = 0.2;
+
+/// How far the printing on an unlit one is carried from the panel towards the
+/// metal.
+///
+/// The chrome's own weight, which is what every other mark stencilled on this
+/// panel is drawn at.
+const LEGEND: f32 = 0.82;
 
 /// What something chosen from a list is drawn as.
 ///

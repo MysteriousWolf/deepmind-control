@@ -395,12 +395,43 @@ pub const PROGRAM: Badge = Badge::new(
     SIDE,
 );
 
+/// The front panel itself: three faders, each one set differently.
+///
+/// The way back out of a section, and what it goes back to is a rack of faders:
+/// the one drawing that is this window's first surface rather than any part of
+/// it. Three tracks with a cap across each, at three heights, because three caps
+/// at one height is a comb and one fader alone is a line with a lump on it.
+///
+/// A cap is two rows deep and not one. One row is a track crossed by a bar,
+/// which at this pitch is a plus sign three times over; two is a thing sitting
+/// *on* the track, which is what a fader cap is and what tells this mark from
+/// the matrix's grid at a glance.
+pub const PANEL: Badge = Badge::new(
+    &[
+        0b0_0000_0000,
+        0b0_1011_1010,
+        0b0_1011_1010,
+        0b0_1001_0111,
+        0b0_1001_0111,
+        0b1_1101_0010,
+        0b1_1101_0010,
+        0b0_1001_0010,
+        0b0_0000_0000,
+    ],
+    SIDE,
+);
+
 #[cfg(test)]
 mod tests {
-    use super::{ABOUT, ARROW, Badge, DOWN, MAP, PLUGGED, PORT, READ, RESCAN, SHUT, SIDE, UP, WHO};
+    use super::{ABOUT, ARROW, Badge, CHAIN, DOWN, MAP, MATRIX, PANEL, PLUGGED, PORT, PROGRAM};
+    use super::{READ, RESCAN, SHUT, SIDE, STEPS, UP, WHO};
 
     /// Every mark this module publishes.
-    const ALL: [(&str, Badge); 10] = [
+    ///
+    /// All of them, and it is a list somebody has to add to: the four the band
+    /// of ways in wears were written under the ten the chrome wears and were
+    /// checked by nothing for it.
+    const ALL: [(&str, Badge); 15] = [
         ("who", WHO),
         ("read", READ),
         ("rescan", RESCAN),
@@ -411,6 +442,11 @@ mod tests {
         ("shut", SHUT),
         ("up", UP),
         ("down", DOWN),
+        ("panel", PANEL),
+        ("matrix", MATRIX),
+        ("chain", CHAIN),
+        ("steps", STEPS),
+        ("program", PROGRAM),
     ];
 
     #[test]

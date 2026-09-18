@@ -118,31 +118,14 @@ The rest of the panel's rules:
 - **Every plate carries the press the hardware calls `EDIT`**, and the
   envelopes' `VCA`, `VCF` and `MOD` are the three ways into the three envelope
   panels, which is what the hardware uses them for.
-- **And the panel opens with a band of caps for the sections no plate carries.**
-  The plates are the library's table of what the instrument puts a *fader*
-  under, so four sections have no plate and had no way in at all: the modulation
-  matrix, the effects, the control sequencer and the program's own settings. A
-  `DeepMind` reaches all four from buttons rather than from faders, so the band
-  is that arrangement continued rather than an invention.
-
-  The list is *subtracted* rather than written down. `control_ui::unplated` is
-  every section the library has, less every section a plate opens, so a fifteenth
-  arriving in a later firmware gets a cap without anybody noticing it had to, and
-  the band is empty on the day every section has a plate.
-
-  Each cap carries the section's mark and its name, both in the display's own
-  dots, stencilled on the cap the way a legend is stencilled on the panel. The
-  name is on the cap rather than in the footer because a cap here is a quarter of
-  the panel wide: a mark alone in that much brass is a mark somebody has to hover
-  to read. The ink is dark, which is the one place in this window something is
-  printed on a surface brighter than itself, and the caps are as wide as their
-  own printing needs with the slack shared out evenly, because four equal
-  quarters cut `CONTROL SEQUENCER` down to `CONTROL SEQUENCE`.
-
-  **It stands over the rack and not under it.** The panel is three racks deep and
-  a window opens on about one of them, so a band at the foot is a band below the
-  fold, and a press that has to be scrolled to is the thing the band was added to
-  fix.
+- **And above the panel there is a band of caps for the sections no plate
+  carries.** The plates are the library's table of what the instrument puts a
+  *fader* under, so four sections have no plate and had no way in at all: the
+  modulation matrix, the effects, the control sequencer and the program's own
+  settings. A `DeepMind` reaches all four from buttons rather than from faders,
+  so the band is that arrangement continued rather than an invention. It is
+  described with the panel because it is the way into the sections, and it is
+  drawn by the window: see [the band of ways in](#the-band-of-ways-in).
 - **A way in is a legend and a lamp, not a word in a box.** `EDIT` is not
   written on the button on the instrument: it is silkscreened on the panel under
   a blank rubber cap lit amber the whole time the synthesizer is powered, and a
@@ -275,6 +258,15 @@ mark stencilled the way the chrome's other marks are, and behind it the panel's
 own darkest material at three-quarters alpha. Not a dialog borrowed from a
 toolkit and not a grey invented for one.
 
+**The shade covers the surface and not the whole window.** What a sheet is the
+detail *of* is the panel it was opened from, and that is what goes dark under it.
+What stays lit is the chrome that is true whatever is open: the port, the switch
+between the surfaces, the band of ways in, and the footer saying what is under
+the pointer. The band is the reason — a shade across everything is a shade across
+the tabs — and the rest follows from it, because those are the parts of the
+window a sheet is not standing in front of. All three ways out are untouched: the
+margin round the sheet is still shade, and a press on it still closes.
+
 **A sheet carries the claim of what is on it**, as the same dot the legend
 explains, beside the section's name. Each of the fourteen tabs used to carry
 one, and a bar of green dots with one copper one among them read as "the sound
@@ -299,8 +291,59 @@ and the person did not.
 of what the instrument puts a fader under, so a section with no fader anywhere
 has no plate and no way in: the modulation matrix, the effects, the control
 sequencer and the program's own settings. The tab bar reached them and nothing
-does now. See [to do](todo.md), which is where the four are listed and where
-what to do about them is still open.
+did for a while. The band of ways in is what reaches them now.
+
+## The band of ways in
+
+A row of caps above the surface, one for the front panel itself and one for each
+section no plate carries. `control_ui::ways` draws it and the window places it,
+between the switch that chooses a surface and the surface itself.
+
+**The list is subtracted rather than written down.** `control_ui::unplated` is
+every section the library has, less every section a plate opens, so a fifteenth
+arriving in a later firmware gets a cap without anybody noticing it had to, and
+the band is empty on the day every section has a plate. `control_ui::band` is
+that list with the way home in front of it, as `Option<Group>`: `None` is the
+panel with nothing over it and every other cap is the section it opens, which is
+the same thing the window records about what is open. So which cap is lit is one
+comparison rather than a flag kept beside the list.
+
+**The caps behave like tabs, because that is what they are.** Exactly one is lit
+at a time, and it is the one that would do nothing if it were pressed: the
+section on the screen, or the front panel while nothing is over it. A lit cap is
+the lamp behind amber rubber that every `EDIT` on the panel is. An unlit one is
+the *same cap* with no lamp under it — the pale translucent rubber a `DeepMind`'s
+buttons are moulded from, which is exactly what a switch that is not engaged is
+drawn as elsewhere in this window. Nothing about the shape changes, because
+nothing about the button changes; what changes is whether there is a light in it.
+
+**The way home is a cap and not a fifth section.** It carries a rack of faders as
+its mark and the words `FRONT PANEL`, and it sends the same message the mark on a
+sheet sends: whatever is over the window should close. It is the one cap in the
+band that means something while a *plated* section's sheet is up — a `VCF` sheet
+leaves every cap unlit, because none of them is where somebody is, and the way
+home is still the way back.
+
+**The band stands outside the shade, and that is the whole of why it moved.** It
+was the first band of the panel, inside the scroll. A tab under a sheet's shade
+is a tab that cannot be pressed while a sheet is open, and a row of tabs you have
+to close a sheet to use is a row of buttons: pressing one would land on the shade
+and shut what was up. Above the surface, a press on it swaps the sheet, the way a
+second `EDIT` on the instrument makes its one display show the other section.
+
+**Each cap carries the section's mark and its name**, both in the display's own
+dots, stencilled the way a legend is stencilled on the panel. The name is on the
+cap rather than in the footer because a cap here is a fifth of the window wide: a
+mark alone in that much room is a mark somebody has to hover to read. The ink is
+dark on a lit cap, which is the one place in this window something is printed on
+a surface brighter than itself, and the panel's own pale metal on an unlit one,
+because an unlit cap is panel-dark and dark ink on it is ink nobody can read.
+
+**The caps are as wide as their own printing needs**, with the slack shared out
+evenly, because five equal fifths cut `CONTROL SEQUENCER` down to `CONTROL
+SEQUENCE`. The band is drawn at the size it is written at whatever the window
+does: it is chrome now and not panel, and the header, the footer and the surface
+switch do not stretch either.
 
 ## Two surfaces, and the sound survives the switch
 
