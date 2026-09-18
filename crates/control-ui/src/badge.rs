@@ -421,34 +421,35 @@ pub const PANEL: Badge = Badge::new(
     SIDE,
 );
 
-/// A pen: the press that puts you where the thing is changed.
+/// A pencil: the press that puts you where the thing is changed.
 ///
 /// `EDIT` on every plate, and the one mark in this set that draws neither what
 /// is behind the press nor what the press does to the instrument. Pressing
 /// `EDIT` on a `DeepMind` moves no fader and changes no sound — it opens the
 /// section — and a picture of *that* is a picture of a display, which is a
-/// drawing of the machinery rather than of the offer. A pen is the offer: this
-/// is where you change it.
+/// drawing of the machinery rather than of the offer. A pencil is the offer:
+/// this is where you change it, and a pencil says *changed and changeable
+/// again* in a way a pen does not.
 ///
-/// Held at the angle a pen is held at, with the nib at the bottom left where a
+/// Held at the angle one is held at, with the point at the bottom left where a
 /// right hand puts it, because a shaft drawn upright is a pencil in a pot.
 ///
-/// What makes a diagonal band read as a pen rather than as a slash is that its
-/// two ends are different: one comes to a single dot and the other is blunt,
-/// with the collar above the nib a dot wider than the shaft. Both ends stand
-/// clear of the corners of the grid, because an end that runs off the edge is
-/// an end nobody can see is an end.
-pub(crate) const PEN: Badge = Badge::new(
+/// **The taper is what makes it a pencil rather than a slash or a pen.** The
+/// body is four dots across and steps to three, two and one over the three rows
+/// below it, which is a sharpened cone; a pen's nib is a step, and a slash has
+/// no step at all. The blunt end stands clear of the corner, because an end that
+/// runs off the edge of the grid is an end nobody can see is an end.
+pub(crate) const PENCIL: Badge = Badge::new(
     &[
         0b0_0000_0000,
-        0b0_0000_1110,
         0b0_0001_1110,
-        0b0_0001_1100,
-        0b0_0011_1000,
-        0b0_0111_0000,
+        0b0_0011_1100,
+        0b0_0111_1000,
+        0b0_1111_0000,
         0b0_1110_0000,
         0b0_1100_0000,
         0b0_1000_0000,
+        0b0_0000_0000,
     ],
     SIDE,
 );
@@ -493,20 +494,51 @@ pub(crate) const LATCH: Badge = Badge::new(
     SIDE,
 );
 
-/// A low shelf: lifted at the bottom of the range and flat above it.
+/// A speaker: what the high-pass filter's `BOOST` puts back.
 ///
-/// The high-pass filter's `BOOST`, which puts back the bottom the filter took
-/// out. A response curve, drawn the way every other response in this window is:
-/// the axis runs low to high across the mark, so what is lifted is on the left.
-pub(crate) const SHELF_LIFT: Badge = Badge::new(
+/// It was a low shelf — the response curve, lifted at the bottom and flat above
+/// it — and the trouble with drawing a response on this panel is that a
+/// response is what half the marks here already are: a step at nine dots is a
+/// square wave with a leg missing, and on a row that already carries a sawtooth
+/// and a pulse it reads as a third waveform.
+///
+/// So it is the thing you hear rather than the curve that makes it. A cone
+/// facing right, which is the one drawing at this size that is unmistakably
+/// *low end*.
+pub(crate) const SPEAKER: Badge = Badge::new(
+    &[
+        0b0_0000_0000,
+        0b0_0000_0110,
+        0b0_0000_1110,
+        0b0_0111_1110,
+        0b0_0111_1110,
+        0b0_0111_1110,
+        0b0_0000_1110,
+        0b0_0000_0110,
+        0b0_0000_0000,
+    ],
+    SIDE,
+);
+
+/// Two rings, linked: one thing running in step with another.
+///
+/// `SYNC` on the oscillators, where the second is restarted by the first. It
+/// kept its word until now under the rule this module is written to — where a
+/// grid this size has no honest answer, the press keeps its word — and what
+/// makes the word unnecessary is that the honest answer was never a picture of
+/// *oscillator* sync. Every drawing of that at nine dots is either the sawtooth
+/// already on the cap two along or the arrow the chrome spends on a rescan.
+/// Linked rings are a picture of *sync*, which is what the press is called and
+/// what it does.
+pub(crate) const LOCKED: Badge = Badge::new(
     &[
         0b0_0000_0000,
         0b0_0000_0000,
-        0b0_1111_0000,
-        0b0_0001_0000,
-        0b0_0001_0000,
-        0b0_0001_0000,
-        0b0_0001_1111,
+        0b0_0110_1100,
+        0b0_1001_0010,
+        0b0_1001_0010,
+        0b0_1001_0010,
+        0b0_0110_1100,
         0b0_0000_0000,
         0b0_0000_0000,
     ],
@@ -576,7 +608,7 @@ pub(crate) const PULSE: Badge = Badge::new(
 #[cfg(test)]
 mod tests {
     use super::{ABOUT, ARROW, Badge, CHAIN, DOWN, MAP, MATRIX, PANEL, PLUGGED, PORT, PROGRAM};
-    use super::{LATCH, PEN, POWER, PULSE, READ, RESCAN, SAW, SHELF, SHELF_LIFT, SHUT};
+    use super::{LATCH, LOCKED, PENCIL, POWER, PULSE, READ, RESCAN, SAW, SHELF, SHUT, SPEAKER};
     use super::{SIDE, STEPS, UP, WHO};
 
     /// Every mark this module publishes.
@@ -584,7 +616,7 @@ mod tests {
     /// All of them, and it is a list somebody has to add to: the four the band
     /// of ways in wears were written under the ten the chrome wears and were
     /// checked by nothing for it.
-    const ALL: [(&str, Badge); 22] = [
+    const ALL: [(&str, Badge); 23] = [
         ("who", WHO),
         ("read", READ),
         ("rescan", RESCAN),
@@ -603,10 +635,11 @@ mod tests {
         ("saw", SAW),
         ("pulse", PULSE),
         ("shelf", SHELF),
-        ("pen", PEN),
+        ("pencil", PENCIL),
         ("power", POWER),
         ("latch", LATCH),
-        ("shelf lift", SHELF_LIFT),
+        ("speaker", SPEAKER),
+        ("locked", LOCKED),
     ];
 
     #[test]

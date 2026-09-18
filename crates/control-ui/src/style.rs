@@ -96,13 +96,14 @@ const PALETTE: Palette = Palette {
     danger: color!(0xb4483c),
 };
 
-/// The two saturated colours on the panel, which are the instrument's own.
+/// The colours of the light coming through the instrument's buttons.
 ///
-/// A `DeepMind`'s front panel is dark, and the only colour on it is the light
-/// coming through its buttons: amber on every `EDIT` and on the presses that
-/// change what the display is showing, cyan on `MOD`, `CHORD` and `CURVES`.
-/// Those are the two this window uses, for the two jobs it has that need one,
-/// and it takes the hardware's own pairing rather than inventing a third:
+/// A `DeepMind`'s front panel is dark, and two things on it are not: the
+/// [banners](BANNER) its section names are printed on, and the lamps behind its
+/// buttons. These are the lamps — amber on every `EDIT` and on the presses that
+/// change what the display is showing, cyan on `MOD`, `CHORD` and `CURVES`,
+/// white on a plain switch. This window takes the hardware's own three rather
+/// than inventing any:
 ///
 /// | | |
 /// | --- | --- |
@@ -126,6 +127,43 @@ pub const WAY_IN: Color = color!(0xffbe3d);
     reason = "a colour is read as a colour, and `0x0040_d0e6` is not one"
 )]
 pub const MODULATION: Color = color!(0x40d0e6);
+
+/// The three colours a `DeepMind` prints its section banners in.
+///
+/// The band across the top of every plate, with the section's name knocked out
+/// of it: `OSC 1 & 2` in white on red, `ARP / SEQ` in white on blue,
+/// `ENVELOPES` in black on white. They are what the eye follows across the
+/// front of the instrument before it reads a single legend, and they are the
+/// largest colour on it by a long way — a photograph of a `DeepMind` is a dark
+/// panel with a dozen red stripes across it.
+///
+/// This window drew them as pale grey strips, which is the shape of the thing
+/// without the livery. It is the livery now, measured off the same photographs
+/// the caps were: `#c8172e`, `#01609b` and `#f2f3f0`.
+///
+/// Which band is which colour is a fact about the front of the instrument that
+/// `front::Section` does not publish, so it is transcribed beside the presses
+/// and the lamps in [`crate::home`] and asked for in
+/// [deepmind-midi#45](https://github.com/MysteriousWolf/deepmind-midi/issues/45).
+#[expect(
+    clippy::unreadable_literal,
+    reason = "a colour is read as a colour, and `0x00c8_172e` is not one"
+)]
+pub const BANNER: Color = color!(0xc8172e);
+
+/// The blue the instrument prints `ARP / SEQ` and `HPF` on. See [`BANNER`].
+#[expect(
+    clippy::unreadable_literal,
+    reason = "a colour is read as a colour, and `0x0001_609b` is not one"
+)]
+pub const BANNER_BLUE: Color = color!(0x01609b);
+
+/// The white it prints `ENVELOPES` on. See [`BANNER`].
+#[expect(
+    clippy::unreadable_literal,
+    reason = "a colour is read as a colour, and `0x00f2_f3f0` is not one"
+)]
+pub const BANNER_PALE: Color = color!(0xf2f3f0);
 
 /// The white the instrument lights a plain switch in.
 ///

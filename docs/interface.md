@@ -119,15 +119,17 @@ The rest of the panel's rules:
   nine-dot mark is what every other small drawing in this window is made of, and
   a cap is large enough to hold one. A power symbol on the arpeggiator's
   `ON/OFF`, a padlock on its `HOLD`, a low shelf on the high-pass `BOOST`, a
-  sawtooth and a pulse on the pair that choose an oscillator's mix — those two
-  the instrument's own silkscreen — and a pen on every `EDIT`, because what is
-  behind that press is where the section is changed. The pen is the offer; a
-  drawing of the display becoming the section would be a drawing of the
+  sawtooth and a pulse on the pair that choose the first oscillator's mix —
+  those two the instrument's own silkscreen — two linked rings on `SYNC`, a
+  speaker on the high-pass `BOOST`, and a pencil on every `EDIT`, because what
+  is behind that press is where the section is changed. The pencil is the offer;
+  a drawing of the display becoming the section would be a drawing of the
   machinery.
-  **Where a grid that size has no honest answer the press keeps its word**,
-  which on this panel is `SYNC`: every nine-dot drawing of *the second
-  oscillator restarts with the first* is either the sawtooth on the cap beside
-  it or the arrow the chrome already spends on a rescan.
+  Where a grid that size has no honest answer a press may keep its word, and no
+  press on this panel does: `SYNC` did, because nine dots cannot draw *the
+  second oscillator restarts with the first*, until it turned out they can draw
+  *sync*, which is what the press is called. A blank cap in a row of marked ones
+  is the one thing worse than a word.
 - **Every plate carries the press the hardware calls `EDIT`**, and the
   envelopes' `VCA`, `VCF` and `MOD` are the three ways into the three envelope
   panels, which is what the hardware uses them for.
@@ -173,10 +175,14 @@ The rest of the panel's rules:
   LFOs are ruled on the hardware too, and this window already draws each of
   those as two plates, so the rule is what is left of that idea inside a plate
   it kept whole.
-- **The plate's name is knocked out of a light bar**, which is how the
-  instrument prints `ARP / SEQ`, `VCF` and `ENVELOPES`: a pale strip across the
-  top of each group with the name dark on it. It is what the eye follows across
-  the panel before it reads a legend.
+- **The plate's name is knocked out of the instrument's own banner.** A
+  `DeepMind` prints `OSC 1 & 2` in white on red, `ARP / SEQ` and `HPF` in white
+  on blue, and `ENVELOPES` in black on white — and those bands are the largest
+  colour on the front by a long way. Red is the voice as a Juno would have had
+  it, blue is what a DeepMind added to that, white is the one block whose faders
+  are shared between three things. This window drew them as pale grey strips,
+  which is the shape of the thing without the livery. It is what the eye follows
+  across the panel before it reads a legend.
 - **The window opens as wide as the widest surface it has to draw**, which is
   the panel or the effects page, not whichever of them the window opens on. The
   panel's width is its widest row at the instrument's own proportions; the

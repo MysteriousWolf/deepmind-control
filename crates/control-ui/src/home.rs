@@ -853,13 +853,15 @@ const SILKSCREEN: &[Silkscreen] = &[
 /// display's own dots, stencilled on the cap, which is what every other small
 /// drawing in this window is made of.
 ///
-/// **Not every press gets one**, and that is the rule `badge` is written under:
-/// where a grid this size has no honest answer, the press keeps its word. `SYNC`
-/// is the one on this panel — what oscillator sync *is* is the second
-/// oscillator restarting with the first, and every nine-dot drawing of that is
-/// either the sawtooth already on the cap beside it or the arrow the chrome
-/// already spends on a rescan. So `SYNC` is still silkscreened above its cap,
-/// the way the instrument prints it, and the rest are pictures.
+/// **Every press on this panel has one**, which was not true at first: `SYNC`
+/// kept its word under the rule `badge` is written to, that where a grid this
+/// size has no honest answer the press keeps its word. What was wrong with that
+/// was the question. Nine dots cannot draw *the second oscillator restarts with
+/// the first* — every attempt is the sawtooth already on the cap two along, or
+/// the arrow the chrome spends on a rescan — but they can draw *sync*, which is
+/// what the press is called and what it does, and two linked rings say it.
+///
+/// A blank cap in a row of marked ones is the one thing worse than a word.
 ///
 /// Two of them are the instrument's own printing rather than this window's
 /// choice: it draws a sawtooth and a pulse over the pair that choose the first
@@ -870,7 +872,8 @@ const SILKSCREEN: &[Silkscreen] = &[
 const MARKED: &[(ParamId, Badge)] = &[
     (ParamId::ArpOnOff, crate::badge::POWER),
     (ParamId::ArpHold, crate::badge::LATCH),
-    (ParamId::VcfBassBoost, crate::badge::SHELF_LIFT),
+    (ParamId::VcfBassBoost, crate::badge::SPEAKER),
+    (ParamId::OscSyncEnable, crate::badge::LOCKED),
 ];
 
 /// The mark printed on the press that moves `parameter`, where there is one.
@@ -879,6 +882,29 @@ fn marking(parameter: ParamId) -> Option<Badge> {
         .iter()
         .find(|(marked, _)| *marked == parameter)
         .map(|(_, mark)| *mark)
+}
+
+/// The sections a `DeepMind` prints on a blue banner rather than a red one.
+///
+/// Two of the nine, and the instrument keeps a rule: red is the voice as a Juno
+/// would have had it, blue is what a `DeepMind` added to that — the arpeggiator
+/// and sequencer, and the high-pass filter — and white is the envelopes, which
+/// are the one block whose four faders are shared between three things.
+///
+/// Named by the plate rather than by the group, because `VCF` and `HPF` are two
+/// plates of one group and the instrument prints them on two different colours.
+/// Transcribed for the same reason [`CYAN`] is, and in the same ask.
+const BLUE: &[&str] = &["ARP / SEQ", "HPF"];
+
+/// The colour of the banner a plate's name is knocked out of.
+fn banner(plate: &Plate) -> iced_core::Color {
+    if BLUE.contains(&plate.name.as_str()) {
+        crate::style::BANNER_BLUE
+    } else if envelope::of(plate.opens).is_some() {
+        crate::style::BANNER_PALE
+    } else {
+        crate::style::BANNER
+    }
 }
 
 /// The presses a `DeepMind` lights cyan rather than white.
@@ -1553,7 +1579,7 @@ where
     buttons = buttons.push(way(plate.opens, scale));
     container(
         column![
-            heading(plate.name(), plate.note, scale),
+            heading(plate.name(), banner(plate), plate.note, scale),
             glass(patch, plate, firmware, scale, width),
             controls,
             buttons
@@ -1619,40 +1645,37 @@ where
 /// can go without being printed on every plate that has one.
 fn heading<'a, Renderer>(
     name: &'a str,
+    livery: iced_core::Color,
     note: Option<&'static str>,
     scale: Scale,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
-    let bar = container(
-        text(name)
-            .size(scale.of(11.0))
-            .font(printed())
-            .style(|theme: &Theme| text::Style {
-                color: Some(materials(theme).recess),
-            }),
-    )
+    let bar = container(text(name).size(scale.of(11.0)).font(printed()).style(
+        move |theme: &Theme| text::Style {
+            // Knocked out of the banner, which on two of the three colours
+            // means white and on the third means black. Asked rather than
+            // written down, so a banner nobody has checked is still legible
+            // and a window somebody has themed differently stays readable.
+            color: Some(crate::style::ink_on(livery, theme)),
+        },
+    ))
     .width(Length::Fill)
     .height(Length::Fixed(scale.of(HEAD)))
     .padding([0.0, scale.of(6.0)])
     .align_x(Horizontal::Center)
     .align_y(Vertical::Center)
-    .style(|theme: &Theme| {
-        let material = materials(theme);
-        container::Style {
-            // The one light band on the plate, with the name knocked out of it
-            // dark. A `DeepMind` prints `ARP / SEQ`, `VCF` and `ENVELOPES` on
-            // pale grey strips across the top of each group, and they are what
-            // the eye follows across the panel before it reads a single legend.
-            background: Some(Background::Color(material.metal_low)),
-            border: Border {
-                color: material.metal,
-                width: 1.0,
-                radius: 2.into(),
-            },
-            ..container::Style::default()
-        }
+    .style(move |_theme: &Theme| container::Style {
+        // The instrument's own livery. A `DeepMind` prints `OSC 1 & 2` in white
+        // on red, `ARP / SEQ` in white on blue and `ENVELOPES` in black on
+        // white, and those banners are what the eye follows across the front
+        // before it reads a single legend — the largest colour on the
+        // instrument by a long way. This window drew them as pale grey strips,
+        // which is the shape of the thing without the livery.
+        background: Some(Background::Color(livery)),
+        border: Border::default().rounded(2),
+        ..container::Style::default()
     });
     match note {
         Some(note) => mouse_area(bar)
@@ -1905,11 +1928,11 @@ where
                 // Lit the whole time it is powered, which is the state the
                 // instrument leaves every `EDIT` in.
                 |_: &Theme| crate::cap::Face::lit(crate::style::WAY_IN),
-                // And carrying a pen, which is the offer rather than the
+                // And carrying a pencil, which is the offer rather than the
                 // machinery: what is behind this press is where the section is
                 // changed.
                 container(lcd::stencil(
-                    crate::badge::PEN.screen(),
+                    crate::badge::PENCIL.screen(),
                     crate::style::on_cap,
                 ))
                 .center_x(Length::Fill)
