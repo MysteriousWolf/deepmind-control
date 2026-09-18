@@ -433,15 +433,16 @@ pub const PANEL: Badge = Badge::new(
 ///
 /// Held at the angle a hand holds one, with the point at the bottom left. A
 /// diagonal band at nine dots is a slash if nothing else is done to it, and two
-/// things are: the head is three dots across where the shaft is two, and the
-/// shaft ends in a point one dot across.
+/// **Outlined rather than filled**, which is what finally made a diagonal one
+/// work. A solid band is a stack of squares with the gaps showing along both
+/// its edges, and every dot of width is another row of steps: four wide is a
+/// blob, three is not much better, and two is a thick line rather than a
+/// pencil.
 ///
-/// Two dots and not four, which is a fact about the *display* rather than about
-/// pencils. These dots are printed with glass between them, so a band drawn on
-/// a diagonal is a stack of squares with the gaps showing along both its edges,
-/// and every dot of width is another row of steps: four wide is a blob and
-/// three is not much better. Two wide is a line with a thickness, which is what
-/// a pencil looks like from across a desk.
+/// Drawn as its two edges instead, one dot each and two columns apart, it is a
+/// barrel with room inside it — the room being what a pencil has and a stroke
+/// does not. A blunt cap across the top joins them, and below the last full row
+/// they converge on a single dot, which is the sharpened point.
 ///
 /// The barrel is solid, and that is a thing nine dots cost. A groove down the
 /// shaft would carry the hexagon, and drawn on a diagonal it breaks the band
@@ -451,13 +452,13 @@ pub const PANEL: Badge = Badge::new(
 pub(crate) const PENCIL: Badge = Badge::new(
     &[
         0b0_0000_0000,
-        0b0_0000_1110,
-        0b0_0001_1000,
-        0b0_0011_0000,
-        0b0_0110_0000,
-        0b0_1100_0000,
-        0b0_1000_0000,
-        0b0_0000_0000,
+        0b0_0000_0111,
+        0b0_0000_1010,
+        0b0_0001_0100,
+        0b0_0010_1000,
+        0b0_0101_0000,
+        0b0_1010_0000,
+        0b0_0100_0000,
         0b0_0000_0000,
     ],
     SIDE,
@@ -616,16 +617,22 @@ pub(crate) const SAW: Badge = Badge::new(
 /// falling edge drawn dotted — they are a second, later falling edge, which is
 /// where `PWM` would move the one that is drawn. A width, shown as the two
 /// places its edge can be.
+///
+/// It runs off both sides of the grid, which the instrument's does not have to.
+/// A wave that starts and stops inside its own frame is a glyph; one that
+/// enters at the bottom left and leaves at the top right is a wave with more of
+/// it either side, which is what a cycle of anything is. Two dots at each
+/// corner buy that.
 pub(crate) const PULSE: Badge = Badge::new(
     &[
         0b0_0000_0000,
-        0b0_1110_0010,
+        0b0_1110_0011,
         0b0_1010_1010,
         0b0_1010_0010,
         0b0_1010_1010,
         0b0_1010_0010,
         0b0_1010_1010,
-        0b0_1011_1110,
+        0b1_1011_1110,
         0b0_0000_0000,
     ],
     SIDE,

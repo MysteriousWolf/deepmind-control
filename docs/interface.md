@@ -124,8 +124,9 @@ The rest of the panel's rules:
   one with a dotted line standing out in the low part of the wave: a second,
   later falling edge, which is where the `PWM` fader beside the press would move
   the one that is drawn — two linked rings on `SYNC`, a driver seen face on for the high-pass `BOOST`,
-  and a pencil on every `EDIT`, held at the angle a hand holds one, because what
-  is behind that press is where the section is changed. The pencil is the offer;
+  and a pencil on every `EDIT`, drawn as its two barrel edges on the diagonal a
+  hand holds one at, because what is behind that press is where the section is
+  changed. The pencil is the offer;
   a drawing of the display becoming the section would be a drawing of the
   machinery.
   Where a grid that size has no honest answer a press may keep its word, and no
