@@ -241,9 +241,15 @@ fn showing(app: &App) -> Element<'_, Message> {
         // and a front panel with its lower row below the fold is a
         // front panel with the whole voice missing.
         View::Panel => scrollable(
-            control_ui::panel(app.patch(), app.firmware(), app.mapper(), |screen| {
-                paint(screen, app);
-            })
+            control_ui::panel(
+                app.patch(),
+                app.firmware(),
+                app.livery(),
+                app.mapper(),
+                |screen| {
+                    paint(screen, app);
+                },
+            )
             .map(Message::Ui),
         )
         // The bar is cut into the window beside the panel rather than
@@ -321,10 +327,33 @@ fn status(app: &App) -> Element<'_, Message> {
             .on_press_maybe(open.then_some(Message::Read))
             .on_hint("Read the sound the synthesizer is playing into this window."),
         livery(app),
+        glass(app),
     ]
     .spacing(6)
     .align_y(Center)
     .into()
+}
+
+/// The press that wears the other `DeepMind`'s front.
+///
+/// A `12` and a `12D` print every section name in white caps on the bare panel;
+/// a `12X` knocks the same names out of filled banners, red down the signal
+/// path, blue on the arpeggiator and the high-pass, white on the envelopes.
+/// Both are the instrument, and which one somebody is looking at is a fact
+/// about the window rather than about the sound, so it lives at the foot of it
+/// beside the press that turns the glass over.
+///
+/// It shows the livery it is about to *give* you, which is the rule that press
+/// already follows: a swatch of a red banner while the panel is plain, and the
+/// panel's own outline while it is not.
+fn livery(app: &App) -> Element<'_, Message> {
+    let next = match app.livery() {
+        control_ui::Livery::Plain => control_ui::Livery::Banners,
+        control_ui::Livery::Banners => control_ui::Livery::Plain,
+    };
+    pressed(control_ui::livery_swatch(next).map(Message::Ui))
+        .on_press(Message::Wear)
+        .on_hint("Wear the other DeepMind's front: banners for a 12X, plain for a 12.")
 }
 
 /// The press that turns the displays over.
@@ -337,7 +366,7 @@ fn status(app: &App) -> Element<'_, Message> {
 /// would be, in a sentence, on a row of sentences; a screen the size of a
 /// character showing itself the way it is about to be says the same thing
 /// without being read, and says it in the one material this press is about.
-fn livery(app: &App) -> Element<'_, Message> {
+fn glass(app: &App) -> Element<'_, Message> {
     pressed(Element::from(control_ui::swatch(!app.is_negative())).map(Message::Ui))
         .on_press(Message::Invert)
         .on_hint("Turn every display in this window over, dark glass for light.")

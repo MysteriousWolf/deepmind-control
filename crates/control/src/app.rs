@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use control_ui::{Mapper, Patch, Way};
+use control_ui::{Livery, Mapper, Patch, Way};
 use deepmind_host::{Command, Event, Link, Outcome, PortRef, open, ports};
 use deepmind_midi::device::Event as DeviceEvent;
 use deepmind_midi::ids::{Bank, PROGRAMS_PER_BANK, ProgramNumber};
@@ -62,6 +62,12 @@ pub enum Message {
     Show(View),
     /// Turn the displays over, and back.
     Invert,
+    /// Wear the other `DeepMind`'s front, and back.
+    ///
+    /// A `12` prints its section names in white on the bare panel and a `12X`
+    /// knocks them out of filled banners. Both are the instrument; this is
+    /// which of the two the window is drawn as.
+    Wear,
     /// Sit the bank picker on a bank, without reading it.
     ChooseBank(Bank),
     /// Read the chosen bank onto the shelf, one dump at a time.
@@ -141,6 +147,13 @@ pub struct App {
     /// on a piece of equipment is either dark dots on a lit screen or lit dots
     /// on a dark one. A `DeepMind` ships positive, so that is where it starts.
     negative: bool,
+    /// Which `DeepMind`'s front the panel is wearing.
+    ///
+    /// Not a fact about the sound and nothing the synthesizer is told: a `12`
+    /// and a `12X` have the same 242 parameters and two different silkscreens,
+    /// so this is which of the two the window is drawn as and it survives a
+    /// port being put down.
+    livery: Livery,
     /// The last thing worth saying, in words.
     status: String,
 }
@@ -171,6 +184,7 @@ impl App {
             bank: Bank::A,
             view: View::Panel,
             negative: false,
+            livery: Livery::default(),
             status: "Choose a port.".to_owned(),
         }
     }
@@ -334,6 +348,12 @@ impl App {
         self.negative
     }
 
+    /// Returns which `DeepMind`'s front the panel is wearing.
+    #[must_use]
+    pub const fn livery(&self) -> Livery {
+        self.livery
+    }
+
     /// Returns what the librarian is holding.
     #[must_use]
     pub const fn shelf(&self) -> &Shelf {
@@ -463,6 +483,12 @@ impl App {
             }
             Message::Ui(control_ui::Message::Mapper(at)) => self.mapper.map(at),
             Message::Invert => self.negative = !self.negative,
+            Message::Wear => {
+                self.livery = match self.livery {
+                    Livery::Plain => Livery::Banners,
+                    Livery::Banners => Livery::Plain,
+                };
+            }
             Message::Ui(control_ui::Message::Rename(name)) => self.rename(name),
             Message::Ui(control_ui::Message::Pointed(parameter)) => self.pointed = parameter,
             Message::Ui(control_ui::Message::Hinted(said)) => self.hinted = said,

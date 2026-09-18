@@ -175,13 +175,15 @@ The rest of the panel's rules:
   LFOs are ruled on the hardware too, and this window already draws each of
   those as two plates, so the rule is what is left of that idea inside a plate
   it kept whole.
-- **The plate's name is knocked out of the instrument's own banner.** A
-  `DeepMind` prints `OSC 1 & 2` in white on red, `ARP / SEQ` and `HPF` in white
-  on blue, and `ENVELOPES` in black on white — and those bands are the largest
-  colour on the front by a long way. Red is the voice as a Juno would have had
-  it, blue is what a DeepMind added to that, white is the one block whose faders
-  are shared between three things. This window drew them as pale grey strips,
-  which is the shape of the thing without the livery. It is what the eye follows
+- **The plate's name is printed the way the instrument prints it**, and there
+  are two instruments. A `DeepMind 12` and the desktop `12D` put every section
+  name in white caps on the bare panel, ruled off from its neighbours by a
+  hairline. A `12X` knocks the same names out of filled banners — red down the
+  signal path, blue on the arpeggiator and the high-pass, white on the envelopes
+  — and a photograph of one is a dark panel with a dozen red stripes across it.
+  Both are the instrument. The window opens as the `12`, because it is the
+  plainer of the two and the one most DeepMinds in the world are, and a press in
+  the footer wears the other. Either way that band is what the eye follows
   across the panel before it reads a legend.
 - **The window opens as wide as the widest surface it has to draw**, which is
   the panel or the effects page, not whichever of them the window opens on. The
@@ -384,6 +386,18 @@ SEQUENCE`. Where even that does not fit, the *words* go and the marks stay,
 which is what a button on the instrument carries anyway — half a word is the one
 thing a press must never say. The window opens wide enough that it does not come
 to that.
+
+## Two liveries, one instrument
+
+The livery press sits at the foot of the window beside the one that turns the
+displays over, and it follows the same rule: it shows the livery it is about to
+*give* you, not the one you have. A swatch of a red banner while the panel is
+plain, the panel's own outline while it is not. A picture of what you are asking
+for says what a press does without being read.
+
+Which of the two a window is wearing is a fact about the window rather than
+about the sound, so it survives a port being put down: a `12` and a `12X` have
+the same 242 parameters and two different silkscreens.
 
 ## Two surfaces, one row of ways in
 

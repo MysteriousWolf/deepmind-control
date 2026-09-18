@@ -22,7 +22,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use control::{App, Message, View};
-use control_ui::{Confidence, Way, band, panelled, sections, unplated, ways_in};
+use control_ui::{Confidence, Livery, Way, band, panelled, sections, unplated, ways_in};
 use deepmind_host::PortRef;
 use deepmind_midi::param::{Group, ParamId};
 
@@ -256,6 +256,32 @@ fn a_section_with_a_plate_lights_nothing_in_the_band() {
     app.update(Message::Ui(control_ui::Message::Close));
     assert_eq!(app.editing(), None);
     assert_eq!(lit(&app), vec![Way::Panel]);
+}
+
+#[test]
+fn the_window_opens_as_a_twelve_and_can_wear_a_twelve_x() {
+    // Two liveries, both the instrument: a `12` prints its section names in
+    // white on the bare panel and a `12X` knocks them out of filled banners.
+    // The plainer one is what the window opens as, because it is what most
+    // `DeepMind`s in the world are, and the press in the footer is the other.
+    let mut app = read();
+
+    assert_eq!(app.livery(), Livery::Plain, "the window opens as a 12X");
+
+    app.update(Message::Wear);
+    assert_eq!(app.livery(), Livery::Banners);
+    app.update(Message::Wear);
+    assert_eq!(app.livery(), Livery::Plain, "the press does not go back");
+
+    // And it is a fact about the window rather than about the sound: putting
+    // the port down leaves somebody looking at the same instrument.
+    app.update(Message::Wear);
+    app.update(Message::Disconnect);
+    assert_eq!(
+        app.livery(),
+        Livery::Banners,
+        "the livery went with the port"
+    );
 }
 
 #[test]

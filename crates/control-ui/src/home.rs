@@ -884,6 +884,77 @@ fn marking(parameter: ParamId) -> Option<Badge> {
         .map(|(_, mark)| *mark)
 }
 
+/// Which `DeepMind` this window is wearing the front of.
+///
+/// There are two liveries in the family and they are not a shade apart. A
+/// `DeepMind 12` and the desktop `12D` print every section name in white caps
+/// on the bare panel, ruled off from its neighbours with a hairline: a black
+/// front with white writing on it. A `12X` prints the same names knocked out of
+/// filled banners — red down the signal path, blue on the arpeggiator and the
+/// high-pass, white on the envelopes — and a photograph of one is a dark panel
+/// with a dozen red stripes across it.
+///
+/// Both are the instrument. The window wears the first by default, because it
+/// is the plainer of the two and the one most `DeepMind`s in the world are, and
+/// the second is a press in the footer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum Livery {
+    /// The `12` and the `12D`: white caps on the bare panel.
+    #[default]
+    Plain,
+    /// The `12X`: the name knocked out of a filled banner.
+    Banners,
+}
+
+/// A swatch of a section banner, in the livery it is drawn for.
+///
+/// What the press in the footer shows, and it shows the livery it is about to
+/// *give* you rather than the one you have, which is the rule the display's own
+/// polarity press already follows: a picture of the thing you are asking for
+/// says what the press does without being read.
+///
+/// It is a banner and not a word, for the same reason: the whole of what this
+/// press changes is what a section's name is printed on, so a band with a name
+/// on it is the one drawing that is about nothing else. The name is the red
+/// one's, because a swatch of the plain livery is a swatch of the panel and a
+/// press with the panel on it is a press with nothing on it.
+#[must_use]
+pub fn swatch<'a, Renderer>(livery: Livery) -> Element<'a, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    let banner = matches!(livery, Livery::Banners).then_some(crate::style::BANNER);
+    container(
+        container(Space::new().width(Length::Fill).height(Length::Fill))
+            .width(Length::Fixed(SWATCH))
+            .height(Length::Fixed(BAND))
+            .style(move |theme: &Theme| {
+                let material = materials(theme);
+                container::Style {
+                    background: banner.map(Background::Color),
+                    border: Border {
+                        color: match banner {
+                            Some(colour) => colour,
+                            None => material.metal,
+                        },
+                        width: 1.0,
+                        radius: 2.into(),
+                    },
+                    ..container::Style::default()
+                }
+            }),
+    )
+    .align_x(Horizontal::Center)
+    .align_y(Vertical::Center)
+    .into()
+}
+
+/// How wide the swatch in the footer stands.
+const SWATCH: f32 = 18.0;
+
+/// How tall it stands, which is a banner's own proportion.
+const BAND: f32 = 8.0;
+
 /// The sections a `DeepMind` prints on a blue banner rather than a red one.
 ///
 /// Two of the nine, and the instrument keeps a rule: red is the voice as a Juno
@@ -896,7 +967,10 @@ fn marking(parameter: ParamId) -> Option<Badge> {
 /// Transcribed for the same reason [`CYAN`] is, and in the same ask.
 const BLUE: &[&str] = &["ARP / SEQ", "HPF"];
 
-/// The colour of the banner a plate's name is knocked out of.
+/// The colour of the banner a plate's name is knocked out of, on a `12X`.
+///
+/// Only asked under [`Livery::Banners`]: a `12` has no banner to colour, it has
+/// a name printed on the panel.
 fn banner(plate: &Plate) -> iced_core::Color {
     if BLUE.contains(&plate.name.as_str()) {
         crate::style::BANNER_BLUE
@@ -1081,6 +1155,7 @@ fn addressed(control: &'static PanelControl, group: Group) -> Option<Control> {
 pub fn panel<'a, Renderer>(
     patch: &'a Patch,
     firmware: Version,
+    livery: Livery,
     mapper: &'a Mapper,
     paint: impl Fn(&mut Screen) + 'a,
 ) -> Element<'a, Renderer>
@@ -1127,6 +1202,7 @@ where
                             patch,
                             plate,
                             firmware,
+                            livery,
                             scale,
                             share.width(item, scale),
                             sent,
@@ -1554,6 +1630,7 @@ fn group<'a, Renderer>(
     patch: &Patch,
     plate: &'a Plate,
     firmware: Version,
+    livery: Livery,
     scale: Scale,
     width: f32,
     sent: Option<Sent<'_>>,
@@ -1579,7 +1656,12 @@ where
     buttons = buttons.push(way(plate.opens, scale));
     container(
         column![
-            heading(plate.name(), banner(plate), plate.note, scale),
+            heading(
+                plate.name(),
+                matches!(livery, Livery::Banners).then(|| banner(plate)),
+                plate.note,
+                scale,
+            ),
             glass(patch, plate, firmware, scale, width),
             controls,
             buttons
@@ -1645,7 +1727,7 @@ where
 /// can go without being printed on every plate that has one.
 fn heading<'a, Renderer>(
     name: &'a str,
-    livery: iced_core::Color,
+    banner: Option<iced_core::Color>,
     note: Option<&'static str>,
     scale: Scale,
 ) -> Element<'a, Renderer>
@@ -1654,11 +1736,16 @@ where
 {
     let bar = container(text(name).size(scale.of(11.0)).font(printed()).style(
         move |theme: &Theme| text::Style {
-            // Knocked out of the banner, which on two of the three colours
-            // means white and on the third means black. Asked rather than
-            // written down, so a banner nobody has checked is still legible
-            // and a window somebody has themed differently stays readable.
-            color: Some(crate::style::ink_on(livery, theme)),
+            // Knocked out of whatever it is printed on: the banner, which on
+            // two of the three colours means white and on the third black, or
+            // the panel itself, which means the metal every other legend here
+            // is silkscreened in. Asked rather than written down, so a banner
+            // nobody has checked is still legible and a window somebody has
+            // themed differently stays readable.
+            color: Some(match banner {
+                Some(colour) => crate::style::ink_on(colour, theme),
+                None => materials(theme).metal,
+            }),
         },
     ))
     .width(Length::Fill)
@@ -1666,16 +1753,32 @@ where
     .padding([0.0, scale.of(6.0)])
     .align_x(Horizontal::Center)
     .align_y(Vertical::Center)
-    .style(move |_theme: &Theme| container::Style {
-        // The instrument's own livery. A `DeepMind` prints `OSC 1 & 2` in white
-        // on red, `ARP / SEQ` in white on blue and `ENVELOPES` in black on
-        // white, and those banners are what the eye follows across the front
-        // before it reads a single legend — the largest colour on the
-        // instrument by a long way. This window drew them as pale grey strips,
-        // which is the shape of the thing without the livery.
-        background: Some(Background::Color(livery)),
-        border: Border::default().rounded(2),
-        ..container::Style::default()
+    .style(move |theme: &Theme| {
+        let material = materials(theme);
+        match banner {
+            // A `12X`: the name knocked out of a filled band. Those banners are
+            // what the eye follows across the front of one before it reads a
+            // single legend, and they are the largest colour on it by a long
+            // way.
+            Some(colour) => container::Style {
+                background: Some(Background::Color(colour)),
+                border: Border::default().rounded(2),
+                ..container::Style::default()
+            },
+            // A `12`: the name printed straight onto the panel in the metal
+            // every other legend here is silkscreened in, ruled off from its
+            // neighbours by a hairline. No fill at all, because there is none
+            // on the instrument — the band is the panel.
+            None => container::Style {
+                background: None,
+                border: Border {
+                    color: material.recess_edge,
+                    width: 1.0,
+                    radius: 2.into(),
+                },
+                ..container::Style::default()
+            },
+        }
     });
     match note {
         Some(note) => mouse_area(bar)
