@@ -670,25 +670,15 @@ where
     if !slots.is_empty() {
         body = body.push(row(slots).spacing(0).wrap());
     }
-    container(body)
-        .padding(8)
-        .style(|theme: &Theme| {
-            // The face plate the library's own panels draw their slots on.
-            let material = materials(theme);
-            container::Style {
-                // Raised off the panel, so the recesses cut into it read as
-                // cut into something. A plate the colour of its own slots is a
-                // plate with invisible slots.
-                background: Some(Background::Color(material.plate)),
-                border: Border {
-                    color: material.recess_edge,
-                    width: 1.0,
-                    radius: 3.into(),
-                },
-                ..container::Style::default()
-            }
-        })
-        .into()
+    // On whatever is holding it, and not on a face plate of its own. A rack
+    // used to draw one — the library's own panels do, and a plate raised off
+    // the panel is what makes the recesses cut into it read as cut into
+    // something. But a rack is never on the panel: it is on a sheet, which is
+    // already a plate lifted off the window, or on a page, which is the window.
+    // So the plate was a bordered rectangle inside a bordered rectangle, and
+    // what it framed was forty controls that are each drawn as a recess with a
+    // lit lower wall and need no help being read as cut.
+    container(body).padding(8).into()
 }
 
 /// The display across the top of a section's rack, as wide as the rack is.

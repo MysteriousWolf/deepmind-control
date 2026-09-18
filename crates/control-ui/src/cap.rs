@@ -168,6 +168,21 @@ impl Face {
             ring: None,
         }
     }
+
+    /// A cap with no lamp behind it, ringed in `ring`.
+    ///
+    /// What the press that opens a section wears. It was lit, on the argument
+    /// that a `DeepMind` leaves every `EDIT` lit the whole time it is powered —
+    /// which is true, and which made ten amber rectangles the loudest thing on
+    /// a panel whose every other press is off. A ring says the same thing at a
+    /// tenth of the ink: this is the amber row, and the lamp is what the ones
+    /// carrying a *value* spend.
+    pub(crate) const fn ringed(ring: Color) -> Self {
+        Self::Cap {
+            lamp: None,
+            ring: Some(ring),
+        }
+    }
 }
 
 impl Face {
@@ -529,6 +544,12 @@ where
         // middle. Drawn last of the cap's own layers so the diffuser does not
         // wash it out at the corners, where the rounding brings the two within
         // a point of each other.
+        //
+        // Through [`glow`], because the band it stands in is a band of *lamp*:
+        // a ring drawn at the raw colour is harder and more saturated than any
+        // light that ever came through this rubber, and next to a lit cap it
+        // reads as printed on rather than lit from under. The green on a
+        // confirmed value used to be the one saturated thing on the panel.
         if let Some(ring) = face.ring() {
             renderer.fill_quad(
                 renderer::Quad {
@@ -536,7 +557,7 @@ where
                     border: Border {
                         color: Color {
                             a: if held { RINGING / 2.0 } else { RINGING },
-                            ..ring
+                            ..glow(ring)
                         },
                         width: BAND,
                         radius: mould(rubber.height).into(),

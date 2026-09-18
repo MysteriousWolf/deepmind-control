@@ -124,7 +124,8 @@ The rest of the panel's rules:
   one with a dotted line standing out in the low part of the wave: a second,
   later falling edge, which is where the `PWM` fader beside the press would move
   the one that is drawn — two linked rings on `SYNC`, a driver seen face on for the high-pass `BOOST`,
-  and three dots on every `EDIT`, because what is behind that press is the rest
+  and three dots on every `EDIT` — two by two each, because three specks on a
+  cap the size of a thumb is a cap that looks blank — because what is behind that press is the rest
   of the section: the plate carries the four or five controls a hand reaches for
   and the press opens the twenty it had no room for, which is what an ellipsis
   has meant in every toolbar since menus had them. It was a pencil, and a pencil
@@ -298,10 +299,20 @@ and never which thing, because one thing is open: a second sheet over the first
 would be a window nobody can find the bottom of.
 
 **A sheet is made of what the window is already made of.** The face plate every
-rack already sits on, the bar a plate on the front panel prints its name in, a
-mark stencilled the way the chrome's other marks are, and behind it the panel's
-own darkest material at three-quarters alpha. Not a dialog borrowed from a
-toolkit and not a grey invented for one.
+rack already sat on, its title in the display's own dots, a mark stencilled the
+way the chrome's other marks are, and behind it the panel's own darkest
+material at three-quarters alpha. Not a dialog borrowed from a toolkit and not
+a grey invented for one.
+
+**And it is one frame and not three.** The title was in a recessed bordered
+band and the rack was on a bordered face plate of its own, both inside the
+bordered sheet — three rectangles deep before anything is a control. A plate
+needs a border on the *front panel*, where it stands in a row of ten on a dark
+panel; a rack is never on the front panel, it is on a sheet, which is already a
+plate lifted off the window, or on a page, which is the window. So the sheet
+keeps its own edge and the two inside it are gone. What is left framed is every
+individual control, which is drawn as a recess with a lit lower wall and needs
+no help reading as cut.
 
 **The shade covers the surface and not the whole window.** What a sheet is the
 detail *of* is the panel it was opened from, and that is what goes dark under it.
@@ -1619,6 +1630,18 @@ So `style::modulated` is the lamp as the cap shows it — `cap::glow`, which is
 the rim and the middle halved — and everything that means *what the cyan cap
 means* is drawn in that. The instrument's own colour is still the one thing
 written down; this is what the rubber does to it.
+
+**The claim ring goes through the same call**, for the same reason and one more:
+the ring stands in the band a backlit cap already has between its bezel and its
+hot middle, so it is a band of *lamp*, and drawn at the raw colour it was the
+one saturated thing on a panel of soft ones — a green printed on the cap rather
+than lit from under it.
+
+**And the press that opens a section is ringed rather than lit.** A `DeepMind`
+leaves every `EDIT` lit the whole time it is powered, which is true and which
+made ten amber rectangles the loudest thing in a window whose every other press
+is off. The ring says which row the press is in at a tenth of the ink, and the
+lamp stays what a press carrying a *value* spends.
 
 The effect panels are the exception, and a deliberate one: their colours are
 measured from the manual's own figures, four per algorithm, and a plate carrying

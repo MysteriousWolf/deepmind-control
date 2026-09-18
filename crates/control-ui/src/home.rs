@@ -2053,9 +2053,13 @@ where
         // the window does not stretch, so neither is this.
         container(
             crate::cap::cap(
-                // Lit the whole time it is powered, which is the state the
-                // instrument leaves every `EDIT` in.
-                |_: &Theme| crate::cap::Face::lit(crate::style::WAY_IN),
+                // Ringed in the instrument's own amber rather than lit in it.
+                // A `DeepMind` leaves every `EDIT` lit the whole time it is
+                // powered, and ten lit caps in a window this dark is ten amber
+                // rectangles shouting over a panel whose every other press is
+                // off. The ring says which row this press is in, and the lamp
+                // stays the thing a press carrying a value spends.
+                |_: &Theme| crate::cap::Face::ringed(crate::style::WAY_IN),
                 // And carrying three dots, which is what the rest of the
                 // section is: the plate has the controls a hand reaches for and
                 // the press opens the ones it had no room for.

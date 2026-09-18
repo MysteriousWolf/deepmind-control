@@ -436,17 +436,24 @@ pub const PANEL: Badge = Badge::new(
 /// application has meant by three dots since menus had them — *and more* — and
 /// it is the one mark in this module that needed no invention at all.
 ///
-/// Three dots, two apart, on the middle line. At this grid they are single
-/// dots and not blocks: a row of two-by-two squares is three buttons rather
-/// than an ellipsis, and the dot is what the display is made of anyway.
+/// Three dots, one apart, on the middle line, two by two each.
+///
+/// They were single dots, which is the honest thing for a display to draw an
+/// ellipsis as and too light for a press: three specks on a cap the size of a
+/// thumb is a cap that looks blank until you go looking. Two by two is a dot
+/// with weight and still a dot.
+///
+/// Nine columns cannot hold three two-wide blocks symmetrically — six of ink
+/// and two of gap is eight — so the spare column is on the left and the
+/// drawing sits half a dot right of centre, which at this pitch is a point.
 pub(crate) const MORE: Badge = Badge::new(
     &[
         0b0_0000_0000,
         0b0_0000_0000,
         0b0_0000_0000,
         0b0_0000_0000,
-        0b0_1001_0010,
-        0b0_0000_0000,
+        0b0_1101_1011,
+        0b0_1101_1011,
         0b0_0000_0000,
         0b0_0000_0000,
         0b0_0000_0000,

@@ -24,11 +24,12 @@ is keyed by parameter, so the library has no way to describe the press either.
 The same is true of the data entry group and the `EDIT`/`COMPARE`/`WRITE` row,
 which this window has its own answers for.
 
-What to ask for is in [waiting](waiting.md): a description of the front-panel
-presses that are *not* parameters, so that a window can draw the front of the
-instrument completely and send what each one sends. Until then the window draws
-what the program holds, which is the honest subset, and a player reaching for
-`CHORD` finds nothing.
+Asked for as
+[deepmind-midi#46](https://github.com/MysteriousWolf/deepmind-midi/issues/46): a
+description of the front-panel presses that are *not* parameters, with what each
+one sends, and "nothing over the wire" named outright where that is the answer.
+Until then the window draws what the program holds, which is the honest subset,
+and a player reaching for `CHORD` finds nothing.
 
 ### The bar said something no one sheet can
 

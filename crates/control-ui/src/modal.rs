@@ -49,7 +49,7 @@
 
 use deepmind_midi::param::Group;
 use iced_core::alignment::{Horizontal, Vertical};
-use iced_core::{Background, Border, Font, Length, Theme, text::Renderer as TextRenderer};
+use iced_core::{Font, Length, Theme, text::Renderer as TextRenderer};
 use iced_widget::{button, column, container, mouse_area, opaque, row, scrollable, space, stack};
 
 use crate::Element;
@@ -263,11 +263,16 @@ where
 /// sheet needed told twice — the display under it is drawn in the claim it is
 /// under, the way every display here is.
 ///
-/// The band the plaque sits on is the one a plate on the front panel prints its
-/// name in, because that is where somebody has just come from: the name was
-/// printed across the top of the plate whose `EDIT` they pressed. At the
-/// right-hand end is the one press. A heading with nothing at that end would be
-/// a sheet whose only ways out are two gestures.
+/// **On the sheet and not in a box on it.** It was a recessed band with a
+/// border, which is what a plate on the front panel prints its name in — and a
+/// plate needs one because it stands in a row of ten plates on a dark panel.
+/// A sheet is already a panel lifted off the window with its own lit edge, and
+/// the rack under this is already the thing the eye lands on. A bordered band
+/// inside a bordered sheet above a bordered rack is three frames deep to say
+/// one word. The title is the words and the mark, standing on the sheet.
+///
+/// At the right-hand end is the one press. A heading with nothing at that end
+/// would be a sheet whose only ways out are two gestures.
 fn heading<'a, Renderer>(section: Group) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
@@ -283,19 +288,6 @@ where
     )
     .width(Length::Fill)
     .height(Length::Fixed(HEAD))
-    .padding([0.0, WITHIN])
-    .style(|theme: &Theme| {
-        let material = materials(theme);
-        container::Style {
-            background: Some(Background::Color(material.recess)),
-            border: Border {
-                color: material.recess_edge,
-                width: 1.0,
-                radius: 2.into(),
-            },
-            ..container::Style::default()
-        }
-    })
     .into()
 }
 
