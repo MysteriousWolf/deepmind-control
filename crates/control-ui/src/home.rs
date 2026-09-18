@@ -80,8 +80,9 @@
 //!
 //! # Two presses are drawn and cannot be pressed
 //!
-//! `CHORD` and `POLY CHORD` sit along the arpeggiator's foot and latch what the
-//! keyboard is playing. Neither is a program parameter — a sweep over all 242
+//! `CHORD` and `POLY CHORD` stand in a column of their own at the left-hand end
+//! of the arpeggiator's controls, which is where the instrument prints them,
+//! and latch what the keyboard is playing. Neither is a program parameter — a sweep over all 242
 //! finds one arpeggiator switch, and it is `Arp Hold` — so there is no byte for
 //! a cap to move, and [`Sends::Nothing`] is the library saying outright that no
 //! controller number and no message in the manual presses one either.
@@ -98,7 +99,7 @@ use std::sync::LazyLock;
 use deepmind_midi::front::{
     self, Banner, Lamp, PanelControl, PanelPress, PanelShape, Section, Silkscreen,
 };
-use deepmind_midi::param::{Group, ParamId};
+use deepmind_midi::param::{Group, Kind, ParamId};
 use deepmind_midi::pixels::Glyph;
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::alignment::{Horizontal, Vertical};
@@ -121,14 +122,69 @@ use crate::{Element, Patch};
 /// eighteen of them across its lower row and a rack holds seven.
 const LANE: f32 = 46.0;
 
-/// How long a fader on the panel runs.
+/// How long a fader on the panel runs, before the button band gives its band
+/// of words back.
 ///
 /// A third of a rack fader, which is the proportion the hardware uses: two rows
 /// of controls and a screen fit on the front of a synthesizer because none of
-/// its faders is as tall as a rack's.
+/// its faders is as tall as a rack's. What a plate actually runs is
+/// [`travel`], which is this plus whatever the row of presses under it is not
+/// spending.
 const TRAVEL: f32 = 76.0;
 
-/// How much room a lit set of legends is given beside the faders.
+/// How long a fader on the panel runs.
+///
+/// A plate is a fixed height — the screen between the rows is cut to the plates
+/// either side of it, so they all stand the same — and the height is the parts
+/// stacked: the heading, the glass, a lane, and the band of presses under it.
+/// A press's band is a word, a gap and a cap.
+///
+/// **Where no press on the panel needs a word, there is no band of words**, and
+/// the twenty-four points it was holding go to the faders rather than staying
+/// as a strip of empty panel. Every press here is either marked with a picture
+/// or drawn as the pair of legends it chooses between, so that is the panel
+/// today; [`worded`] is the question, asked of the plates rather than answered
+/// here, and a firmware that adds a press with a word gets its band back and
+/// the shorter fader with it.
+fn travel() -> f32 {
+    TRAVEL + if worded() { 0.0 } else { LEGEND + UNDER }
+}
+
+/// Whether any press on the panel is named by a word printed over it.
+///
+/// A press carrying a [mark](marking) is named by the mark, a press that
+/// chooses between named values is named by the values, and the way into a
+/// section is named by the three dots on its cap. What is left is a press with
+/// a word, and there is none: this is what says so rather than a comment
+/// claiming it.
+fn worded() -> bool {
+    static WORDED: LazyLock<bool> = LazyLock::new(|| {
+        rows()
+            .iter()
+            .flat_map(|row| row.iter())
+            .flat_map(|plate| plate.switches.iter())
+            .any(|control| control.mark.is_none() && !names_itself(control.parameter))
+    });
+    *WORDED
+}
+
+/// Whether a control is drawn as the names it chooses between.
+///
+/// A named set is its own legend: `4 Pole` and `2 Pole` lit one above the other
+/// say *poles* between them, and `POLES` printed over the pair is the panel
+/// saying it twice in the one band of the plate that has no room to spare. A
+/// value that is a number, or a switch that is a lamp, says nothing of the kind
+/// and keeps its word.
+///
+/// Asked of the library's own table for the firmware this window was built
+/// against rather than the one on the wire, because it decides how tall a plate
+/// stands and a panel that changed height when a synthesizer answered would be
+/// a panel that jumps.
+fn names_itself(parameter: ParamId) -> bool {
+    matches!(parameter.kind(), Kind::Enumerated(_)) && parameter.choices().is_some()
+}
+
+/// How much room a lit set of *names* is given beside the faders.
 ///
 /// Wide enough for the longest name in the set it lights: a legend clipped to
 /// `Triang` is a legend that lies about which shape is lit. A set with a name
@@ -139,7 +195,20 @@ const TRAVEL: f32 = 76.0;
 /// size a legend is set in, and the room a legend is inset by either side. A
 /// name that does not fit is drawn on a second line the strip has no room for,
 /// so a strip a few points too narrow is a shape with half its name missing.
+///
+/// Nothing on the panel is this wide today, because the one set the panel
+/// lights is drawn as [waves](SHAPES). It is what a set this window has no
+/// drawing for falls back to.
 const LAMPS: f32 = 104.0;
+
+/// How much room a lit set of *waves* is given beside the faders.
+///
+/// A third of the words, which is the whole reason the instrument prints
+/// pictures there: nine dots at the pitch every drawing in this window shares
+/// is twenty-two points, and the room a lit row is inset by either side. What
+/// the strip stops spending on `Sample & Glide` is eighty points of plate, and
+/// it goes to the faders on both sides of it.
+const SHAPES: f32 = 36.0;
 
 /// How many dots tall the display over a plate's faders is.
 ///
@@ -332,7 +401,8 @@ fn span(room: f32, scale: Scale) -> f32 {
 /// this editor gives a control that is not a fader, which is the rack's room
 /// and not the panel's. What is left scales, and this is the sum.
 fn standing(scale: Scale) -> f32 {
-    scale.of(PAD * 2.0 + HEAD + WITHIN * 3.0 + LEGEND + APART + TRAVEL + APART + LEGEND + UNDER)
+    let band = if worded() { LEGEND + UNDER } else { 0.0 };
+    scale.of(PAD * 2.0 + HEAD + WITHIN * 3.0 + LEGEND + APART + travel() + APART + band)
         + READ
         + lcd::room(STRIP)
         + crate::panel::BUTTON
@@ -537,9 +607,17 @@ pub(crate) struct Plate {
     opens: Group,
     /// The controls the hardware puts a fader under, in the order it puts them.
     faders: Vec<Control>,
-    /// The named set drawn as a strip of legends beside the faders, where the
+    /// The named set drawn as a strip of lamps beside the faders, where the
     /// panel has one: the LFO's shape is a column of lamps on the instrument.
     lamps: Option<Control>,
+    /// Which side of a seam this plate stands on, where it stands on one.
+    ///
+    /// The instrument prints one plate for both its LFOs and lights their two
+    /// shapes down a single column of lamps in the middle of it, between the
+    /// two pairs of faders. Two plates cannot share a column, so the pair does
+    /// the next thing: they lean together and put their two strips against the
+    /// join. See [`facing`].
+    seam: Option<Seam>,
     /// The controls the hardware puts in the row of buttons under the faders.
     switches: Vec<Control>,
     /// Where the silkscreen rules a hairline between clusters of faders.
@@ -592,13 +670,15 @@ impl Plate {
     fn width(&self, scale: Scale) -> f32 {
         let lanes = count(self.faders.len()) * scale.of(LANE + 2.0)
             + count(self.rules.len()) * scale.of(RULE + 2.0)
-            + if self.lamps.is_some() {
-                scale.of(LAMPS + 2.0)
-            } else {
+            + self
+                .lamps
+                .map_or(0.0, |lamps| scale.of(lit_width(lamps.parameter) + 2.0))
+            + if self.presses.is_empty() {
                 0.0
+            } else {
+                scale.of(SWITCH + 2.0)
             };
-        let buttons = count(self.switches.len() + self.presses.len()) * scale.of(SWITCH + 4.0)
-            + scale.of(WAY + 4.0);
+        let buttons = count(self.switches.len()) * scale.of(SWITCH + 4.0) + scale.of(WAY + 4.0);
         // The narrowest plate still stands wide enough for a display worth
         // drawing on, and that floor is in dots rather than points: a screen
         // does not scale, it gains columns, so the room it needs is the room
@@ -712,7 +792,56 @@ fn plates() -> Vec<Vec<Plate>> {
     lift(&mut rows, Group::Vca, last, Beside::First);
     lift(&mut rows, Group::Voicing, VOICING_ROW, Beside::Last);
     rows.retain(|row| !row.is_empty());
+    for row in &mut rows {
+        facing(row);
+    }
     rows
+}
+
+/// Turns a strip of lamps round where the plate to its left has one too.
+///
+/// **The instrument lights both its LFOs' shapes down one column.** It prints
+/// `LFO 1 & 2` across a single plate, puts a pair of faders at each end of it
+/// and stands seven lamps in the middle, one wave printed beside each and a
+/// lamp either side of the wave: the left-hand lamp is the first LFO's and the
+/// right-hand one is the second's. One column of pictures, read by both.
+///
+/// This panel draws two plates there, because the library publishes two
+/// sections and a section carries one group, and two plates cannot share a
+/// column of anything. What they can do is meet along the seam between them,
+/// which is where the instrument's column is: the left-hand plate keeps its
+/// strip on its right, the right-hand plate turns its own strip round, and the
+/// two stand side by side in the middle of the pair with the faders outside
+/// them. It is the instrument's arrangement with the shared column drawn twice,
+/// which is the one thing two plates have to spend to be two plates.
+///
+/// The rule is about the row rather than about the LFOs: a plate whose
+/// left-hand neighbour also lights a set turns its own to face it. Nothing else
+/// on this panel lights a set, so nothing else moves, and a firmware that gave
+/// another pair of sections one printed column would be drawn the same way
+/// without a line here to change.
+fn facing(row: &mut [Plate]) {
+    for at in 1..row.len() {
+        let (before, from) = row.split_at_mut(at);
+        let (Some(left), Some(plate)) = (before.last_mut(), from.first_mut()) else {
+            continue;
+        };
+        if left.lamps.is_some() && plate.lamps.is_some() {
+            left.seam = Some(Seam::Before);
+            plate.seam = Some(Seam::After);
+        }
+    }
+}
+
+/// Which side of a shared column a plate stands on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Seam {
+    /// The left-hand plate: its strip is the last thing in it, and its controls
+    /// lean right, towards the join.
+    Before,
+    /// The right-hand plate: its strip is the first thing in it, and its
+    /// controls lean left.
+    After,
 }
 
 /// Which row the voicing stands in, counting from the top.
@@ -785,6 +914,10 @@ fn whole(section: &'static Section, name: &str, controls: &[&'static PanelContro
         rules: ruled(&faders),
         faders: of(PanelShape::Fader),
         lamps: of(PanelShape::Lamps).first().copied(),
+        // Whether it stands against another plate's strip is the row's
+        // business rather than the plate's, because it is about the plate
+        // beside it. See `facing`.
+        seam: None,
         switches: of(PanelShape::Button),
         banner: section.banner(),
         // Only on the plate the library prints them on, and only where the
@@ -1093,6 +1226,7 @@ fn envelopes(section: &'static Section) -> Option<Vec<Plate>> {
                     .filter_map(|control| addressed(control, group))
                     .collect(),
                 lamps: None,
+                seam: None,
                 switches: Vec::new(),
                 rules: Vec::new(),
                 banner: section.banner(),
@@ -1644,23 +1778,33 @@ where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
     let mut controls = row![].spacing(scale.of(2.0)).align_y(Vertical::Top);
+    // The presses the instrument has that move nothing stand first, which is
+    // where the panel prints them: a column of two at the left-hand end of the
+    // arpeggiator's controls, beside its faders rather than under them.
+    if !plate.presses.is_empty() {
+        controls = controls.push(latches(plate.presses, scale));
+    }
+    // A strip that faces the plate on its left goes in before the faders. See
+    // `facing`.
+    if plate.seam == Some(Seam::After)
+        && let Some(control) = plate.lamps
+    {
+        controls = controls.push(strip(patch, control, firmware, scale, sent));
+    }
     for (lanes, control) in plate.faders.iter().copied().enumerate() {
         if plate.rules.contains(&lanes) {
             controls = controls.push(hairline(scale));
         }
         controls = controls.push(lane(patch, control, firmware, scale, sent));
     }
-    if let Some(control) = plate.lamps {
+    if plate.seam != Some(Seam::After)
+        && let Some(control) = plate.lamps
+    {
         controls = controls.push(strip(patch, control, firmware, scale, sent));
     }
     let mut buttons = row![].spacing(scale.of(4.0)).align_y(Vertical::Top);
     for control in plate.switches.iter().copied() {
         buttons = buttons.push(switch(patch, control, firmware, scale, sent));
-    }
-    // And the presses the instrument has that move nothing: drawn where the
-    // panel prints them and inert, because that is what they are from here.
-    for press in plate.presses {
-        buttons = buttons.push(inert(press, scale));
     }
     // Every plate has a way in, and it is the press the hardware calls EDIT.
     buttons = buttons.push(way(plate.opens, scale));
@@ -1673,7 +1817,20 @@ where
                 scale,
             ),
             glass(patch, plate, firmware, scale, width),
-            controls,
+            // Leaning towards the join where this plate stands on one, so that
+            // the two strips either side of it are the one column the
+            // instrument prints there rather than two with the row's spare
+            // width between them. The plate is drawn out to fill its share of
+            // the row and its controls are not, so what is spare is the margin
+            // either side of them, and a pair meeting at a seam spends all of
+            // its on the outside.
+            container(controls)
+                .width(Length::Fill)
+                .align_x(match plate.seam {
+                    Some(Seam::Before) => Horizontal::Right,
+                    Some(Seam::After) => Horizontal::Left,
+                    None => Horizontal::Center,
+                }),
             buttons
         ]
         .spacing(scale.of(WITHIN))
@@ -1697,14 +1854,44 @@ where
     .into()
 }
 
-/// One of the presses the front panel has that this editor cannot reach.
+/// The presses the front panel has that this editor cannot reach, as a column.
 ///
-/// `CHORD` and `POLY CHORD`. A cap in the row of caps, drawn where the panel
-/// prints it, at the size of the presses beside it — and it does not go down,
-/// because [`Sends::Nothing`] is the library saying that no controller number
-/// and no message in the manual presses one. What it *does* is latch what the
-/// keyboard is playing, which is a thing that happens between a pair of hands
-/// and an instrument with no cable in the middle of it.
+/// `CHORD` and `POLY CHORD`, one above the other at the left-hand end of the
+/// arpeggiator's controls, which is where a `DeepMind` prints them: a pair of
+/// caps beside the two faders rather than a pair in the band of presses along
+/// the foot. They were in that band here, and being in it is what made them
+/// read as two more of the section's five buttons instead of the two the
+/// section's hands are on.
+fn latches<'a, Renderer>(presses: &'static [PanelPress], scale: Scale) -> Element<'a, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    column(presses.iter().map(|press| inert(press, scale)))
+        .spacing(scale.of(APART))
+        .width(Length::Fixed(scale.of(SWITCH)))
+        .align_x(Horizontal::Center)
+        .into()
+}
+
+/// One of those presses.
+///
+/// A cap the size of the presses along the plate's foot, under the word the
+/// panel prints over it — and it does not go down, because [`Sends::Nothing`]
+/// is the library saying that no controller number and no message in the manual
+/// presses one. What it *does* is latch what the keyboard is playing, which is
+/// a thing that happens between a pair of hands and an instrument with no cable
+/// in the middle of it.
+///
+/// **The word and not a picture.** Every press along a plate's foot carries a
+/// [mark](marking), because a band of five caps is a row and a row wants one
+/// language; these two are not in that band any more, they are a column of two
+/// beside the faders, and what a `DeepMind` prints over them there is `CHORD`
+/// and `POLY CHORD`. Nine dots cannot say *a different chord under every key* —
+/// the two marks that tried were three bars and six, which read as a list and a
+/// longer list — and the standing rule where a grid this size has no honest
+/// answer is that the press keeps its word. Here it can: a column has the two
+/// lines of legend a lane has, which is the room `POLY CHORD` needs and the
+/// band along the foot never had.
 ///
 /// **Unlit rather than dark.** The lamp behind it on the instrument is cyan and
 /// this window lights nothing here, because a lit cap is a cap saying something
@@ -1713,12 +1900,12 @@ where
 /// one is off from where the window is standing. No ring either, for the same
 /// reason a way in has none — there is nothing to claim.
 ///
-/// **And its mark is printed faint.** A cap that looks exactly like the four
+/// **And its word is printed faint.** A cap that looks exactly like the ones
 /// beside it and does nothing when it is pressed is worse than no cap at all:
 /// somebody presses it twice and then goes looking for the bug. Half the ink of
-/// a live press is what every disabled control anywhere has looked like for
+/// a live legend is what every disabled control anywhere has looked like for
 /// forty years, and it is the one thing on this panel that says *this is here
-/// and you cannot have it* without a word.
+/// and you cannot have it* without a sentence.
 ///
 /// The sentence the library records about it goes in the footer while the
 /// pointer is on it, which is where this window says what is under the pointer
@@ -1727,60 +1914,60 @@ fn inert<'a, Renderer>(press: &'static PanelPress, scale: Scale) -> Element<'a, 
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
-    let mark = pressing(press);
+    // Square, where a press along the plate's foot is wide. The band along the
+    // foot is one band and two sizes of button in it is a row that does not
+    // line up, which is why every press in it is the same shape; these two are
+    // not in it any more, and a blank cap as wide as a lamp with a mark on it
+    // is the largest empty thing on the plate. So it is drawn the shape a
+    // `DeepMind`'s own presses are, which is the shape a press with nothing
+    // written on it should have been all along.
     let cap = crate::cap::cap(
         |_: &Theme| crate::cap::Face::RUBBER,
-        container(match mark {
-            Some(mark) => Element::from(lcd::stencil(mark.screen(), faded)),
-            None => Element::from(Space::new()),
-        })
-        .center_x(Length::Fill)
-        .center_y(Length::Fill),
+        container(Space::new())
+            .center_x(Length::Fill)
+            .center_y(Length::Fill),
     )
-    .width(Length::Fixed(scale.of(SWITCH)))
+    .width(Length::Fixed(crate::panel::PRESS))
     .height(Length::Fixed(crate::panel::PRESS));
-    column![
-        legend(if mark.is_some() { "" } else { press.legend() }, scale),
-        mouse_area(cap)
-            .on_enter(Message::Hinted(press.note()))
-            .on_exit(Message::Hinted(None)),
-    ]
-    .spacing(scale.of(UNDER))
-    .width(Length::Fixed(scale.of(SWITCH)))
-    .align_x(Horizontal::Center)
+    let word = container(
+        text(press.legend())
+            .size(scale.of(9.0))
+            .font(reading())
+            .center()
+            .style(|theme: &Theme| text::Style {
+                color: Some(faded(theme)),
+            }),
+    )
+    .height(Length::Fixed(scale.of(LEGEND)))
+    .width(Length::Fill)
+    .align_x(Horizontal::Center);
+    mouse_area(
+        column![word, cap]
+            .spacing(scale.of(UNDER))
+            .width(Length::Fixed(scale.of(SWITCH)))
+            .align_x(Horizontal::Center),
+    )
+    .on_enter(Message::Hinted(press.note()))
+    .on_exit(Message::Hinted(None))
     .into()
 }
 
-/// Half the ink a live press is marked in, on the cap it is marked on.
+/// Half the ink a live legend is printed in, on the panel it is printed on.
 ///
-/// Mixed towards the rubber rather than dropped in alpha, because the cap under
-/// it is a dome with a gradient down it: ink at half opacity over a gradient is
-/// a mark that is darker at one end of the cap than the other, and what this is
-/// meant to read as is one faint mark.
+/// Mixed towards the panel rather than dropped in alpha, because what is under
+/// a legend is a plate with a gradient across it: ink at half opacity over a
+/// gradient is a word that is darker at one end of the plate than the other,
+/// and what this is meant to read as is one faint word.
 fn faded(theme: &Theme) -> iced_core::Color {
     crate::style::mix(
-        crate::style::on_cap(theme),
-        materials(theme).metal,
+        materials(theme).metal_low,
+        materials(theme).plate,
         HALF_INKED,
     )
 }
 
-/// How far an inert press's mark is carried from the ink towards the rubber.
+/// How far an inert press's word is carried from the ink towards the plate.
 const HALF_INKED: f32 = 0.55;
-
-/// The mark printed on one of those presses.
-///
-/// Keyed by the library's own legend, because there is no parameter to key it
-/// by — which is the whole reason a [`PanelPress`] exists. A press this window
-/// has no drawing for keeps its word, the way every unmarked press on this
-/// panel used to.
-fn pressing(press: &'static PanelPress) -> Option<Badge> {
-    match press.legend() {
-        "CHORD" => Some(crate::badge::CHORD),
-        "POLY CHORD" => Some(crate::badge::POLY_CHORD),
-        _ => None,
-    }
-}
 
 /// The display over a plate's faders, showing what its section is doing.
 ///
@@ -1910,7 +2097,7 @@ where
             value,
             claim,
             firmware,
-            Room::lane(scale.of(LANE), scale.of(TRAVEL)),
+            Room::lane(scale.of(LANE), scale.of(travel())),
             sent,
         ),
         container(readout(parameter, value, claim, firmware))
@@ -1923,17 +2110,24 @@ where
     .into()
 }
 
-/// Draws a named set as the strip of lit legends the instrument has.
+/// Draws a named set as the strip of lamps the instrument has.
 ///
 /// The LFO's shape is a column of lamps beside its two faders on the hardware,
 /// one of them lit, and seven of them is more than a rack's slot has room to
 /// light. The panel has the room, so it says so.
 ///
-/// The room is [everything a lane holds](lit) and not the travel of the fader
-/// beside it, because seven legends are taller than a panel fader is long: a
-/// strip given the fader's travel lights five of the instrument's seven shapes
-/// and drops `Sample & Hold` and `Sample & Glide` off the bottom of the panel,
-/// where nothing says they are missing.
+/// **What is lit beside each lamp is the wave**, where this window has a
+/// drawing for every shape in the set, which is what the instrument silkscreens
+/// there and what [`SHAPES`] is the width of. A set with a shape this window
+/// cannot draw is lit as the seven names instead, in the width the names need:
+/// see [`lit_width`], and `badge::wave::all` for why it is the whole set or
+/// none of it.
+///
+/// The room down the column is [everything a lane holds](lit) and not the
+/// travel of the fader beside it, because seven rows are taller than a panel
+/// fader is long: a strip given the fader's travel lights five of the
+/// instrument's seven shapes and drops `Sample & Hold` and `Sample & Glide` off
+/// the bottom of the panel, where nothing says they are missing.
 fn strip<'a, Renderer>(
     patch: &Patch,
     control: Control,
@@ -1945,6 +2139,7 @@ where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
     let parameter = control.parameter;
+    let width = scale.of(lit_width(parameter));
     column![
         legend(control.legend, scale),
         crate::panel::control(
@@ -1952,14 +2147,32 @@ where
             patch.value(parameter),
             patch.claim(parameter),
             firmware,
-            Room::lamps(scale.of(LAMPS), lit(scale, named(control, firmware))),
+            Room::lamps(width, lit(scale, named(control, firmware))),
             sent,
         ),
     ]
     .spacing(scale.of(APART))
-    .width(Length::Fixed(scale.of(LAMPS)))
+    .width(Length::Fixed(width))
     .align_x(Horizontal::Center)
     .into()
+}
+
+/// How wide the strip that lights `parameter`'s named set stands.
+///
+/// The width of the pictures where the whole set is pictured and the width of
+/// the longest name where any of it is not, which is the same question
+/// [`crate::panel`] asks itself when it comes to draw the column and has to be
+/// the same answer: a strip laid out for waves and drawn with words is seven
+/// names clipped to `Sample`.
+///
+/// Asked of the library's table for the firmware this window was built against
+/// rather than the one on the wire, because a plate's width is settled before
+/// anything is on the wire.
+fn lit_width(parameter: ParamId) -> f32 {
+    let pictured = parameter
+        .choices()
+        .is_some_and(|set| crate::badge::wave::all(set.iter().map(|entry| entry.name)));
+    if pictured { SHAPES } else { LAMPS }
 }
 
 /// How many things a control's named set names, as the library has them.
@@ -1984,7 +2197,7 @@ fn named(control: Control, firmware: Version) -> usize {
 /// standing a little past its lane is something somebody can see; the test
 /// beside this one is what says no set on the panel needs that today.
 fn lit(scale: Scale, named: usize) -> f32 {
-    let lane = scale.of(TRAVEL + APART) + READ;
+    let lane = scale.of(travel() + APART) + READ;
     lane.max(crate::panel::lit_band(named))
 }
 
@@ -2009,27 +2222,36 @@ where
         Some(mark) => room.marked(mark),
         None => room,
     };
+    let drawn = crate::panel::control(
+        parameter,
+        patch.value(parameter),
+        patch.claim(parameter),
+        firmware,
+        room,
+        sent,
+    );
+    // The word only where the press is not already named. A press that carries
+    // a mark carries its whole name, and a press that lights `4 Pole` over
+    // `2 Pole` is named by what it is choosing between: `POLES` printed over
+    // that pair is the panel saying the same thing twice. Where no press on the
+    // panel needs a word the band of words is not drawn at all, and the faders
+    // above it run that much further — see `travel`.
+    if !worded() {
+        return container(drawn)
+            .width(Length::Fixed(scale.of(SWITCH)))
+            .align_x(Horizontal::Center)
+            .into();
+    }
     column![
-        // The word only where there is no picture. A press that carries its
-        // mark carries its whole name, so printing the word over it as well
-        // would be the panel saying the same thing twice; the room stays, so a
-        // row of presses is still one row whichever way each of them is named.
         legend(
-            if control.mark.is_some() {
+            if control.mark.is_some() || names_itself(parameter) {
                 ""
             } else {
                 control.legend
             },
             scale
         ),
-        crate::panel::control(
-            parameter,
-            patch.value(parameter),
-            patch.claim(parameter),
-            firmware,
-            room,
-            sent,
-        ),
+        drawn,
     ]
     .spacing(scale.of(UNDER))
     .width(Length::Fixed(scale.of(SWITCH)))
@@ -2110,11 +2332,7 @@ fn way<'a, Renderer>(group: Group, scale: Scale) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
-    column![
-        // No word over it. The mark on the cap is the name, the way it is on
-        // every other press of this panel, and `EDIT` printed above a cap that
-        // already says *open this section* is the panel saying it twice.
-        legend("", scale),
+    let cap = column![
         // In the room a button of the row beside it is drawn in, and standing
         // in the middle of it. The cap is the rack's own, the same width and
         // height as the lamp on the next plate along, because the band along the
@@ -2149,8 +2367,21 @@ where
     ]
     .spacing(scale.of(UNDER))
     .width(Length::Fixed(scale.of(WAY)))
-    .align_x(Horizontal::Center)
-    .into()
+    .align_x(Horizontal::Center);
+    // No word over it, whichever way the band is drawn. The mark on the cap is
+    // the name, the way it is on every other press of this panel, and `EDIT`
+    // printed above a cap that already says *open this section* is the panel
+    // saying it twice. The blank line stays only while some other press on the
+    // panel needs one, so that a row of presses is one row.
+    if worded() {
+        column![legend("", scale), cap]
+            .spacing(scale.of(UNDER))
+            .width(Length::Fixed(scale.of(WAY)))
+            .align_x(Horizontal::Center)
+            .into()
+    } else {
+        cap.into()
+    }
 }
 
 /// The screen, cut into the panel where the instrument's own display sits.
@@ -2193,7 +2424,7 @@ mod tests {
     use deepmind_midi::param::DEFAULT_FIRMWARE;
 
     use super::{ACROSS, DOWN, GAP, LEGEND, NARROWEST, PAD, Plate, SCREEN, SWITCH};
-    use super::{Scale, Share, UNDER, WAY, WITHIN, rows};
+    use super::{Scale, Seam, Share, UNDER, WAY, WITHIN, rows};
     use super::{
         blank, count, lcd, lines, lit, panel_width, panelled, row_width, span, standing,
         standing_in, widest,
@@ -2248,10 +2479,63 @@ mod tests {
                 "{press} is drawn inert with nothing to say about why",
             );
             assert!(
-                super::pressing(press).is_some(),
+                !press.legend().is_empty(),
                 "{press} is a blank cap nobody can read",
             );
         }
+    }
+
+    #[test]
+    fn no_press_on_the_panel_is_named_by_a_word_printed_over_it() {
+        // What buys the faders their travel. Every press here is named by the
+        // mark on its cap or by the pair of legends it chooses between, so the
+        // band of words along the foot of a plate is not drawn and the lane
+        // above it runs that much further — see `travel`. A press that arrived
+        // with a word rather than a mark would put the band back and shorten
+        // every fader on the panel, which is worth finding out here rather than
+        // in a screenshot.
+        assert!(!super::worded());
+        assert!(super::travel() > super::TRAVEL);
+    }
+
+    #[test]
+    fn the_two_plates_that_light_a_set_light_it_against_each_other() {
+        // The instrument prints one plate for both its LFOs and stands one
+        // column of lamps in the middle of it. This panel draws two plates, so
+        // the two strips lean together and meet along the join — which is where
+        // the instrument's own column is. See `facing`.
+        let lit: Vec<(&str, Option<Seam>)> = rows()
+            .iter()
+            .flat_map(|row| row.iter())
+            .filter(|plate| plate.lamps.is_some())
+            .map(|plate| (plate.name.as_str(), plate.seam))
+            .collect();
+
+        assert_eq!(
+            lit,
+            vec![("LFO 1", Some(Seam::Before)), ("LFO 2", Some(Seam::After)),],
+            "the panel's lit sets are not the pair that meet in the middle",
+        );
+    }
+
+    #[test]
+    fn a_lit_set_is_measured_at_the_width_it_is_drawn_at() {
+        // The plate is measured before anything is drawn and the strip is drawn
+        // long after, and the two ask the same question of the library: is
+        // there a wave for every shape in the set? An answer that drifted would
+        // be a column of seven names laid out in the room seven pictures need.
+        let lamps = rows()
+            .iter()
+            .flat_map(|row| row.iter())
+            .find_map(|plate| plate.lamps)
+            .expect("the panel lights a set");
+        let set = lamps
+            .parameter
+            .choices_for(DEFAULT_FIRMWARE)
+            .expect("the set is named");
+
+        assert!(crate::badge::wave::all(set.iter().map(|entry| entry.name)));
+        assert!((super::lit_width(lamps.parameter) - super::SHAPES).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -2554,7 +2838,13 @@ mod tests {
         // what it holds, so every plate grows by the same fraction of itself.
         let plates = rows().get(1).expect("the signal path");
         let line = standing_in(plates, false);
-        let share = Share::of(&line, span(panel_width(), Scale::NATURAL), Scale::NATURAL);
+        // Half again as wide as the row measures, rather than the panel's own
+        // width: which row is the widest is a fact about how many faders each
+        // one holds, and what this is about is how a row spends width it has
+        // over. A row asked to fill exactly itself is a row with nothing to
+        // spend.
+        let room = row_width(plates, false, Scale::NATURAL) * 1.5;
+        let share = Share::of(&line, room, Scale::NATURAL);
         let first = *line.first().expect("a plate");
         let grown = share.width(first, Scale::NATURAL) / first.width(Scale::NATURAL);
 
