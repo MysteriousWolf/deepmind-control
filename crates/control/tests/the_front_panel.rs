@@ -22,7 +22,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use control::{App, Message, View};
-use control_ui::{Confidence, band, panelled, sections, unplated, ways_in};
+use control_ui::{Confidence, Way, band, panelled, sections, unplated, ways_in};
 use deepmind_host::PortRef;
 use deepmind_midi::param::{Group, ParamId};
 
@@ -206,7 +206,8 @@ fn every_section_the_instrument_has_has_a_way_in() {
 ///
 /// The band's own rule, asked the way it is drawn: a cap is lit when what it
 /// puts on the screen is what is already on it.
-fn lit(showing: Option<Group>) -> Vec<Option<Group>> {
+fn lit(app: &App) -> Vec<Way> {
+    let showing = app.showing();
     band().into_iter().filter(|cap| *cap == showing).collect()
 }
 
@@ -218,7 +219,7 @@ fn the_band_lights_exactly_the_cap_for_what_is_open() {
     // the front panel has a cap of its own: the row says where somebody is
     // before it says where they can go.
     assert_eq!(app.editing(), None);
-    assert_eq!(lit(app.editing()), vec![None], "the way home is not lit");
+    assert_eq!(lit(&app), vec![Way::Panel], "the way home is not lit");
 
     // And each section the band carries lights its own cap and nothing else,
     // which is the difference between a row of tabs and a row of buttons.
@@ -226,8 +227,8 @@ fn the_band_lights_exactly_the_cap_for_what_is_open() {
         app.update(Message::Ui(control_ui::Message::Show(section)));
         assert_eq!(app.editing(), Some(section));
         assert_eq!(
-            lit(app.editing()),
-            vec![Some(section)],
+            lit(&app),
+            vec![Way::Section(section)],
             "{section} is open and its cap is not the lit one"
         );
     }
@@ -243,15 +244,40 @@ fn a_section_with_a_plate_lights_nothing_in_the_band() {
     // way home there would be the row claiming a place nobody is in.
     app.update(Message::Ui(control_ui::Message::Show(Group::Vcf)));
 
-    assert!(!band().contains(&Some(Group::Vcf)), "VCF has a plate");
-    assert_eq!(lit(app.editing()), Vec::new(), "something in the band lit");
+    assert!(
+        !band().contains(&Way::Section(Group::Vcf)),
+        "VCF has a plate"
+    );
+    assert_eq!(lit(&app), Vec::new(), "something in the band lit");
 
     // The way home still works from there, which is why it is a cap and not a
     // fifth section: it is the one press in the band that means anything while
     // a plate's own sheet is up.
     app.update(Message::Ui(control_ui::Message::Close));
     assert_eq!(app.editing(), None);
-    assert_eq!(lit(app.editing()), vec![None]);
+    assert_eq!(lit(&app), vec![Way::Panel]);
+}
+
+#[test]
+fn the_shelf_is_a_cap_of_the_band_like_any_other() {
+    // The switch between the two surfaces is gone: the library is where this
+    // window can be, the same way a section is, so it is a press in the same
+    // row and it lights by the same comparison.
+    let mut app = read();
+
+    app.update(Message::Ui(control_ui::Message::Shelf));
+    assert_eq!(lit(&app), vec![Way::Library], "the shelf's cap is not lit");
+    assert_eq!(
+        app.editing(),
+        None,
+        "a sheet is still up over a window showing the shelf"
+    );
+
+    // And a section reached from the shelf brings the panel back under it,
+    // because a section is a sheet over the panel and nothing else.
+    app.update(Message::Ui(control_ui::Message::Show(Group::ModMatrix)));
+    assert_eq!(lit(&app), vec![Way::Section(Group::ModMatrix)]);
+    assert_eq!(app.showing(), Way::Section(Group::ModMatrix));
 }
 
 #[test]
@@ -260,11 +286,21 @@ fn the_band_is_the_way_home_and_then_what_no_plate_carries() {
 
     assert_eq!(
         caps.first(),
-        Some(&None),
+        Some(&Way::Panel),
         "the way home is not the first cap of the band"
     );
     assert_eq!(
-        caps.into_iter().flatten().collect::<Vec<Group>>(),
+        caps.last(),
+        Some(&Way::Library),
+        "the shelf is not the last cap of the band"
+    );
+    assert_eq!(
+        caps.into_iter()
+            .filter_map(|cap| match cap {
+                Way::Section(section) => Some(section),
+                Way::Panel | Way::Library => None,
+            })
+            .collect::<Vec<Group>>(),
         unplated(),
         "the band and the sections with no plate have come apart"
     );

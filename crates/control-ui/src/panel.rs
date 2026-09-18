@@ -439,6 +439,25 @@ pub enum Message {
     /// It says nothing about *what* is open, because one thing is: a second
     /// sheet over the first would be a window nobody can find the bottom of.
     Close,
+    /// The instrument's own front should be the surface on the screen, with
+    /// nothing over it.
+    ///
+    /// What the first cap of the [band of ways in](crate::ways) sends, and not
+    /// the same message as [`Close`](Message::Close), though from the panel the
+    /// two land in the same place. Close is *put away what is over the window*,
+    /// which is what a press on the shade and the escape key mean and which
+    /// says nothing about the surface underneath; this is *be at the front
+    /// panel*, which is a place to go and works from the shelf.
+    Front,
+    /// The shelf should be the surface on the screen.
+    ///
+    /// The one message here that is not about the instrument. A window is the
+    /// sound in front of you or it is the sounds you have, and the second of
+    /// those is a place rather than a panel — so it sits in the same band as
+    /// the sections, sends a message like theirs, and this crate knows no more
+    /// about what a library *is* than [`Close`](Message::Close) knows about
+    /// what is being closed.
+    Shelf,
     /// The pointer is over this control, or has left the one it was over.
     ///
     /// A panel of forty faders under four-letter legends is only readable

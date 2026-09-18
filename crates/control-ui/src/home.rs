@@ -1182,23 +1182,45 @@ pub fn unplated() -> Vec<Group> {
         .collect()
 }
 
-/// Every cap of the [band of ways in](ways), as what pressing it puts on the
-/// screen.
+/// What one cap of the [band of ways in](ways) puts on the screen.
 ///
-/// `None` is the front panel itself, which is the state with nothing over it,
-/// and every other cap is the section it opens. So the band is a list of the
-/// things the window can be showing, in the order it shows them in, and which
-/// cap is lit is one comparison against what is open rather than a flag kept
-/// beside it.
+/// Everything this window can be showing, which is the whole of what the band
+/// is a list of. So which cap is lit is one comparison against what is open,
+/// rather than a flag kept beside the list, and the row that used to be two
+/// rows — a switch between the surfaces above a band of sections — is one row
+/// of presses that all do the same kind of thing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Way {
+    /// The instrument's own front, with nothing over it.
+    ///
+    /// Where the window opens, and what every other cap is a way back from.
+    Panel,
+    /// The shelf of sounds a file or a bank read put there.
+    ///
+    /// The one cap that is not on the instrument. It was a switch of its own
+    /// above this band, which said the librarian is a different kind of thing
+    /// from the sections when what it is, to a hand, is another place this
+    /// window can be.
+    Library,
+    /// One of the sections the front panel has no plate for.
+    Section(Group),
+}
+
+/// Every cap of the [band of ways in](ways), in the order the row stands in.
 ///
-/// The way home first and the sections after it, because it is the one cap that
-/// is not a section and a row whose odd one out is in the middle is a row
-/// somebody has to look twice at. The rest are [`unplated`], subtracted from the
-/// library rather than written down here.
+/// The way home first, then the sections, then the shelf. The panel is first
+/// because it is where the window opens and what everything else is a way back
+/// from; the shelf is last because it is the one place in the row that is not
+/// the sound in front of you. A row whose odd one out is in the middle is a row
+/// somebody has to look twice at.
+///
+/// The sections are [`unplated`], subtracted from the library rather than
+/// written down here.
 #[must_use]
-pub fn band() -> Vec<Option<Group>> {
-    let mut caps = vec![None];
-    caps.extend(unplated().into_iter().map(Some));
+pub fn band() -> Vec<Way> {
+    let mut caps = vec![Way::Panel];
+    caps.extend(unplated().into_iter().map(Way::Section));
+    caps.push(Way::Library);
     caps
 }
 
@@ -1236,7 +1258,7 @@ pub fn band() -> Vec<Option<Group>> {
 /// stretched. What the room it is given decides is how the slack is shared, and
 /// nothing else.
 #[must_use]
-pub fn ways<'a, Renderer>(showing: Option<Group>) -> Element<'a, Renderer>
+pub fn ways<'a, Renderer>(showing: Way) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
@@ -1246,21 +1268,25 @@ where
     }
     container(responsive(move |room| {
         // Each cap is as wide as its own printing needs, and the room the row
-        // has over that is shared out evenly. Equal fifths would be five caps
+        // has over that is shared out evenly. Equal shares would be six caps
         // cut to the *shortest* name on the row, which is how `CONTROL
         // SEQUENCER` came out as `CONTROL SEQUENCE`: a press whose word is cut
         // off is a press that says the wrong thing, and this row has nothing but
         // its words to say what it opens.
-        let wanted: Vec<f32> = caps
-            .iter()
-            .map(|cap| lcd::room(plaque(*cap).columns()) + PAD * 2.0 + crate::cap::BEZELS)
-            .collect();
-        let gutters = ACROSS * to_f32(caps.len().saturating_sub(1));
-        let slack = (room.width - gutters - wanted.iter().sum::<f32>()).max(0.0);
+        //
+        // And where even the words do not fit, the words go rather than being
+        // cut. A cap keeps its mark, which is what a button on the instrument
+        // carries anyway: the `EDIT` on a `DeepMind` is a blank cap with its
+        // name silkscreened beside it, and a row of marks is that row. Half a
+        // word is the one thing it must never be.
+        let named = wanted(&caps, true);
+        let spelled = named.iter().sum::<f32>() + gutters(caps.len()) <= room.width;
+        let wanted = if spelled { named } else { wanted(&caps, false) };
+        let slack = (room.width - gutters(caps.len()) - wanted.iter().sum::<f32>()).max(0.0);
         let spare = slack / to_f32(caps.len());
         let mut line = row![].spacing(ACROSS).align_y(Vertical::Top);
         for (cap, width) in caps.iter().copied().zip(wanted) {
-            line = line.push(tab(cap, showing, width + spare));
+            line = line.push(tab(cap, showing, width + spare, spelled));
         }
         line.into()
     }))
@@ -1269,6 +1295,30 @@ where
     // and stand its caps in the top of it.
     .height(Length::Fixed(crate::panel::BUTTON))
     .into()
+}
+
+/// How wide each cap of `caps` wants to be, spelled out or marked alone.
+fn wanted(caps: &[Way], spelled: bool) -> Vec<f32> {
+    caps.iter()
+        .map(|cap| lcd::room(plaque(*cap, spelled).columns()) + PAD * 2.0 + crate::cap::BEZELS)
+        .collect()
+}
+
+/// How much panel the gaps between `caps` take.
+fn gutters(caps: usize) -> f32 {
+    ACROSS * to_f32(caps.saturating_sub(1))
+}
+
+/// How wide the band wants to stand with every cap's name spelled out.
+///
+/// What a window asks so that it opens wide enough to read the row it is about
+/// to draw. The band will fit itself into whatever it is given — see
+/// [`ways`] — but a window that opens on a row of marks with the names dropped
+/// is a window that has thrown away the one thing that row has to say.
+#[must_use]
+pub fn ways_width() -> f32 {
+    let caps = band();
+    wanted(&caps, true).iter().sum::<f32>() + gutters(caps.len())
 }
 
 /// A count of caps as a width can use it.
@@ -1294,18 +1344,14 @@ fn to_f32(count: usize) -> f32 {
 /// whatever is over the panel. Which is why the way home works from *any*
 /// sheet, including the ten a plate's `EDIT` opens, even though no cap here is
 /// lit while one of those is up.
-fn tab<'a, Renderer>(
-    cap: Option<Group>,
-    showing: Option<Group>,
-    width: f32,
-) -> Element<'a, Renderer>
+fn tab<'a, Renderer>(cap: Way, showing: Way, width: f32, spelled: bool) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
     // Lit when what this cap puts on the screen is what is on it already, which
     // is the one cap in the band that would do nothing if it were pressed.
     let chosen = cap == showing;
-    let plaque = lcd::stencil(plaque(cap), crate::style::on_cap);
+    let plaque = lcd::stencil(plaque(cap, spelled), crate::style::on_cap);
     crate::cap::cap(
         // The hardware's own amber, because this is the hardware's own press:
         // `EDIT` and everything in the programmer that changes what the display
@@ -1326,8 +1372,9 @@ where
     .width(Length::Fixed(width))
     .height(Length::Fill)
     .on_press(match cap {
-        Some(section) => Message::Show(section),
-        None => Message::Close,
+        Way::Section(section) => Message::Show(section),
+        Way::Library => Message::Shelf,
+        Way::Panel => Message::Front,
     })
     .into()
 }
@@ -1345,9 +1392,9 @@ where
 /// other than a hand can move this control*, which is what a routing in the
 /// matrix does to everything it reaches, so the one cap that is not amber is
 /// the one cap that opens the page those routings are made on.
-fn lamp(cap: Option<Group>) -> iced_core::Color {
+fn lamp(cap: Way) -> iced_core::Color {
     match cap {
-        Some(Group::ModMatrix) => crate::style::MODULATION,
+        Way::Section(Group::ModMatrix) => crate::style::MODULATION,
         _ => crate::style::WAY_IN,
     }
 }
@@ -1356,12 +1403,23 @@ fn lamp(cap: Option<Group>) -> iced_core::Color {
 const BESIDE: i32 = 3;
 
 /// The mark and the name of a cap, as one screen of dots.
-fn plaque(cap: Option<Group>) -> Screen {
+fn plaque(cap: Way, spelled: bool) -> Screen {
     let (mark, name) = printing(cap);
+    // A cap with no mark keeps its name whatever the row is doing, because a
+    // blank cap is a cap that says nothing at all. Nothing in the band is one
+    // today and a section a later firmware adds with no mark drawn for it would
+    // be.
+    let name = if spelled || mark.is_none() {
+        name
+    } else {
+        String::new()
+    };
     let word = Screen::width_of(&name, Size::Small);
     let line = Screen::height_of(Size::Small);
     let mark = mark.map(Badge::screen);
-    let lead = mark.as_ref().map_or(0, |mark| mark.columns() + BESIDE);
+    let lead = mark
+        .as_ref()
+        .map_or(0, |mark| mark.columns() + if word > 0 { BESIDE } else { 0 });
     let tall = mark.as_ref().map_or(line, |mark| mark.rows().max(line));
     let mut screen = Screen::new(lead + word, tall);
     if let Some(mark) = mark {
@@ -1386,9 +1444,11 @@ fn plaque(cap: Option<Group>) -> Screen {
 /// which is a press that still works and still says what it opens: the row is
 /// derived from the library and the drawings are not, so the drawings are what
 /// can be missing.
-fn printing(cap: Option<Group>) -> (Option<Badge>, String) {
-    let Some(section) = cap else {
-        return (Some(crate::badge::PANEL), HOME.to_owned());
+fn printing(cap: Way) -> (Option<Badge>, String) {
+    let section = match cap {
+        Way::Panel => return (Some(crate::badge::PANEL), HOME.to_owned()),
+        Way::Library => return (Some(crate::badge::SHELF), SHELF.to_owned()),
+        Way::Section(section) => section,
     };
     let mark = match section {
         Group::ModMatrix => Some(crate::badge::MATRIX),
@@ -1407,6 +1467,14 @@ fn printing(cap: Option<Group>) -> (Option<Badge>, String) {
 /// cap that is not a section is named after the place it is: the instrument's
 /// own front, which is what the window is when nothing is over it.
 const HOME: &str = "FRONT PANEL";
+
+/// What the shelf is called.
+///
+/// The one cap in the row not named after a section of the instrument, so it is
+/// named after what it holds rather than after the code that draws it: a
+/// librarian is what this window calls the module and a library is what a
+/// player has.
+const SHELF: &str = "LIBRARY";
 
 /// Draws one group of the panel: its name, its controls, and its way in.
 ///

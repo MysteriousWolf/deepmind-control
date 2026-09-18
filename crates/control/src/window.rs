@@ -10,7 +10,7 @@ use iced::futures::channel::mpsc;
 use iced::widget::{
     button, column, container, pick_list, row, scrollable, space, svg, text, tooltip,
 };
-use iced::{Background, Center, Element, Fill, Length, Subscription, Theme, border, keyboard};
+use iced::{Center, Element, Fill, Length, Subscription, Theme, keyboard};
 
 use crate::app::{App, Message, View};
 use crate::{files, librarian};
@@ -78,7 +78,13 @@ pub(crate) fn window_size() -> (f32, f32) {
     // sized as though the rack stood on the panel is a window that draws the
     // chain past the edge of its own glass.
     let sheet = control_ui::effects_width() + control_ui::margins();
-    (panel.max(sheet), DEEP)
+    // And wide enough for the band of ways in with every cap's name spelled
+    // out. The band fits itself into whatever it is given by dropping the
+    // names and keeping the marks, which is what a row of buttons on the
+    // instrument is anyway — but a window that *opens* on that has thrown away
+    // the one thing the row has to say about where each press goes.
+    let band = control_ui::ways_width() + GROUND * 2.0;
+    (panel.max(sheet).max(band), DEEP)
 }
 
 /// How deep it opens.
@@ -181,20 +187,23 @@ fn ticks() -> impl Stream<Item = Message> {
 /// background would give. It is the one surface in the window nothing is cut
 /// into, so it is drawn once, here, around all of it.
 ///
-/// Four bands down: the header, the switch between the two surfaces, the band
-/// of ways into the sections no plate carries, and then the surface itself with
-/// whatever sheet is lying over it. The footer is under all of them.
+/// Three bands down: the header, the band of ways in, and then the surface
+/// itself with whatever sheet is lying over it. The footer is under all of them.
+///
+/// There were four. The second was a switch between the two surfaces, `Panel`
+/// and `Library`, which said the shelf is a different kind of thing from the
+/// sections when what it is, to a hand, is another place this window can be. It
+/// is a cap in the band now, at the end of the row, and one row of presses does
+/// what two did.
 pub(crate) fn view(app: &App) -> Element<'_, Message> {
-    let mut window = column![header(app), surfaces(app)];
-    // The band of tabs, on the panel and not on the shelf: what it opens is a
-    // section of the sound, and the shelf is the other thing this application
-    // is. It stands *outside* the sheet's shade, which is the whole of what
+    // The band stands *outside* the sheet's shade, which is the whole of what
     // makes it a row of tabs: a press on it while a section is open swaps the
     // sheet, the way the second `EDIT` on the instrument does, instead of
     // landing on the shade and closing what is up.
-    if matches!(app.view(), View::Panel) {
-        window = window.push(control_ui::ways(app.editing()).map(Message::Ui));
-    }
+    let window = column![
+        header(app),
+        control_ui::ways(app.showing()).map(Message::Ui)
+    ];
     let window = container(
         window
             .push(showing(app))
@@ -281,34 +290,6 @@ fn opened(app: &App, section: Group) -> Element<'_, Message> {
         control_ui::group(app.patch(), section, app.firmware(), app.mapper()),
     )
     .map(Message::Ui)
-}
-
-/// The two things this application is, and which one is in front of somebody.
-///
-/// The instrument's own front, and the sounds you keep. Not two windows and not
-/// two modes of one: moving between them is one press, and the sound survives
-/// the move, because putting a pack down to look at a filter and finding the
-/// filter gone would be the wrong lesson to teach anybody about this
-/// application.
-///
-/// There were three, and the middle one held whichever of the fourteen sections
-/// was open. A section is not a third thing this application is: it is the
-/// detail behind one press on the first, so it opens as a sheet over the panel
-/// and the switch is back to being a switch between two surfaces.
-fn surfaces(app: &App) -> Element<'_, Message> {
-    let showing = app.view();
-    let tab = |view: View, label: &'static str| {
-        let pressed = view == showing;
-        button(text(label).size(13))
-            .padding([5, 12])
-            .style(move |theme: &Theme, _status| surface(theme, pressed))
-            .on_press(Message::Show(view))
-    };
-    row![tab(View::Panel, "Panel"), tab(View::Library, "Library")]
-        .push(space::horizontal())
-        .spacing(6)
-        .align_y(Center)
-        .into()
 }
 
 /// The strip along the foot: what is under the pointer, and what can be asked
@@ -456,31 +437,6 @@ fn fold(words: &str, columns: i32) -> Vec<String> {
     }
     lines.truncate(3);
     lines
-}
-
-/// The style the surface switch is drawn in.
-///
-/// Not a colour of its own. The surface in front of somebody is the panel below
-/// it continued upwards and lit along its edge, and the other is the panel it is
-/// cut into, which is the same trick the instrument plays with a lit section
-/// button.
-fn surface(theme: &Theme, pressed: bool) -> button::Style {
-    let material = control_ui::materials(theme);
-    let palette = theme.extended_palette();
-    button::Style {
-        background: Some(Background::Color(if pressed {
-            material.plate
-        } else {
-            material.panel
-        })),
-        text_color: palette.background.base.text,
-        border: border::rounded(3).width(1.0).color(if pressed {
-            material.lit
-        } else {
-            material.recess_edge
-        }),
-        ..button::Style::default()
-    }
 }
 
 /// The name of the thing, what is known about the instrument, the port picker,

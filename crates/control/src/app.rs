@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use control_ui::{Mapper, Patch};
+use control_ui::{Mapper, Patch, Way};
 use deepmind_host::{Command, Event, Link, Outcome, PortRef, open, ports};
 use deepmind_midi::device::Event as DeviceEvent;
 use deepmind_midi::ids::{Bank, PROGRAMS_PER_BANK, ProgramNumber};
@@ -312,6 +312,22 @@ impl App {
         self.editing
     }
 
+    /// Returns which cap of the band of ways in is lit.
+    ///
+    /// Where the window *is*, in the one vocabulary the band is drawn from: the
+    /// shelf, a section on a sheet, or the panel with nothing over it. A
+    /// section's sheet opened from a plate's own `EDIT` lights nothing in the
+    /// band, because the band carries only the four sections no plate does, and
+    /// that is the comparison rather than a rule written here.
+    #[must_use]
+    pub const fn showing(&self) -> Way {
+        match (self.view, self.editing) {
+            (View::Library, _) => Way::Library,
+            (View::Panel, Some(section)) => Way::Section(section),
+            (View::Panel, None) => Way::Panel,
+        }
+    }
+
     /// Returns whether the displays are drawn the other way up.
     #[must_use]
     pub const fn is_negative(&self) -> bool {
@@ -371,10 +387,34 @@ impl App {
             // nobody can find the bottom of, so asking for a section while one
             // is open is the same press the hardware's second `EDIT` is: the
             // sheet becomes the other section.
-            Message::Ui(control_ui::Message::Show(section)) => self.editing = Some(section),
-            // And the way back out: the mark on the sheet's own bar, a press on
-            // the panel around it, or the escape key, all of which arrive here.
+            Message::Ui(control_ui::Message::Show(section)) => {
+                // A section is a sheet over the *panel*, so asking for one from
+                // the shelf is asking for both: the surface underneath it comes
+                // back with it. Which is what the band being one row rather than
+                // two is for — a cap says where to be, and where to be is a
+                // surface and whatever is over it.
+                self.view = View::Panel;
+                self.editing = Some(section);
+            }
+            // The shelf, which is the one cap of the band that is a surface
+            // rather than a section. Whatever sheet was over the panel comes
+            // down with it: a sound's filter is not open while somebody is
+            // looking at a list of sounds.
+            Message::Ui(control_ui::Message::Shelf) => {
+                self.view = View::Library;
+                self.editing = None;
+            }
+            // The way back out from under a sheet: the mark on its own bar, a
+            // press on the panel around it, or the escape key. It says nothing
+            // about which surface is underneath, because it is not a place to
+            // go — escape from the shelf leaves somebody on the shelf.
             Message::Ui(control_ui::Message::Close) => self.editing = None,
+            // The first cap of the band, which *is* a place to go: the front of
+            // the instrument, with nothing over it, from wherever somebody was.
+            Message::Ui(control_ui::Message::Front) => {
+                self.view = View::Panel;
+                self.editing = None;
+            }
             Message::Ui(control_ui::Message::Edit { parameter, value }) => {
                 self.moved(parameter, value);
                 // A routing pointed at the window is asking where it goes, and

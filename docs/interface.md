@@ -359,21 +359,33 @@ a surface brighter than itself, and the panel's own pale metal on an unlit one,
 because an unlit cap is panel-dark and dark ink on it is ink nobody can read.
 
 **The caps are as wide as their own printing needs**, with the slack shared out
-evenly, because five equal fifths cut `CONTROL SEQUENCER` down to `CONTROL
-SEQUENCE`. The band is drawn at the size it is written at whatever the window
-does: it is chrome now and not panel, and the header, the footer and the surface
-switch do not stretch either.
+evenly, because equal shares cut `CONTROL SEQUENCER` down to `CONTROL
+SEQUENCE`. Where even that does not fit, the *words* go and the marks stay,
+which is what a button on the instrument carries anyway — half a word is the one
+thing a press must never say. The window opens wide enough that it does not come
+to that.
 
-## Two surfaces, and the sound survives the switch
+## Two surfaces, one row of ways in
 
-The panel is the instrument. The library is the sounds somebody keeps. They are
-one application looking at two things, so they are two surfaces of one window: a
-switch above them, and everything below it changes. The patch does not. Putting
-a pack down to look at a filter and finding the filter gone is the wrong thing
-to teach anybody about an editor.
+The panel is the instrument. The library is the sounds somebody keeps. The patch
+survives moving between them: putting a pack down to look at a filter and
+finding the filter gone is the wrong thing to teach anybody about an editor.
 
-There were three, and the middle one held whichever section was open. It is gone
-with the tab bar: a section is not a third thing this application is.
+They used to be chosen by a switch of their own, above the band. That said the
+shelf is a different *kind* of thing from the sections, when what it is, to a
+hand, is another place this window can be — so it is the last cap of the band
+now, and one row of presses does what two did. `Way` is what that row is a list
+of: the panel, the sections no plate carries, and the shelf.
+
+**A cap of the band is a place and the escape key is not.** Pressing `FRONT
+PANEL` puts you on the front panel from wherever you were, shelf included.
+Escape, the mark on a sheet's bar and a press on the shade all mean *put away
+what is over the window*, which says nothing about the surface underneath: escape
+on the shelf leaves you on the shelf.
+
+There were three surfaces once, and the middle one held whichever section was
+open. It is gone with the tab bar: a section is not a third thing this
+application is.
 
 **The shelf is a grid and not a list.** A pack is 128 programs, and the one
 thing this surface can offer that the instrument's two-line display cannot is
@@ -381,9 +393,9 @@ all of them at once: four across at the window's opening width, in slot order,
 with the slot written the way the front panel writes it and the name beside it.
 A column of 128 rows would show a quarter as much.
 
-**A program is drawn like the surface switch**, because it is the same idea: the
-one that has been pressed is the face plate a rack sits on, lit along its edge,
-and the rest are the panel they are cut into.
+**A program is drawn as a chosen thing among unchosen ones**: the one that has
+been pressed is the face plate a rack sits on, lit along its edge, and the rest
+are the panel they are cut into.
 
 **A slot that names nothing is drawn as naming nothing.** A stored dump carries
 its bank and program; an edit buffer dump carries neither, because the edit
