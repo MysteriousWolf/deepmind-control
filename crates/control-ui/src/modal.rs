@@ -36,24 +36,27 @@
 //! dialog. A modal here is a piece of the instrument brought forward, not a
 //! window from somewhere else.
 //!
-//! # It is a frame and not a page
+//! # The title is the band's cap, printed flat
 //!
-//! [`sheet`] takes whatever is to go on it. This crate uses it for the fourteen
-//! sections, because that is what `EDIT` opens, and nothing about it knows that:
-//! anything the window wants to put in front of somebody without taking them
-//! off the panel goes on one the same way.
+//! A sheet is named the way the row of tabs above the window names a section:
+//! its mark and its word, in the display's own dots. It was the section's name
+//! in the machine's sans with a coloured dot in front of it — the one piece of
+//! this window that looked like it had been lifted out of a dialog box — and
+//! the dot was a claim the display underneath already carries.
+//!
+//! [`page`] has no title at all, because the cap that opened it is lit directly
+//! above it and a name printed twice one line apart is a name printed twice.
 
+use deepmind_midi::param::Group;
 use iced_core::alignment::{Horizontal, Vertical};
 use iced_core::{Background, Border, Font, Length, Theme, text::Renderer as TextRenderer};
-use iced_widget::{
-    button, column, container, mouse_area, opaque, row, scrollable, space, stack, text,
-};
+use iced_widget::{button, column, container, mouse_area, opaque, row, scrollable, space, stack};
 
+use crate::Element;
 use crate::badge::SHUT;
 use crate::lcd::stencil;
-use crate::panel::{Message, dot};
-use crate::style::{lifted, marked, materials, mix, printed, unlit};
-use crate::{Confidence, Element};
+use crate::panel::Message;
+use crate::style::{lifted, marked, materials, mix, unlit};
 
 /// How much window is left showing around a sheet.
 ///
@@ -165,13 +168,6 @@ where
 
 /// The frame a modal's contents are drawn on: the name, the way out, and `body`.
 ///
-/// `claim` is what backs the thing on the sheet, drawn as the same dot the rest
-/// of this window draws a claim as. It was on every tab of the bar this
-/// replaced, where fourteen of them side by side said "the sound is the
-/// synthesizer's, except the part I moved" without anything being opened. One
-/// sheet at a time cannot say that, and what it can say is what this one is:
-/// the dot beside the name is the claim of what is *on* the sheet.
-///
 /// The body scrolls, and the heading does not. A section is as tall as it is —
 /// the effects are four engines and a chain — and a sheet whose name scrolled
 /// away would be a sheet with no way out at the moment somebody went looking
@@ -188,75 +184,16 @@ where
 /// are a band across the middle of it.
 #[must_use]
 pub fn sheet<'a, Renderer>(
-    name: &'a str,
-    claim: Confidence,
+    section: Group,
     body: impl Into<Element<'a, Renderer>>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
-    framed(name, claim, body, true)
-}
-
-/// The same frame, standing on the window rather than over it.
-///
-/// What a section reached from the [band of ways in](crate::ways) is drawn on.
-/// Those four are not behind an `EDIT` on a plate — no plate carries them —
-/// so they are not the detail behind a press on the panel, they are places of
-/// their own, and the band is a row of tabs. A tab that opened a sheet would be
-/// a tab that covers the surface it is part of.
-///
-/// Identical to [`sheet`] but for the way out, which it does not have: a page
-/// you are *on* is left by going somewhere else, and the row that brought you
-/// here is still lit above it. The heading, the claim beside the name and the
-/// scroll are the sheet's, because a section is the same rack either way.
-pub fn page<'a, Renderer>(
-    name: &'a str,
-    claim: Confidence,
-    body: impl Into<Element<'a, Renderer>>,
-) -> Element<'a, Renderer>
-where
-    Renderer: TextRenderer<Font = Font> + 'a,
-{
-    framed(name, claim, body, false)
-}
-
-/// The frame both are drawn on.
-///
-/// The two differ in more than the way out. A sheet is *lifted*: it has the
-/// panel under it, so it is padded, styled and only as tall as its own rack,
-/// and what is left of the window round it is the shade. A page has nothing
-/// under it, so it is none of those things — it is the heading and a scroll
-/// that fills, which is exactly what the front panel is, and for the same
-/// reason.
-///
-/// That is also the difference that made the effects page work. A scrollable
-/// has to be given a bounded height by whatever holds it, and a `Fill`
-/// scrollable inside a `Fill` column inside a padded container is not given
-/// one: the effects rack ran off the bottom of the window and drew its last two
-/// engine cases over the footer. The panel had never had the problem because
-/// its scroll is the surface.
-fn framed<'a, Renderer>(
-    name: &'a str,
-    claim: Confidence,
-    body: impl Into<Element<'a, Renderer>>,
-    over: bool,
-) -> Element<'a, Renderer>
-where
-    Renderer: TextRenderer<Font = Font> + 'a,
-{
-    let scroll = scrollable(body.into()).direction(scrollable::Direction::Vertical(
-        scrollable::Scrollbar::new().width(BAR).spacing(BESIDE),
-    ));
-    if !over {
-        return column![heading(name, claim, false), scroll.height(Length::Fill)]
-            .spacing(WITHIN)
-            .height(Length::Fill)
-            .into();
-    }
+    let scroll = scroll(body);
     container(
         column![
-            heading(name, claim, true),
+            heading(section),
             // Shrink, so the sheet is as tall as its rack. A scrollable given
             // no height of its own takes its content's, up to the room it was
             // offered, and scrolls past that: which is the section that fits
@@ -273,41 +210,102 @@ where
     .into()
 }
 
-/// The bar across the top of a sheet: what is on it, and the way out.
+/// The same rack, standing on the window rather than over it.
 ///
-/// The plate heading from the front panel, given the room a sheet has: the same
-/// darker band, the same caps, and at the right-hand end the one press. A
-/// heading with nothing at that end would be a sheet whose only ways out are
-/// two gestures.
-fn heading<'a, Renderer>(name: &'a str, claim: Confidence, over: bool) -> Element<'a, Renderer>
+/// What a section reached from the [band of ways in](crate::ways) is drawn on.
+/// Those four are not behind an `EDIT` on a plate — no plate carries them —
+/// so they are not the detail behind a press on the panel, they are places of
+/// their own, and the band is a row of tabs. A tab that opened a sheet would be
+/// a tab that covers the surface it is part of.
+///
+/// **With no heading at all**, which is the whole of the difference. A sheet
+/// needs one because it is over something and has to say what it is and offer
+/// the way out; a page has the lit cap of the band directly above it saying
+/// both. A title bar under a lit tab is the section's name printed twice, one
+/// line apart, and it was drawn small and grey besides — the one piece of
+/// chrome in this window that looked like it came from a different application.
+///
+/// It is also not lifted, padded or styled. A page has nothing under it, so it
+/// is a scroll that fills, which is exactly what the front panel is and for the
+/// same reason: a scrollable has to be given a bounded height by whatever holds
+/// it, and a `Fill` scrollable inside a `Fill` column inside a padded container
+/// is not given one. The effects rack ran off the bottom of the window and drew
+/// its last two engine cases over the footer until this was a scroll and
+/// nothing else.
+pub fn page<'a, Renderer>(body: impl Into<Element<'a, Renderer>>) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
-    let mut bar = row![
-        dot(claim),
-        text(name).size(14).font(printed()),
-        space::horizontal(),
-    ];
-    if over {
-        bar = bar.push(shut());
-    }
-    container(bar.spacing(8).align_y(Vertical::Center))
-        .width(Length::Fill)
-        .height(Length::Fixed(HEAD))
-        .padding([0.0, WITHIN])
-        .style(|theme: &Theme| {
-            let material = materials(theme);
-            container::Style {
-                background: Some(Background::Color(material.recess)),
-                border: Border {
-                    color: material.recess_edge,
-                    width: 1.0,
-                    radius: 2.into(),
-                },
-                ..container::Style::default()
-            }
-        })
-        .into()
+    scroll(body).height(Length::Fill).into()
+}
+
+/// The scroll both are built on.
+fn scroll<'a, Renderer>(
+    body: impl Into<Element<'a, Renderer>>,
+) -> iced_widget::Scrollable<'a, Message, Theme, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    scrollable(body.into()).direction(scrollable::Direction::Vertical(
+        scrollable::Scrollbar::new().width(BAR).spacing(BESIDE),
+    ))
+}
+
+/// The bar across the top of a sheet: what is on it, and the way out.
+///
+/// **The cap of the band, printed flat.** The band above the window draws a
+/// section as its mark and its name in the display's own dots, and a sheet is
+/// the same section opened a different way, so it is named in the same
+/// lettering: the plaque is one drawing and both use it. What it
+/// replaced was the section's name set in the machine's sans at fourteen
+/// points with a coloured dot in front of it, which was the only text in this
+/// window drawn like a dialog box, and the dot was a claim nothing else on the
+/// sheet needed told twice — the display under it is drawn in the claim it is
+/// under, the way every display here is.
+///
+/// The band the plaque sits on is the one a plate on the front panel prints its
+/// name in, because that is where somebody has just come from: the name was
+/// printed across the top of the plate whose `EDIT` they pressed. At the
+/// right-hand end is the one press. A heading with nothing at that end would be
+/// a sheet whose only ways out are two gestures.
+fn heading<'a, Renderer>(section: Group) -> Element<'a, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    container(
+        row![
+            stencil(crate::home::plaque_of(section), plate),
+            space::horizontal(),
+            shut(),
+        ]
+        .spacing(8)
+        .align_y(Vertical::Center),
+    )
+    .width(Length::Fill)
+    .height(Length::Fixed(HEAD))
+    .padding([0.0, WITHIN])
+    .style(|theme: &Theme| {
+        let material = materials(theme);
+        container::Style {
+            background: Some(Background::Color(material.recess)),
+            border: Border {
+                color: material.recess_edge,
+                width: 1.0,
+                radius: 2.into(),
+            },
+            ..container::Style::default()
+        }
+    })
+    .into()
+}
+
+/// The ink a plaque is printed in on that band.
+///
+/// The chrome's own mark ink, which is what the mark beside it at the other end
+/// of the bar is drawn in: one bar, one weight of printing.
+fn plate(theme: &Theme) -> iced_core::Color {
+    let material = materials(theme);
+    mix(material.panel, material.metal, MARKED)
 }
 
 /// The press that puts the sheet away.

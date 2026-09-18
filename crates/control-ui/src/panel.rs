@@ -36,7 +36,9 @@ use iced_core::{
     Background, Border, Color, Font, Gradient, Length, Radians, Rectangle, Size, Theme, Widget,
     border, mouse, renderer, text::Renderer as TextRenderer,
 };
-use iced_widget::{Space, button, column, container, mouse_area, pick_list, row, stack, text};
+use iced_widget::{
+    Space, button, column, container, mouse_area, pick_list, responsive, row, stack, text,
+};
 
 use crate::cap::Face;
 use crate::effect;
@@ -335,7 +337,7 @@ impl Room {
     /// The same room, with `mark` printed on the cap.
     ///
     /// What the front panel says about a press that the parameter table cannot:
-    /// the instrument silkscreens a waveform over one button and a padlock over
+    /// the instrument silkscreens a waveform over one button and a snowflake over
     /// none of them, and which of its presses carry a picture rather than a word
     /// is a fact about the front. Nothing else about the control changes.
     #[must_use]
@@ -644,6 +646,15 @@ where
     // above what is left of one. The slots themselves are untouched: hand
     // layout changes the arrangement and never what a control is.
     let mut body = column![].spacing(10);
+    // The section's own display, across the top of its rack. The plate on the
+    // front panel carries one and what its `EDIT` opens did not, which is the
+    // one thing a section loses by being opened: the picture that says what the
+    // twenty numbers below it add up to. The instrument answers the same way —
+    // press `EDIT` and the screen becomes the section — so the sheet carries
+    // the screen the plate was carrying.
+    if let Some(glass) = glass(patch, group, firmware) {
+        body = body.push(glass);
+    }
     if let Some(shape) = envelope::shape(patch, group) {
         body = body.push(shape);
     }
@@ -678,6 +689,49 @@ where
             }
         })
         .into()
+}
+
+/// The display across the top of a section's rack, as wide as the rack is.
+///
+/// [Responsive](iced_widget::responsive), because how many dots fit is a
+/// question only the room the rack was given can answer, and a sheet is as wide
+/// as the window: a screen sized anywhere else would be the right picture at
+/// the wrong resolution. It is the same call the panel's plates make, with the
+/// section's own parameters rather than one plate's.
+///
+/// A section this window has no drawing for gets nothing rather than an empty
+/// pane of glass. On a plate the empty pane is the point — ten plates side by
+/// side are a row rather than a skyline — and a rack standing on its own has
+/// nothing to line up with. The matrix is the one that asks: its own table
+/// draws the eight routings on glass twice the size, and a blank strip above
+/// that was a band of nothing across the top of the page.
+fn glass<'a, Renderer>(
+    patch: &'a Patch,
+    group: Group,
+    firmware: Version,
+) -> Option<Element<'a, Renderer>>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    // Asked once here, and asked again inside the responsive for the width it
+    // is actually given: what this answers is whether there is a picture at
+    // all, which is a question about the section and not about the room.
+    crate::scene::display::<Renderer>(patch, group.parameters(), firmware, 1, 1)?;
+    let glass = container(responsive(move |room| {
+        crate::scene::display(
+            patch,
+            group.parameters(),
+            firmware,
+            crate::lcd::fits(room.width),
+            crate::home::STRIP,
+        )
+        .unwrap_or_else(|| Space::new().into())
+    }))
+    // As tall as the strip it draws, and not a share of anything: a responsive
+    // is handed whatever room it is offered, and what a rack on a sheet offers
+    // downwards is the rest of the window.
+    .height(Length::Fixed(crate::lcd::room(crate::home::STRIP)));
+    Some(glass.into())
 }
 
 /// Draws one parameter: its address, its control, its value and its name.
@@ -962,14 +1016,14 @@ where
                         0.0,
                         Color {
                             a: FAR,
-                            ..style::MODULATION
+                            ..style::modulated()
                         },
                     )
                     .add_stop(
                         1.0,
                         Color {
                             a: NEAR,
-                            ..style::MODULATION
+                            ..style::modulated()
                         },
                     ),
             )),
@@ -991,7 +1045,7 @@ where
             },
             Background::Color(Color {
                 a: CATCH,
-                ..style::MODULATION
+                ..style::modulated()
             }),
         );
         for (lane, swing) in self.swings.iter().copied().enumerate() {
@@ -1010,7 +1064,7 @@ where
                 },
                 Background::Color(Color {
                     a: ALREADY,
-                    ..style::MODULATION
+                    ..style::modulated()
                 }),
             );
         }
@@ -1513,34 +1567,13 @@ where
         .width(Length::Fixed(5.0))
         .height(Length::Fixed(5.0))
         .style(move |_theme: &Theme| container::Style {
-            background: (moved && heeded).then_some(Background::Color(style::MODULATION)),
+            background: (moved && heeded).then_some(Background::Color(style::modulated())),
             border: if moved && !heeded {
-                border::rounded(3).width(1.0).color(style::MODULATION)
+                border::rounded(3).width(1.0).color(style::modulated())
             } else {
                 border::rounded(3)
             },
             ..container::Style::default()
-        })
-        .into()
-}
-
-/// Draws the dot that says what backs a value.
-pub(crate) fn dot<'a, Renderer>(claim: Confidence) -> Element<'a, Renderer>
-where
-    Renderer: iced_core::Renderer + 'a,
-{
-    container(Space::new())
-        .width(Length::Fixed(9.0))
-        .height(Length::Fixed(9.0))
-        .style(move |theme: &Theme| {
-            let colour = tint(theme, claim);
-            container::Style {
-                // Filled for what was reported, outlined for what was claimed:
-                // the difference survives a screen nobody can see colour on.
-                background: claim.is_confirmed().then_some(Background::Color(colour)),
-                border: border::rounded(5).width(1.0).color(colour),
-                ..container::Style::default()
-            }
         })
         .into()
 }

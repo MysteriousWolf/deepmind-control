@@ -561,6 +561,28 @@ where
     }
 }
 
+/// What a cap lit in `lamp` reads as, for the rest of the window to match.
+///
+/// A lamp is not the colour it is drawn in. The cap is a translucent dome over
+/// an LED, so what a hand sees is a rim at [`BANKED`] below the lamp's own
+/// colour and a middle at [`CORE`] above it, and the two together come out
+/// paler and softer than the colour either was mixed from. Which is a problem
+/// the moment the window says the same thing twice: the cyan on the `MOD` cap
+/// and the cyan outlining a control something else moves are one statement, and
+/// drawn as the raw colour the second is a harder, darker teal than the first.
+///
+/// So this is the lamp as the cap shows it — the rim and the middle, halved —
+/// and everything in this window that means *what the cyan cap means* is drawn
+/// in it. The instrument's own colour is still the one thing written down; this
+/// is what the rubber does to it.
+pub(crate) fn glow(lamp: Color) -> Color {
+    mix(
+        mix(lamp, Color::BLACK, BANKED),
+        mix(lamp, Color::WHITE, CORE),
+        0.5,
+    )
+}
+
 /// How far the lamp's own colour is carried towards white at the hot point.
 ///
 /// Most of the way. An LED under a translucent cap is nearly white where it is

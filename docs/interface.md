@@ -118,17 +118,17 @@ The rest of the panel's rules:
   had words above them, which is two languages for the same row of buttons: a
   nine-dot mark is what every other small drawing in this window is made of, and
   a cap is large enough to hold one. A power symbol on the arpeggiator's
-  `ON/OFF`, a padlock on its `HOLD`, a low shelf on the high-pass `BOOST`, a
+  `ON/OFF`, a snowflake on its `HOLD`, a low shelf on the high-pass `BOOST`, a
   sawtooth and a pulse on the pair that choose the first oscillator's mix —
   those two the instrument's own silkscreen, and its pulse is drawn as a narrow
   one with a dotted line standing out in the low part of the wave: a second,
   later falling edge, which is where the `PWM` fader beside the press would move
   the one that is drawn — two linked rings on `SYNC`, a driver seen face on for the high-pass `BOOST`,
-  and a pencil on every `EDIT`, drawn as its two barrel edges with the point up
-  and to the right — a pencil being offered rather than one being written with —
-  because what is behind that press is where the section is changed. The pencil is the offer;
-  a drawing of the display becoming the section would be a drawing of the
-  machinery.
+  and three dots on every `EDIT`, because what is behind that press is the rest
+  of the section: the plate carries the four or five controls a hand reaches for
+  and the press opens the twenty it had no room for, which is what an ellipsis
+  has meant in every toolbar since menus had them. It was a pencil, and a pencil
+  says *write here* about a press that writes nothing.
   Where a grid that size has no honest answer a press may keep its word, and no
   press on this panel does: `SYNC` did, because nine dots cannot draw *the
   second oscillator restarts with the first*, until it turned out they can draw
@@ -312,11 +312,37 @@ the tabs — and the rest follows from it, because those are the parts of the
 window a sheet is not standing in front of. All three ways out are untouched: the
 margin round the sheet is still shade, and a press on it still closes.
 
-**A sheet carries the claim of what is on it**, as the same dot the legend
-explains, beside the section's name. Each of the fourteen tabs used to carry
-one, and a bar of green dots with one copper one among them read as "the sound
-is the synthesizer's, except the part I moved" without opening anything. One
-sheet at a time cannot say that, and what replaces it is [open](todo.md).
+**A sheet is titled the way a tab is**: the section's mark and its word, in the
+display's own dots, on the bar a plate on the front panel prints its name in.
+Every one of the fourteen has a mark now — four had one while only the band drew
+a plaque, and a title that is a picture and a word next to a title that is a
+word is an exception with ten cases rather than a style. Each new one is the
+picture that section already is somewhere else in this window: a corner and a
+slope for the filter, a contour for the three envelopes, a cycle for an `LFO`,
+the amplifier triangle for the `VCA`.
+
+What that replaced was the section's name set in the machine's sans with a
+coloured claim dot in front of it — the one thing in this window that looked
+like it had been lifted out of a dialog box. The claim is still said: it is said
+by the display under the title, which is drawn in it the way every display here
+is. Each of the fourteen tabs used to carry a dot, and a bar of green dots with
+one copper one among them read as "the sound is the synthesizer's, except the
+part I moved" without opening anything. One sheet at a time cannot say that, and
+what replaces it is [open](todo.md).
+
+**A section reached from the band has no title at all.** The cap that opened it
+is lit directly above it and already carries the same mark and the same word: a
+title bar under a lit tab is a name printed twice, one line apart.
+
+**A sheet carries the section's display, across the top of its rack.** The plate
+on the front panel has one and what its `EDIT` opened did not, which is the one
+thing a section used to lose by being opened: the picture that says what the
+twenty numbers below it add up to. The instrument answers the same way — press
+`EDIT` and the screen becomes the section — so the sheet carries the screen the
+plate was carrying, drawn over the whole width it now has. A section this window
+has no picture for gets nothing rather than a blank strip: the matrix is the one
+that asks, and its own table already draws the eight routings on glass twice
+that size.
 
 **The order of the sections is not written down anywhere.** A parameter's offset
 is its NRPN number and its place in a dump, the library's parameter table is in
@@ -1582,6 +1608,17 @@ The two lamps are the instrument's own and so is the pairing. A DeepMind's panel
 is dark and the only colour on it is the light through its buttons: amber on
 every `EDIT`, cyan on `MOD`, `CHORD` and `CURVES`. This window uses the same two
 for the same two jobs rather than inventing a third.
+
+**A lamp is not the colour it is drawn in.** A cap is a translucent dome over an
+LED, so what a hand sees is a rim below the lamp's own colour and a middle above
+it, and the two together come out paler and softer than either. That matters the
+moment the window says the same thing twice: the cyan on the `MOD` cap and the
+cyan outlining a control something else moves are one statement, and drawn as
+the raw `#40d0e6` the second is a harder, darker teal sitting next to the first.
+So `style::modulated` is the lamp as the cap shows it — `cap::glow`, which is
+the rim and the middle halved — and everything that means *what the cyan cap
+means* is drawn in that. The instrument's own colour is still the one thing
+written down; this is what the rubber does to it.
 
 The effect panels are the exception, and a deliberate one: their colours are
 measured from the manual's own figures, four per algorithm, and a plate carrying

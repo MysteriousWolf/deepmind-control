@@ -11,14 +11,36 @@ fall into today.
 
 ## Open
 
+### The front panel has presses no program parameter stands behind
+
+The arpeggiator on a `DeepMind` has a `CHORD` press and a `POLY CHORD` press
+beside its `ON/OFF` and `HOLD`, and this window draws neither. It is not an
+omission that can be fixed here: a sweep of all 242 `ParamId`s turns up exactly
+one arpeggiator switch, `Arp Hold`. The other two are performance functions —
+they latch what the keyboard is doing rather than set a byte in the program — so
+there is nothing in the edit buffer for a cap to move, and `front::PanelControl`
+is keyed by parameter, so the library has no way to describe the press either.
+
+The same is true of the data entry group and the `EDIT`/`COMPARE`/`WRITE` row,
+which this window has its own answers for.
+
+What to ask for is in [waiting](waiting.md): a description of the front-panel
+presses that are *not* parameters, so that a window can draw the front of the
+instrument completely and send what each one sends. Until then the window draws
+what the program holds, which is the honest subset, and a player reaching for
+`CHORD` finds nothing.
+
 ### The bar said something no one sheet can
 
 Each of the fourteen tabs carried its own section's claim dot, so a bar of green
 dots with one copper one among them read as "the sound is the synthesizer's,
 except the part I moved" without anything being opened. One sheet at a time
-cannot say that. A sheet carries the claim of what is on it, beside its name,
-and the front panel carries a claim per control, but nothing now says it about
-the sections that are not on the screen.
+cannot say that. A sheet is now titled the way the band titles a tab — the
+section's mark and its word in the display's own dots — and the claim it used to
+carry beside that name is carried by the display underneath it instead, which is
+drawn in the claim the way every display here is. The front panel carries a
+claim per control. Nothing says it about the sections that are not on the
+screen.
 
 Whether that is worth replacing, and where — the plate headings, the window's
 own display, the footer — is open. The band of ways in is a row of caps again

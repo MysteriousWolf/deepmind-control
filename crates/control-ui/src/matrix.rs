@@ -1284,7 +1284,7 @@ where
         .is_some_and(|mapped| mapped.destination() == destination);
     let mark = lcd::stencil(crate::MAP.screen(), move |theme: &Theme| {
         if mapping {
-            style::MODULATION
+            style::modulated()
         } else {
             let material = materials(theme);
             style::mix(material.plate, material.metal, MARKED)
@@ -1334,7 +1334,7 @@ where
     .padding([6, 8])
     .width(Length::Fill)
     .style(|_theme: &Theme| container::Style {
-        border: border::rounded(3).width(1.0).color(style::MODULATION),
+        border: border::rounded(3).width(1.0).color(style::modulated()),
         ..container::Style::default()
     })
     .into()

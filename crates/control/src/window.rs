@@ -265,11 +265,12 @@ fn showing(app: &App) -> Element<'_, Message> {
         View::Library => librarian::view(app),
         // A section the band opened: the same rack the sheet would carry, on
         // the page frame rather than the sheet's, taking the whole surface.
-        View::Section(section) => control_ui::page(
-            control_ui::section_name(section),
-            app.patch().claim_of(section),
-            control_ui::group(app.patch(), section, app.firmware(), app.mapper()),
-        )
+        View::Section(section) => control_ui::page(control_ui::group(
+            app.patch(),
+            section,
+            app.firmware(),
+            app.mapper(),
+        ))
         .map(Message::Ui),
     };
     // And over it, where a way in has been pressed, the section it opened. What
@@ -299,8 +300,7 @@ fn showing(app: &App) -> Element<'_, Message> {
 /// what a modal is a change to.
 fn opened(app: &App, section: Group) -> Element<'_, Message> {
     control_ui::sheet(
-        control_ui::section_name(section),
-        app.patch().claim_of(section),
+        section,
         control_ui::group(app.patch(), section, app.firmware(), app.mapper()),
     )
     .map(Message::Ui)

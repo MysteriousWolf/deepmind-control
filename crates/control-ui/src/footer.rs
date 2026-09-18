@@ -319,7 +319,7 @@ where
         text(format!("{said} already \u{2192} here"))
             .size(11)
             .style(|_theme: &Theme| text::Style {
-                color: Some(style::MODULATION),
+                color: Some(style::modulated()),
             })
             .into(),
     )
@@ -345,9 +345,9 @@ where
     )
     .padding([2, 8])
     .style(|theme: &Theme, _status| button::Style {
-        background: Some(Background::Color(style::MODULATION)),
+        background: Some(Background::Color(style::modulated())),
         text_color: materials(theme).panel,
-        border: border::rounded(3).width(1.0).color(style::MODULATION),
+        border: border::rounded(3).width(1.0).color(style::modulated()),
         ..button::Style::default()
     })
     .on_press(Message::Mapper(None))

@@ -122,7 +122,7 @@ const LAMPS: f32 = 104.0;
 /// Two lines of the dot font and a little room, which is as much as a strip
 /// over a row of faders can take without the faders becoming the second thing
 /// on the plate.
-const STRIP: i32 = 20;
+pub(crate) const STRIP: i32 = 20;
 
 /// The fewest dots across a display is worth drawing on.
 ///
@@ -871,7 +871,7 @@ const SILKSCREEN: &[Silkscreen] = &[
 /// silkscreen had room for five letters.
 const MARKED: &[(ParamId, Badge)] = &[
     (ParamId::ArpOnOff, crate::badge::POWER),
-    (ParamId::ArpHold, crate::badge::LATCH),
+    (ParamId::ArpHold, crate::badge::FREEZE),
     (ParamId::VcfBassBoost, crate::badge::SPEAKER),
     (ParamId::OscSyncEnable, crate::badge::LOCKED),
 ];
@@ -1575,14 +1575,32 @@ fn plaque(cap: Way, spelled: bool) -> Screen {
     screen
 }
 
+/// The mark and the name of `section`, as that same screen of dots.
+///
+/// What the band prints on the cap that opens a section, for whatever else has
+/// to name one: a sheet is the same section opened another way, so it is named
+/// in the same lettering rather than in the machine's sans.
+pub(crate) fn plaque_of(section: Group) -> Screen {
+    plaque(Way::Section(section), true)
+}
+
 /// What one of those caps says: its mark, where it has one, and its word.
 ///
-/// Four of the fourteen sections have a mark, which are the four the instrument
-/// has no fader for. A section that gained parameters but no fader in a later
-/// firmware would arrive here with no mark and be opened by its name alone,
-/// which is a press that still works and still says what it opens: the row is
-/// derived from the library and the drawings are not, so the drawings are what
-/// can be missing.
+/// All fourteen sections have one, and for a while four did — the four the
+/// instrument has no fader for, which are the four the band is a row of. The
+/// other ten needed none while nothing but the band drew a plaque. Then the
+/// sheets started drawing one too, and a title that is a mark and a word beside
+/// a title that is a word is not a style, it is an exception with ten cases.
+///
+/// Each of them is the picture that section already is somewhere else in this
+/// window: the filter's own display draws a corner and a slope, the envelopes
+/// draw a contour, an `LFO` draws a cycle. What is new here is that they are
+/// drawn at nine dots, and what that costs is in [`crate::badge`].
+///
+/// A section that a later firmware adds arrives here with no mark and is opened
+/// by its name alone, which is a press that still works and still says what it
+/// opens: the row is derived from the library and the drawings are not, so the
+/// drawings are what can be missing.
 fn printing(cap: Way) -> (Option<Badge>, String) {
     let section = match cap {
         Way::Panel => return (Some(crate::badge::PANEL), HOME.to_owned()),
@@ -1594,6 +1612,13 @@ fn printing(cap: Way) -> (Option<Badge>, String) {
         Group::Effects => Some(crate::badge::CHAIN),
         Group::ControlSequencer => Some(crate::badge::STEPS),
         Group::Program => Some(crate::badge::PROGRAM),
+        Group::Lfo1 | Group::Lfo2 => Some(crate::badge::SINE),
+        Group::Oscillators => Some(crate::badge::SAW),
+        Group::Vcf => Some(crate::badge::SLOPE),
+        Group::VcaEnvelope | Group::VcfEnvelope | Group::ModEnvelope => Some(crate::badge::CONTOUR),
+        Group::Vca => Some(crate::badge::AMPLIFIER),
+        Group::Voicing => Some(crate::badge::VOICES),
+        Group::Arpeggiator => Some(crate::badge::ARPEGGIO),
         _ => None,
     };
     (mark, crate::section::name(section).to_uppercase())
@@ -2031,11 +2056,11 @@ where
                 // Lit the whole time it is powered, which is the state the
                 // instrument leaves every `EDIT` in.
                 |_: &Theme| crate::cap::Face::lit(crate::style::WAY_IN),
-                // And carrying a pencil, which is the offer rather than the
-                // machinery: what is behind this press is where the section is
-                // changed.
+                // And carrying three dots, which is what the rest of the
+                // section is: the plate has the controls a hand reaches for and
+                // the press opens the ones it had no room for.
                 container(lcd::stencil(
-                    crate::badge::PENCIL.screen(),
+                    crate::badge::MORE.screen(),
                     crate::style::on_cap,
                 ))
                 .center_x(Length::Fill)

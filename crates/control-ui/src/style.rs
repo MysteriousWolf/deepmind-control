@@ -128,6 +128,22 @@ pub const WAY_IN: Color = color!(0xffbe3d);
 )]
 pub const MODULATION: Color = color!(0x40d0e6);
 
+/// The same cyan, as a cap lit in it actually reads.
+///
+/// [`MODULATION`] is the lamp, and a lamp behind a rubber cap comes out paler
+/// than the colour it was: what the window draws *about* modulation — a routing
+/// outlined in the matrix, the dot beside a control something else moves, the
+/// legend in the footer — is drawn in this so that it is the same teal as the
+/// `MOD` cap it refers to, rather than a harder one beside it.
+///
+/// A function and not a constant because the mixing is [`crate::cap`]'s, which
+/// is where a lamp is turned into what a hand sees, and there is nothing to be
+/// gained by writing the answer down twice.
+#[must_use]
+pub fn modulated() -> Color {
+    crate::cap::glow(MODULATION)
+}
+
 /// The three colours a `DeepMind` prints its section banners in.
 ///
 /// The band across the top of every plate, with the section's name knocked out

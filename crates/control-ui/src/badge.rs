@@ -421,47 +421,34 @@ pub const PANEL: Badge = Badge::new(
     SIDE,
 );
 
-/// A pencil: the press that puts you where the thing is changed.
+/// Three dots: the press that puts you where the thing is changed.
 ///
-/// `EDIT` on every plate, and the one mark in this set that draws neither what
-/// is behind the press nor what the press does to the instrument. Pressing
-/// `EDIT` on a `DeepMind` moves no fader and changes no sound — it opens the
-/// section — and a picture of *that* is a picture of a display, which is a
-/// drawing of the machinery rather than of the offer. A pencil is the offer:
-/// this is where you change it, and a pencil says *changed and changeable
-/// again* in a way a pen does not.
+/// It was a pencil, and before that a display, and the pencil was redrawn five
+/// times: a pencil at nine dots is a diagonal band, and a diagonal band is
+/// either a blob or a stroke. What finally read was two edges and a point —
+/// legible, and still a drawing of an *instrument* rather than of what the
+/// press does.
 ///
-/// Held at the angle a hand holds one, point up and to the right, which is a
-/// pencil being *offered* rather than one being written with. The press is an
-/// invitation and the mark is what an invitation looks like: the working end
-/// towards whoever is reading it. A
-/// diagonal band at nine dots is a slash if nothing else is done to it, and two
-/// **Outlined rather than filled**, which is what finally made a diagonal one
-/// work. A solid band is a stack of squares with the gaps showing along both
-/// its edges, and every dot of width is another row of steps: four wide is a
-/// blob, three is not much better, and two is a thick line rather than a
-/// pencil.
+/// A pencil says *write here*, and nothing behind this press is written. What
+/// is behind it is the rest of the section: the plate on the panel carries the
+/// four or five controls a hand reaches for, and the press opens the twenty the
+/// plate had no room for. That is the ellipsis every toolbar in every
+/// application has meant by three dots since menus had them — *and more* — and
+/// it is the one mark in this module that needed no invention at all.
 ///
-/// Drawn as its two edges instead, one dot each and two columns apart, it is a
-/// barrel with room inside it — the room being what a pencil has and a stroke
-/// does not. A blunt cap across the bottom joins them, and above the last full
-/// row they converge on a single dot, which is the sharpened point.
-///
-/// The barrel is solid, and that is a thing nine dots cost. A groove down the
-/// shaft would carry the hexagon, and drawn on a diagonal it breaks the band
-/// into disconnected runs: what comes out is not a faceted pencil, it is a
-/// scatter. So the shape says *pencil* and the facets are the part that does not
-/// fit, which is the trade every mark in this module makes somewhere.
-pub(crate) const PENCIL: Badge = Badge::new(
+/// Three dots, two apart, on the middle line. At this grid they are single
+/// dots and not blocks: a row of two-by-two squares is three buttons rather
+/// than an ellipsis, and the dot is what the display is made of anyway.
+pub(crate) const MORE: Badge = Badge::new(
     &[
         0b0_0000_0000,
-        0b0_0000_0100,
-        0b0_0000_1010,
-        0b0_0001_0100,
-        0b0_0010_1000,
-        0b0_0101_0000,
-        0b0_1010_0000,
-        0b1_1100_0000,
+        0b0_0000_0000,
+        0b0_0000_0000,
+        0b0_0000_0000,
+        0b0_1001_0010,
+        0b0_0000_0000,
+        0b0_0000_0000,
+        0b0_0000_0000,
         0b0_0000_0000,
     ],
     SIDE,
@@ -487,22 +474,30 @@ pub(crate) const POWER: Badge = Badge::new(
     SIDE,
 );
 
-/// A closed padlock: what is being held is held until somebody lets it go.
+/// A snowflake: what is sounding now goes on sounding.
 ///
-/// The arpeggiator's `HOLD`, which keeps playing the notes after the keys are
-/// let go. A latch is the thing a padlock *is*, which is why this is a padlock
-/// and not a hand.
-pub(crate) const LATCH: Badge = Badge::new(
+/// The arpeggiator's `HOLD`, which keeps the notes playing after the keys are
+/// let go. It was a padlock, because a latch is the thing a padlock is — and a
+/// padlock on a panel is what a *locked* control looks like, which is the one
+/// thing this press is not: nothing here is protected, and the arpeggio is not
+/// prevented from being changed. It is frozen where it is.
+///
+/// So the mark is the freeze every transport and every synthesizer front panel
+/// already draws, the six-point star: three axes through one middle dot, each
+/// with the branch a snowflake has. Nine dots is exactly enough for it — the
+/// middle row is the full width, the two diagonals fall a dot at a time, and
+/// the vertical is the one column that reaches both edges.
+pub(crate) const FREEZE: Badge = Badge::new(
     &[
-        0b0_0000_0000,
+        0b0_0001_0000,
+        0b0_1001_0010,
+        0b0_0101_0100,
         0b0_0011_1000,
-        0b0_0100_0100,
-        0b0_0100_0100,
-        0b0_1111_1110,
+        0b1_1111_1111,
+        0b0_0011_1000,
+        0b0_0101_0100,
         0b0_1001_0010,
-        0b0_1001_0010,
-        0b0_1111_1110,
-        0b0_0000_0000,
+        0b0_0001_0000,
     ],
     SIDE,
 );
@@ -641,18 +636,151 @@ pub(crate) const PULSE: Badge = Badge::new(
     SIDE,
 );
 
+/// One cycle of a sine: an `LFO`.
+///
+/// The slowest thing on the instrument and the one whose shape is the whole
+/// point of it, so the mark is the shape. Crossings at the two edges and the
+/// middle, the peak and the trough a third of the way in from each end, and a
+/// dot in the column of each crossing so the curve does not break into two arcs
+/// where it is steepest — which is the only place nine dots cannot follow it.
+pub(crate) const SINE: Badge = Badge::new(
+    &[
+        0b0_0000_0000,
+        0b0_0100_0000,
+        0b0_1010_0000,
+        0b1_0001_0000,
+        0b1_0001_0001,
+        0b0_0001_0001,
+        0b0_0000_1010,
+        0b0_0000_0100,
+        0b0_0000_0000,
+    ],
+    SIDE,
+);
+
+/// A low-pass response: flat, a corner, and down. The `VCF`.
+///
+/// The one drawing the filter's own display already makes, at a fortieth of the
+/// dots: everything below the corner comes through and everything above it
+/// does not. It is a response curve, which this module says elsewhere is a
+/// dangerous thing to draw at this size because a response and a waveform are
+/// the same few dots — and here it is safe, because nothing beside it is a
+/// waveform: the sheet titles are one section each and no two of them are the
+/// same kind of picture.
+pub(crate) const SLOPE: Badge = Badge::new(
+    &[
+        0b0_0000_0000,
+        0b0_0000_0000,
+        0b1_1111_0000,
+        0b0_0000_1000,
+        0b0_0000_0100,
+        0b0_0000_0010,
+        0b0_0000_0001,
+        0b0_0000_0000,
+        0b0_0000_0000,
+    ],
+    SIDE,
+);
+
+/// An attack, a decay, a sustain and a release: an envelope.
+///
+/// All three of them — the one on the amplifier, the one on the filter and the
+/// spare — because what they are is the same thing and which one is open is
+/// what the word beside the mark says. The contour is the four stages in
+/// order, with the rise and the fall carried by the column they leave rather
+/// than broken into dots nobody would join up.
+pub(crate) const CONTOUR: Badge = Badge::new(
+    &[
+        0b0_0000_0000,
+        0b0_0100_0000,
+        0b0_1010_0000,
+        0b0_1010_0000,
+        0b0_1001_0000,
+        0b1_0001_1100,
+        0b1_0000_0010,
+        0b1_0000_0001,
+        0b0_0000_0000,
+    ],
+    SIDE,
+);
+
+/// The amplifier triangle: the `VCA`.
+///
+/// The symbol every schematic ever drawn uses for gain, pointing the way the
+/// signal goes. It is the one solid mark in this module and the one that should
+/// be: a triangle drawn as its outline at nine dots is three lines that do not
+/// meet, and what it is a picture of is a block rather than a shape.
+pub(crate) const AMPLIFIER: Badge = Badge::new(
+    &[
+        0b0_0100_0000,
+        0b0_0110_0000,
+        0b0_0111_0000,
+        0b0_0111_1000,
+        0b0_0111_1100,
+        0b0_0111_1000,
+        0b0_0111_0000,
+        0b0_0110_0000,
+        0b0_0100_0000,
+    ],
+    SIDE,
+);
+
+/// Three notes sounding at once: the voicing.
+///
+/// What the section is about is how many of the twelve voices one key takes and
+/// how the rest are shared out, which is a count rather than a picture. Three
+/// blocks in a triangle is the count: more than one, together, and arranged —
+/// which is unison, polyphony and the order they are assigned in, the three
+/// things on the plate.
+pub(crate) const VOICES: Badge = Badge::new(
+    &[
+        0b0_0000_0000,
+        0b0_0011_1000,
+        0b0_0011_1000,
+        0b0_0000_0000,
+        0b0_0000_0000,
+        0b0_1110_1110,
+        0b0_1110_1110,
+        0b0_0000_0000,
+        0b0_0000_0000,
+    ],
+    SIDE,
+);
+
+/// A run of notes climbing, twice: the arpeggiator.
+///
+/// A piano roll rather than a waveform, which is what an arpeggio is: the held
+/// chord played one note at a time, up, and then again. Single dots and not
+/// bars, because the gaps between them are the pattern — a run drawn as a solid
+/// diagonal is a glissando, and the thing that makes an arpeggio an arpeggio is
+/// that it is steps.
+pub(crate) const ARPEGGIO: Badge = Badge::new(
+    &[
+        0b0_0000_0000,
+        0b0_0010_0010,
+        0b0_0000_0000,
+        0b0_0100_0100,
+        0b0_0000_0000,
+        0b0_1000_1000,
+        0b0_0000_0000,
+        0b1_0001_0000,
+        0b0_0000_0000,
+    ],
+    SIDE,
+);
+
 #[cfg(test)]
 mod tests {
-    use super::{ABOUT, ARROW, Badge, CHAIN, DOWN, MAP, MATRIX, PANEL, PLUGGED, PORT, PROGRAM};
-    use super::{LATCH, LOCKED, PENCIL, POWER, PULSE, READ, RESCAN, SAW, SHELF, SHUT, SPEAKER};
-    use super::{SIDE, STEPS, UP, WHO};
+    use super::{ABOUT, AMPLIFIER, ARPEGGIO, ARROW, Badge, CHAIN, CONTOUR, DOWN, MAP, MATRIX};
+    use super::{FREEZE, LOCKED, MORE, PANEL, PLUGGED, PORT, POWER, PROGRAM, PULSE, READ, RESCAN};
+    use super::{SAW, SHELF, SHUT, SIDE, SINE, SLOPE, SPEAKER, STEPS, UP, VOICES, WHO};
 
     /// Every mark this module publishes.
     ///
     /// All of them, and it is a list somebody has to add to: the four the band
     /// of ways in wears were written under the ten the chrome wears and were
     /// checked by nothing for it.
-    const ALL: [(&str, Badge); 23] = [
+    const ALL: [(&str, Badge); 29] = [
         ("who", WHO),
         ("read", READ),
         ("rescan", RESCAN),
@@ -671,11 +799,17 @@ mod tests {
         ("saw", SAW),
         ("pulse", PULSE),
         ("shelf", SHELF),
-        ("pencil", PENCIL),
+        ("more", MORE),
         ("power", POWER),
-        ("latch", LATCH),
+        ("freeze", FREEZE),
         ("speaker", SPEAKER),
         ("locked", LOCKED),
+        ("sine", SINE),
+        ("slope", SLOPE),
+        ("contour", CONTOUR),
+        ("amplifier", AMPLIFIER),
+        ("voices", VOICES),
+        ("arpeggio", ARPEGGIO),
     ];
 
     #[test]
