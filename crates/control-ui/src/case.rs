@@ -311,7 +311,7 @@ where
         _style: &renderer::Style,
         layout: Layout<'_>,
         _cursor: mouse::Cursor,
-        _viewport: &Rectangle,
+        viewport: &Rectangle,
     ) {
         let bounds = layout.bounds();
         if bounds.width <= 0.0 || bounds.height <= 0.0 {
@@ -326,8 +326,16 @@ where
         let lit = style::mix(case, Color::WHITE, self.finish.ink());
         let dark = style::mix(case, Color::BLACK, self.finish.ink());
         // Everything is cut to the case, because a mark laid across the plate
-        // beside it is a mark on somebody else's unit.
-        renderer.with_layer(bounds, |renderer| {
+        // beside it is a mark on somebody else's unit — and to the room the
+        // case was *given*, which is not the same thing. `with_layer` starts a
+        // clip rather than narrowing the one already in force, so a layer at
+        // the case's own bounds is a case that paints outside whatever is
+        // holding it: on a page of four engines that scrolls, the two below the
+        // fold were drawn over the footer.
+        let Some(cut) = bounds.intersection(viewport) else {
+            return;
+        };
+        renderer.with_layer(cut, |renderer| {
             fill(renderer, bounds, case);
             match self.finish {
                 Finish::Brushed => brushed(renderer, bounds, self.seed, lit, dark),

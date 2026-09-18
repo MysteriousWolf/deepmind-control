@@ -6,10 +6,11 @@
 //!
 //! The same rule now covers type and the chrome. [`printed`] and [`reading`]
 //! are the two faces anything in either build is set in, and
-//! [`ground`], [`chrome`], [`selector`], [`shortlist`] and [`bay`] are what the parts of the
-//! window that are not parameters are drawn as: a port picker cut into the
-//! panel like a fader's track, and a button with a metal rim rather than a
-//! toolkit's own grey. The panel is for parameters and the toolkit is correct
+//! [`ground`], [`chrome`], [`selector`], [`shortlist`], [`bay`] and [`unlit`] are what the
+//! parts of the window that are not parameters are drawn as: a port picker cut
+//! into the panel like a fader's track, a button with a metal rim rather than a
+//! toolkit's own grey, and the panel with the light off it while a sheet is
+//! lying over it. The panel is for parameters and the toolkit is correct
 //! everywhere else, but everywhere else is still on the instrument.
 
 use std::sync::LazyLock;
@@ -95,21 +96,23 @@ const PALETTE: Palette = Palette {
     danger: color!(0xb4483c),
 };
 
-/// The two saturated colours on the panel, which are the instrument's own.
+/// The colours of the light coming through the instrument's buttons.
 ///
-/// A `DeepMind`'s front panel is dark, and the only colour on it is the light
-/// coming through its buttons: amber on every `EDIT` and on the presses that
-/// change what the display is showing, cyan on `MOD`, `CHORD` and `CURVES`.
-/// Those are the two this window uses, for the two jobs it has that need one,
-/// and it takes the hardware's own pairing rather than inventing a third:
+/// A `DeepMind`'s front panel is dark, and two things on it are not: the
+/// [banners](BANNER) its section names are printed on, and the lamps behind its
+/// buttons. These are the lamps — amber on every `EDIT` and on the presses that
+/// change what the display is showing, cyan on `MOD`, `CHORD` and `CURVES`,
+/// white on a plain switch. This window takes the hardware's own three rather
+/// than inventing any:
 ///
 /// | | |
 /// | --- | --- |
 /// | [`WAY_IN`] | a press that opens a section, which is what the hardware's amber `EDIT` does |
 /// | [`MODULATION`] | something other than a hand can move this control, and the hardware's cyan button is the one named `MOD` |
+/// | [`PLAIN`] | a switch that turns something on and changes nothing about what the other controls mean |
 ///
 /// Everything else on the panel is the panel, the metal or the ink, so a mark
-/// in either of these is one of the few things on a rack of forty that is not.
+/// in one of these is one of the few things on a rack of forty that is not.
 #[expect(
     clippy::unreadable_literal,
     reason = "a colour is read as a colour, and `0x00ff_be3d` is not one"
@@ -124,6 +127,74 @@ pub const WAY_IN: Color = color!(0xffbe3d);
     reason = "a colour is read as a colour, and `0x0040_d0e6` is not one"
 )]
 pub const MODULATION: Color = color!(0x40d0e6);
+
+/// The same cyan, as a cap lit in it actually reads.
+///
+/// [`MODULATION`] is the lamp, and a lamp behind a rubber cap comes out paler
+/// than the colour it was: what the window draws *about* modulation — a routing
+/// outlined in the matrix, the dot beside a control something else moves, the
+/// legend in the footer — is drawn in this so that it is the same teal as the
+/// `MOD` cap it refers to, rather than a harder one beside it.
+///
+/// A function and not a constant because the mixing is [`crate::cap`]'s, which
+/// is where a lamp is turned into what a hand sees, and there is nothing to be
+/// gained by writing the answer down twice.
+#[must_use]
+pub fn modulated() -> Color {
+    crate::cap::glow(MODULATION)
+}
+
+/// The three colours a `DeepMind` prints its section banners in.
+///
+/// The band across the top of every plate, with the section's name knocked out
+/// of it: `OSC 1 & 2` in white on red, `ARP / SEQ` in white on blue,
+/// `ENVELOPES` in black on white. They are what the eye follows across the
+/// front of the instrument before it reads a single legend, and they are the
+/// largest colour on it by a long way — a photograph of a `DeepMind` is a dark
+/// panel with a dozen red stripes across it.
+///
+/// This window drew them as pale grey strips, which is the shape of the thing
+/// without the livery. It is the livery now, measured off the same photographs
+/// the caps were: `#c8172e`, `#01609b` and `#f2f3f0`.
+///
+/// Which band is which colour is a fact about the front of the instrument that
+/// `front::Section` does not publish, so it is transcribed beside the presses
+/// and the lamps in [`crate::home`] and asked for in
+/// [deepmind-midi#45](https://github.com/MysteriousWolf/deepmind-midi/issues/45).
+#[expect(
+    clippy::unreadable_literal,
+    reason = "a colour is read as a colour, and `0x00c8_172e` is not one"
+)]
+pub const BANNER: Color = color!(0xc8172e);
+
+/// The blue the instrument prints `ARP / SEQ` and `HPF` on. See [`BANNER`].
+#[expect(
+    clippy::unreadable_literal,
+    reason = "a colour is read as a colour, and `0x0001_609b` is not one"
+)]
+pub const BANNER_BLUE: Color = color!(0x01609b);
+
+/// The white it prints `ENVELOPES` on. See [`BANNER`].
+#[expect(
+    clippy::unreadable_literal,
+    reason = "a colour is read as a colour, and `0x00f2_f3f0` is not one"
+)]
+pub const BANNER_PALE: Color = color!(0xf2f3f0);
+
+/// The white the instrument lights a plain switch in.
+///
+/// The third lamp, and the one that is not a colour. `SYNC`, `BOOST`, `2 POLE`,
+/// `INVERT` and the waveform pair are lit white on a `DeepMind`: a switch that
+/// turns something on and does not change what anything else means gets no hue,
+/// which is what makes the amber and the cyan mean something when they appear.
+///
+/// A shade off white, because it is an LED behind a translucent cap and not a
+/// pixel: the cap's own diffuser carries it the rest of the way at the middle.
+#[expect(
+    clippy::unreadable_literal,
+    reason = "a colour is read as a colour, and `0x00e4_e9f3` is not one"
+)]
+pub const PLAIN: Color = color!(0xe4e9f3);
 
 /// What a drawn control is made of.
 ///
@@ -469,42 +540,42 @@ pub fn legible(ink: Color, surface: Color, theme: &Theme) -> Color {
 /// How finely [`legible`] looks for the least it can move an ink.
 const STEPS: u8 = 16;
 
-/// How round the corner of a button's cap is./// How round the corner of a button's cap is.
-///
-/// A `DeepMind`'s buttons are moulded rubber and not keycaps: the corners are
-/// turned far enough that the cap reads as something soft pushed through a hole
-/// in the panel. It is most of what separates a lit button from a coloured
-/// rectangle, and it is a measurement rather than a taste, so it is written
-/// down once and every cap in the window is cut to it.
-pub const MOULD: f32 = 7.0;
-
 /// The face of a button's cap, moulded rather than filled.
 ///
-/// What makes a button on the instrument read as rubber: the cap stands proud
-/// of the panel, the room's light falls across its crown, and its foot sits in
-/// its own shadow. So a cap is a gradient down its own height and never one
+/// The body of a rubber cap, down its own height: the room's light lands on the
+/// crown, the face is the material's own colour, and the foot sits in the
+/// shadow the cap casts into its own slot. So a cap is a gradient and never one
 /// flat colour, which is the same reason [`ground`] is a gradient rather than
 /// the dark end of one.
+///
+/// Four stops rather than three, and the reason is what a moulded cap actually
+/// is: the crown is nearly flat, the sides turn away quickly, and the last of
+/// it is in shadow. A gradient that ran evenly from top to bottom is a bevel,
+/// which is a hard thing with a chamfer on it.
 ///
 /// `pressed` turns it over. A cap pushed into the panel catches the light along
 /// its foot instead, which is the same face seen from the other side of the
 /// press and is why nothing here needs a second colour to say it is held down.
+///
+/// What this does not draw is the sheen, the lamp and the slot: see
+/// [`cap`](crate::cap), which lays those on in quads because there is no radial
+/// gradient to light a cap from its middle with.
 #[must_use]
 pub fn moulded(face: Color, pressed: bool) -> Background {
-    let (crown, foot) = if pressed {
-        (shade(face, -0.22), shade(face, 0.14))
+    let (crown, shoulder, foot) = if pressed {
+        (shade(face, -0.26), shade(face, -0.1), shade(face, 0.16))
     } else {
-        (shade(face, 0.24), shade(face, -0.28))
+        (shade(face, 0.2), shade(face, 0.05), shade(face, -0.34))
     };
     Background::Gradient(Gradient::Linear(
         // Down the cap, like the panel behind it: the light end at the top,
         // where the light is.
         Linear::new(Radians(std::f32::consts::PI))
             .add_stop(0.0, crown)
-            // Past the middle rather than at it, because the crown of a moulded
-            // cap is flatter than its sides and a gradient that turned halfway
-            // down is a bevel.
-            .add_stop(0.58, face)
+            // The crown holds its tone most of the way down, because the top of
+            // a moulded cap is a plateau and not the peak of a curve.
+            .add_stop(0.34, shoulder)
+            .add_stop(0.66, face)
             .add_stop(1.0, foot),
     ))
 }
@@ -604,61 +675,29 @@ pub fn marked(theme: &Theme, status: button::Status) -> button::Style {
     }
 }
 
-/// What a press that opens a section is drawn as: a lamp behind a cap.
+/// The ink something printed on a cap is stencilled in.
 ///
-/// The hardware's `EDIT` is not a word on the panel. It is a rubber button that
-/// is lit amber all the time, with `EDIT` silkscreened on the panel beside it,
-/// and a row of them along the bottom of every plate is the thing you see first
-/// in a photograph of the instrument. So this is a lamp rather than a label: it
-/// carries no text, because the text is printed under it where the panel prints
-/// it, and it is lit when nothing is happening to it, because that is the state
-/// the instrument leaves them in.
+/// Dark, whichever cap it is. Every cap in this window is a pale thing now —
+/// lit, it is a lamp behind amber rubber; unlit, it is the off-white the rubber
+/// itself is moulded from — so both are brighter than anything the panel prints
+/// its legends in, and both take the ink the instrument silkscreens *on* a pale
+/// surface rather than the metal it silkscreens on a dark one.
 ///
-/// It is [moulded](moulded) like every other cap in the window, so what is lit
-/// is a soft thing standing proud of the panel rather than a filled rectangle.
-/// Pressing takes the cap off the lamp, so the face goes to the full colour and
-/// the rim with it, and hovering is halfway there so that the press has
-/// somewhere to go. A button with nothing to open loses the lamp altogether and
-/// keeps the panel, which is a hole where a light should be and reads as
-/// unavailable at a glance.
+/// That was not true while an unlit cap was drawn at the panel's own colour,
+/// which is why this used to be two inks. It is one because the cap changed.
+///
+/// Mixed off the theme's own materials rather than written down as a colour, so
+/// a window someone has themed differently prints on its caps in its own ink.
 #[must_use]
-pub fn way_in(theme: &Theme, status: button::Status) -> button::Style {
+pub fn on_cap(theme: &Theme) -> Color {
     let material = materials(theme);
-    // How much of the lamp reaches the face. A lit button on a dark panel is
-    // still a cap over a lamp and not the lamp itself, so even the pressed
-    // state keeps a little of the panel in it.
-    let through = match status {
-        button::Status::Active => 0.54,
-        button::Status::Hovered => 0.78,
-        button::Status::Pressed => 0.92,
-        button::Status::Disabled => 0.0,
-    };
-    let held = matches!(status, button::Status::Pressed);
-    let face = mix(material.panel, WAY_IN, through);
-    button::Style {
-        background: Some(moulded(face, held)),
-        // Nothing is set in it, and a colour that would be unreadable if
-        // something were is a trap for whoever puts a word there later.
-        text_color: material.ink,
-        border: border::rounded(MOULD).width(1.0).color(mix(
-            material.recess,
-            WAY_IN,
-            through.max(0.2) * 0.6,
-        )),
-        shadow: Shadow {
-            color: Color {
-                a: through * 0.55,
-                ..WAY_IN
-            },
-            // A cap that is not held down stands off the panel, and the light
-            // it spills falls a little below it; held, it is level with the
-            // panel and the spill is level with it too.
-            offset: iced_core::Vector::new(0.0, if held { 0.0 } else { 1.5 }),
-            blur_radius: 6.0,
-        },
-        ..button::Style::default()
-    }
+    mix(material.recess, material.panel, PRINTED)
 }
+
+/// How far the printing on a cap is carried from the dark towards the panel.
+///
+/// Barely at all: it is ink on something lit.
+const PRINTED: f32 = 0.2;
 
 /// What something chosen from a list is drawn as.
 ///
@@ -756,6 +795,66 @@ pub fn bay(theme: &Theme) -> container::Style {
             color: material.recess_edge,
             width: 1.0,
             radius: 3.into(),
+        },
+        ..container::Style::default()
+    }
+}
+
+/// What the window is drawn as while a sheet is lying over it.
+///
+/// The panel in the shadow the sheet casts, which is one thing rather than two:
+/// a modal that dimmed the window by painting grey over it would be a grey
+/// window, and what is behind a sheet is the instrument with the light off it.
+/// So it is the recess, the darkest material this panel has, at the alpha that
+/// leaves the plates behind still legible as plates.
+///
+/// Translucent rather than opaque because the thing it is covering is the thing
+/// the sheet was opened *from*. A `VCF` opened off the panel's own `VCF` plate
+/// should still have that plate under it: an editor whose detail view replaced
+/// the instrument would be back to being an application that happens to control
+/// a synthesizer.
+#[must_use]
+pub fn unlit(theme: &Theme) -> container::Style {
+    container::Style {
+        background: Some(Background::Color(Color {
+            a: SHADED,
+            ..materials(theme).recess
+        })),
+        ..container::Style::default()
+    }
+}
+
+/// How much of the shadow is shadow.
+///
+/// Three fifths. Less and the panel behind competes with the sheet for the eye,
+/// which is the failure a modal exists to avoid; more and it is a black window
+/// with a panel on it, which loses the one thing the translucency is for, that
+/// what is behind the sheet is where the sheet came from. At this much the
+/// plates behind a sheet are still plates and nothing on them can be read,
+/// which is the pair of things wanted.
+const SHADED: f32 = 0.6;
+
+/// What a sheet lying over the window is drawn as.
+///
+/// The panel, lifted off the window and lit along its edge, which is the one
+/// edge in this window that is a thing standing *above* another rather than a
+/// recess cut into one: the light catches the near edge of a raised plate and
+/// the far wall of a cut one.
+///
+/// The panel and not [`bay`], which is the face plate. What goes on a sheet is a
+/// rack, and a rack draws its own face plate: a sheet in the same material would
+/// be a plate on a plate, with the rack's own border the only thing saying where
+/// one ended. On the panel it sits exactly as it sat on the window, which is
+/// what a sheet is meant to be — the same rack, brought forward.
+#[must_use]
+pub fn lifted(theme: &Theme) -> container::Style {
+    let material = materials(theme);
+    container::Style {
+        background: Some(Background::Color(material.panel)),
+        border: Border {
+            color: material.lit,
+            width: 1.0,
+            radius: 4.into(),
         },
         ..container::Style::default()
     }

@@ -4,13 +4,13 @@ use std::thread;
 use std::time::Duration;
 
 use control_ui::{Band, Confidence, Ink, Screen, Size};
-use deepmind_midi::param::ParamId;
+use deepmind_midi::param::{Group, ParamId};
 use iced::futures::Stream;
 use iced::futures::channel::mpsc;
 use iced::widget::{
     button, column, container, pick_list, row, scrollable, space, svg, text, tooltip,
 };
-use iced::{Background, Center, Element, Fill, Length, Subscription, Theme, border};
+use iced::{Center, Element, Fill, Length, Subscription, Theme, keyboard};
 
 use crate::app::{App, Message, View};
 use crate::{files, librarian};
@@ -71,10 +71,20 @@ pub fn run() -> iced::Result {
 /// same window: a picture taken at a size the application never opens at is a
 /// picture of a layout nobody sees.
 pub(crate) fn window_size() -> (f32, f32) {
-    (
-        control_ui::panel_width().max(control_ui::effects_width()) + GROUND * 2.0 + BAR + BESIDE,
-        DEEP,
-    )
+    let panel = control_ui::panel_width() + GROUND * 2.0 + BAR + BESIDE;
+    // The widest thing the editor draws is the effects, and they are drawn on a
+    // sheet rather than on the window: a sheet spends its margin, its own
+    // padding and the bar it scrolls on before anything is on it, and a window
+    // sized as though the rack stood on the panel is a window that draws the
+    // chain past the edge of its own glass.
+    let sheet = control_ui::effects_width() + control_ui::margins();
+    // And wide enough for the band of ways in with every cap's name spelled
+    // out. The band fits itself into whatever it is given by dropping the
+    // names and keeping the marks, which is what a row of buttons on the
+    // instrument is anyway — but a window that *opens* on that has thrown away
+    // the one thing the row has to say about where each press goes.
+    let band = control_ui::ways_width() + GROUND * 2.0;
+    (panel.max(sheet).max(band), DEEP)
 }
 
 /// How deep it opens.
@@ -107,14 +117,41 @@ pub(crate) fn title(app: &App) -> String {
 
 /// What wakes the window up.
 ///
-/// Nothing at all until a port is open, because a window with nothing to hear
-/// has nothing to redraw.
+/// Two things, and a window with its port down and nothing open over it hears
+/// neither: there is nothing to redraw and nothing to dismiss.
+///
+/// The frames are the port's. The key is the modal's, and it is here rather
+/// than in `control_ui` because a key is an event before it is a press: the
+/// view layer has no runtime to listen in, so the application listens and sends
+/// the same message the mark on the sheet sends.
 pub(crate) fn subscription(app: &App) -> Subscription<Message> {
-    if app.is_connected() {
+    let frames = if app.is_connected() {
         Subscription::run(ticks)
     } else {
         Subscription::none()
-    }
+    };
+    let escape = if app.editing().is_some() {
+        keyboard::listen().with(()).filter_map(dismissal)
+    } else {
+        Subscription::none()
+    };
+    Subscription::batch([frames, escape])
+}
+
+/// Turns the escape key into the message that puts a sheet away.
+///
+/// Every other key goes past. `keyboard::listen` carries only the events
+/// nothing in the window took, so a name being typed into the program's own
+/// field keeps its keystrokes and this never sees them.
+fn dismissal(((), event): ((), keyboard::Event)) -> Option<Message> {
+    matches!(
+        event,
+        keyboard::Event::KeyPressed {
+            key: keyboard::Key::Named(keyboard::key::Named::Escape),
+            ..
+        }
+    )
+    .then_some(Message::Ui(control_ui::Message::Close))
 }
 
 /// A tick every frame, from a thread and a sleep.
@@ -149,34 +186,27 @@ fn ticks() -> impl Stream<Item = Message> {
 /// lit at the top where the light is, rather than the flat dark the theme's own
 /// background would give. It is the one surface in the window nothing is cut
 /// into, so it is drawn once, here, around all of it.
+///
+/// Three bands down: the header, the band of ways in, and then the surface
+/// itself with whatever sheet is lying over it. The footer is under all of them.
+///
+/// There were four. The second was a switch between the two surfaces, `Panel`
+/// and `Library`, which said the shelf is a different kind of thing from the
+/// sections when what it is, to a hand, is another place this window can be. It
+/// is a cap in the band now, at the end of the row, and one row of presses does
+/// what two did.
 pub(crate) fn view(app: &App) -> Element<'_, Message> {
-    container(
-        column![header(app), surfaces(app)]
-            .push(match app.view() {
-                // The panel scrolls for the same reason the rack does, and it
-                // did not have to before its plates carried displays: two rows
-                // of plates are taller than a window somebody has made short,
-                // and a front panel with its lower row below the fold is a
-                // front panel with the whole voice missing.
-                View::Panel => scrollable(
-                    control_ui::panel(app.patch(), app.firmware(), app.mapper(), |screen| {
-                        paint(screen, app);
-                    })
-                    .map(Message::Ui),
-                )
-                // The bar is cut into the window beside the panel rather than
-                // laid over it. The panel is drawn out to the room it is given
-                // now, so a bar that floated over the end of it would be a bar
-                // over the last plate of every row, and a panel that shrank away
-                // from one the moment there was enough of it to scroll.
-                .direction(scrollable::Direction::Vertical(
-                    scrollable::Scrollbar::new().spacing(BESIDE),
-                ))
-                .height(Fill)
-                .into(),
-                View::Editor => editor(app),
-                View::Library => librarian::view(app),
-            })
+    // The band stands *outside* the sheet's shade, which is the whole of what
+    // makes it a row of tabs: a press on it while a section is open swaps the
+    // sheet, the way the second `EDIT` on the instrument does, instead of
+    // landing on the shade and closing what is up.
+    let window = column![
+        header(app),
+        control_ui::ways(app.showing()).map(Message::Ui)
+    ];
+    let window = container(
+        window
+            .push(showing(app))
             // Along the foot, under whichever surface is showing, because a
             // control is pointed at on all three of them and a footer that
             // moved with the surface would be a different footer each time.
@@ -186,39 +216,94 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
     )
     .width(Fill)
     .height(Fill)
-    .style(control_ui::ground)
-    .into()
+    .style(control_ui::ground);
+    window.into()
 }
 
-/// The three things this application is, and which one is in front of somebody.
+/// Whichever surface is showing, with whatever is open over it.
 ///
-/// The instrument's own front, one section of it, and the sounds you keep. Not
-/// three windows and not three modes of one: moving between them is one press,
-/// and the sound survives the move, because putting a pack down to look at a
-/// filter and finding the filter gone would be the wrong lesson to teach
-/// anybody about this application.
+/// The sheet is laid over the surface rather than over the whole window, which
+/// is a change the band of tabs asked for: a shade across everything is a shade
+/// across the tabs, and a tab that shuts the sheet instead of changing it is not
+/// a tab. What is left under the shade is what a sheet is the detail of — the
+/// panel it was opened from — and what stays out from under it is the chrome
+/// that is true whatever is open: the port, the switch between the surfaces, the
+/// band, and the footer saying what is under the pointer.
 ///
-/// The middle one is named after the section it holds rather than "Editor",
-/// because the panel's `EDIT` opened that section and the way back to it should
-/// say which one it is.
-fn surfaces(app: &App) -> Element<'_, Message> {
-    let showing = app.view();
-    let tab = |view: View, label: String| {
-        let pressed = view == showing;
-        button(text(label).size(13))
-            .padding([5, 12])
-            .style(move |theme: &Theme, _status| surface(theme, pressed))
-            .on_press(Message::Show(view))
+/// The three ways out of a sheet are all still there. The margin around it is
+/// still a press on the window that closes, because the shade still reaches
+/// every edge of the surface.
+fn showing(app: &App) -> Element<'_, Message> {
+    let surface: Element<'_, Message> = match app.view() {
+        // The panel scrolls for the same reason the rack does, and it
+        // did not have to before its plates carried displays: two rows
+        // of plates are taller than a window somebody has made short,
+        // and a front panel with its lower row below the fold is a
+        // front panel with the whole voice missing.
+        View::Panel => scrollable(
+            control_ui::panel(
+                app.patch(),
+                app.firmware(),
+                app.livery(),
+                app.mapper(),
+                |screen| {
+                    paint(screen, app);
+                },
+            )
+            .map(Message::Ui),
+        )
+        // The bar is cut into the window beside the panel rather than
+        // laid over it. The panel is drawn out to the room it is given
+        // now, so a bar that floated over the end of it would be a bar
+        // over the last plate of every row, and a panel that shrank away
+        // from one the moment there was enough of it to scroll.
+        .direction(scrollable::Direction::Vertical(
+            scrollable::Scrollbar::new().spacing(BESIDE),
+        ))
+        .height(Fill)
+        .into(),
+        View::Library => librarian::view(app),
+        // A section the band opened: the same rack the sheet would carry, on
+        // the page frame rather than the sheet's, taking the whole surface.
+        View::Section(section) => control_ui::page(control_ui::group(
+            app.patch(),
+            section,
+            app.firmware(),
+            app.mapper(),
+        ))
+        .map(Message::Ui),
     };
-    row![
-        tab(View::Panel, "Panel".to_owned()),
-        tab(View::Editor, app.section().name().to_owned()),
-        tab(View::Library, "Library".to_owned()),
-    ]
-    .push(space::horizontal())
-    .spacing(6)
-    .align_y(Center)
-    .into()
+    // And over it, where a way in has been pressed, the section it opened. What
+    // is underneath is still drawn: it is where the sheet came from and where
+    // putting the sheet away goes back to.
+    match app.editing() {
+        Some(section) => container(control_ui::modal(
+            surface,
+            opened(app, section),
+            Message::Ui(control_ui::Message::Close),
+        ))
+        .height(Fill)
+        .into(),
+        None => surface,
+    }
+}
+
+/// The sheet one of the panel's `EDIT` presses opened.
+///
+/// The section's rack, on the frame `control_ui` draws every modal on: the
+/// name it was printed under on the plate somebody pressed, the claim that
+/// section is under, and the mark that puts it away.
+///
+/// It is the same [`control_ui::group`] the surface below it drew, taking the
+/// room a sheet has rather than the room a rack under a tab bar had. What a
+/// control is has not changed, and neither has what drew it: the arrangement is
+/// what a modal is a change to.
+fn opened(app: &App, section: Group) -> Element<'_, Message> {
+    control_ui::sheet(
+        section,
+        control_ui::group(app.patch(), section, app.firmware(), app.mapper()),
+    )
+    .map(Message::Ui)
 }
 
 /// The strip along the foot: what is under the pointer, and what can be asked
@@ -250,10 +335,33 @@ fn status(app: &App) -> Element<'_, Message> {
             .on_press_maybe(open.then_some(Message::Read))
             .on_hint("Read the sound the synthesizer is playing into this window."),
         livery(app),
+        glass(app),
     ]
     .spacing(6)
     .align_y(Center)
     .into()
+}
+
+/// The press that wears the other `DeepMind`'s front.
+///
+/// A `12` and a `12D` print every section name in white caps on the bare panel;
+/// a `12X` knocks the same names out of filled banners, red down the signal
+/// path, blue on the arpeggiator and the high-pass, white on the envelopes.
+/// Both are the instrument, and which one somebody is looking at is a fact
+/// about the window rather than about the sound, so it lives at the foot of it
+/// beside the press that turns the glass over.
+///
+/// It shows the livery it is about to *give* you, which is the rule that press
+/// already follows: a swatch of a red banner while the panel is plain, and the
+/// panel's own outline while it is not.
+fn livery(app: &App) -> Element<'_, Message> {
+    let next = match app.livery() {
+        control_ui::Livery::Plain => control_ui::Livery::Banners,
+        control_ui::Livery::Banners => control_ui::Livery::Plain,
+    };
+    pressed(control_ui::livery_swatch(next).map(Message::Ui))
+        .on_press(Message::Wear)
+        .on_hint("Wear the other DeepMind's front: banners for a 12X, plain for a 12.")
 }
 
 /// The press that turns the displays over.
@@ -266,7 +374,7 @@ fn status(app: &App) -> Element<'_, Message> {
 /// would be, in a sentence, on a row of sentences; a screen the size of a
 /// character showing itself the way it is about to be says the same thing
 /// without being read, and says it in the one material this press is about.
-fn livery(app: &App) -> Element<'_, Message> {
+fn glass(app: &App) -> Element<'_, Message> {
     pressed(Element::from(control_ui::swatch(!app.is_negative())).map(Message::Ui))
         .on_press(Message::Invert)
         .on_hint("Turn every display in this window over, dark glass for light.")
@@ -366,50 +474,6 @@ fn fold(words: &str, columns: i32) -> Vec<String> {
     }
     lines.truncate(3);
     lines
-}
-
-/// The style the surface switch is drawn in, which is the section bar's.
-fn surface(theme: &Theme, pressed: bool) -> button::Style {
-    let material = control_ui::materials(theme);
-    let palette = theme.extended_palette();
-    button::Style {
-        background: Some(Background::Color(if pressed {
-            material.plate
-        } else {
-            material.panel
-        })),
-        text_color: palette.background.base.text,
-        border: border::rounded(3).width(1.0).color(if pressed {
-            material.lit
-        } else {
-            material.recess_edge
-        }),
-        ..button::Style::default()
-    }
-}
-
-/// The editing surface: one section of the instrument, and the bar that chooses
-/// which.
-fn editor(app: &App) -> Element<'_, Message> {
-    let section = app.section();
-    column![
-        // The bar stays put while the rack under it scrolls: it is how a panel
-        // is left, and a control that scrolls away is a control that is looked
-        // for.
-        control_ui::section_bar(app.patch(), section).map(Message::Ui),
-        scrollable(
-            column![
-                text(section.name()).size(18),
-                control_ui::group(app.patch(), section, app.firmware(), app.mapper())
-                    .map(Message::Ui),
-            ]
-            .spacing(12)
-            .padding([0, 12]),
-        )
-        .height(Fill),
-    ]
-    .spacing(12)
-    .into()
 }
 
 /// The name of the thing, what is known about the instrument, the port picker,

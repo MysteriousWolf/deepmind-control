@@ -432,14 +432,20 @@ where
         _style: &renderer::Style,
         layout: Layout<'_>,
         _cursor: mouse::Cursor,
-        _viewport: &Rectangle,
+        viewport: &Rectangle,
     ) {
         let bounds = layout.bounds();
         let (lit, shadow, ink) = (self.ink)(theme);
         let off = (bounds.width.min(bounds.height) * RELIEF).max(RELIEF_LEAST);
         // A hero runs off two edges of the case, so what falls outside is cut
-        // rather than drawn over the plate beside it.
-        renderer.with_layer(bounds, |renderer| {
+        // rather than drawn over the plate beside it — and cut to the room the
+        // mark was *given* as well, because `with_layer` starts a clip rather
+        // than narrowing the one already in force. A layer at the mark's own
+        // bounds is a mark that paints outside whatever is holding it.
+        let Some(cut) = bounds.intersection(viewport) else {
+            return;
+        };
+        renderer.with_layer(cut, |renderer| {
             // The two edges first and the mark over them, so that what a
             // reader sees is the mark and what they feel is the light on it.
             for (step, which) in self.relief.edges().iter().copied() {

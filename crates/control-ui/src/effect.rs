@@ -1294,7 +1294,8 @@ where
         .style(move |theme: &Theme| {
             // Cut into the group's face plate rather than raised off it: the
             // plate is what the four engines are recessed into, which is the
-            // same trick the section bar plays with the panel it is cut from.
+            // same trick the surface switch plays with the panel it is cut
+            // from.
             container::Style {
                 background: Some(Background::Color(chassis(theme, figure_colours))),
                 border: Border {

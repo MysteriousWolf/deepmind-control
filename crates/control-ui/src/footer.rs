@@ -102,8 +102,9 @@ where
     // A routing mapped onto the window is a mode, and a mode with nothing on the
     // screen saying it is up is a window that has stopped answering for reasons
     // nobody can see. The footer is where it is said, because the footer is the
-    // one thing under all three surfaces, and somebody in this mode is by
-    // definition somewhere other than the page they turned it on from.
+    // one thing under every surface and under every sheet, and somebody in this
+    // mode is by definition somewhere other than the page they turned it on
+    // from.
     if let Some(mapped) = mapped {
         across = across.push(mode(mapped));
         // And what is already wired to whatever the pointer is over, by name.
@@ -215,7 +216,9 @@ fn described(parameter: ParamId, patch: &Patch, firmware: Version) -> Vec<Part> 
         line.push(Part::Pictured(glyph.pixels()));
     }
     line.push(Part::Name(parameter.name().to_owned()));
-    line.push(Part::Quiet(parameter.group().name().to_owned()));
+    line.push(Part::Quiet(
+        crate::section::name(parameter.group()).to_owned(),
+    ));
     line.push(Part::Reading(reading_of(parameter, patch, firmware)));
     line.push(Part::Quiet(range_of(parameter)));
     if let Some(controller) = Controller::for_parameter(parameter) {
@@ -316,7 +319,7 @@ where
         text(format!("{said} already \u{2192} here"))
             .size(11)
             .style(|_theme: &Theme| text::Style {
-                color: Some(style::MODULATION),
+                color: Some(style::modulated()),
             })
             .into(),
     )
@@ -342,9 +345,9 @@ where
     )
     .padding([2, 8])
     .style(|theme: &Theme, _status| button::Style {
-        background: Some(Background::Color(style::MODULATION)),
+        background: Some(Background::Color(style::modulated())),
         text_color: materials(theme).panel,
-        border: border::rounded(3).width(1.0).color(style::MODULATION),
+        border: border::rounded(3).width(1.0).color(style::modulated()),
         ..button::Style::default()
     })
     .on_press(Message::Mapper(None))

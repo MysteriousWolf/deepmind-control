@@ -36,8 +36,11 @@ use iced_core::{
     Background, Border, Color, Font, Gradient, Length, Radians, Rectangle, Size, Theme, Widget,
     border, mouse, renderer, text::Renderer as TextRenderer,
 };
-use iced_widget::{Space, button, column, container, mouse_area, pick_list, row, stack, text};
+use iced_widget::{
+    Space, button, column, container, mouse_area, pick_list, responsive, row, stack, text,
+};
 
+use crate::cap::Face;
 use crate::effect;
 use crate::envelope;
 use crate::fader::{self, Axis, fader};
@@ -69,18 +72,33 @@ pub(crate) const BUTTON: f32 = fader::WIDTH;
 
 /// How wide the cap of a button that lights is.
 ///
-/// A fader's width, so that a lamp in a rack's slot is the same width as the
-/// fader in the slot beside it and a row of controls is one row.
-pub(crate) const CAP: f32 = fader::WIDTH;
+/// Wide enough for the mark the panel prints on it, at the proportions the
+/// instrument's own caps have.
+///
+/// It was a fader's width, so that a lamp in a rack's slot was exactly as wide
+/// as the fader beside it. What broke that is the printing: a press here
+/// carries a nine-dot mark, which is twenty-two points across whatever else the
+/// window is doing, and a cap that cannot hold one is a cap with its picture
+/// under the bezel.
+///
+/// So the cap is sized from the mark and then cut to the instrument's own
+/// proportion, which is four to three: a `DeepMind`'s lit face measures about
+/// 43 by 32 in a photograph of the front, and the bezel round it makes the
+/// whole cap squarer still. It is one size everywhere, so a row of presses is
+/// one row.
+pub(crate) const CAP: f32 = 50.0;
 
 /// How tall that cap stands.
 ///
-/// Square-ish, and taller than a line of text needs. The buttons on a
-/// `DeepMind` are moulded rubber about half again as wide as they are tall, and
-/// a cap drawn as tall as its own label is a menu item with a light behind it:
-/// the height is what makes it read as something a finger presses rather than
-/// something a pointer clicks.
-pub(crate) const PRESS: f32 = 28.0;
+/// [`CAP`] at the instrument's own proportion, which is what makes it read as
+/// something a finger presses rather than something a pointer clicks. A cap
+/// drawn as tall as its own label is a menu item with a light behind it.
+///
+/// Measured twice. The first reading was 43 by 26, taken off a crop that cut
+/// the bottom of the cap off, and five to three is visibly flatter than the
+/// instrument: a `DeepMind`'s presses are nearly square. The lit face is 43 by
+/// 32.
+pub(crate) const PRESS: f32 = 38.0;
 
 /// How tall one lit legend of a named set stands.
 ///
@@ -143,6 +161,14 @@ pub(crate) struct Room {
     height: Length,
     /// How long a fader's travel is when it runs down the panel.
     travel: f32,
+    /// The mark the panel prints on this control's cap, where it prints one.
+    ///
+    /// The last thing hand layout is allowed to change about a control, and the
+    /// most literal: what a press has printed on it is a fact about the front
+    /// of the instrument rather than about the byte underneath, so a rack's
+    /// slot carries no mark and the front panel carries the instrument's own.
+    /// It reaches nothing but the cap.
+    mark: Option<crate::badge::Badge>,
     /// Whether there is room to light a named set rather than list it.
     ///
     /// A list is the honest control for a set too long to read at a glance,
@@ -209,6 +235,7 @@ impl Room {
     /// forty that jostles is a rack nobody can read across.
     pub(crate) const SLOT: Self = Self {
         axis: Axis::Down,
+        mark: None,
         width: fader::WIDTH + 28.0,
         height: Length::Fixed(fader::HEIGHT),
         travel: fader::HEIGHT,
@@ -227,6 +254,7 @@ impl Room {
     pub(crate) const fn lane(width: f32, travel: f32) -> Self {
         Self {
             axis: Axis::Down,
+            mark: None,
             width,
             height: Length::Fixed(travel),
             travel,
@@ -242,6 +270,7 @@ impl Room {
     pub(crate) const fn lamps(width: f32, height: f32) -> Self {
         Self {
             axis: Axis::Down,
+            mark: None,
             width,
             height: Length::Fixed(height),
             travel: height,
@@ -262,6 +291,7 @@ impl Room {
     pub(crate) const fn spread(width: f32, across: usize) -> Self {
         Self {
             axis: Axis::Down,
+            mark: None,
             width,
             height: Length::Shrink,
             travel: fader::HEIGHT,
@@ -292,6 +322,7 @@ impl Room {
     pub(crate) const fn listed(width: f32) -> Self {
         Self {
             axis: Axis::Down,
+            mark: None,
             width,
             height: Length::Fixed(BUTTON),
             travel: fader::HEIGHT,
@@ -301,6 +332,18 @@ impl Room {
             across: 1,
             fills: false,
         }
+    }
+
+    /// The same room, with `mark` printed on the cap.
+    ///
+    /// What the front panel says about a press that the parameter table cannot:
+    /// the instrument silkscreens a waveform over one button and a snowflake over
+    /// none of them, and which of its presses carry a picture rather than a word
+    /// is a fact about the front. Nothing else about the control changes.
+    #[must_use]
+    pub(crate) const fn marked(mut self, mark: crate::badge::Badge) -> Self {
+        self.mark = Some(mark);
+        self
     }
 
     /// The same, taking the room it is given rather than a width of its own.
@@ -322,6 +365,7 @@ impl Room {
     pub(crate) const fn step(width: f32) -> Self {
         Self {
             axis: Axis::Down,
+            mark: None,
             width,
             height: Length::Fixed(fader::HEIGHT),
             travel: fader::HEIGHT,
@@ -337,6 +381,7 @@ impl Room {
     pub(crate) const fn across(width: f32) -> Self {
         Self {
             axis: Axis::Across,
+            mark: None,
             width,
             height: Length::Fixed(fader::WIDTH),
             travel: fader::HEIGHT,
@@ -395,12 +440,13 @@ impl Room {
 
 /// What a view in this crate asks for.
 ///
-/// Seven things, and the last four never reach a wire: a parameter should move,
+/// Eight things, and the last five never reach a wire: a parameter should move,
 /// the program should be called something, a section should be the one on the
-/// screen, the pointer has come to rest on a control or on a press, a routing
-/// is being mapped onto the window, or a drag while it is mapped has said where
-/// and how much. What an edit costs on a wire, when it goes out and what it
-/// goes out behind is the host crate's business.
+/// screen, whatever is open over the window should close, the pointer has come
+/// to rest on a control or on a press, a routing is being mapped onto the
+/// window, or a drag while it is mapped has said where and how much. What an
+/// edit costs on a wire, when it goes out and what it goes out behind is the
+/// host crate's business.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Message {
     /// A parameter should move to this value.
@@ -423,7 +469,54 @@ pub enum Message {
     /// laid out on the instrument as one surface either. Which panel is in
     /// front of somebody is the application's state and not the synthesizer's,
     /// so this is the one message that goes nowhere near the port.
+    ///
+    /// What the front panel's `EDIT` sends, and what opens that section as a
+    /// [modal](crate::modal) over the panel it was pressed on.
     Show(Group),
+    /// Whatever is open over the window should close.
+    ///
+    /// The other half of [`Show`](Message::Show), and the one message three
+    /// different things send: the mark on a sheet's own bar, a press on the
+    /// panel around it, and the escape key, which the application hears for
+    /// this crate because a key is not a press and this crate has no runtime.
+    ///
+    /// It says nothing about *what* is open, because one thing is: a second
+    /// sheet over the first would be a window nobody can find the bottom of.
+    Close,
+    /// A section should be the surface on the screen.
+    ///
+    /// The other half of [`Show`](Message::Show), and the difference between
+    /// them is the difference between a tab and a sheet. A plate's `EDIT` opens
+    /// a section *over* the panel, because that is what it is — the detail
+    /// behind one press on the front of the instrument, and the instrument
+    /// leaves its own front exactly where it was. The four sections no plate
+    /// carries are behind no press at all, so they are not the detail behind
+    /// anything: they are places of their own, and the band that reaches them
+    /// is a row of tabs.
+    ///
+    /// A tab that opened a sheet would be a tab that covers the surface it is
+    /// part of, which is what this window did until somebody looked at the
+    /// effects on one.
+    Open(Group),
+    /// The instrument's own front should be the surface on the screen, with
+    /// nothing over it.
+    ///
+    /// What the first cap of the [band of ways in](crate::ways) sends, and not
+    /// the same message as [`Close`](Message::Close), though from the panel the
+    /// two land in the same place. Close is *put away what is over the window*,
+    /// which is what a press on the shade and the escape key mean and which
+    /// says nothing about the surface underneath; this is *be at the front
+    /// panel*, which is a place to go and works from the shelf.
+    Front,
+    /// The shelf should be the surface on the screen.
+    ///
+    /// The one message here that is not about the instrument. A window is the
+    /// sound in front of you or it is the sounds you have, and the second of
+    /// those is a place rather than a panel — so it sits in the same band as
+    /// the sections, sends a message like theirs, and this crate knows no more
+    /// about what a library *is* than [`Close`](Message::Close) knows about
+    /// what is being closed.
+    Shelf,
     /// The pointer is over this control, or has left the one it was over.
     ///
     /// A panel of forty faders under four-letter legends is only readable
@@ -553,6 +646,15 @@ where
     // above what is left of one. The slots themselves are untouched: hand
     // layout changes the arrangement and never what a control is.
     let mut body = column![].spacing(10);
+    // The section's own display, across the top of its rack. The plate on the
+    // front panel carries one and what its `EDIT` opens did not, which is the
+    // one thing a section loses by being opened: the picture that says what the
+    // twenty numbers below it add up to. The instrument answers the same way —
+    // press `EDIT` and the screen becomes the section — so the sheet carries
+    // the screen the plate was carrying.
+    if let Some(glass) = glass(patch, group, firmware) {
+        body = body.push(glass);
+    }
     if let Some(shape) = envelope::shape(patch, group) {
         body = body.push(shape);
     }
@@ -568,25 +670,58 @@ where
     if !slots.is_empty() {
         body = body.push(row(slots).spacing(0).wrap());
     }
-    container(body)
-        .padding(8)
-        .style(|theme: &Theme| {
-            // The face plate the library's own panels draw their slots on.
-            let material = materials(theme);
-            container::Style {
-                // Raised off the panel, so the recesses cut into it read as
-                // cut into something. A plate the colour of its own slots is a
-                // plate with invisible slots.
-                background: Some(Background::Color(material.plate)),
-                border: Border {
-                    color: material.recess_edge,
-                    width: 1.0,
-                    radius: 3.into(),
-                },
-                ..container::Style::default()
-            }
-        })
-        .into()
+    // On whatever is holding it, and not on a face plate of its own. A rack
+    // used to draw one — the library's own panels do, and a plate raised off
+    // the panel is what makes the recesses cut into it read as cut into
+    // something. But a rack is never on the panel: it is on a sheet, which is
+    // already a plate lifted off the window, or on a page, which is the window.
+    // So the plate was a bordered rectangle inside a bordered rectangle, and
+    // what it framed was forty controls that are each drawn as a recess with a
+    // lit lower wall and need no help being read as cut.
+    container(body).padding(8).into()
+}
+
+/// The display across the top of a section's rack, as wide as the rack is.
+///
+/// [Responsive](iced_widget::responsive), because how many dots fit is a
+/// question only the room the rack was given can answer, and a sheet is as wide
+/// as the window: a screen sized anywhere else would be the right picture at
+/// the wrong resolution. It is the same call the panel's plates make, with the
+/// section's own parameters rather than one plate's.
+///
+/// A section this window has no drawing for gets nothing rather than an empty
+/// pane of glass. On a plate the empty pane is the point — ten plates side by
+/// side are a row rather than a skyline — and a rack standing on its own has
+/// nothing to line up with. The matrix is the one that asks: its own table
+/// draws the eight routings on glass twice the size, and a blank strip above
+/// that was a band of nothing across the top of the page.
+fn glass<'a, Renderer>(
+    patch: &'a Patch,
+    group: Group,
+    firmware: Version,
+) -> Option<Element<'a, Renderer>>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    // Asked once here, and asked again inside the responsive for the width it
+    // is actually given: what this answers is whether there is a picture at
+    // all, which is a question about the section and not about the room.
+    crate::scene::display::<Renderer>(patch, group.parameters(), firmware, 1, 1)?;
+    let glass = container(responsive(move |room| {
+        crate::scene::display(
+            patch,
+            group.parameters(),
+            firmware,
+            crate::lcd::fits(room.width),
+            crate::home::STRIP,
+        )
+        .unwrap_or_else(|| Space::new().into())
+    }))
+    // As tall as the strip it draws, and not a share of anything: a responsive
+    // is handed whatever room it is offered, and what a rack on a sheet offers
+    // downwards is the rest of the window.
+    .height(Length::Fixed(crate::lcd::room(crate::home::STRIP)));
+    Some(glass.into())
 }
 
 /// Draws one parameter: its address, its control, its value and its name.
@@ -871,14 +1006,14 @@ where
                         0.0,
                         Color {
                             a: FAR,
-                            ..style::MODULATION
+                            ..style::modulated()
                         },
                     )
                     .add_stop(
                         1.0,
                         Color {
                             a: NEAR,
-                            ..style::MODULATION
+                            ..style::modulated()
                         },
                     ),
             )),
@@ -900,7 +1035,7 @@ where
             },
             Background::Color(Color {
                 a: CATCH,
-                ..style::MODULATION
+                ..style::modulated()
             }),
         );
         for (lane, swing) in self.swings.iter().copied().enumerate() {
@@ -919,7 +1054,7 @@ where
                 },
                 Background::Color(Color {
                     a: ALREADY,
-                    ..style::MODULATION
+                    ..style::modulated()
                 }),
             );
         }
@@ -1177,11 +1312,22 @@ where
     // an unlit one is this window explaining a control the control already
     // states, and every legend the panel does print is silkscreened beside the
     // cap, where a finger cannot cover it.
-    let face = button(Space::new())
-        .width(Length::Fixed(CAP.min(room.width)))
-        .height(Length::Fixed(PRESS))
-        .padding(0)
-        .style(move |theme: &Theme, status| capped(theme, on, claim, status));
+    // What the panel prints on the cap, where it prints anything. Stencilled in
+    // the display's own dots, which is what every small drawing in this window
+    // is made of, and in the ink a cap takes: a cap is the one surface here
+    // brighter than the panel, lit or not, so what is printed on it is dark.
+    let printing: Element<'a, Renderer> = match room.mark {
+        Some(mark) => crate::lcd::stencil(mark.screen(), crate::style::on_cap),
+        None => Space::new().into(),
+    };
+    let face = crate::cap::cap(
+        capped(parameter, on, claim),
+        container(printing)
+            .center_x(Length::Fill)
+            .center_y(Length::Fill),
+    )
+    .width(Length::Fixed(CAP.min(room.width)))
+    .height(Length::Fixed(PRESS));
     let face = if live {
         face.on_press(Message::Edit {
             parameter,
@@ -1345,64 +1491,47 @@ fn lit(theme: &Theme, on: bool, claim: Confidence) -> button::Style {
     }
 }
 
-/// The style a cap is drawn in: lit, outlined, or dark.
+/// What is in a switch's slot: a lit cap, a dark one, or nothing.
 ///
-/// The same rule the fader's cap follows. Filled for what the synthesizer
-/// reported, an outline for what this window claims, and neither for a value
-/// nobody has read, so the fill carries the difference and the colour agrees
-/// with it.
+/// The same rule the fader's cap follows. A value nobody has read draws no cap,
+/// the way a fader nobody has read draws its track and nothing to take hold of;
+/// what is left is the slot, flat and unlit, which is a difference in relief
+/// rather than in colour and so survives the greyscale the rest of the panel
+/// survives.
 ///
-/// Whatever it is carrying, it is [moulded](style::moulded): an unlit button on
-/// the instrument is still a rubber cap standing in the panel, and drawing that
-/// one as a hole and the lit one as a light would be two controls wearing one
-/// name. So the dark state is the panel's own colour moulded, and what lighting
-/// it changes is the colour and not the shape.
-fn capped(theme: &Theme, on: bool, claim: Confidence, status: button::Status) -> button::Style {
-    let material = materials(theme);
-    let colour = tint(theme, claim);
-    let confirmed = claim.is_confirmed();
-    let held = matches!(status, button::Status::Pressed);
-    // A cap a pointer is over is lit a little before it is pressed, which is
-    // the whole of what hovering means on a panel that has no cursor.
-    let hover = matches!(status, button::Status::Hovered);
-    // Nothing read is the hole with no cap in it: the recess the cap would be
-    // moulded into, flat and unlit, which is the same thing a fader says by
-    // drawing its track and no cap. Nothing is written on these any more, so
-    // this is what tells an unread switch from one that is switched off, and a
-    // flat recess against a moulded cap is a difference in relief rather than
-    // in colour, so it survives the greyscale the rest of the panel survives.
-    if matches!(claim, Confidence::Unknown) {
-        return button::Style {
-            background: Some(Background::Color(material.recess)),
-            text_color: material.metal_low,
-            border: border::rounded(style::MOULD)
-                .width(1.0)
-                .color(material.recess_edge),
-            ..button::Style::default()
-        };
-    }
-    let face = match (on, confirmed) {
-        (true, true) => colour,
-        (true, false) => style::mix(material.panel, colour, 0.22),
-        (false, _) => style::mix(
-            material.panel,
-            material.metal_low,
-            if hover { 0.22 } else { 0.12 },
-        ),
-    };
-    button::Style {
-        background: Some(style::moulded(face, held)),
-        text_color: if on {
-            if confirmed { material.panel } else { colour }
-        } else {
-            material.metal_low
-        },
-        border: border::rounded(style::MOULD).width(1.0).color(if on {
-            colour
-        } else {
-            material.recess_edge
-        }),
-        ..button::Style::default()
+/// A switch that is *off* is a cap all the same. An unlit button on the
+/// instrument is still a piece of pale rubber standing in the panel, and
+/// drawing that one as a hole and the lit one as a light would be two controls
+/// wearing one name. So off is the rubber and on is the rubber with a lamp
+/// under it, and what lighting it changes is the light and never the shape.
+///
+/// # The lamp is the instrument's and the ring is this window's
+///
+/// A `DeepMind` lights a plain switch white and a handful of them cyan, by a
+/// rule of its own: cyan is a press that changes what the *other* controls
+/// mean. This window lights them the same way, because a panel that recoloured
+/// the instrument's own livery to say something else would be a panel you
+/// cannot read a photograph against.
+///
+/// What it adds is the ring. A backlit cap already has a band between its bezel
+/// and its hot middle — that is what a diffuser does at the edge of its own
+/// aperture — and that band carries the claim: green for a value the
+/// synthesizer reported, copper for one this window is only asserting. It is
+/// the one thing the hardware cannot say, since it lights a button the same
+/// whether it was told or has assumed, and it is the whole reason this editor
+/// draws a panel instead of photographing one.
+///
+/// The ring is on an unlit cap too, because *off* is as much a value as *on*
+/// and can be assumed just as easily.
+fn capped(parameter: ParamId, on: bool, claim: Confidence) -> impl Fn(&Theme) -> Face {
+    move |theme: &Theme| {
+        if matches!(claim, Confidence::Unknown) {
+            return Face::Empty;
+        }
+        Face::Cap {
+            lamp: on.then(|| crate::home::lamp_of(parameter)),
+            ring: Some(tint(theme, claim)),
+        }
     }
 }
 
@@ -1428,34 +1557,13 @@ where
         .width(Length::Fixed(5.0))
         .height(Length::Fixed(5.0))
         .style(move |_theme: &Theme| container::Style {
-            background: (moved && heeded).then_some(Background::Color(style::MODULATION)),
+            background: (moved && heeded).then_some(Background::Color(style::modulated())),
             border: if moved && !heeded {
-                border::rounded(3).width(1.0).color(style::MODULATION)
+                border::rounded(3).width(1.0).color(style::modulated())
             } else {
                 border::rounded(3)
             },
             ..container::Style::default()
-        })
-        .into()
-}
-
-/// Draws the dot that says what backs a value.
-pub(crate) fn dot<'a, Renderer>(claim: Confidence) -> Element<'a, Renderer>
-where
-    Renderer: iced_core::Renderer + 'a,
-{
-    container(Space::new())
-        .width(Length::Fixed(9.0))
-        .height(Length::Fixed(9.0))
-        .style(move |theme: &Theme| {
-            let colour = tint(theme, claim);
-            container::Style {
-                // Filled for what was reported, outlined for what was claimed:
-                // the difference survives a screen nobody can see colour on.
-                background: claim.is_confirmed().then_some(Background::Color(colour)),
-                border: border::rounded(5).width(1.0).color(colour),
-                ..container::Style::default()
-            }
         })
         .into()
 }

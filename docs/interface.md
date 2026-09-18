@@ -111,31 +111,85 @@ The rest of the panel's rules:
   whichever section was pressed last; here each plate carries the drawing of its
   own part, and the envelopes carry the drawing no DeepMind can show, all three
   at once. See [Display](#display).
-- **A legend is printed over a fader and under a button**, because that is where
-  the instrument prints each. The hardware has a screen for readings and no room
-  under a fader, and it silkscreens `POLY` and `EDIT` below the caps they name,
-  where a finger cannot cover them.
+- **A legend is printed over a fader**, because that is where the instrument
+  prints it: `RATE` over its fader, all the way along the panel.
+- **A press carries its mark instead**, on the cap, in the display's own dots.
+  The band of ways in has done that since it was drawn, and the panel's presses
+  had words above them, which is two languages for the same row of buttons: a
+  nine-dot mark is what every other small drawing in this window is made of, and
+  a cap is large enough to hold one. A power symbol on the arpeggiator's
+  `ON/OFF`, a snowflake on its `HOLD`, a low shelf on the high-pass `BOOST`, a
+  sawtooth and a pulse on the pair that choose the first oscillator's mix —
+  those two the instrument's own silkscreen, and its pulse is drawn as a narrow
+  one with a dotted line standing out in the low part of the wave: a second,
+  later falling edge, which is where the `PWM` fader beside the press would move
+  the one that is drawn — two linked rings on `SYNC`, a driver seen face on for the high-pass `BOOST`,
+  and three dots on every `EDIT` — two by two each, because three specks on a
+  cap the size of a thumb is a cap that looks blank — because what is behind that press is the rest
+  of the section: the plate carries the four or five controls a hand reaches for
+  and the press opens the twenty it had no room for, which is what an ellipsis
+  has meant in every toolbar since menus had them. It was a pencil, and a pencil
+  says *write here* about a press that writes nothing.
+  Where a grid that size has no honest answer a press may keep its word, and no
+  press on this panel does: `SYNC` did, because nine dots cannot draw *the
+  second oscillator restarts with the first*, until it turned out they can draw
+  *sync*, which is what the press is called. A blank cap in a row of marked ones
+  is the one thing worse than a word.
 - **Every plate carries the press the hardware calls `EDIT`**, and the
   envelopes' `VCA`, `VCF` and `MOD` are the three ways into the three envelope
   panels, which is what the hardware uses them for.
+- **And above the panel there is a band of caps for the sections no plate
+  carries.** The plates are the library's table of what the instrument puts a
+  *fader* under, so four sections have no plate and had no way in at all: the
+  modulation matrix, the effects, the sequencer and the program's own settings. A `DeepMind` reaches all four from buttons rather than from faders,
+  so the band is that arrangement continued rather than an invention. It is
+  described with the panel because it is the way into the sections, and it is
+  drawn by the window: see [the band of ways in](#the-band-of-ways-in).
 - **A way in is a legend and a lamp, not a word in a box.** `EDIT` is not
   written on the button on the instrument: it is silkscreened on the panel under
   a blank rubber cap lit amber the whole time the synthesizer is powered, and a
   row of those along the foot of every plate is the first thing you see in a
   photograph. So the legend is printed where the panel prints it, and what is
   pressed is the lamp, lit at rest and brighter under the pointer.
-- **A button is moulded, and the same cap wherever it is.** Square-ish, as wide
-  as a fader and a little over half that tall, cut to a round corner, its face a
-  gradient lit across the crown and shadowed at the foot, which is what a soft
-  thing standing proud of a dark panel looks like. Pressing turns that gradient
-  over rather than reaching for a second colour. An unlit button is moulded too.
+- **A button is a rubber cap, and the same cap wherever it is.** Five wide by
+  three tall, which is what a DeepMind's caps measure in a photograph of the
+  front, and large enough to hold a nine-dot mark — which is what set the size,
+  since a cap that cannot hold its own printing is a cap with its picture under
+  the bezel. Built out of the four
+  things that make one read as rubber rather than as a coloured rectangle: a
+  dark bezel all the way round, because the cap is moulded into a rim and there
+  is no metal edge anywhere on it; a dome down its own height, so the light
+  lands on the crown and the foot sits in shadow; a diffuser, which is the
+  falloff from a single point of light under the middle out to the rim, drawn as
+  a stack of rounded quads standing inside one another because a renderer here
+  has no radial gradient; and relief, which pressing spends. Pressing turns the
+  dome over rather than reaching for a second colour.
+- **An unlit cap is pale, not dark.** The buttons on a DeepMind are moulded from
+  a translucent off-white, and one with no lamp behind it still catches the room
+  and reads as pale against a panel this dark. A cap drawn at the panel's own
+  colour is a hole, and the instrument has none — which is also why what is
+  printed on a cap is printed in dark ink whether the cap is lit or not. The
+  slot with genuinely nothing in it is what a switch nobody has read is drawn
+  as, and it is a difference in relief rather than in colour.
   The band along the foot of a plate is one band, so the `EDIT` press and the
   switch beside it are the same cap at the same size, and that band is the one
   part of the panel the window does not stretch.
-- **The plate's name is knocked out of a light bar**, which is how the
-  instrument prints `ARP / SEQ`, `VCF` and `ENVELOPES`: a pale strip across the
-  top of each group with the name dark on it. It is what the eye follows across
-  the panel before it reads a legend.
+- **A thin rule divides the clusters inside a plate**, where the instrument
+  prints one: `VCF` is ruled between `RES` and `ENV`, so the filter's own two
+  faders are separated from the three that modulate it. The oscillators and the
+  LFOs are ruled on the hardware too, and this window already draws each of
+  those as two plates, so the rule is what is left of that idea inside a plate
+  it kept whole.
+- **The plate's name is printed the way the instrument prints it**, and there
+  are two instruments. A `DeepMind 12` and the desktop `12D` put every section
+  name in white caps on the bare panel, ruled off from its neighbours by a
+  hairline. A `12X` knocks the same names out of filled banners — red down the
+  signal path, blue on the arpeggiator and the high-pass, white on the envelopes
+  — and a photograph of one is a dark panel with a dozen red stripes across it.
+  Both are the instrument. The window opens as the `12`, because it is the
+  plainer of the two and the one most DeepMinds in the world are, and a press in
+  the footer wears the other. Either way that band is what the eye follows
+  across the panel before it reads a legend.
 - **The window opens as wide as the widest surface it has to draw**, which is
   the panel or the effects page, not whichever of them the window opens on. The
   panel's width is its widest row at the instrument's own proportions; the
@@ -209,20 +263,100 @@ The rest of the panel's rules:
   slice of its parameters' own names, and an envelope's four faders are the
   parameters whose short names match the four the section carries.
 
-## Fourteen panels, one press behind it
+## Fourteen panels, each one a sheet over the panel it was opened from
 
 Two hundred and forty-two parameters do not fit on a screen, and the instrument
-does not put them on one surface either: a player presses a section and the
-display becomes that section. So does this. A bar of fourteen tabs sits above
-the rack, it does not scroll with it, and the panel below it is the one section.
+does not put them on one surface either: a player presses `EDIT` on a section
+and the display becomes that section. Nothing about the front of the instrument
+moves while that happens. The faders are where they were, the plate is where it
+was, and what changed is what is *over* it.
 
-The bar and the front panel's `EDIT` are the same press: one asks for a section
-and the window shows it, whichever surface asked. The way back is named after
-the section it holds rather than "Editor", so that somebody who pressed `VCF`
-can see where they would be returning to.
+So a section here is a modal. The rack comes up on a sheet across the window,
+the front panel stays visible underneath in the shadow the sheet casts, and
+putting the sheet away puts somebody back exactly where they were. A second
+`EDIT` swaps the sheet rather than stacking one, the way a second press on the
+instrument makes its one display show the other section.
 
-**The order of the tabs is not written down anywhere.** A parameter's offset is
-its NRPN number and its place in a dump, the library's parameter table is in
+There was a bar of fourteen tabs instead, on a surface of its own. Tabs say the
+sections are peers of one another and of the panel; what they actually are is
+the detail behind one press on a panel that does not move, and a modal is what
+that shape of thing is.
+
+**A sheet takes almost the window and never all of it.** The margin is one of
+the three ways out, and a hand that misses the sheet has to land on something: a
+border two points wide is a target nobody hits on purpose.
+
+**There are three ways out, and one of them is drawn.**
+
+| | |
+| --- | --- |
+| A press on the window around the sheet | Anywhere outside it. Why the margin exists |
+| The mark on the sheet's own bar | The one that is drawn, because the other two are gestures and a gesture nobody was told about is not a way out |
+| The escape key | Heard by the application rather than by the view layer: a key is an event before it is a press, and `control-ui` has no runtime to listen in |
+
+All three send one message. What it says is that whatever is open should close,
+and never which thing, because one thing is open: a second sheet over the first
+would be a window nobody can find the bottom of.
+
+**A sheet is made of what the window is already made of.** The face plate every
+rack already sat on, its title in the display's own dots, a mark stencilled the
+way the chrome's other marks are, and behind it the panel's own darkest
+material at three-quarters alpha. Not a dialog borrowed from a toolkit and not
+a grey invented for one.
+
+**And it is one frame and not three.** The title was in a recessed bordered
+band and the rack was on a bordered face plate of its own, both inside the
+bordered sheet — three rectangles deep before anything is a control. A plate
+needs a border on the *front panel*, where it stands in a row of ten on a dark
+panel; a rack is never on the front panel, it is on a sheet, which is already a
+plate lifted off the window, or on a page, which is the window. So the sheet
+keeps its own edge and the two inside it are gone. What is left framed is every
+individual control, which is drawn as a recess with a lit lower wall and needs
+no help reading as cut.
+
+**The shade covers the surface and not the whole window.** What a sheet is the
+detail *of* is the panel it was opened from, and that is what goes dark under it.
+What stays lit is the chrome that is true whatever is open: the port, the switch
+between the surfaces, the band of ways in, and the footer saying what is under
+the pointer. The band is the reason — a shade across everything is a shade across
+the tabs — and the rest follows from it, because those are the parts of the
+window a sheet is not standing in front of. All three ways out are untouched: the
+margin round the sheet is still shade, and a press on it still closes.
+
+**A sheet is titled the way a tab is**: the section's mark and its word, in the
+display's own dots, on the bar a plate on the front panel prints its name in.
+Every one of the fourteen has a mark now — four had one while only the band drew
+a plaque, and a title that is a picture and a word next to a title that is a
+word is an exception with ten cases rather than a style. Each new one is the
+picture that section already is somewhere else in this window: a corner and a
+slope for the filter, a contour for the three envelopes, a cycle for an `LFO`,
+the amplifier triangle for the `VCA`.
+
+What that replaced was the section's name set in the machine's sans with a
+coloured claim dot in front of it — the one thing in this window that looked
+like it had been lifted out of a dialog box. The claim is still said: it is said
+by the display under the title, which is drawn in it the way every display here
+is. Each of the fourteen tabs used to carry a dot, and a bar of green dots with
+one copper one among them read as "the sound is the synthesizer's, except the
+part I moved" without opening anything. One sheet at a time cannot say that, and
+what replaces it is [open](todo.md).
+
+**A section reached from the band has no title at all.** The cap that opened it
+is lit directly above it and already carries the same mark and the same word: a
+title bar under a lit tab is a name printed twice, one line apart.
+
+**A sheet carries the section's display, across the top of its rack.** The plate
+on the front panel has one and what its `EDIT` opened did not, which is the one
+thing a section used to lose by being opened: the picture that says what the
+twenty numbers below it add up to. The instrument answers the same way — press
+`EDIT` and the screen becomes the section — so the sheet carries the screen the
+plate was carrying, drawn over the whole width it now has. A section this window
+has no picture for gets nothing rather than a blank strip: the matrix is the one
+that asks, and its own table already draws the eight routings on glass twice
+that size.
+
+**The order of the sections is not written down anywhere.** A parameter's offset
+is its NRPN number and its place in a dump, the library's parameter table is in
 offset order, and so the order the groups first appear in that table is the
 order the instrument keeps them in: LFOs, oscillators, filter, the envelopes and
 the VCA, voicing, modulation, sequencing, effects, and the program's own
@@ -231,23 +365,110 @@ here and one less thing to edit when the library grows a group. What it is not
 is alphabetical, which is how the library hands the groups over and which puts
 the effects third and the oscillators eighth.
 
-**Each tab carries its own section's claim**, as the same dot the legend
-explains, and a section is as confirmed as its least confirmed parameter. That
-keeps one panel at a time from hiding the thing this editor is for: a bar of
-green dots with one copper one among them reads as "the sound is the
-synthesizer's, except the part I moved" without opening anything.
-
 Which section somebody is looking at is this window's business and never the
 synthesizer's. It outlives a port being put down, because the sound went away
 and the person did not.
 
-## Three surfaces, and the sound survives the switch
+**Four sections have no `EDIT` to open them.** The panel is the library's table
+of what the instrument puts a fader under, so a section with no fader anywhere
+has no plate and no way in: the modulation matrix, the effects, the control
+sequencer and the program's own settings. The tab bar reached them and nothing
+did for a while. The band of ways in is what reaches them now.
 
-The panel is the instrument. The editor is one section of it. The library is the
-sounds somebody keeps. They are one application looking at three things, so they
-are three surfaces of one window: a switch above them, and everything below it
-changes. The patch does not. Putting a pack down to look at a filter and finding
-the filter gone is the wrong thing to teach anybody about an editor.
+## The band of ways in
+
+A row of caps above the surface, one for the front panel itself and one for each
+section no plate carries. `control_ui::ways` draws it and the window places it,
+between the switch that chooses a surface and the surface itself.
+
+**The list is subtracted rather than written down.** `control_ui::unplated` is
+every section the library has, less every section a plate opens, so a fifteenth
+arriving in a later firmware gets a cap without anybody noticing it had to, and
+the band is empty on the day every section has a plate. `control_ui::band` is
+that list with the way home in front of it, as `Option<Group>`: `None` is the
+panel with nothing over it and every other cap is the section it opens, which is
+the same thing the window records about what is open. So which cap is lit is one
+comparison rather than a flag kept beside the list.
+
+**The caps behave like tabs, because that is what they are.** Exactly one is lit
+at a time, and it is the one that would do nothing if it were pressed: the
+section on the screen, or the front panel while nothing is over it. A lit cap is
+the lamp behind amber rubber that every `EDIT` on the panel is. An unlit one is
+the *same cap* with no lamp under it — the pale translucent rubber a `DeepMind`'s
+buttons are moulded from, which is exactly what a switch that is not engaged is
+drawn as elsewhere in this window. Nothing about the shape changes, because
+nothing about the button changes; what changes is whether there is a light in it.
+
+**The way home is a cap and not a fifth section.** It carries a rack of faders as
+its mark and the words `FRONT PANEL`, and it sends the same message the mark on a
+sheet sends: whatever is over the window should close. It is the one cap in the
+band that means something while a *plated* section's sheet is up — a `VCF` sheet
+leaves every cap unlit, because none of them is where somebody is, and the way
+home is still the way back.
+
+**The band stands outside the shade, and that is the whole of why it moved.** It
+was the first band of the panel, inside the scroll. A tab under a sheet's shade
+is a tab that cannot be pressed while a sheet is open, and a row of tabs you have
+to close a sheet to use is a row of buttons: pressing one would land on the shade
+and shut what was up. Above the surface, a press on it swaps the sheet, the way a
+second `EDIT` on the instrument makes its one display show the other section.
+
+**Each cap carries the section's mark and its name**, both in the display's own
+dots, stencilled the way a legend is stencilled on the panel. The name is on the
+cap rather than in the footer because a cap here is a fifth of the window wide: a
+mark alone in that much room is a mark somebody has to hover to read. The ink is
+dark on a lit cap, which is the one place in this window something is printed on
+a surface brighter than itself, and the panel's own pale metal on an unlit one,
+because an unlit cap is panel-dark and dark ink on it is ink nobody can read.
+
+**The caps are as wide as their own printing needs**, with the slack shared out
+evenly, because equal shares cut `CONTROL SEQUENCER` down to `CONTROL
+SEQUENCE`. Where even that does not fit, the *words* go and the marks stay,
+which is what a button on the instrument carries anyway — half a word is the one
+thing a press must never say. The window opens wide enough that it does not come
+to that.
+
+## Two liveries, one instrument
+
+The livery press sits at the foot of the window beside the one that turns the
+displays over, and it follows the same rule: it shows the livery it is about to
+*give* you, not the one you have. A swatch of a red banner while the panel is
+plain, the panel's own outline while it is not. A picture of what you are asking
+for says what a press does without being read.
+
+Which of the two a window is wearing is a fact about the window rather than
+about the sound, so it survives a port being put down: a `12` and a `12X` have
+the same 242 parameters and two different silkscreens.
+
+## Two surfaces, one row of ways in
+
+The panel is the instrument. The library is the sounds somebody keeps. The patch
+survives moving between them: putting a pack down to look at a filter and
+finding the filter gone is the wrong thing to teach anybody about an editor.
+
+They used to be chosen by a switch of their own, above the band. That said the
+shelf is a different *kind* of thing from the sections, when what it is, to a
+hand, is another place this window can be — so it is the last cap of the band
+now, and one row of presses does what two did. `Way` is what that row is a list
+of: the panel, the sections no plate carries, and the shelf.
+
+**A cap of the band opens a tab and a plate's `EDIT` opens a sheet**, and the
+difference is not a style. An `EDIT` is on the front of the instrument, so what
+is behind it is the detail behind one press on that front: a sheet, with the
+panel still there underneath. The four sections no plate carries are behind no
+press at all, so they are not the detail behind anything — they are places, and
+the band is a row of tabs. A tab that opened a sheet would be a tab that covers
+the surface it is part of, which is what the effects looked like when they did.
+
+**A cap of the band is a place and the escape key is not.** Pressing `FRONT`
+puts you on the front panel from wherever you were, shelf included.
+Escape, the mark on a sheet's bar and a press on the shade all mean *put away
+what is over the window*, which says nothing about the surface underneath: escape
+on the shelf leaves you on the shelf.
+
+There were three surfaces once, and the middle one held whichever section was
+open. It is gone with the tab bar: a section is not a third thing this
+application is.
 
 **The shelf is a grid and not a list.** A pack is 128 programs, and the one
 thing this surface can offer that the instrument's two-line display cannot is
@@ -255,9 +476,9 @@ all of them at once: four across at the window's opening width, in slot order,
 with the slot written the way the front panel writes it and the name beside it.
 A column of 128 rows would show a quarter as much.
 
-**A program is drawn like a section tab**, because it is the same idea: the one
-that has been pressed is the face plate a rack sits on, lit along its edge, and
-the rest are the panel they are cut into.
+**A program is drawn as a chosen thing among unchosen ones**: the one that has
+been pressed is the face plate a rack sits on, lit along its edge, and the rest
+are the panel they are cut into.
 
 **A slot that names nothing is drawn as naming nothing.** A stored dump carries
 its bank and program; an edit buffer dump carries neither, because the edit
@@ -864,7 +1085,7 @@ where the modulation comes from, an arrow, where it goes, and how much.
   same number of parameters: value order, and the library says outright that
   nothing makes one of them narrower.
 - **A mode says so where somebody can see it.** The footer carries the routing's
-  name while it is pointed, on all three surfaces, and pressing it stops. A mode
+  name while it is pointed, wherever it is drawn, and pressing it stops. A mode
   that could only be left from the page it was started on is a mode somebody
   gets stuck in, and somebody in this one is by definition somewhere else.
 
@@ -966,7 +1187,7 @@ has drawn keeps the empty box.
 ### Effects
 
 All four engines at once, in the two-by-two the four of them make, each cut into
-the group's face plate the way a section tab is cut into the panel. The chain
+the group's face plate the way a recess is cut into the panel. The chain
 runs across the top of the block, at the width it needs to name what each engine
 is running, and the two settings that shape it, the connection mode and whether
 the effects are inserted, sent or bypassed, stand in the band under it.
@@ -1398,6 +1619,29 @@ The two lamps are the instrument's own and so is the pairing. A DeepMind's panel
 is dark and the only colour on it is the light through its buttons: amber on
 every `EDIT`, cyan on `MOD`, `CHORD` and `CURVES`. This window uses the same two
 for the same two jobs rather than inventing a third.
+
+**A lamp is not the colour it is drawn in.** A cap is a translucent dome over an
+LED, so what a hand sees is a rim below the lamp's own colour and a middle above
+it, and the two together come out paler and softer than either. That matters the
+moment the window says the same thing twice: the cyan on the `MOD` cap and the
+cyan outlining a control something else moves are one statement, and drawn as
+the raw `#40d0e6` the second is a harder, darker teal sitting next to the first.
+So `style::modulated` is the lamp as the cap shows it — `cap::glow`, which is
+the rim and the middle halved — and everything that means *what the cyan cap
+means* is drawn in that. The instrument's own colour is still the one thing
+written down; this is what the rubber does to it.
+
+**The claim ring goes through the same call**, for the same reason and one more:
+the ring stands in the band a backlit cap already has between its bezel and its
+hot middle, so it is a band of *lamp*, and drawn at the raw colour it was the
+one saturated thing on a panel of soft ones — a green printed on the cap rather
+than lit from under it.
+
+**And the press that opens a section is ringed rather than lit.** A `DeepMind`
+leaves every `EDIT` lit the whole time it is powered, which is true and which
+made ten amber rectangles the loudest thing in a window whose every other press
+is off. The ring says which row the press is in at a tenth of the ink, and the
+lamp stays what a press carrying a *value* spends.
 
 The effect panels are the exception, and a deliberate one: their colours are
 measured from the manual's own figures, four per algorithm, and a plate carrying

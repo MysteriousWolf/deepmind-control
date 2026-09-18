@@ -39,8 +39,8 @@
 //! control the library says the parameter is, with nothing here to decide.
 //!
 //! **Mapping**, for somebody who knows the *control*. `map` sends the
-//! routing out into the window: every control the matrix can reach lights up on
-//! all three surfaces, everything else is passed over, and taking hold of one
+//! routing out into the window: every control the matrix can reach lights up
+//! wherever it is drawn, everything else is passed over, and taking hold of one
 //! is the answer: a click chooses it, and a drag sets the depth as well, from
 //! how far the drag would have moved it. See [`Mapper`](crate::Mapper), which is
 //! also where the one assumption on this page is written down.
@@ -401,8 +401,8 @@ pub(crate) fn wiring(patch: &Patch, firmware: Version) -> Vec<Wire> {
 /// The same walk [`moved`] makes and one more question asked of it: not only
 /// which controls something can move, but which routing moves them and how
 /// much is in it. Read once for a window and handed to every control, because
-/// a routing being mapped is answered on all three surfaces at once and the
-/// answer is the same for all of them.
+/// a routing being mapped is answered everywhere at once and the answer is the
+/// same in every place it is asked.
 ///
 /// A routing whose destination nobody has read reaches nothing, for the reason
 /// [`moved`] draws no mark for one: a band drawn from a value this window has
@@ -1284,7 +1284,7 @@ where
         .is_some_and(|mapped| mapped.destination() == destination);
     let mark = lcd::stencil(crate::MAP.screen(), move |theme: &Theme| {
         if mapping {
-            style::MODULATION
+            style::modulated()
         } else {
             let material = materials(theme);
             style::mix(material.plate, material.metal, MARKED)
@@ -1334,7 +1334,7 @@ where
     .padding([6, 8])
     .width(Length::Fill)
     .style(|_theme: &Theme| container::Style {
-        border: border::rounded(3).width(1.0).color(style::MODULATION),
+        border: border::rounded(3).width(1.0).color(style::modulated()),
         ..container::Style::default()
     })
     .into()

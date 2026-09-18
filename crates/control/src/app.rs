@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use control_ui::{Mapper, Patch, first_section};
+use control_ui::{Livery, Mapper, Patch, Way};
 use deepmind_host::{Command, Event, Link, Outcome, PortRef, open, ports};
 use deepmind_midi::device::Event as DeviceEvent;
 use deepmind_midi::ids::{Bank, PROGRAMS_PER_BANK, ProgramNumber};
@@ -15,12 +15,18 @@ use deepmind_midi::wire::Channel;
 use crate::files;
 use crate::shelf::{self, Shelf};
 
-/// Which of the three things this window is, at the moment somebody looks at it.
+/// Which of the two things this window is, at the moment somebody looks at it.
 ///
-/// The instrument's own front, one section of it, and the sounds somebody
-/// keeps. They are one application looking at three things rather than three
-/// windows, and which one is showing is this window's own business and nothing
-/// the synthesizer is told about.
+/// The instrument's own front, and the sounds somebody keeps. They are one
+/// application looking at two things rather than two windows, and which one is
+/// showing is this window's own business and nothing the synthesizer is told
+/// about.
+///
+/// There were three. The middle one held whichever of the fourteen sections was
+/// open, reached by a bar of tabs, and it is gone: a section is not a third
+/// thing this application is, it is the detail behind one press on the first,
+/// so it opens as a sheet over the panel rather than instead of it. See
+/// [`editing`](App::editing).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum View {
     /// The front panel: the sound as the instrument itself shows it.
@@ -30,10 +36,16 @@ pub enum View {
     /// section the press it calls `EDIT`.
     #[default]
     Panel,
-    /// One of the fourteen panels: everything behind one of those presses.
-    Editor,
     /// The shelf: the sounds a file or a bank read put there.
     Library,
+    /// One of the four sections no plate on the front panel carries.
+    ///
+    /// A surface and not a sheet, which is the whole difference between the
+    /// band of ways in and a plate's `EDIT`. Those four are behind no press on
+    /// the instrument's front, so they are not the detail behind one: they are
+    /// places, the band is a row of tabs, and a tab that covered the surface it
+    /// is part of would be a modal wearing a tab's clothes.
+    Section(Group),
 }
 
 /// Everything that happens to the window.
@@ -54,10 +66,16 @@ pub enum Message {
     Read,
     /// Fold in whatever the device thread has said since the last message.
     Tick,
-    /// Show the front panel, a section of it, or the librarian.
+    /// Show the front panel or the librarian.
     Show(View),
     /// Turn the displays over, and back.
     Invert,
+    /// Wear the other `DeepMind`'s front, and back.
+    ///
+    /// A `12` prints its section names in white on the bare panel and a `12X`
+    /// knocks them out of filled banners. Both are the instrument; this is
+    /// which of the two the window is drawn as.
+    Wear,
     /// Sit the bank picker on a bank, without reading it.
     ChooseBank(Bank),
     /// Read the chosen bank onto the shelf, one dump at a time.
@@ -101,8 +119,8 @@ pub struct App {
     channel: Option<Channel>,
     /// The sound, as far as this window knows it.
     patch: Patch,
-    /// The section the bar has pressed in.
-    section: Group,
+    /// The section open over the window, where one is.
+    editing: Option<Group>,
     /// The control the pointer is over, which the footer describes.
     ///
     /// Not part of the sound and never sent anywhere: it is where somebody is
@@ -128,7 +146,7 @@ pub struct App {
     shelf: Shelf,
     /// The bank the picker is sitting on, which is the one a read would read.
     bank: Bank,
-    /// Which of the three surfaces is showing.
+    /// Which of the two surfaces is showing.
     view: View,
     /// Whether the displays are drawn the other way up.
     ///
@@ -137,6 +155,13 @@ pub struct App {
     /// on a piece of equipment is either dark dots on a lit screen or lit dots
     /// on a dark one. A `DeepMind` ships positive, so that is where it starts.
     negative: bool,
+    /// Which `DeepMind`'s front the panel is wearing.
+    ///
+    /// Not a fact about the sound and nothing the synthesizer is told: a `12`
+    /// and a `12X` have the same 242 parameters and two different silkscreens,
+    /// so this is which of the two the window is drawn as and it survives a
+    /// port being put down.
+    livery: Livery,
     /// The last thing worth saying, in words.
     status: String,
 }
@@ -159,7 +184,7 @@ impl App {
             identity: None,
             channel: None,
             patch: Patch::new(),
-            section: first_section(),
+            editing: None,
             pointed: None,
             hinted: None,
             mapper: Mapper::new(DEFAULT_FIRMWARE),
@@ -167,6 +192,7 @@ impl App {
             bank: Bank::A,
             view: View::Panel,
             negative: false,
+            livery: Livery::default(),
             status: "Choose a port.".to_owned(),
         }
     }
@@ -294,22 +320,52 @@ impl App {
         &self.patch
     }
 
-    /// Returns the section the bar has pressed in.
+    /// Returns the section open over the window, where one is.
     ///
-    /// Which panel somebody is looking at, which is this window's business and
-    /// nothing the synthesizer is told about. It survives a port being put
-    /// down, because the sound went away and the person did not. It is also
-    /// what the front panel's `EDIT` sets, so the two surfaces agree on which
-    /// section is open.
+    /// `None` is a window with nothing over it, which is where it opens: the
+    /// front panel is the instrument and a sheet is what one of its `EDIT`
+    /// presses put in front of it.
+    ///
+    /// Which panel somebody is looking at is this window's business and nothing
+    /// the synthesizer is told about. It survives a port being put down,
+    /// because the sound went away and the person did not.
     #[must_use]
-    pub const fn section(&self) -> Group {
-        self.section
+    pub const fn editing(&self) -> Option<Group> {
+        self.editing
+    }
+
+    /// Returns which cap of the band of ways in is lit.
+    ///
+    /// Where the window *is*, in the one vocabulary the band is drawn from: the
+    /// shelf, a section on a sheet, or the panel with nothing over it. A
+    /// section's sheet opened from a plate's own `EDIT` lights nothing in the
+    /// band, because the band carries only the four sections no plate does, and
+    /// that is the comparison rather than a rule written here.
+    #[must_use]
+    pub const fn showing(&self) -> Way {
+        match (self.view, self.editing) {
+            (View::Library, _) => Way::Library,
+            // A section, either way it is being shown: the surface a tab
+            // opened, or the sheet a plate's `EDIT` laid over the panel. The
+            // second lights nothing, because the band carries only the four
+            // sections no plate does and a sheet is never one of them — which
+            // is the band's own list deciding rather than a rule written here,
+            // and is why the two are one arm.
+            (View::Section(section), _) | (View::Panel, Some(section)) => Way::Section(section),
+            (View::Panel, None) => Way::Panel,
+        }
     }
 
     /// Returns whether the displays are drawn the other way up.
     #[must_use]
     pub const fn is_negative(&self) -> bool {
         self.negative
+    }
+
+    /// Returns which `DeepMind`'s front the panel is wearing.
+    #[must_use]
+    pub const fn livery(&self) -> Livery {
+        self.livery
     }
 
     /// Returns what the librarian is holding.
@@ -324,7 +380,7 @@ impl App {
         self.bank
     }
 
-    /// Returns which of the three surfaces is showing.
+    /// Returns which of the two surfaces is showing.
     #[must_use]
     pub const fn view(&self) -> View {
         self.view
@@ -356,13 +412,49 @@ impl App {
             Message::SavePatch => self.save_patch(),
             Message::SavePack => self.save_pack(),
             Message::Load(index) => self.load(index),
-            // A section asked for is a section opened, whichever surface asked:
-            // the front panel's `EDIT` and the section bar's own tabs are the
-            // same press, and the hardware answers both by putting that section
-            // on the display.
+            // A section asked for is a section opened, which is what the
+            // instrument's own `EDIT` does: the display becomes that section
+            // and the front of the synthesizer does not move. Here the sheet
+            // comes up over the panel the press is on.
+            //
+            // One at a time. A second sheet over the first would be a window
+            // nobody can find the bottom of, so asking for a section while one
+            // is open is the same press the hardware's second `EDIT` is: the
+            // sheet becomes the other section.
+            // A plate's `EDIT`: the section as a sheet over the front panel,
+            // which is what the press does on the instrument. Asking for one
+            // from anywhere else brings the panel back under it, because that
+            // is what the sheet is laid over.
             Message::Ui(control_ui::Message::Show(section)) => {
-                self.section = section;
-                self.view = View::Editor;
+                self.view = View::Panel;
+                self.editing = Some(section);
+            }
+            // A cap of the band: the section as the surface itself. Whatever
+            // sheet was over the panel comes down with it, the way it does for
+            // the shelf, because a sheet belongs to the surface it was opened
+            // from.
+            Message::Ui(control_ui::Message::Open(section)) => {
+                self.view = View::Section(section);
+                self.editing = None;
+            }
+            // The shelf, which is the one cap of the band that is a surface
+            // rather than a section. Whatever sheet was over the panel comes
+            // down with it: a sound's filter is not open while somebody is
+            // looking at a list of sounds.
+            Message::Ui(control_ui::Message::Shelf) => {
+                self.view = View::Library;
+                self.editing = None;
+            }
+            // The way back out from under a sheet: the mark on its own bar, a
+            // press on the panel around it, or the escape key. It says nothing
+            // about which surface is underneath, because it is not a place to
+            // go — escape from the shelf leaves somebody on the shelf.
+            Message::Ui(control_ui::Message::Close) => self.editing = None,
+            // The first cap of the band, which *is* a place to go: the front of
+            // the instrument, with nothing over it, from wherever somebody was.
+            Message::Ui(control_ui::Message::Front) => {
+                self.view = View::Panel;
+                self.editing = None;
             }
             Message::Ui(control_ui::Message::Edit { parameter, value }) => {
                 self.moved(parameter, value);
@@ -412,6 +504,12 @@ impl App {
             }
             Message::Ui(control_ui::Message::Mapper(at)) => self.mapper.map(at),
             Message::Invert => self.negative = !self.negative,
+            Message::Wear => {
+                self.livery = match self.livery {
+                    Livery::Plain => Livery::Banners,
+                    Livery::Banners => Livery::Plain,
+                };
+            }
             Message::Ui(control_ui::Message::Rename(name)) => self.rename(name),
             Message::Ui(control_ui::Message::Pointed(parameter)) => self.pointed = parameter,
             Message::Ui(control_ui::Message::Hinted(said)) => self.hinted = said,
