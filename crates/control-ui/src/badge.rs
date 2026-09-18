@@ -421,24 +421,34 @@ pub const PANEL: Badge = Badge::new(
     SIDE,
 );
 
-/// The section: a display with writing on it, which is what an `EDIT` opens.
+/// A pen: the press that puts you where the thing is changed.
 ///
-/// The press this window puts on every plate, and the one mark here that is a
-/// picture of *what the press does* rather than of what is behind it. Pressing
-/// `EDIT` on a `DeepMind` does not move a fader or change a sound — it makes
-/// the one display become that section — so the mark is the display with
-/// something on it.
-pub(crate) const SECTION: Badge = Badge::new(
+/// `EDIT` on every plate, and the one mark in this set that draws neither what
+/// is behind the press nor what the press does to the instrument. Pressing
+/// `EDIT` on a `DeepMind` moves no fader and changes no sound — it opens the
+/// section — and a picture of *that* is a picture of a display, which is a
+/// drawing of the machinery rather than of the offer. A pen is the offer: this
+/// is where you change it.
+///
+/// Held at the angle a pen is held at, with the nib at the bottom left where a
+/// right hand puts it, because a shaft drawn upright is a pencil in a pot.
+///
+/// What makes a diagonal band read as a pen rather than as a slash is that its
+/// two ends are different: one comes to a single dot and the other is blunt,
+/// with the collar above the nib a dot wider than the shaft. Both ends stand
+/// clear of the corners of the grid, because an end that runs off the edge is
+/// an end nobody can see is an end.
+pub(crate) const PEN: Badge = Badge::new(
     &[
         0b0_0000_0000,
-        0b0_1111_1110,
-        0b0_1000_0010,
-        0b0_1011_1010,
-        0b0_1000_0010,
-        0b0_1011_0010,
-        0b0_1000_0010,
-        0b0_1111_1110,
-        0b0_0000_0000,
+        0b0_0000_1110,
+        0b0_0001_1110,
+        0b0_0001_1100,
+        0b0_0011_1000,
+        0b0_0111_0000,
+        0b0_1110_0000,
+        0b0_1100_0000,
+        0b0_1000_0000,
     ],
     SIDE,
 );
@@ -566,7 +576,7 @@ pub(crate) const PULSE: Badge = Badge::new(
 #[cfg(test)]
 mod tests {
     use super::{ABOUT, ARROW, Badge, CHAIN, DOWN, MAP, MATRIX, PANEL, PLUGGED, PORT, PROGRAM};
-    use super::{LATCH, POWER, PULSE, READ, RESCAN, SAW, SECTION, SHELF, SHELF_LIFT, SHUT};
+    use super::{LATCH, PEN, POWER, PULSE, READ, RESCAN, SAW, SHELF, SHELF_LIFT, SHUT};
     use super::{SIDE, STEPS, UP, WHO};
 
     /// Every mark this module publishes.
@@ -593,7 +603,7 @@ mod tests {
         ("saw", SAW),
         ("pulse", PULSE),
         ("shelf", SHELF),
-        ("section", SECTION),
+        ("pen", PEN),
         ("power", POWER),
         ("latch", LATCH),
         ("shelf lift", SHELF_LIFT),

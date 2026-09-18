@@ -120,8 +120,10 @@ The rest of the panel's rules:
   a cap is large enough to hold one. A power symbol on the arpeggiator's
   `ON/OFF`, a padlock on its `HOLD`, a low shelf on the high-pass `BOOST`, a
   sawtooth and a pulse on the pair that choose an oscillator's mix — those two
-  the instrument's own silkscreen — and a display with writing on it on every
-  `EDIT`, because what an `EDIT` does is make the display become that section.
+  the instrument's own silkscreen — and a pen on every `EDIT`, because what is
+  behind that press is where the section is changed. The pen is the offer; a
+  drawing of the display becoming the section would be a drawing of the
+  machinery.
   **Where a grid that size has no honest answer the press keeps its word**,
   which on this panel is `SYNC`: every nine-dot drawing of *the second
   oscillator restarts with the first* is either the sawtooth on the cap beside

@@ -1905,11 +1905,11 @@ where
                 // Lit the whole time it is powered, which is the state the
                 // instrument leaves every `EDIT` in.
                 |_: &Theme| crate::cap::Face::lit(crate::style::WAY_IN),
-                // And carrying the mark for what pressing it does: the display
-                // becomes this section, which is what `EDIT` is on the
-                // instrument and what it is here.
+                // And carrying a pen, which is the offer rather than the
+                // machinery: what is behind this press is where the section is
+                // changed.
                 container(lcd::stencil(
-                    crate::badge::SECTION.screen(),
+                    crate::badge::PEN.screen(),
                     crate::style::on_cap,
                 ))
                 .center_x(Length::Fill)
