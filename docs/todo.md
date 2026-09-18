@@ -11,26 +11,6 @@ fall into today.
 
 ## Open
 
-### The front panel has presses no program parameter stands behind
-
-The arpeggiator on a `DeepMind` has a `CHORD` press and a `POLY CHORD` press
-beside its `ON/OFF` and `HOLD`, and this window draws neither. It is not an
-omission that can be fixed here: a sweep of all 242 `ParamId`s turns up exactly
-one arpeggiator switch, `Arp Hold`. The other two are performance functions —
-they latch what the keyboard is doing rather than set a byte in the program — so
-there is nothing in the edit buffer for a cap to move, and `front::PanelControl`
-is keyed by parameter, so the library has no way to describe the press either.
-
-The same is true of the data entry group and the `EDIT`/`COMPARE`/`WRITE` row,
-which this window has its own answers for.
-
-Asked for as
-[deepmind-midi#46](https://github.com/MysteriousWolf/deepmind-midi/issues/46): a
-description of the front-panel presses that are *not* parameters, with what each
-one sends, and "nothing over the wire" named outright where that is the answer.
-Until then the window draws what the program holds, which is the honest subset,
-and a player reaching for `CHORD` finds nothing.
-
 ### The bar said something no one sheet can
 
 Each of the fourteen tabs carried its own section's claim dot, so a bar of green
@@ -51,6 +31,28 @@ the sections a player cannot see the state of anywhere else, so it is the first
 thing to try and it is still not the thing the bar did.
 
 ## Answered
+
+### The front panel had presses no program parameter stands behind
+
+**Answered by deepmind-midi 26.5.2, filed from here as
+[#46](https://github.com/MysteriousWolf/deepmind-midi/issues/46).** The
+arpeggiator on a `DeepMind` has `CHORD` and `POLY CHORD` beside its `ON/OFF` and
+`HOLD`, and this window drew neither: a sweep over all 242 `ParamId` finds one
+arpeggiator switch, `Arp Hold`, so there was no byte for a cap to move and
+`front::PanelControl`, keyed by parameter, could not describe the press either.
+
+`Section::presses` is the other kind of entry, and `PanelPress::sends` is the
+fact that made it worth drawing: `Sends::Nothing` says outright that no
+controller number and no message in the manual presses one. Both are on the
+plate now, as caps that do not go down, with their mark at half ink and the
+library's own note in the footer. A panel that left them out was a drawing of
+the front with two buttons missing; one that drew them live would have been a
+lie about what a cable can do.
+
+The rest of that class stays out for the reason it always did: `DATA ENTRY`, the
+encoder, `WRITE`, `COMPARE` and the `EDIT` row are presses whose whole function
+is the instrument's own display, and a program drawing this panel *is* the
+display.
 
 ### Four sections have no way in
 

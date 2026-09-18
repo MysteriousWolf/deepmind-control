@@ -20,7 +20,7 @@ authors = ["MysteriousWolf"]
 # the interface draws, and that arrives when the pin is moved rather than on
 # whatever day `cargo update` is run.
 [workspace.dependencies]
-deepmind-midi = { version = "26.5", default-features = false, features = [
+deepmind-midi = { version = "26.5.2", default-features = false, features = [
     "std",
     "transport",
     # The manual's sentence for a parameter and for an effect slot, which the

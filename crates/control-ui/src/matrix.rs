@@ -332,11 +332,12 @@ fn cell_from(parameter: ParamId, value: u8, firmware: Version) -> Option<&'stati
 
 /// Returns the picture of the destination `value` names, where there is one.
 ///
-/// A destination is a set of program parameters rather than a value with a cell
-/// of its own, so the picture is the glyph of the narrowest of them, which is
-/// the same parameter [`Mapping::names`](crate::mapping::Mapping::names) would
-/// have chosen coming the other way. `VCF Freq` draws a filter's corner because
-/// `VCF Frequency` does, and the same picture stands on the fader itself.
+/// Two answers in one, in the order the library gives them. A destination that
+/// names a *set* of program parameters with no narrowest member has a cell of
+/// its own, drawn once for the set; one that moves a single parameter takes
+/// that parameter's glyph, which is the same parameter
+/// [`Mapping::names`](crate::mapping::Mapping::names) would have chosen coming
+/// the other way, and the same picture that stands on the fader itself.
 ///
 /// `None` for a destination that moves several parameters at once with no one
 /// narrowest among them, and for one whose parameters carry no glyph.
@@ -345,8 +346,20 @@ fn cell_to(parameter: ParamId, value: u8, firmware: Version) -> Option<&'static 
         return None;
     };
     let table = table.table_for(firmware);
-    let moved = table.parameters_of(u16::from(value));
-    let [only] = moved else {
+    let value = u16::from(value);
+    // The library's own drawing first. 26.5.1 draws a destination wherever
+    // reaching through it leaves a host nothing to reach for — `All Attack` is
+    // three envelopes' attack and there is no narrowest one, so it is drawn
+    // once, as an attack — and this window drew an empty box at every one of
+    // those. Eleven of them.
+    if let Some(drawn) = table.cell_of(value) {
+        return Some(drawn);
+    }
+    // And otherwise the glyph of the one parameter it moves, which is where a
+    // destination that *does* have a narrowest member takes its picture from:
+    // `VCF Freq` draws a filter's corner because `VCF Frequency` does, and the
+    // same picture stands on the fader itself.
+    let [only] = table.parameters_of(value) else {
         return None;
     };
     Some(only.glyph()?.pixels())

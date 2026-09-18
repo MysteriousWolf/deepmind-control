@@ -154,7 +154,7 @@ use crate::mapping::Sent;
 use crate::mark;
 use crate::mark::Relief;
 use crate::panel::{self, Message, Room, control, lit_rather_than_listed, modulated, shown};
-use crate::style::{self, materials, reading as reading_face};
+use crate::style::{self, materials, measured as colour, reading as reading_face};
 use crate::{Confidence, Element, Patch, tint};
 
 /// How much room the ten topologies are laid out in.
@@ -1395,16 +1395,6 @@ fn rim(theme: &Theme, figure: Option<(Colour, Colour)>) -> Color {
     figure.map_or(material.recess_edge, |(_, accent)| {
         style::mix(material.recess_edge, colour(accent), 0.55)
     })
-}
-
-/// Returns a colour the library measured, as a colour this window can draw.
-///
-/// Three components rather than a parse, because three components are what the
-/// library publishes and what a window wants; the one thing this does is put
-/// them on the scale `iced` uses.
-fn colour(measured: Colour) -> Color {
-    let [red, green, blue] = measured.to_rgb();
-    Color::from_rgb8(red, green, blue)
 }
 
 /// Draws the strip across the top of one engine's case.

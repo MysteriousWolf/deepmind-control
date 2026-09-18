@@ -1,0 +1,221 @@
+# Builds the editor for the three desktops it runs on, when somebody asks.
+#
+# CI proves the workspace compiles on all three; this hands back something you
+# can double-click. It is run by hand from the Actions tab — tick the platforms
+# you want and press the button — and the artifacts hang off the run for as long
+# as the repository keeps them.
+#
+# It is also `workflow_call`, so the release that comes later is this file with a
+# tag in front of it rather than a second copy of it: a release builds the same
+# binaries the same way, and a binary somebody has already tested is a binary
+# somebody has already tested.
+name: Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      linux:
+        description: Linux (x86_64)
+        type: boolean
+        default: true
+      macos:
+        description: macOS (Apple silicon)
+        type: boolean
+        default: true
+      windows:
+        description: Windows (x86_64)
+        type: boolean
+        default: true
+      checksums:
+        description: SHA-256 checksums
+        type: boolean
+        default: true
+  workflow_call:
+    inputs:
+      linux:
+        type: boolean
+        default: true
+      macos:
+        type: boolean
+        default: true
+      windows:
+        type: boolean
+        default: true
+      checksums:
+        type: boolean
+        default: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # A build somebody is going to run, so the panic path prints where it stopped.
+  CARGO_PROFILE_RELEASE_DEBUG: line-tables-only
+
+jobs:
+  # Which platforms were ticked, as the matrix the build job runs over. A matrix
+  # cannot be written conditionally, so it is written here and read there: a
+  # platform nobody ticked is a row that is not in the list rather than a job
+  # that starts and skips itself.
+  plan:
+    name: what to build
+    runs-on: ubuntu-latest
+    outputs:
+      targets: ${{ steps.targets.outputs.targets }}
+      any: ${{ steps.targets.outputs.any }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: The version being built
+        id: version
+        run: |
+          set -euo pipefail
+          version=$(grep -m1 -E '^version = ' Cargo.toml | cut -d'"' -f2)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "building $version"
+
+      - name: The platforms that were ticked
+        id: targets
+        run: |
+          set -euo pipefail
+          targets='[]'
+          add() { targets=$(printf '%s' "$targets" | jq -c ". + [$1]"); }
+          if [ "${{ inputs.linux }}" = "true" ]; then
+            add '{"os":"ubuntu-latest","target":"x86_64-unknown-linux-gnu","platform":"linux-x86_64","binary":"control","archive":"tar.gz"}'
+          fi
+          # The runner is Apple silicon, which is the Mac this is built for. A
+          # release that wants the Intel ones too is one more row here and a
+          # `lipo` after it, not a different workflow.
+          if [ "${{ inputs.macos }}" = "true" ]; then
+            add '{"os":"macos-latest","target":"aarch64-apple-darwin","platform":"macos-aarch64","binary":"control","archive":"tar.gz"}'
+          fi
+          if [ "${{ inputs.windows }}" = "true" ]; then
+            add '{"os":"windows-latest","target":"x86_64-pc-windows-msvc","platform":"windows-x86_64","binary":"control.exe","archive":"zip"}'
+          fi
+          echo "targets=$targets" >> "$GITHUB_OUTPUT"
+          if [ "$targets" = "[]" ]; then
+            echo "any=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::no platform was ticked, so nothing was built"
+          else
+            echo "any=true" >> "$GITHUB_OUTPUT"
+          fi
+          printf '%s\n' "$targets" | jq .
+
+  build:
+    name: ${{ matrix.platform }}
+    needs: plan
+    if: needs.plan.outputs.any == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # One desktop that will not build is not a reason to throw away the two
+      # that did: the whole point of the run is having something to test with.
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.targets) }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      # midir talks to ALSA on Linux. CoreMIDI and WinMM need nothing installed,
+      # and the window finds X11, Wayland and GL at runtime on all three.
+      - name: System libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libasound2-dev
+
+      - name: Build
+        run: cargo build --release --locked --target ${{ matrix.target }} --package control --bin control
+
+      # What somebody unpacks: the editor, the licence it is under and the
+      # notices that go with it, and the readme that says what it talks to.
+      - name: Package
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          name="deepmind-control-${{ needs.plan.outputs.version }}-${{ matrix.platform }}"
+          mkdir -p "staging/$name"
+          cp "target/${{ matrix.target }}/release/${{ matrix.binary }}" "staging/$name/"
+          cp LICENSE NOTICE README.md "staging/$name/"
+          case "${{ matrix.archive }}" in
+            tar.gz)
+              tar -czf "$name.tar.gz" -C staging "$name"
+              echo "archive=$name.tar.gz" >> "$GITHUB_OUTPUT"
+              ;;
+            zip)
+              7z a -tzip "$name.zip" "./staging/$name" >/dev/null
+              echo "archive=$name.zip" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "::error::no idea how to pack ${{ matrix.archive }}"
+              exit 1
+              ;;
+          esac
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
+      # Beside the archive rather than only in the gathered list at the end, so
+      # that one downloaded platform can be checked on its own.
+      - name: Checksum
+        if: inputs.checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="${{ steps.package.outputs.archive }}"
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "$archive" > "$archive.sha256"
+          else
+            shasum -a 256 "$archive" > "$archive.sha256"
+          fi
+          cat "$archive.sha256"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.name }}
+          path: |
+            ${{ steps.package.outputs.archive }}
+            ${{ steps.package.outputs.archive }}.sha256
+          if-no-files-found: error
+
+  # One file naming every archive the run produced, which is the thing a release
+  # publishes beside them. It is its own job because it cannot be written until
+  # the last platform has finished.
+  checksums:
+    name: checksums
+    needs: [plan, build]
+    # What did build, even where another platform did not: the run is worth
+    # having for the two that worked, which is what `fail-fast: false` above
+    # already says.
+    if: ${{ !cancelled() && inputs.checksums && needs.plan.outputs.any == 'true' && needs.build.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: built
+          merge-multiple: true
+
+      - name: Gather them
+        run: |
+          set -euo pipefail
+          cd built
+          if ! ls ./*.sha256 >/dev/null 2>&1; then
+            echo "::error::nothing was built, so there is nothing to check"
+            exit 1
+          fi
+          # Each runner wrote the archive beside it and named it without a path,
+          # so the lines gather as they are. Sorted, so the file reads in the
+          # order the platforms are ticked in rather than the order they
+          # happened to finish in.
+          sort -k2 ./*.sha256 > SHA256SUMS
+          cat SHA256SUMS
+          sha256sum --check SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SHA256SUMS
+          path: built/SHA256SUMS
+          if-no-files-found: error

@@ -776,11 +776,191 @@ pub(crate) const ARPEGGIO: Badge = Badge::new(
     SIDE,
 );
 
+/// The shapes an LFO runs, as the instrument prints them.
+///
+/// A `DeepMind` lights its two LFOs' shapes down one column of lamps between
+/// them, and what is printed beside each lamp is the wave rather than its name:
+/// a sine is a sine in every language, and `Sample & Hold` spelled out beside
+/// six other spelled-out names is a paragraph standing where a picture goes.
+/// So this panel lights the pictures too.
+///
+/// **Two of them keep a word on the instrument.** The front prints `S&H` and
+/// `S&G` where the other five have a drawing, because a silkscreen has one
+/// line of pixels to say *and then it jumps somewhere else*. Nine dots by five
+/// have more than that — a staircase with vertical risers is a hold and the
+/// same staircase with sloped ones is a glide — so both are drawn here, and
+/// the pair differ in exactly the thing the two shapes differ in.
+pub mod wave {
+    use super::{Badge, SIDE};
+
+    /// One cycle of a sine, turning over rather than pointing.
+    ///
+    /// Sampled half a step off the top, so that the crest is two dots wide and
+    /// so is the trough. That is the whole difference between this and
+    /// [`TRIANGLE`] at five rows: a sine read off the obvious samples is a
+    /// straight run up, a dot at the top and a straight run down, which is a
+    /// triangle. What a sine does that a triangle does not is *flatten* where
+    /// it turns, so it is drawn flattening.
+    pub const SINE: Badge = Badge::new(
+        &[
+            0b0_0110_0000,
+            0b0_1001_0000,
+            0b1_0000_1000,
+            0b0_0000_0100,
+            0b0_0000_0011,
+        ],
+        SIDE,
+    );
+
+    /// The same cycle with straight sides and a point at each end of it.
+    pub const TRIANGLE: Badge = Badge::new(
+        &[
+            0b0_0100_0000,
+            0b0_1010_0000,
+            0b1_0001_0001,
+            0b0_0000_1010,
+            0b0_0000_0100,
+        ],
+        SIDE,
+    );
+
+    /// Low, high, low, with the two walls between them drawn as walls.
+    pub const SQUARE: Badge = Badge::new(
+        &[
+            0b0_0111_1100,
+            0b0_0100_0100,
+            0b0_0100_0100,
+            0b0_0100_0100,
+            0b1_1100_0111,
+        ],
+        SIDE,
+    );
+
+    /// A rise and then a drop: the ramp climbing, reset at the right-hand edge.
+    pub const RAMP_UP: Badge = Badge::new(
+        &[
+            0b0_0000_0011,
+            0b0_0000_1101,
+            0b0_0011_0001,
+            0b0_1100_0001,
+            0b1_0000_0001,
+        ],
+        SIDE,
+    );
+
+    /// The same ramp reflected: the drop first, and then the fall away from it.
+    pub const RAMP_DOWN: Badge = Badge::new(
+        &[
+            0b1_1000_0000,
+            0b1_0110_0000,
+            0b1_0001_1000,
+            0b1_0000_0110,
+            0b1_0000_0001,
+        ],
+        SIDE,
+    );
+
+    /// A level taken at random and held there: flats, and vertical risers.
+    pub const SAMPLE_AND_HOLD: Badge = Badge::new(
+        &[
+            0b0_0011_1100,
+            0b0_0010_0100,
+            0b0_0010_0100,
+            0b1_1110_0100,
+            0b0_0000_0111,
+        ],
+        SIDE,
+    );
+
+    /// The same levels slid into rather than jumped to: the risers lie over.
+    ///
+    /// A hold and a glide differ in one thing and the pair of drawings differs
+    /// in the same one — whether the step between two levels stands up or
+    /// leans. So this is the staircase with its risers laid over far enough to
+    /// be read as slopes, which is as far as nine dots by five will let them
+    /// lean: a riser drawn at one dot of run is a riser.
+    pub const SAMPLE_AND_GLIDE: Badge = Badge::new(
+        &[
+            0b0_0000_1100,
+            0b0_0001_0010,
+            0b0_0010_0001,
+            0b0_0100_0000,
+            0b1_1000_0000,
+        ],
+        SIDE,
+    );
+
+    /// Returns the wave a shape called `name` is drawn as.
+    ///
+    /// Keyed by the library's own name for the value, which is the same key
+    /// the panel's own inert presses are drawn by and for the same reason:
+    /// there is nothing else to key it by, since the library publishes a
+    /// picture for a *parameter* and a shape is one value of one. A name this
+    /// window has no wave for keeps its name, which is what the whole strip
+    /// falls back to (see [`all`]).
+    #[must_use]
+    pub fn of(name: &str) -> Option<Badge> {
+        match name {
+            "Sine" => Some(SINE),
+            "Triangle" => Some(TRIANGLE),
+            "Square" => Some(SQUARE),
+            "Ramp Up" => Some(RAMP_UP),
+            "Ramp Down" => Some(RAMP_DOWN),
+            "Sample & Hold" => Some(SAMPLE_AND_HOLD),
+            "Sample & Glide" => Some(SAMPLE_AND_GLIDE),
+            _ => None,
+        }
+    }
+
+    /// Returns whether every one of `names` is a wave this window can draw.
+    ///
+    /// All of them or none, and never a strip half pictures and half words:
+    /// a column with one name in it among six drawings is a column that has to
+    /// be as wide as that name, which is the wide strip of words the pictures
+    /// were drawn to replace. A firmware that adds an eighth shape gets the
+    /// words back for the whole set until somebody draws it.
+    #[must_use]
+    pub fn all<'a>(names: impl IntoIterator<Item = &'a str>) -> bool {
+        let mut any = false;
+        for name in names {
+            any = true;
+            if of(name).is_none() {
+                return false;
+            }
+        }
+        any
+    }
+
+    /// Every wave this module publishes, for the checks below.
+    #[cfg(test)]
+    pub(super) const ALL: [(&str, Badge); 7] = [
+        ("sine", SINE),
+        ("triangle", TRIANGLE),
+        ("square", SQUARE),
+        ("ramp up", RAMP_UP),
+        ("ramp down", RAMP_DOWN),
+        ("sample and hold", SAMPLE_AND_HOLD),
+        ("sample and glide", SAMPLE_AND_GLIDE),
+    ];
+
+    /// How many dots down each of them is drawn, which is all of them the same.
+    ///
+    /// Five, where every other mark in this module is nine. A strip lights one
+    /// row per shape and a row of it is thirteen points, which is five dots at
+    /// the pitch every drawing in this window shares: a nine-dot wave beside
+    /// its six neighbours would be a column two plates tall. Five is still odd,
+    /// so a wave still has a middle row to cross and a row either side of it to
+    /// reach, which is all a cycle needs.
+    #[cfg(test)]
+    pub(super) const DOWN: i32 = 5;
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{ABOUT, AMPLIFIER, ARPEGGIO, ARROW, Badge, CHAIN, CONTOUR, DOWN, MAP, MATRIX};
-    use super::{FREEZE, LOCKED, MORE, PANEL, PLUGGED, PORT, POWER, PROGRAM, PULSE, READ, RESCAN};
-    use super::{SAW, SHELF, SHUT, SIDE, SINE, SLOPE, SPEAKER, STEPS, UP, VOICES, WHO};
+    use super::{ABOUT, AMPLIFIER, ARPEGGIO, ARROW, Badge, CHAIN, CONTOUR, DOWN, MAP};
+    use super::{FREEZE, LOCKED, MATRIX, MORE, PANEL, PLUGGED, PORT, POWER};
+    use super::{PROGRAM, PULSE, READ, RESCAN};
+    use super::{SAW, SHELF, SHUT, SIDE, SINE, SLOPE, SPEAKER, STEPS, UP, VOICES, WHO, wave};
 
     /// Every mark this module publishes.
     ///
@@ -819,12 +999,21 @@ mod tests {
         ("arpeggio", ARPEGGIO),
     ];
 
+    /// Every mark this module publishes, the waves among them.
+    ///
+    /// The checks below are about the grid a mark is written on rather than
+    /// about what it draws, and a wave is written on the same grid: nine bits
+    /// of a row, with the drawing in the low nine.
+    fn everything() -> Vec<(&'static str, Badge)> {
+        ALL.into_iter().chain(wave::ALL).collect()
+    }
+
     #[test]
     fn every_mark_fits_the_grid_it_is_drawn_in() {
         // Nine bits of a sixteen-bit row, and the seven above them are not a
         // drawing: a mark with a dot up there is a mark with a dot nobody can
         // see, which is a typing mistake rather than a design.
-        for (name, badge) in ALL {
+        for (name, badge) in everything() {
             for dots in badge.rows.iter().copied() {
                 assert_eq!(
                     dots >> u32::try_from(badge.across()).unwrap_or_default(),
@@ -837,7 +1026,7 @@ mod tests {
 
     #[test]
     fn every_mark_has_something_drawn_in_it() {
-        for (name, badge) in ALL {
+        for (name, badge) in everything() {
             let screen = badge.screen();
             assert!(!screen.is_blank(), "{name} is an empty grid");
             assert_eq!(screen.columns(), badge.across());
@@ -851,6 +1040,59 @@ mod tests {
                 badge.across()
             );
         }
+    }
+
+    #[test]
+    fn every_wave_is_drawn_on_the_strip_row_it_has_to_fit() {
+        // A lit row is thirteen points and a dot is two and a half of them, so
+        // a wave five dots deep fills the row and one six deep is a shape with
+        // its trough cut off by the shape under it.
+        for (name, badge) in wave::ALL {
+            assert_eq!(
+                badge.down(),
+                wave::DOWN,
+                "{name} is not {} rows",
+                wave::DOWN
+            );
+        }
+    }
+
+    #[test]
+    fn every_shape_the_instrument_names_is_a_wave_this_window_draws() {
+        // The strip lights pictures only while it has one for the whole set
+        // (see `wave::all`), so a shape with no drawing is not a gap in the
+        // column: it is the column falling back to seven spelled-out names.
+        // This is what says the fallback is not what the panel is showing
+        // today.
+        let named = deepmind_midi::param::ParamId::Lfo1Shape
+            .choices()
+            .unwrap_or_default();
+        assert!(!named.is_empty(), "the library names no LFO shape");
+        assert!(
+            wave::all(named.iter().map(|entry| entry.name)),
+            "an LFO shape the instrument has is not drawn as a wave",
+        );
+    }
+
+    #[test]
+    fn a_hold_jumps_between_its_levels_and_a_glide_leans_between_them() {
+        // The one thing the two shapes differ in, and the one thing the pair
+        // of drawings has to differ in: a riser standing straight up against
+        // the same riser lying over. A pair that drifted together would be two
+        // marks for one shape.
+        let hold = wave::SAMPLE_AND_HOLD.screen();
+        let glide = wave::SAMPLE_AND_GLIDE.screen();
+
+        // The hold has a column inked from its top row to its bottom one. The
+        // glide has none: every step of it is somewhere on the way.
+        let standing = |screen: &crate::lcd::Screen| {
+            (0..SIDE).any(|column| (0..wave::DOWN).all(|row| screen.is_inked(column, row)))
+        };
+        assert!(standing(&hold), "the hold has no riser standing up in it");
+        assert!(
+            !standing(&glide),
+            "the glide has a riser standing straight up"
+        );
     }
 
     #[test]

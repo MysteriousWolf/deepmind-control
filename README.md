@@ -55,7 +55,7 @@ with a patch bay beside them drawn from the routings themselves.
 Four of the fourteen have no plate on the front panel to carry an `EDIT`, so
 nothing opens them: see [to do](docs/todo.md).
 
-![The modulation matrix](docs/previews/mod-matrix.png)
+![The modulation matrix](docs/previews/matrix.png)
 
 ### Effects
 
@@ -168,6 +168,23 @@ because nothing reads a picture. The check fails when one is missing, when
 commit that touched `crates/`. It does not compare the images: the sound in them
 is random by design, and what the gate holds is that somebody generated them
 from the code as it stands.
+
+### Desktop binaries
+
+Anything the workspace builds locally, CI builds on all three desktops. The
+**Build** workflow in the Actions tab is the one that hands something back: run
+it by hand, tick the platforms you want and whether you want SHA-256 checksums,
+and each ticked platform turns up as an archive on the run — the editor, the
+licence, the notices and this readme.
+
+```
+Actions -> Build -> Run workflow -> [x] Linux  [x] macOS  [x] Windows  [x] checksums
+```
+
+macOS builds for Apple silicon, Linux and Windows for x86_64. The workflow is
+also `workflow_call`, so the release that comes later calls it rather than
+copying it: the binaries a release publishes are built the same way as the ones
+somebody tested.
 
 ### Building the plugin
 

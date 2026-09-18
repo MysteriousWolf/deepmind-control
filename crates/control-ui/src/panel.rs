@@ -115,6 +115,19 @@ pub(crate) const LIT: f32 = 13.0;
 /// How far apart two lit legends stand.
 pub(crate) const BETWEEN: f32 = 1.0;
 
+/// How tall one row of a strip that lights pictures stands.
+///
+/// Three points more than a row of words, because a drawing fills the row it is
+/// in where a word leaves the space over its capitals and under its baseline: a
+/// wave five dots deep in a thirteen-point row touches the lit edge at the top
+/// and at the bottom, which reads as a wave in a box too small for it.
+///
+/// It is what [`lit_band`] measures a column at, so a strip is given the taller
+/// row whether or not it turns out to draw them: the room a set needs is
+/// settled when the plate is measured and what is in the set is drawn long
+/// after.
+const TALL: f32 = 16.0;
+
 /// How tall a column of `count` lit legends stands.
 ///
 /// What a hand layout has to give a named set for all of it to be drawn. The
@@ -123,7 +136,7 @@ pub(crate) const BETWEEN: f32 = 1.0;
 /// fader runs in.
 pub(crate) fn lit_band(count: usize) -> f32 {
     let count = f32::from(u16::try_from(count).unwrap_or(u16::MAX));
-    (count * LIT + (count - 1.0) * BETWEEN).max(0.0)
+    (count * TALL + (count - 1.0) * BETWEEN).max(0.0)
 }
 
 /// Longest named set that is drawn as lit legends rather than as a list.
@@ -1350,6 +1363,21 @@ where
 /// faders it belongs to, or several columns where the room says so (see
 /// [`Room::spread`]). Down each column and then across, so that reading it the
 /// way the instrument numbers the values is reading down.
+///
+/// # A strip of lamps lights pictures where it has them
+///
+/// A `DeepMind` prints the *wave* beside each of its LFO shape lamps rather
+/// than the word, and a row of this column is thirteen points, which is five
+/// dots at the pitch every drawing in this window shares. So a set lit as a
+/// strip of lamps ([`Room::lamps`], which is the front panel's own column and
+/// not a list dropped into a cell) is drawn as
+/// [waves](crate::badge::wave) when this window has one for every value in it.
+///
+/// Every value or none. A column with one spelled-out name among six drawings
+/// has to be as wide as that name, which is the wide strip of words the
+/// pictures were drawn to replace, and the plate was measured for the narrow
+/// one before anything was drawn: `home::lit_width` asks the same question and
+/// has to get the same answer.
 fn legends<'a, Renderer>(
     parameter: ParamId,
     options: &[Choice],
@@ -1362,14 +1390,31 @@ where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
     let live = !matches!(claim, Confidence::Unknown) && asked.edits();
+    let pictured =
+        room.legends && crate::badge::wave::all(options.iter().map(|choice: &Choice| choice.name));
     let lamp = |choice: &Choice| {
         let on = Some(choice.byte()) == value;
         let byte = choice.byte();
-        let face = button(text(choice.name).size(10).font(reading()))
-            .padding([0, 5])
-            .width(Length::Fill)
-            .height(Length::Fixed(LIT))
-            .style(move |theme: &Theme, _status| lit(theme, on, claim));
+        let face = button(
+            match crate::badge::wave::of(choice.name).filter(|_| pictured) {
+                // The ink the word would have been set in, on the dots the wave is
+                // drawn as: a lit row is one thing, and a drawing that kept its own
+                // colour when the row behind it lit would be a lamp with a sticker
+                // on it.
+                Some(wave) => Element::from(
+                    container(crate::lcd::stencil(wave.screen(), move |theme: &Theme| {
+                        inked(theme, on, claim)
+                    }))
+                    .center_x(Length::Fill)
+                    .center_y(Length::Fill),
+                ),
+                None => Element::from(text(choice.name).size(10).font(reading())),
+            },
+        )
+        .padding([0, 5])
+        .width(Length::Fill)
+        .height(Length::Fixed(if pictured { TALL } else { LIT }))
+        .style(move |theme: &Theme, _status| lit(theme, on, claim));
         if live {
             face.on_press(Message::Edit {
                 parameter,
@@ -1459,6 +1504,25 @@ where
     .height(room.height)
     .align_y(Vertical::Center)
     .into()
+}
+
+/// The ink a lit row's own drawing is stencilled in.
+///
+/// The colour [`lit`] would have set the row's word in, because the drawing is
+/// the word: a wave that kept one colour while the row behind it lit would be a
+/// picture stuck on a lamp rather than a lamp with a picture on it.
+fn inked(theme: &Theme, on: bool, claim: Confidence) -> iced_core::Color {
+    let material = materials(theme);
+    let colour = tint(theme, claim);
+    if on {
+        if claim.is_confirmed() {
+            material.panel
+        } else {
+            colour
+        }
+    } else {
+        material.metal_low
+    }
 }
 
 /// The style one legend of a lit set is drawn in.
