@@ -15,6 +15,8 @@ Built on [`deepmind-midi`](https://github.com/MysteriousWolf/deepmind-midi),
 which owns the protocol and never opens a port. This repository owns the port
 and the interface.
 
+# Note that this is very much in alpha stages and is not ready to use. You are welcome to try, but we take no responsibility in any damage this may cause.
+
 ```
 DeepMind <--MIDI--> port <--bytes--> deepmind-midi <--events--> the interface
                      ^
