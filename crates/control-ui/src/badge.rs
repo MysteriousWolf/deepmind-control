@@ -431,25 +431,24 @@ pub const PANEL: Badge = Badge::new(
 /// this is where you change it, and a pencil says *changed and changeable
 /// again* in a way a pen does not.
 ///
-/// Held at the angle one is held at, with the point at the bottom left where a
-/// right hand puts it, because a shaft drawn upright is a pencil in a pot.
-///
-/// **The taper is what makes it a pencil rather than a slash or a pen.** The
-/// body is four dots across and steps to three, two and one over the three rows
-/// below it, which is a sharpened cone; a pen's nib is a step, and a slash has
-/// no step at all. The blunt end stands clear of the corner, because an end that
-/// runs off the edge of the grid is an end nobody can see is an end.
+/// **Upright, and that is what makes it a pencil.** Held at an angle it is a
+/// diagonal band, and a diagonal band at nine dots is a slash whatever is done
+/// to its ends: the taper that says *sharpened* and the facets that say
+/// *hexagonal* both run along the shaft, and neither survives being drawn on a
+/// diagonal. Upright, the barrel is three vertical lines — two edges and the
+/// ridge between two faces of a six-sided pencil — over a collar where the
+/// paint stops, a two-row taper of bare wood, and a point one dot across.
 pub(crate) const PENCIL: Badge = Badge::new(
     &[
         0b0_0000_0000,
-        0b0_0001_1110,
-        0b0_0011_1100,
-        0b0_0111_1000,
-        0b0_1111_0000,
-        0b0_1110_0000,
-        0b0_1100_0000,
-        0b0_1000_0000,
-        0b0_0000_0000,
+        0b0_0111_1100,
+        0b0_0101_0100,
+        0b0_0101_0100,
+        0b0_0101_0100,
+        0b0_0101_0100,
+        0b0_0111_1100,
+        0b0_0011_1000,
+        0b0_0001_0000,
     ],
     SIDE,
 );
@@ -502,19 +501,22 @@ pub(crate) const LATCH: Badge = Badge::new(
 /// square wave with a leg missing, and on a row that already carries a sawtooth
 /// and a pulse it reads as a third waveform.
 ///
-/// So it is the thing you hear rather than the curve that makes it. A cone
-/// facing right, which is the one drawing at this size that is unmistakably
-/// *low end*.
+/// So it is the thing you hear rather than the curve that makes it — and seen
+/// from the front, which is the half of that decision that took two goes. A
+/// cone drawn from the side is a wedge with a box behind it, and a wedge is as
+/// much a tweeter as a woofer. A driver seen face on is a ring with a dust cap
+/// in the middle of it, and at nine dots the cap is three by three: big, round
+/// and obviously moving air.
 pub(crate) const SPEAKER: Badge = Badge::new(
     &[
         0b0_0000_0000,
-        0b0_0000_0110,
-        0b0_0000_1110,
-        0b0_0111_1110,
-        0b0_0111_1110,
-        0b0_0111_1110,
-        0b0_0000_1110,
-        0b0_0000_0110,
+        0b0_0111_1100,
+        0b0_1100_0110,
+        0b0_1011_1010,
+        0b0_1011_1010,
+        0b0_1011_1010,
+        0b0_1100_0110,
+        0b0_0111_1100,
         0b0_0000_0000,
     ],
     SIDE,
@@ -589,16 +591,25 @@ pub(crate) const SAW: Badge = Badge::new(
     SIDE,
 );
 
-/// A pulse, which is the other one.
+/// A pulse with a dotted falling edge, which is the other one.
+///
+/// Traced off the instrument rather than invented: a `DeepMind` draws this one
+/// as a pulse whose *falling* edge is a dotted line, because that edge is the
+/// one that moves — the `PWM` fader beside the press is what moves it, and the
+/// wave is drawn showing what the fader does to it. Every other waveform on the
+/// panel is drawn solid.
+///
+/// So it is a rising edge at the left, a high bar, a dotted fall in the middle,
+/// a low bar, and the next rising edge at the right.
 pub(crate) const PULSE: Badge = Badge::new(
     &[
         0b0_0000_0000,
-        0b0_0000_0000,
-        0b0_0111_1100,
-        0b0_0100_0100,
-        0b0_0100_0100,
-        0b0_0100_0100,
-        0b1_1100_0111,
+        0b0_1111_0010,
+        0b0_1001_0010,
+        0b0_1000_0010,
+        0b0_1001_0010,
+        0b0_1000_0010,
+        0b0_1001_1110,
         0b0_0000_0000,
         0b0_0000_0000,
     ],
