@@ -21,6 +21,8 @@ use iced_core::{Background, Border, Color, Font, Gradient, Radians, Shadow, Them
 use iced_widget::overlay::menu;
 use iced_widget::{button, container, pick_list, text_input};
 
+use deepmind_midi::effect::Colour;
+
 use crate::Confidence;
 
 /// The family the instrument's legends are set in.
@@ -144,43 +146,6 @@ pub fn modulated() -> Color {
     crate::cap::glow(MODULATION)
 }
 
-/// The three colours a `DeepMind` prints its section banners in.
-///
-/// The band across the top of every plate, with the section's name knocked out
-/// of it: `OSC 1 & 2` in white on red, `ARP / SEQ` in white on blue,
-/// `ENVELOPES` in black on white. They are what the eye follows across the
-/// front of the instrument before it reads a single legend, and they are the
-/// largest colour on it by a long way — a photograph of a `DeepMind` is a dark
-/// panel with a dozen red stripes across it.
-///
-/// This window drew them as pale grey strips, which is the shape of the thing
-/// without the livery. It is the livery now, measured off the same photographs
-/// the caps were: `#c8172e`, `#01609b` and `#f2f3f0`.
-///
-/// Which band is which colour is a fact about the front of the instrument that
-/// `front::Section` does not publish, so it is transcribed beside the presses
-/// and the lamps in [`crate::home`] and asked for in
-/// [deepmind-midi#45](https://github.com/MysteriousWolf/deepmind-midi/issues/45).
-#[expect(
-    clippy::unreadable_literal,
-    reason = "a colour is read as a colour, and `0x00c8_172e` is not one"
-)]
-pub const BANNER: Color = color!(0xc8172e);
-
-/// The blue the instrument prints `ARP / SEQ` and `HPF` on. See [`BANNER`].
-#[expect(
-    clippy::unreadable_literal,
-    reason = "a colour is read as a colour, and `0x0001_609b` is not one"
-)]
-pub const BANNER_BLUE: Color = color!(0x01609b);
-
-/// The white it prints `ENVELOPES` on. See [`BANNER`].
-#[expect(
-    clippy::unreadable_literal,
-    reason = "a colour is read as a colour, and `0x00f2_f3f0` is not one"
-)]
-pub const BANNER_PALE: Color = color!(0xf2f3f0);
-
 /// The white the instrument lights a plain switch in.
 ///
 /// The third lamp, and the one that is not a colour. `SYNC`, `BOOST`, `2 POLE`,
@@ -195,6 +160,23 @@ pub const BANNER_PALE: Color = color!(0xf2f3f0);
     reason = "a colour is read as a colour, and `0x00e4_e9f3` is not one"
 )]
 pub const PLAIN: Color = color!(0xe4e9f3);
+
+/// Returns a colour the library measured, as a colour this window can draw.
+///
+/// Three components rather than a parse, because three components are what the
+/// library publishes and what a window wants; the one thing this does is put
+/// them on the scale `iced` uses.
+///
+/// Every measured colour in this window comes through here: an effect's four
+/// chassis colours, and the three a section's banner is printed on. None of
+/// them is written down in this file, which is the point — a colour read off a
+/// photograph of the instrument is the library's fact, and what this crate
+/// supplies is the drawing.
+#[must_use]
+pub fn measured(colour: Colour) -> Color {
+    let [red, green, blue] = colour.to_rgb();
+    Color::from_rgb8(red, green, blue)
+}
 
 /// What a drawn control is made of.
 ///

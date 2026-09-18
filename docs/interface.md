@@ -186,6 +186,10 @@ The rest of the panel's rules:
   hairline. A `12X` knocks the same names out of filled banners — red down the
   signal path, blue on the arpeggiator and the high-pass, white on the envelopes
   — and a photograph of one is a dark panel with a dozen red stripes across it.
+  Which plate is which colour, and the colour itself, are `Section::banner`:
+  measured off the product photographs on the library's side, along with the
+  ink each band's name is knocked out of, which is white on the two dark ones
+  and black on the light one.
   Both are the instrument. The window opens as the `12`, because it is the
   plainer of the two and the one most DeepMinds in the world are, and a press in
   the footer wears the other. Either way that band is what the eye follows
@@ -251,8 +255,28 @@ The rest of the panel's rules:
   is silkscreened over them and which row they are in was the one table this
   repository kept; `deepmind-midi` 26.3 publishes it
   ([#26](https://github.com/MysteriousWolf/deepmind-midi/issues/26)) and the
-  table is deleted. What is left in `home.rs` is layout, which is this window's
+  table is deleted. What that left was a smaller one — how the front *presents*
+  a control it already described: three presses whose buttons were not listed,
+  the rule between clusters, which lamp is behind a press, and which colour a
+  banner is. 26.5.2 publishes all four
+  ([#45](https://github.com/MysteriousWolf/deepmind-midi/issues/45)) along with
+  the presses that are not parameters at all
+  ([#46](https://github.com/MysteriousWolf/deepmind-midi/issues/46)), and that
+  table is deleted too. `PanelControl::silkscreen`, `::cluster`, `::lamp`,
+  `Section::banner` and `Section::presses` are where every one of those facts
+  comes from now. What is left in `home.rs` is layout, which is this window's
   to decide.
+- **Two presses are drawn and cannot be pressed.** `CHORD` and `POLY CHORD` sit
+  along the arpeggiator's foot and latch what the keyboard is playing. Neither
+  is a program parameter — a sweep over all 242 finds one arpeggiator switch,
+  and it is `Arp Hold` — so there is no byte for a cap to move, and
+  `Sends::Nothing` is the library saying outright that no controller number and
+  no message in the manual presses one either. They are drawn as caps that do
+  not go down, with their mark at half ink, and what the library records about
+  each goes in the footer while the pointer is on it. Leaving them out would be
+  a drawing of the front with two buttons missing, which reads as an oversight;
+  drawing them live would be a lie about what a cable can do. Drawn and inert
+  says the true thing.
 - **Two sections are drawn as more than one plate**, and both are the same trade
   as the screens: a window has room the front of a synthesizer does not. `OSC 1`
   and `OSC 2` are the brackets the instrument prints inside its own `DCO 1 & 2`
@@ -1643,12 +1667,19 @@ made ten amber rectangles the loudest thing in a window whose every other press
 is off. The ring says which row the press is in at a tenth of the ink, and the
 lamp stays what a press carrying a *value* spends.
 
-The effect panels are the exception, and a deliberate one: their colours are
-measured from the manual's own figures, four per algorithm, and a plate carrying
-the chorus panel's own colours is telling the truth about what it is editing.
-26.3 publishes them, and they are spent as an identity rather than as a finish.
-Nothing else in the editor gets a colour for being itself: fourteen groups in
-fourteen hues is decoration pretending to be information.
+**The measured colours are the library's, and there are two sets.** The effect
+panels' — four per algorithm, off the manual's own figures, so that a plate
+carrying the chorus panel's colours is telling the truth about what it is
+editing — and the three a `12X` prints its section banners on, which are the
+largest colour on the instrument. Neither is written in `style.rs`; both arrive
+as a `Colour` and go through one call, `style::measured`, which does nothing but
+put three components on the scale `iced` uses. `style.rs` is still the only file
+in this crate that *writes* a colour, and a colour read off a photograph of the
+instrument was never this crate's to write.
+
+They are spent as an identity rather than as a finish. Nothing else in the
+editor gets a colour for being itself: fourteen groups in fourteen hues is
+decoration pretending to be information.
 
 ### Contrast is measured, not judged
 

@@ -12,7 +12,7 @@
 //! other control in this editor, and each section's way in is the same press
 //! the hardware uses.
 //!
-//! # Almost nothing here is transcribed
+//! # Nothing here is transcribed
 //!
 //! Which parameters have a physical control, what is silkscreened over each
 //! one, what a hand touches and which row it is in used to be a table in this
@@ -21,18 +21,24 @@
 //!
 //! `deepmind-midi` 26.3 publishes it: [`front::sections`] is that table, on the
 //! side of the split the rest of the instrument lives on, with a loader check
-//! that a plate's controls belong to the group its name claims. The table here
-//! is deleted and `docs/waiting.md` records the ask as answered.
+//! that a plate's controls belong to the group its name claims.
 //!
-//! What came back is four rows of [`SILKSCREEN`], and it is a much smaller kind
-//! of thing: three presses the instrument has along a section's foot whose
-//! parameters the library already carries and whose *buttons* its front-panel
-//! table does not list, and one thin rule the panel prints between two clusters
-//! of faders. It names no parameter, no range and no meaning — only where on
-//! the front of the instrument something the library already describes is
-//! printed. [deepmind-midi#45](https://github.com/MysteriousWolf/deepmind-midi/issues/45)
-//! is the ask that empties it, and a test fails on the day it lands, so the
-//! table cannot quietly outlive its reason.
+//! What that left behind was a four-row table of how the front *presents* a
+//! control it already described — three presses whose buttons were not listed,
+//! one thin rule between two clusters of faders, which lamp is behind a press,
+//! and which of three colours a section's banner is. It named no parameter, no
+//! range and no meaning, and it was written to delete itself: a test failed on
+//! the day the library published the same fact.
+//!
+//! **That day is 26.5.2**, which answers
+//! [#45](https://github.com/MysteriousWolf/deepmind-midi/issues/45) and
+//! [#46](https://github.com/MysteriousWolf/deepmind-midi/issues/46) together.
+//! The table is gone. [`PanelControl::silkscreen`] says which presses the front
+//! draws rather than words, [`PanelControl::cluster`] says where a rule falls,
+//! [`PanelControl::lamp`] says which of the instrument's three lamps is behind
+//! a press, [`Section::banner`] says which colour a plate's name is printed on,
+//! and [`Section::presses`] carries the two buttons that move no parameter at
+//! all. Every fact this panel draws now comes off the instrument.
 //!
 //! # Two sections are drawn as more than one plate
 //!
@@ -71,11 +77,29 @@
 //! The row of twelve lamps over the hardware's `POLY` section is missing for a
 //! different reason: it says how many voices are sounding, and nothing on a
 //! MIDI port says that. A lamp that cannot be lit honestly is not drawn.
+//!
+//! # Two presses are drawn and cannot be pressed
+//!
+//! `CHORD` and `POLY CHORD` sit along the arpeggiator's foot and latch what the
+//! keyboard is playing. Neither is a program parameter — a sweep over all 242
+//! finds one arpeggiator switch, and it is `Arp Hold` — so there is no byte for
+//! a cap to move, and [`Sends::Nothing`] is the library saying outright that no
+//! controller number and no message in the manual presses one either.
+//!
+//! They are drawn anyway, as caps that do not go down, with what the library
+//! records about each in the footer while the pointer is on it. A panel that
+//! left them out would be a drawing of the front of the instrument with two
+//! buttons missing, which reads as an oversight; a panel that drew them live
+//! would be lying about what a cable can do. Drawn and inert says the true
+//! thing: this button is there, and this editor cannot reach it.
 
 use std::sync::LazyLock;
 
-use deepmind_midi::front::{self, PanelControl, PanelShape, Section};
+use deepmind_midi::front::{
+    self, Banner, Lamp, PanelControl, PanelPress, PanelShape, Section, Silkscreen,
+};
 use deepmind_midi::param::{Group, ParamId};
+use deepmind_midi::pixels::Glyph;
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::alignment::{Horizontal, Vertical};
 use iced_core::{Background, Border, Font, Length, Theme, text::Renderer as TextRenderer};
@@ -520,8 +544,23 @@ pub(crate) struct Plate {
     switches: Vec<Control>,
     /// Where the silkscreen rules a hairline between clusters of faders.
     ///
-    /// How many lanes stand to the left of each rule. See [`SILKSCREEN`].
-    rules: &'static [usize],
+    /// How many lanes stand to the left of each rule, worked out from
+    /// [`PanelControl::cluster`]: a `DeepMind` divides a wide plate into the
+    /// clusters its faders belong to with a thin printed line, and the library
+    /// numbers them from the left, so a rule falls wherever the number changes.
+    rules: Vec<usize>,
+    /// The colour the plate's name is printed on, on a `12X`.
+    ///
+    /// [`Section::banner`], which is one of three colours measured off the
+    /// product photographs. Not a fact about the [`Group`]: `VCF` and `HPF` are
+    /// one group printed on two colours.
+    banner: Banner,
+    /// The presses along its foot that move no parameter at all.
+    ///
+    /// [`Section::presses`], which is empty for every plate but the
+    /// arpeggiator's. `CHORD` and `POLY CHORD` latch what the keyboard is
+    /// playing rather than set a byte, so no [`Control`] can name them.
+    presses: &'static [PanelPress],
     /// What the specification records about this plate beyond its controls.
     ///
     /// `front::Section::note`: which fader of the instrument's is missing from
@@ -558,7 +597,8 @@ impl Plate {
             } else {
                 0.0
             };
-        let buttons = count(self.switches.len()) * scale.of(SWITCH + 4.0) + scale.of(WAY + 4.0);
+        let buttons = count(self.switches.len() + self.presses.len()) * scale.of(SWITCH + 4.0)
+            + scale.of(WAY + 4.0);
         // The narrowest plate still stands wide enough for a display worth
         // drawing on, and that floor is in dots rather than points: a screen
         // does not scale, it gains columns, so the room it needs is the room
@@ -730,119 +770,56 @@ fn whole(section: &'static Section, name: &str, controls: &[&'static PanelContro
             .map(|control| Control {
                 legend: control.legend(),
                 parameter: control.parameter(),
-                mark: marking(control.parameter()),
+                mark: marking(control),
             })
             .collect()
     };
-    let printed = printed_on(name);
-    let mut switches = of(PanelShape::Button);
-    switches.extend(printed.presses.iter().copied().filter(|press| {
-        // Skipped once the library carries it, so the day `front::` grows the
-        // press is the day this table stops doing anything, rather than the day
-        // a plate shows the same button twice.
-        !section
-            .controls()
-            .iter()
-            .any(|control| control.parameter() == press.parameter)
-    }));
+    let faders: Vec<&'static PanelControl> = controls
+        .iter()
+        .copied()
+        .filter(|control| control.shape() == PanelShape::Fader)
+        .collect();
     Plate {
         name: name.to_owned(),
         opens: section.group(),
+        rules: ruled(&faders),
         faders: of(PanelShape::Fader),
         lamps: of(PanelShape::Lamps).first().copied(),
-        switches,
-        rules: printed.rules,
+        switches: of(PanelShape::Button),
+        banner: section.banner(),
+        // Only on the plate the library prints them on, and only where the
+        // plate is the whole section: an unfolded section's parts each carry
+        // the presses of the cluster they are, which is none of them today and
+        // is the honest answer either way — `Section::presses` says which plate
+        // a press is on and not which cluster.
+        presses: if controls.len() == section.controls().len() {
+            section.presses()
+        } else {
+            &[]
+        },
         note: section.note(),
     }
 }
 
-/// What the instrument's silkscreen has on one plate that the library's
-/// front-panel table does not carry.
+/// Where a hairline falls among `faders`, as how many stand to its left.
 ///
-/// # Why there is a table here at all
+/// A `DeepMind` rules a thin printed line between the clusters of a wide plate:
+/// the filter's own two faders are ruled off from the three that modulate it.
+/// [`PanelControl::cluster`] numbers the clusters from the left, so a rule is
+/// wherever the number changes, and this is that walk.
 ///
-/// Everything else about this panel is read off `front::sections()`, and
-/// deleting the transcription that used to stand in its place is the whole of
-/// what [deepmind-midi#26](https://github.com/MysteriousWolf/deepmind-midi/issues/26)
-/// was for. This is what is left over, and it is left over because the
-/// library's table is a table of *controls it has published so far*: a
-/// `DeepMind`'s front panel has a few presses and a few printed rules that are
-/// not in it yet.
-///
-/// So this is not a second panel. It names nothing the library does not already
-/// have a parameter for; it says where on the front the instrument prints one,
-/// which is the fact `front::` is missing.
-/// [deepmind-midi#45](https://github.com/MysteriousWolf/deepmind-midi/issues/45)
-/// is the ask for it, and `docs/waiting.md` carries the row.
-///
-/// Both halves are written to disappear on their own. A press the library
-/// starts carrying is dropped in [`whole`] rather than drawn twice, and
-/// [`the_silkscreen_table_is_still_needed`](tests::the_silkscreen_table_is_still_needed)
-/// fails when a row of it has become dead weight.
-#[derive(Debug, Clone, Copy)]
-struct Silkscreen {
-    /// The plate it is printed on, by the name that plate is drawn under.
-    ///
-    /// The plate's name and not its group, because two of the fourteen sections
-    /// are drawn as more than one plate and `OSC 1` is where these two presses
-    /// are: on the instrument they sit at the left-hand end of the oscillator
-    /// block, which is the end the first oscillator's faders are at.
-    plate: &'static str,
-    /// The presses the hardware has along that plate's foot and the library
-    /// does not list.
-    presses: &'static [Control],
-    /// How many fader lanes stand to the left of each hairline the panel rules.
-    ///
-    /// A `DeepMind` divides a wide plate into the clusters its faders belong
-    /// to with a thin printed line: the filter's own two are ruled off from the
-    /// three depths that modulate it, the way the oscillator block is ruled
-    /// between its two oscillators. This window already draws that second one
-    /// as two plates, so what is left is the rules inside a plate it kept
-    /// whole.
-    rules: &'static [usize],
+/// **Read off the library rather than written down.** Which plate is ruled and
+/// where used to be a two-row table in this file, transcribed off a photograph
+/// and carried under the ask that has now answered it.
+fn ruled(faders: &[&'static PanelControl]) -> Vec<usize> {
+    faders
+        .iter()
+        .zip(faders.iter().skip(1))
+        .enumerate()
+        .filter(|(_, (left, right))| left.cluster() != right.cluster())
+        .map(|(lanes, _)| lanes + 1)
+        .collect()
 }
-
-/// Nothing printed on a plate the table says nothing about.
-const BARE: Silkscreen = Silkscreen {
-    plate: "",
-    presses: &[],
-    rules: &[],
-};
-
-/// Every plate the silkscreen has something on that the library does not carry.
-const SILKSCREEN: &[Silkscreen] = &[
-    Silkscreen {
-        // The two presses at the left-hand end of the `DCO 1 & 2` block, which
-        // choose which of the first oscillator's two waveforms are in the mix.
-        // The panel prints the waves over them and no words.
-        plate: "OSC 1",
-        presses: &[
-            Control {
-                legend: "SAW",
-                parameter: ParamId::Osc1SawEnable,
-                mark: Some(crate::badge::SAW),
-            },
-            Control {
-                legend: "PULSE",
-                parameter: ParamId::Osc1PulseEnable,
-                mark: Some(crate::badge::PULSE),
-            },
-        ],
-        rules: &[],
-    },
-    Silkscreen {
-        // `INVERT` stands between `2 POLE` and `EDIT` along the filter's foot,
-        // and the filter's own two faders are ruled off from the three that
-        // modulate it.
-        plate: "VCF",
-        presses: &[Control {
-            legend: "INVERT",
-            parameter: ParamId::VcfEnvelopePolarity,
-            mark: None,
-        }],
-        rules: &[2],
-    },
-];
 
 /// What the panel prints on a press, where it prints a picture rather than a
 /// word.
@@ -863,12 +840,13 @@ const SILKSCREEN: &[Silkscreen] = &[
 ///
 /// A blank cap in a row of marked ones is the one thing worse than a word.
 ///
-/// Two of them are the instrument's own printing rather than this window's
-/// choice: it draws a sawtooth and a pulse over the pair that choose the first
-/// oscillator's mix, and no words at all. Those come in through
-/// [`SILKSCREEN`], because they are a fact about the front of the instrument;
-/// these are a fact about this window, which has room for a picture where a
-/// silkscreen had room for five letters.
+/// **These are this window's choice and not the instrument's.** Two presses on
+/// the front carry a picture rather than a word in the metal itself, and those
+/// two are not in this table: the library says which, as
+/// [`Silkscreen::Drawing`], and [`drawn`] turns the glyph it names into the
+/// nine-dot mark this panel draws everything else at. So the fact *this press
+/// is pictured* comes off the instrument and the picture at this size is ours,
+/// which is the split every drawing in this repository is under.
 const MARKED: &[(ParamId, Badge)] = &[
     (ParamId::ArpOnOff, crate::badge::POWER),
     (ParamId::ArpHold, crate::badge::FREEZE),
@@ -876,12 +854,43 @@ const MARKED: &[(ParamId, Badge)] = &[
     (ParamId::OscSyncEnable, crate::badge::LOCKED),
 ];
 
-/// The mark printed on the press that moves `parameter`, where there is one.
-fn marking(parameter: ParamId) -> Option<Badge> {
+/// The mark printed on `control`, where there is one.
+///
+/// The instrument's own first: where the front prints a drawing rather than a
+/// word, the library says so and says which drawing, and that answer wins over
+/// anything this window would have chosen. [`MARKED`] is the rest, which is
+/// this window spending room a silkscreen did not have.
+fn marking(control: &'static PanelControl) -> Option<Badge> {
+    if let Silkscreen::Drawing(glyph) = control.silkscreen() {
+        return drawn(glyph);
+    }
+    let parameter = control.parameter();
     MARKED
         .iter()
         .find(|(marked, _)| *marked == parameter)
         .map(|(_, mark)| *mark)
+}
+
+/// This panel's nine-dot drawing of a glyph the front panel prints.
+///
+/// The library hands back a [`Glyph`], which is its own seven-by-seven picture
+/// of the same wave — the one a small display blits for the parameter itself.
+/// Every press on this panel is marked at nine dots, which is what a cap this
+/// window's height has room for, so a seven-dot glyph among them would be one
+/// press drawn smaller than the rest for a reason nobody can see.
+///
+/// A glyph with no nine-dot drawing keeps its word, which is [`badge`](crate::badge)'s
+/// standing rule and the one thing that stops a later firmware's new waveform
+/// press arriving blank.
+fn drawn(glyph: Glyph) -> Option<Badge> {
+    match glyph {
+        Glyph::Saw => Some(crate::badge::SAW),
+        // The library calls this one `Square`, which is what the wave is; the
+        // panel prints it narrow because `PWM` is the fader beside it, and
+        // narrow is what this window draws.
+        Glyph::Square => Some(crate::badge::PULSE),
+        _ => None,
+    }
 }
 
 /// Which `DeepMind` this window is wearing the front of.
@@ -923,7 +932,12 @@ pub fn swatch<'a, Renderer>(livery: Livery) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
-    let banner = matches!(livery, Livery::Banners).then_some(crate::style::BANNER);
+    // The red one, and read off the library like every other banner on this
+    // panel. A swatch of the plain livery is a swatch of the panel, so the
+    // press that offers a `12X` shows the colour a photograph of one is mostly
+    // made of.
+    let banner =
+        matches!(livery, Livery::Banners).then(|| crate::style::measured(Banner::Red.plate()));
     container(
         container(Space::new().width(Length::Fill).height(Length::Fill))
             .width(Length::Fixed(SWATCH))
@@ -955,74 +969,38 @@ const SWATCH: f32 = 18.0;
 /// How tall it stands, which is a banner's own proportion.
 const BAND: f32 = 8.0;
 
-/// The sections a `DeepMind` prints on a blue banner rather than a red one.
-///
-/// Two of the nine, and the instrument keeps a rule: red is the voice as a Juno
-/// would have had it, blue is what a `DeepMind` added to that — the arpeggiator
-/// and sequencer, and the high-pass filter — and white is the envelopes, which
-/// are the one block whose four faders are shared between three things.
-///
-/// Named by the plate rather than by the group, because `VCF` and `HPF` are two
-/// plates of one group and the instrument prints them on two different colours.
-/// Transcribed for the same reason [`CYAN`] is, and in the same ask.
-const BLUE: &[&str] = &["ARP / SEQ", "HPF"];
-
-/// The colour of the banner a plate's name is knocked out of, on a `12X`.
-///
-/// Only asked under [`Livery::Banners`]: a `12` has no banner to colour, it has
-/// a name printed on the panel.
-fn banner(plate: &Plate) -> iced_core::Color {
-    if BLUE.contains(&plate.name.as_str()) {
-        crate::style::BANNER_BLUE
-    } else if envelope::of(plate.opens).is_some() {
-        crate::style::BANNER_PALE
-    } else {
-        crate::style::BANNER
-    }
-}
-
-/// The presses a `DeepMind` lights cyan rather than white.
-///
-/// The instrument has three lamp colours and spends them on a rule rather than
-/// at random: amber on a press that changes what the *display* is showing, and
-/// cyan on one that changes what the other controls *mean* — `CHORD` and
-/// `POLY CHORD`, which change what a key plays; `TAP/HOLD`, which changes what
-/// letting go of one does; `MOD`, which is the modulation matrix; and `CURVES`,
-/// which points the four envelope faders at the curves instead of the times.
-/// Everything else is white.
-///
-/// Of those, one is a program parameter this window puts a cap under, so this
-/// list is one long. The rest are either not parameters at all or are drawn
-/// somewhere other than a cap.
-///
-/// Transcribed, like [`SILKSCREEN`] and for the same reason: which lamp is
-/// behind a button is a fact about the front of the instrument, and
-/// `front::PanelControl` does not carry one. It is in
-/// [deepmind-midi#45](https://github.com/MysteriousWolf/deepmind-midi/issues/45)
-/// with the rest.
-const CYAN: &[ParamId] = &[ParamId::ArpHold];
-
 /// The colour of the lamp behind the press that moves `parameter`.
 ///
-/// White unless the instrument lights it cyan, which is [`CYAN`]. The amber is
-/// not here, because nothing amber on the instrument is a parameter: every
-/// press it lights amber changes what the display is showing, and in this
-/// window those are the ways in and the band, which carry no value at all.
+/// **The instrument's own rule, read off the library.** A `DeepMind` has three
+/// lamp colours and spends them on a rule rather than at random: amber on a
+/// press that changes what the *display* is showing, cyan on one that changes
+/// what the other controls *mean*, and white on everything else.
+/// [`PanelControl::lamp`] is that rule, and [`Lamp`] states it.
+///
+/// This was a one-row table here — `Arp Hold` is the only program parameter the
+/// instrument lights cyan — carried under the ask that has now answered it. The
+/// row is gone and the answer is the same, which is what a transcription
+/// written to delete itself is for.
+///
+/// White for a parameter the front panel has no press for, because a control
+/// this window draws as a cap where the instrument has none is this window's
+/// arrangement and the instrument has nothing to say about its lamp.
 pub(crate) fn lamp_of(parameter: ParamId) -> iced_core::Color {
-    if CYAN.contains(&parameter) {
-        crate::style::MODULATION
-    } else {
-        crate::style::PLAIN
+    let lit = front::sections().iter().find_map(|section| {
+        section
+            .controls()
+            .iter()
+            .find(|control| control.parameter() == parameter)
+            .and_then(PanelControl::lamp)
+    });
+    match lit {
+        Some(Lamp::Amber) => crate::style::WAY_IN,
+        Some(Lamp::Cyan) => crate::style::MODULATION,
+        // White, and anything a later firmware adds to the set: a colour this
+        // window has never seen is not a colour it can draw, and the third lamp
+        // is the one that says *nothing special about this press*.
+        _ => crate::style::PLAIN,
     }
-}
-
-/// What the silkscreen prints on the plate called `name`.
-fn printed_on(name: &str) -> Silkscreen {
-    SILKSCREEN
-        .iter()
-        .copied()
-        .find(|printed| printed.plate == name)
-        .unwrap_or(BARE)
 }
 
 /// What an oscillator's parameters are named after on this instrument.
@@ -1116,7 +1094,9 @@ fn envelopes(section: &'static Section) -> Option<Vec<Plate>> {
                     .collect(),
                 lamps: None,
                 switches: Vec::new(),
-                rules: &[],
+                rules: Vec::new(),
+                banner: section.banner(),
+                presses: &[],
                 // The section's own note, which on this one is what the
                 // unfolding is *about*: the instrument multiplexes three
                 // envelopes onto four faders and says so here.
@@ -1677,13 +1657,18 @@ where
     for control in plate.switches.iter().copied() {
         buttons = buttons.push(switch(patch, control, firmware, scale, sent));
     }
+    // And the presses the instrument has that move nothing: drawn where the
+    // panel prints them and inert, because that is what they are from here.
+    for press in plate.presses {
+        buttons = buttons.push(inert(press, scale));
+    }
     // Every plate has a way in, and it is the press the hardware calls EDIT.
     buttons = buttons.push(way(plate.opens, scale));
     container(
         column![
             heading(
                 plate.name(),
-                matches!(livery, Livery::Banners).then(|| banner(plate)),
+                matches!(livery, Livery::Banners).then_some(plate.banner),
                 plate.note,
                 scale,
             ),
@@ -1710,6 +1695,91 @@ where
         }
     })
     .into()
+}
+
+/// One of the presses the front panel has that this editor cannot reach.
+///
+/// `CHORD` and `POLY CHORD`. A cap in the row of caps, drawn where the panel
+/// prints it, at the size of the presses beside it — and it does not go down,
+/// because [`Sends::Nothing`] is the library saying that no controller number
+/// and no message in the manual presses one. What it *does* is latch what the
+/// keyboard is playing, which is a thing that happens between a pair of hands
+/// and an instrument with no cable in the middle of it.
+///
+/// **Unlit rather than dark.** The lamp behind it on the instrument is cyan and
+/// this window lights nothing here, because a lit cap is a cap saying something
+/// about a value and there is no value: the pale rubber a `DeepMind`'s presses
+/// are moulded from is what a button with the power off looks like, and this
+/// one is off from where the window is standing. No ring either, for the same
+/// reason a way in has none — there is nothing to claim.
+///
+/// **And its mark is printed faint.** A cap that looks exactly like the four
+/// beside it and does nothing when it is pressed is worse than no cap at all:
+/// somebody presses it twice and then goes looking for the bug. Half the ink of
+/// a live press is what every disabled control anywhere has looked like for
+/// forty years, and it is the one thing on this panel that says *this is here
+/// and you cannot have it* without a word.
+///
+/// The sentence the library records about it goes in the footer while the
+/// pointer is on it, which is where this window says what is under the pointer
+/// and the only place a paragraph about a button fits.
+fn inert<'a, Renderer>(press: &'static PanelPress, scale: Scale) -> Element<'a, Renderer>
+where
+    Renderer: TextRenderer<Font = Font> + 'a,
+{
+    let mark = pressing(press);
+    let cap = crate::cap::cap(
+        |_: &Theme| crate::cap::Face::RUBBER,
+        container(match mark {
+            Some(mark) => Element::from(lcd::stencil(mark.screen(), faded)),
+            None => Element::from(Space::new()),
+        })
+        .center_x(Length::Fill)
+        .center_y(Length::Fill),
+    )
+    .width(Length::Fixed(scale.of(SWITCH)))
+    .height(Length::Fixed(crate::panel::PRESS));
+    column![
+        legend(if mark.is_some() { "" } else { press.legend() }, scale),
+        mouse_area(cap)
+            .on_enter(Message::Hinted(press.note()))
+            .on_exit(Message::Hinted(None)),
+    ]
+    .spacing(scale.of(UNDER))
+    .width(Length::Fixed(scale.of(SWITCH)))
+    .align_x(Horizontal::Center)
+    .into()
+}
+
+/// Half the ink a live press is marked in, on the cap it is marked on.
+///
+/// Mixed towards the rubber rather than dropped in alpha, because the cap under
+/// it is a dome with a gradient down it: ink at half opacity over a gradient is
+/// a mark that is darker at one end of the cap than the other, and what this is
+/// meant to read as is one faint mark.
+fn faded(theme: &Theme) -> iced_core::Color {
+    crate::style::mix(
+        crate::style::on_cap(theme),
+        materials(theme).metal,
+        HALF_INKED,
+    )
+}
+
+/// How far an inert press's mark is carried from the ink towards the rubber.
+const HALF_INKED: f32 = 0.55;
+
+/// The mark printed on one of those presses.
+///
+/// Keyed by the library's own legend, because there is no parameter to key it
+/// by — which is the whole reason a [`PanelPress`] exists. A press this window
+/// has no drawing for keeps its word, the way every unmarked press on this
+/// panel used to.
+fn pressing(press: &'static PanelPress) -> Option<Badge> {
+    match press.legend() {
+        "CHORD" => Some(crate::badge::CHORD),
+        "POLY CHORD" => Some(crate::badge::POLY_CHORD),
+        _ => None,
+    }
 }
 
 /// The display over a plate's faders, showing what its section is doing.
@@ -1752,7 +1822,7 @@ where
 /// can go without being printed on every plate that has one.
 fn heading<'a, Renderer>(
     name: &'a str,
-    banner: Option<iced_core::Color>,
+    banner: Option<Banner>,
     note: Option<&'static str>,
     scale: Scale,
 ) -> Element<'a, Renderer>
@@ -1761,14 +1831,14 @@ where
 {
     let bar = container(text(name).size(scale.of(11.0)).font(printed()).style(
         move |theme: &Theme| text::Style {
-            // Knocked out of whatever it is printed on: the banner, which on
-            // two of the three colours means white and on the third black, or
-            // the panel itself, which means the metal every other legend here
-            // is silkscreened in. Asked rather than written down, so a banner
-            // nobody has checked is still legible and a window somebody has
-            // themed differently stays readable.
+            // Knocked out of whatever it is printed on: the banner, whose ink
+            // the library publishes beside its colour — white on the two dark
+            // bands and black on the light one, which is the whole of the
+            // choice and the instrument's rather than this window's. Or the
+            // panel itself, which means the metal every other legend here is
+            // silkscreened in.
             color: Some(match banner {
-                Some(colour) => crate::style::ink_on(colour, theme),
+                Some(banner) => crate::style::measured(banner.ink()),
                 None => materials(theme).metal,
             }),
         },
@@ -1785,8 +1855,8 @@ where
             // what the eye follows across the front of one before it reads a
             // single legend, and they are the largest colour on it by a long
             // way.
-            Some(colour) => container::Style {
-                background: Some(Background::Color(colour)),
+            Some(banner) => container::Style {
+                background: Some(Background::Color(crate::style::measured(banner.plate()))),
                 border: Border::default().rounded(2),
                 ..container::Style::default()
             },
@@ -2122,7 +2192,7 @@ mod tests {
 
     use deepmind_midi::param::DEFAULT_FIRMWARE;
 
-    use super::{ACROSS, DOWN, GAP, LEGEND, NARROWEST, PAD, Plate, SCREEN, SILKSCREEN, SWITCH};
+    use super::{ACROSS, DOWN, GAP, LEGEND, NARROWEST, PAD, Plate, SCREEN, SWITCH};
     use super::{Scale, Share, UNDER, WAY, WITHIN, rows};
     use super::{
         blank, count, lcd, lines, lit, panel_width, panelled, row_width, span, standing,
@@ -2130,79 +2200,74 @@ mod tests {
     };
 
     #[test]
-    fn the_silkscreen_table_is_still_needed() {
-        // The table of what the front of the instrument has and
-        // `front::sections()` does not exists to be deleted. Every row of it is
-        // a press or a rule this window draws from a hand transcription, and
-        // the moment the library publishes one the row is dead weight that
-        // nobody would otherwise notice: the panel would carry on looking
-        // right, drawn half from the table and half from a transcription of the
-        // same thing.
-        //
-        // So when deepmind-midi#45 lands, this is what fails, and what it wants
-        // is the row taken out.
-        for printed in SILKSCREEN {
-            for press in printed.presses {
+    fn every_press_on_the_panel_is_one_the_instrument_has() {
+        // This file used to carry a four-row table of presses the library's
+        // front-panel table was missing, written to delete itself the day the
+        // library published them. 26.5.2 is that day. What holds the ground it
+        // held is this: every cap drawn along a plate's foot is a control the
+        // library puts on the front, or a press the library puts on the front,
+        // and nothing else. A panel that grew a button from an assumption would
+        // fail here rather than look right.
+        for plate in rows().iter().flat_map(|row| row.iter()) {
+            for control in &plate.switches {
                 let listed = front::sections().iter().any(|section| {
                     section
                         .controls()
                         .iter()
-                        .any(|control| control.parameter() == press.parameter)
+                        .any(|printed| printed.parameter() == control.parameter)
                 });
                 assert!(
-                    !listed,
-                    "the library now puts {} on its own front panel: \
-                     take the row out of SILKSCREEN",
-                    press.parameter
+                    listed,
+                    "{} is a cap on the {} plate and not on the instrument's front",
+                    control.parameter, plate.name,
                 );
             }
         }
     }
 
     #[test]
-    fn the_silkscreen_is_printed_on_a_plate_the_panel_has() {
-        // A row naming a plate this window does not draw is a press nobody will
-        // ever see and a rule nobody will ever notice, which is the one way a
-        // hand transcription fails silently.
-        let drawn: Vec<&str> = rows()
+    fn a_press_that_moves_no_parameter_is_drawn_and_cannot_be_pressed() {
+        // `CHORD` and `POLY CHORD`. The whole point of drawing them is that the
+        // window says the true thing about a button it cannot reach, and the
+        // true thing is the library's `Sends`: the moment one of them becomes
+        // reachable this fails, and what it wants is a cap that goes down.
+        let presses: Vec<&front::PanelPress> = rows()
             .iter()
             .flat_map(|row| row.iter())
-            .map(Plate::name)
+            .flat_map(|plate| plate.presses.iter())
             .collect();
-
-        for printed in SILKSCREEN {
+        assert_eq!(presses.len(), front::PANEL_PRESS_COUNT);
+        for press in presses {
+            assert_eq!(
+                press.sends(),
+                front::Sends::Nothing,
+                "{press} can be sent now: draw it as a cap that goes down",
+            );
             assert!(
-                drawn.contains(&printed.plate),
-                "{} is not a plate of this panel",
-                printed.plate
+                press.note().is_some(),
+                "{press} is drawn inert with nothing to say about why",
+            );
+            assert!(
+                super::pressing(press).is_some(),
+                "{press} is a blank cap nobody can read",
             );
         }
     }
 
     #[test]
-    fn an_extra_press_belongs_to_the_section_its_plate_opens() {
-        // The same rule every control on this panel is under, held for the
-        // handful that did not come from the library's table: a press on the
-        // filter's plate has to move a parameter of the filter, or pressing it
-        // opens one section and edits another.
-        for plate in rows().iter().flat_map(|row| row.iter()) {
-            for control in plate.switches.iter().filter(|control| {
-                SILKSCREEN.iter().any(|printed| {
-                    printed
-                        .presses
-                        .iter()
-                        .any(|press| press.parameter == control.parameter)
-                })
-            }) {
-                assert_eq!(
-                    control.parameter.group(),
-                    plate.opens,
-                    "{} is on the {} plate and in another section",
-                    control.parameter,
-                    plate.name
-                );
-            }
-        }
+    fn the_panel_lights_exactly_one_cap_the_way_the_matrix_is_lit() {
+        // The instrument spends cyan on a press that changes what the *other*
+        // controls mean, and exactly one of those is a program parameter. It
+        // was a one-row table here and it is the library's answer now, so what
+        // is worth holding is that the answer did not quietly become none.
+        let cyan: Vec<ParamId> = rows()
+            .iter()
+            .flat_map(|row| row.iter())
+            .flat_map(Plate::controls)
+            .map(|control| control.parameter)
+            .filter(|parameter| super::lamp_of(*parameter) == crate::style::MODULATION)
+            .collect();
+        assert_eq!(cyan, [ParamId::ArpHold]);
     }
 
     #[test]
@@ -2211,9 +2276,9 @@ mod tests {
         // the edge of a plate that already has a border, which says nothing and
         // costs a lane's worth of panel.
         for plate in rows().iter().flat_map(|row| row.iter()) {
-            for lanes in plate.rules {
+            for lanes in plate.rules.iter().copied() {
                 assert!(
-                    *lanes > 0 && *lanes < plate.faders.len(),
+                    lanes > 0 && lanes < plate.faders.len(),
                     "{} rules a line with {lanes} of its {} lanes to the left of it",
                     plate.name,
                     plate.faders.len()

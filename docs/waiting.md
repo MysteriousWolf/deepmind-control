@@ -21,29 +21,34 @@ them. The shapes the plate displays draw were arithmetic in
 `HIGH_PASS_SLOPE`, 6 dB per octave, was copied out of a library doc comment;
 26.5 published the curve it belonged to and it is deleted.
 
-What is left is `SILKSCREEN`, `CYAN` and `BLUE` — six rows between them — and
-#45 is the ask that empties them. It is a smaller kind of transcription than the one 26.3 replaced — it names
-no parameter, no range and no meaning, only where on the front of the instrument
-a press the library already describes is printed — but it is a transcription,
-and a transcription nobody is watching is the thing this file exists to stop. So
-it is watched by a test that fails when the library catches up, which is the
-shape every row of this list should leave behind.
+`SILKSCREEN`, `CYAN` and `BLUE` were the last of it: six rows saying where on
+the front of the instrument a press the library already described is printed. A
+smaller kind of transcription than the one 26.3 replaced — no parameter, no
+range, no meaning — but a transcription, and a transcription nobody is watching
+is the thing this file exists to stop. So it was watched by a test that failed
+when the library caught up.
+
+**26.5.2 is when it caught up**, and the test failed exactly as designed. All
+six rows are gone. **There is no transcription of the instrument left in this
+repository.**
 
 ## Open
 
-Four: two from 26.5, and two about the front panel itself.
+Two, both from 26.5, and both answered structurally rather than factually.
 
 | | | What the window does meanwhile |
 | --- | --- | --- |
-| [#45](https://github.com/MysteriousWolf/deepmind-midi/issues/45) | What the front panel looks like, beyond which controls are on it | **Transcribes six facts, in tables written to delete themselves.** `front::sections()` says which parameters have a physical control and what is silkscreened over each; it does not say that three more of them *have* a button (`OSC 1 Saw Enable`, `OSC 1 Pulse Enable` and `VCF Envelope Polarity`, printed as a sawtooth, a pulse and `INVERT`), that a thin rule divides the clusters inside a wide section, which of the three lamp colours is behind a given button, or which of the three colours a section's banner is printed in on a `12X`, where a `12` prints it on the panel. `SILKSCREEN`, `CYAN` and `BLUE` in `control-ui/src/home.rs` are those facts and nothing else: they name no parameter the library lacks, only how the front of the instrument presents one. A press the library starts carrying is skipped rather than drawn twice, and `the_silkscreen_table_is_still_needed` fails on the row that has become dead weight, so the release that answers this is a red build here rather than a quiet duplicate. The interesting half is the two waveform presses: their legend is a wave and not a word, and `PanelControl::legend` is a `&str`, so the table cannot say so even if it listed them |
-| [#46](https://github.com/MysteriousWolf/deepmind-midi/issues/46) | The front-panel presses that are not program parameters | **Draws none of them.** The arpeggiator has `CHORD` and `POLY CHORD` beside its `ON/OFF` and `HOLD`, and a sweep of all 242 `ParamId`s finds one arpeggiator switch: `Arp Hold`. The other two latch what the keyboard is doing rather than set a byte in the edit buffer, so there is nothing for a cap to move — and `front::PanelControl` is keyed by parameter, so the library cannot describe the press either, however the table grows. The same holds for the data-entry group and the `EDIT`/`COMPARE`/`WRITE` row, which this window answers in its own way. What is asked for is a description of a press that sends something other than a parameter change, with what it sends; until then the window draws the subset the program holds, and a player reaching for `CHORD` finds nothing |
 | [#38](https://github.com/MysteriousWolf/deepmind-midi/issues/38) | What a modulation depth is worth: the law between `Mod n Depth` and the destination's own range | **Assumes full depth moves the destination over its whole range.** 26.5 published `ParamId::modulation_reach`, which is the accessor and not the answer: it returns `None` for every pair, because the manual prints the depth's own range and nothing relating a depth to what it does at the far end of a routing. The assumption is now a fallback behind that question, in `reach_of` in `control-ui/src/mapping.rs`, which both the depth-setting drag and the reach bands go through. When a measurement lands in `spec/measurements.toml` the fallback stops being reached, with no change here. It blocks nothing: the drag writes to the same byte the depth fader already held |
-| [#43](https://github.com/MysteriousWolf/deepmind-midi/issues/43) | The ends `cell_of` and `glyph` have no picture for | **Draws an empty 7x7 box and the name beside it.** Counted against 26.5's own tables: 3 of the 25 modulation sources (`BreathCtrl`, `Voice Num`, `Uni Voice`; `Off` is rightly none), 11 destinations naming a set with no one narrowest member (`All Attack`, `Env Rates`, the three `Env n CurveS`), and 8 naming no program parameter at all (`OSC1 Pitch`, `VCA Pan` and the rest of the voice's own quantities), which are also the ones no control can light for. The 48 `FX n Param m` are a question rather than a gap: what one is depends on the algorithm loaded, so the issue asks whether the family's mark should stand in or whether "no glyph by design" should be stated |
+| [#43](https://github.com/MysteriousWolf/deepmind-midi/issues/43) | The ends `cell_of` and `glyph` have no picture for | **Mostly answered by 26.5.1, with no diff here.** The three undrawn sources are drawn (`BreathCtrl` by a new breath glyph, `Voice Num` and `Uni Voice` by cells that count), so every source but `Off` has a picture; the eleven destinations naming a set with no one narrowest member are drawn as the set; and the rest take the glyph of the one parameter they move. The patch bay picks the sources up through `ValueTable::cell_of`, which it was already calling; the destinations took a two-line change, because this window asked the destination table for the glyph of the one parameter a value moves and never for the value's own cell, which did not exist when it was written. What is left is the 48 `FX n Param m`, where the library states the position rather than filling it: what one *is* depends on the algorithm loaded, so there is no one picture, and the window draws the empty box and the name beside it |
 
-#43 is the newest kind of ask: answered structurally without being answered
-factually. The library gave the window somewhere to ask, said it has no answer
-yet, and said where a measurement would go. The guess did not get better, but it
-got smaller, and it will disappear without a diff here.
+Both are the kind of ask that gets answered structurally before it is answered
+factually: the library gave the window somewhere to ask, said what it does not
+know, and said where the answer would land. #43 has since been most of the way
+answered that way — 26.5.1 drew 22 more cells and this window picked up every
+one of them without a diff, because the call it makes had not changed. What is
+left of it, and the whole of #38, is a measurement nobody has taken. The guess
+did not get better; it got smaller, and it will disappear without a diff here
+too.
 
 ## Answered
 
@@ -68,6 +73,8 @@ got smaller, and it will disappear without a diff here.
 | [#39](https://github.com/MysteriousWolf/deepmind-midi/issues/39) | The destination join read backwards, and which of several destinations is narrowest | 26.5, as `ValueTable::values_naming`. Spent: `Mapping::names` is one call and a `next`. The walk was fine here; the ranking was a judgement about the instrument being made in a window, and it is on the library's side now, down to what happens when two destinations move the same number of parameters (value order, and the library says outright that nothing makes one narrower) |
 | [#40](https://github.com/MysteriousWolf/deepmind-midi/issues/40) | A dot-matrix cell for every modulation source and destination | 26.5, as `ValueTable::cell_of`, and it took `ParamId::glyph` with it. A source's cell is the library's drawing of it and a destination's picture is the glyph of the parameter it moves, so the patch bay's two columns of abbreviations are two columns of pictures. What is left undrawn is [#43](https://github.com/MysteriousWolf/deepmind-midi/issues/43) |
 | [#41](https://github.com/MysteriousWolf/deepmind-midi/issues/41) | Which way a modulation source swings a control it reaches | 26.5, as `ValueTable::swing_of` and `Swing`. Spent: the band on a control runs either side of where it sits for a `Centred` source and from it for a `Rising` one. Taking the depth's sign as the whole answer, as this window did, is right for a wheel and an envelope and wrong for an LFO |
+| [#45](https://github.com/MysteriousWolf/deepmind-midi/issues/45) | What the front panel looks like, beyond which controls are on it | 26.5.2, as four accessors. **The last transcription in this repository is deleted.** `PanelControl::silkscreen` returns `Word` or `Drawing(Glyph)`, which is the half a `&'static str` could not say — the two presses that choose `OSC 1`'s mix are printed as the waves themselves; `PanelControl::cluster` numbers the clusters a printed rule divides a plate into, so `ruled` in `home.rs` is a walk watching the number change; `PanelControl::lamp` is the instrument's own three-colour rule, and `Arp Hold` being the one cyan program parameter is now the library's assertion rather than this window's; `Section::banner` is the colour a plate's name is printed on and the ink it is knocked out of, measured off the product photographs. The three missing presses arrived in the table itself, so `PANEL_CONTROL_COUNT` is 35 |
+| [#46](https://github.com/MysteriousWolf/deepmind-midi/issues/46) | The front-panel presses that are not program parameters | 26.5.2, as `Section::presses` and `PanelPress`, filed from here and answered in the same release as #45. `CHORD` and `POLY CHORD` are drawn on the arpeggiator's plate now, as caps that do not go down: `Sends::Nothing` is the library saying that no controller number and no message in the manual presses one, which is what makes an inert cap honest rather than broken. Each carries the note the library records — the dump request that reads the memory it plays from — in the footer while the pointer is on it |
 
 ## What arrived unasked
 

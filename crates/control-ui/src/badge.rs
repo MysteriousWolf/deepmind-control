@@ -776,10 +776,55 @@ pub(crate) const ARPEGGIO: Badge = Badge::new(
     SIDE,
 );
 
+/// Three notes sounding together: the arpeggiator's `CHORD`.
+///
+/// A piano roll again, which is what [`ARPEGGIO`] is: three bars, one above
+/// another, at the same moment. An arpeggio is a chord played one note at a
+/// time and a chord is the same notes at once, so the two marks are the same
+/// picture rearranged — which is the relationship the two presses have on the
+/// panel, sitting in the same row.
+pub(crate) const CHORD: Badge = Badge::new(
+    &[
+        0b0_0000_0000,
+        0b0_1111_1110,
+        0b0_0000_0000,
+        0b0_1111_1110,
+        0b0_0000_0000,
+        0b0_1111_1110,
+        0b0_0000_0000,
+        0b0_0000_0000,
+        0b0_0000_0000,
+    ],
+    SIDE,
+);
+
+/// Two of those, one under the other: `POLY CHORD`.
+///
+/// `CHORD` latches one chord and transposes it under every key; `POLY CHORD`
+/// puts a *different* chord under each. So the mark is two chords rather than
+/// one, at two pitches, which is the difference and the only part of it nine
+/// dots can carry. They share the middle row, where the two overlap, because
+/// three bars and three bars with a gap between them is six bars.
+pub(crate) const POLY_CHORD: Badge = Badge::new(
+    &[
+        0b1_1110_0000,
+        0b0_0000_0000,
+        0b1_1110_0000,
+        0b0_0000_0000,
+        0b1_1110_1111,
+        0b0_0000_0000,
+        0b0_0000_1111,
+        0b0_0000_0000,
+        0b0_0000_1111,
+    ],
+    SIDE,
+);
+
 #[cfg(test)]
 mod tests {
-    use super::{ABOUT, AMPLIFIER, ARPEGGIO, ARROW, Badge, CHAIN, CONTOUR, DOWN, MAP, MATRIX};
-    use super::{FREEZE, LOCKED, MORE, PANEL, PLUGGED, PORT, POWER, PROGRAM, PULSE, READ, RESCAN};
+    use super::{ABOUT, AMPLIFIER, ARPEGGIO, ARROW, Badge, CHAIN, CHORD, CONTOUR, DOWN, MAP};
+    use super::{FREEZE, LOCKED, MATRIX, MORE, PANEL, PLUGGED, POLY_CHORD, PORT, POWER};
+    use super::{PROGRAM, PULSE, READ, RESCAN};
     use super::{SAW, SHELF, SHUT, SIDE, SINE, SLOPE, SPEAKER, STEPS, UP, VOICES, WHO};
 
     /// Every mark this module publishes.
@@ -787,7 +832,7 @@ mod tests {
     /// All of them, and it is a list somebody has to add to: the four the band
     /// of ways in wears were written under the ten the chrome wears and were
     /// checked by nothing for it.
-    const ALL: [(&str, Badge); 29] = [
+    const ALL: [(&str, Badge); 31] = [
         ("who", WHO),
         ("read", READ),
         ("rescan", RESCAN),
@@ -817,6 +862,8 @@ mod tests {
         ("amplifier", AMPLIFIER),
         ("voices", VOICES),
         ("arpeggio", ARPEGGIO),
+        ("chord", CHORD),
+        ("poly chord", POLY_CHORD),
     ];
 
     #[test]
