@@ -80,6 +80,67 @@ pub enum Where {
     Library,
 }
 
+/// Which column the table is laid out by.
+///
+/// Named after the column heading it belongs to, because that is where
+/// somebody presses to choose it and a name that did not match the heading
+/// would be a name only this file knows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum By {
+    /// Nearest first: what is in the instrument, then the machine, then the
+    /// library. The order the table opens in.
+    #[default]
+    Where,
+    /// The bank a sound sits in, for the two places that have banks.
+    Bank,
+    /// The number within that bank.
+    Number,
+    /// What it is called.
+    Sound,
+    /// Who made it.
+    Maker,
+    /// What it calls itself.
+    Category,
+    /// Which version it is, and whether a newer one is published.
+    Version,
+}
+
+impl By {
+    /// Every column that can be laid out by, in the order they are drawn.
+    pub const ALL: [Self; 7] = [
+        Self::Where,
+        Self::Bank,
+        Self::Number,
+        Self::Sound,
+        Self::Maker,
+        Self::Category,
+        Self::Version,
+    ];
+
+    /// What the column is headed.
+    #[must_use]
+    pub const fn heading(self) -> &'static str {
+        match self {
+            Self::Where => "WHERE",
+            Self::Bank => "BANK",
+            Self::Number => "No.",
+            Self::Sound => "SOUND",
+            Self::Maker => "MAKER",
+            Self::Category => "CATEGORY",
+            Self::Version => "VERSION",
+        }
+    }
+}
+
+/// Which way round the table is laid out.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Sorting {
+    /// The column it is laid out by.
+    pub by: By,
+    /// Whether the largest is at the top.
+    pub down: bool,
+}
+
 impl Where {
     /// The three, in the order somebody reads them: nearest first.
     pub const ALL: [Self; 3] = [Self::Instrument, Self::Machine, Self::Library];
@@ -227,6 +288,12 @@ pub enum Message {
     PatchCategory(Option<deepmind_patches::Category>),
     /// Narrow the list to sounds in one place, or to all of them.
     PatchPlace(Option<Where>),
+    /// Narrow the list to one bank, or to all of them.
+    PatchBank(Option<Bank>),
+    /// Lay the table out by this column, or turn it round if it already is.
+    SortSounds(By),
+    /// Put every column's chooser back to showing everything.
+    ShowEverything,
     /// Put one shared patch, by its id, on the shelf.
     ShelvePatch(String),
     /// Play one shared patch without keeping it anywhere.
@@ -282,6 +349,8 @@ pub struct App {
     looking: Looking,
     /// What is being written about a sound about to be shared.
     publishing: Publishing,
+    /// Which way round the table is laid out.
+    sorting: Sorting,
     /// The shared patch being tried, where one is.
     ///
     /// Not part of the sound and never written anywhere. A patch being
@@ -364,6 +433,7 @@ impl App {
             browsing: Browsing::default(),
             looking: Looking::default(),
             publishing: Publishing::default(),
+            sorting: Sorting::default(),
             trying: None,
             bank: Bank::A,
             view: View::Panel,
@@ -504,6 +574,12 @@ impl App {
     #[must_use]
     pub const fn looking(&self) -> &Looking {
         &self.looking
+    }
+
+    /// Which way round the table is laid out.
+    #[must_use]
+    pub const fn sorting(&self) -> Sorting {
+        self.sorting
     }
 
     /// The shared patch being tried, where one is.
@@ -652,6 +728,9 @@ impl App {
             | Message::FindPatch(_)
             | Message::PatchCategory(_)
             | Message::PatchPlace(_)
+            | Message::PatchBank(_)
+            | Message::SortSounds(_)
+            | Message::ShowEverything
             | Message::ShelvePatch(_)
             | Message::AuditionPatch(_) => self.looking_at(message),
             Message::PublishAuthor(_)
@@ -881,6 +960,9 @@ impl App {
             Message::FindPatch(words) => self.looking.find = words,
             Message::PatchCategory(category) => self.looking.category = category,
             Message::PatchPlace(place) => self.looking.place = place,
+            Message::PatchBank(bank) => self.looking.bank = bank,
+            Message::SortSounds(by) => self.sort_sounds(by),
+            Message::ShowEverything => self.looking = Looking::default(),
             Message::ShelvePatch(id) => self.shelve_patch(&id),
             Message::AuditionPatch(id) => self.audition(&id),
             _ => {}
@@ -903,6 +985,20 @@ impl App {
             Message::PublishIcon(from_category) => self.publish_icon(from_category),
             Message::PublishWrite => self.publish_write(),
             _ => {}
+        }
+    }
+
+    /// Lays the table out by a column, or turns it round if it already is.
+    ///
+    /// Pressing the heading somebody is already under means *the other way*,
+    /// which is what every table anybody has used does, and going back to a
+    /// column always starts at the top again rather than remembering which way
+    /// round it was left.
+    fn sort_sounds(&mut self, by: By) {
+        if self.sorting.by == by {
+            self.sorting.down = !self.sorting.down;
+        } else {
+            self.sorting = Sorting { by, down: false };
         }
     }
 

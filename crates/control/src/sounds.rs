@@ -38,12 +38,15 @@ use deepmind_midi::sysex::inquiry::Version;
 use deepmind_patches::index::IndexPatch;
 use deepmind_patches::{Category, Icon};
 use iced::alignment::{Horizontal, Vertical};
-use iced::widget::{button, column, container, row, scrollable, space, text, text_input};
+use iced::widget::{
+    button, column, container, pick_list, row, scrollable, space, text, text_input,
+};
 use iced::{Background, Center, Element, Fill, Length, Padding, Theme, border};
 
-use crate::app::{App, Browsing, Message, Where};
+use crate::app::{App, Browsing, By, Message, Sorting, Where};
 use crate::catalogue::{Catalogue, Held, Looking, State};
 use crate::shelf::Held as OnShelf;
+use deepmind_midi::ids::{BANK_COUNT, Bank};
 
 /// Room kept clear down the right for the scroll bar.
 const GUTTER: f32 = 16.0;
@@ -54,17 +57,21 @@ const ICON: i32 = 7;
 /// The room the icon column takes.
 const ICON_COLUMN: f32 = 22.0;
 /// The room the place column takes.
-const PLACE: f32 = 104.0;
+const PLACE: f32 = 88.0;
+/// The room the bank column takes.
+const BANK: f32 = 74.0;
+/// The room the number column takes.
+const NUMBER: f32 = 58.0;
 /// The room a sound's name takes.
-const NAME: f32 = 156.0;
+const NAME: f32 = 128.0;
 /// The room a maker's name takes.
-const MAKER: f32 = 96.0;
+const MAKER: f32 = 80.0;
 /// The room a category chip takes.
-const CATEGORY: f32 = 84.0;
+const CATEGORY: f32 = 96.0;
 /// The room the vocabulary chips take.
-const TERMS: f32 = 168.0;
+const TERMS: f32 = 96.0;
 /// The room the version takes.
-const VERSION: f32 = 62.0;
+const VERSION: f32 = 70.0;
 /// The gap between two columns.
 const COLUMN_GAP: f32 = 10.0;
 /// How far a chip's ground is carried towards the library's own colour.
@@ -152,15 +159,36 @@ impl Row<'_> {
         }
     }
 
+    /// Whether a newer version of this sound has been published.
+    const fn stale(&self) -> bool {
+        match self.version() {
+            Some((_, latest)) => !latest,
+            None => false,
+        }
+    }
+
     /// What it sounds like, where anybody has said.
     fn about(&self) -> &str {
         self.patch().map_or("", |patch| patch.about.as_str())
     }
 
-    /// The slot it names, for a program that names one.
-    fn slot(&self) -> Option<String> {
+    /// The bank it sits in, for a sound that sits in one.
+    ///
+    /// Its own column rather than half of the place, because it is its own
+    /// fact: a person asking *what is in bank C* is asking something different
+    /// from *what is on the synthesizer*, and a cell holding both can be
+    /// filtered by neither.
+    fn bank(&self) -> Option<Bank> {
         match self {
-            Self::Held { held, .. } => held.slot.map(|slot| slot.to_string()),
+            Self::Held { held, .. } => held.slot.map(|slot| slot.bank),
+            Self::Patch(_) => None,
+        }
+    }
+
+    /// The number within that bank.
+    fn number(&self) -> Option<u8> {
+        match self {
+            Self::Held { held, .. } => held.slot.map(|slot| slot.number.get()),
             Self::Patch(_) => None,
         }
     }
@@ -176,8 +204,11 @@ impl Row<'_> {
     /// Whether a search's words are anywhere in what this row says.
     fn said(&self, firmware: Version) -> Vec<String> {
         let mut said = vec![self.name(), self.place().label().to_owned()];
-        if let Some(slot) = self.slot() {
-            said.push(slot);
+        if let Some(bank) = self.bank() {
+            said.push(bank.letter().to_string());
+            if let Some(number) = self.number() {
+                said.push(format!("{}{}", bank.letter(), number.saturating_add(1)));
+            }
         }
         if let Some(maker) = self.maker() {
             said.push(maker.to_owned());
@@ -206,6 +237,11 @@ impl Row<'_> {
     fn kept(&self, looking: &Looking, firmware: Version) -> bool {
         if let Some(wanted) = looking.place
             && self.place() != wanted
+        {
+            return false;
+        }
+        if let Some(wanted) = looking.bank
+            && self.bank() != Some(wanted)
         {
             return false;
         }
@@ -293,62 +329,42 @@ fn standing(app: &App) -> Element<'_, Message> {
 
 /// How to find one sound among all of them.
 ///
-/// One field asking one question of every column, and three rows of filters:
-/// where it is, what it calls itself, and what it is like. All of them in the
-/// library's own colours, so a filter is the same colour as the cells it keeps.
+/// One field asking one question of every column: a name, a maker, a slot, a
+/// category, a vocabulary term, a tag. Everything that narrows to *one of a
+/// known set* is in the column heading instead, where the column it narrows
+/// is, rather than in a row of chips somebody has to match up by eye.
 fn finding(app: &App) -> Element<'_, Message> {
     let looking = app.looking();
-    let held = app.catalogue().held();
-    let places = row![all(looking.place.is_none(), Message::PatchPlace(None))]
-        .extend(Where::ALL.map(|place| {
-            let pressed = looking.place == Some(place);
-            filter(
-                place.label().to_owned(),
-                None,
-                pressed,
-                Message::PatchPlace((!pressed).then_some(place)),
-            )
-        }))
-        .spacing(5)
-        .align_y(Center)
-        .wrap();
-    let categories = row![all(
-        looking.category.is_none(),
-        Message::PatchCategory(None)
-    )]
-    .extend(seen(app).into_iter().map(|category| {
-        let pressed = looking.category == Some(category);
-        filter(
-            category.label().to_owned(),
-            held.and_then(|held| held.category_colour(category)),
-            pressed,
-            Message::PatchCategory((!pressed).then_some(category)),
-        )
-    }))
-    .spacing(5)
-    .align_y(Center)
-    .wrap();
-    column![
-        row![
-            text("Find").size(13),
-            text_input("a name, a maker, a slot, a sound", &looking.find)
-                .on_input(Message::FindPatch)
-                .size(13)
-                .padding([5, 8])
-                .width(Length::Fixed(280.0)),
-        ]
-        .spacing(8)
-        .align_y(Center),
-        places,
-        categories,
+    row![
+        text("Find").size(13),
+        text_input("a name, a maker, a slot, a sound", &looking.find)
+            .on_input(Message::FindPatch)
+            .size(13)
+            .padding([5, 8])
+            .width(Length::Fixed(300.0)),
+        space().width(Fill),
+        clearing(looking),
     ]
-    .spacing(6)
+    .spacing(8)
+    .align_y(Center)
     .into()
 }
 
-/// The press that clears one row of filters.
-fn all<'a>(pressed: bool, said: Message) -> Element<'a, Message> {
-    filter("All".to_owned(), None, pressed, said)
+/// The press that puts every column's chooser back to showing everything.
+///
+/// Drawn only while something is narrowed, because a press that does nothing
+/// is a press somebody has to try to find out. Three headings and a field is
+/// enough places to have left something switched on that finding them all
+/// again is worth one press.
+fn clearing<'a>(looking: &Looking) -> Element<'a, Message> {
+    if !looking.asking() {
+        return space().into();
+    }
+    button(text("Show everything").size(12))
+        .padding([3, 9])
+        .style(control_ui::chrome)
+        .on_press(Message::ShowEverything)
+        .into()
 }
 
 /// One filter, in the colour of what it keeps.
@@ -421,14 +437,42 @@ fn rows(app: &App) -> Vec<Row<'_>> {
     rows
 }
 
-/// Every sound the filters leave standing.
+/// Every sound the filters leave standing, in the order the heading asks for.
+///
+/// Sorting never touches the shelf, which is the rule its own search is already
+/// under: this is which way round the same sounds are drawn, and what a save
+/// writes is still the pack that was opened in its own order.
 fn showing(app: &App) -> Vec<Row<'_>> {
     let looking = app.looking();
     let firmware = app.firmware();
-    rows(app)
+    let mut standing: Vec<Row<'_>> = rows(app)
         .into_iter()
         .filter(|row| row.kept(looking, firmware))
-        .collect()
+        .collect();
+    let sorting = app.sorting();
+    standing.sort_by(|one, other| {
+        let order = match sorting.by {
+            // Nearest first, which is the order `rows` already builds and the
+            // order the table opens in.
+            By::Where => std::cmp::Ordering::Equal,
+            By::Bank => one.bank().cmp(&other.bank()),
+            By::Number => one.number().cmp(&other.number()),
+            By::Sound => one.name().to_lowercase().cmp(&other.name().to_lowercase()),
+            By::Maker => one
+                .maker()
+                .map(str::to_lowercase)
+                .cmp(&other.maker().map(str::to_lowercase)),
+            By::Category => one
+                .category()
+                .map(Category::label)
+                .cmp(&other.category().map(Category::label)),
+            // Stale first when it is turned round, because *what needs
+            // updating* is the question somebody sorts this column to ask.
+            By::Version => one.stale().cmp(&other.stale()),
+        };
+        if sorting.down { order.reverse() } else { order }
+    });
+    standing
 }
 
 /// The table.
@@ -448,7 +492,7 @@ fn table(app: &App) -> Element<'_, Message> {
         .into_iter()
         .enumerate()
         .map(|(at, row)| line(&row, at, known, app.trying()));
-    column![heading()]
+    column![heading(app)]
         .push(
             scrollable(container(column(lines).spacing(1)).padding(Padding::ZERO.right(GUTTER)))
                 .height(Fill),
@@ -457,33 +501,224 @@ fn table(app: &App) -> Element<'_, Message> {
         .into()
 }
 
-/// What each column holds, printed once above them.
-fn heading<'a>() -> Element<'a, Message> {
-    let label = |said: &'static str, width: f32| {
-        container(text(said).size(10).style(|theme: &Theme| text::Style {
-            color: Some(materials(theme).metal_low),
-        }))
-        .width(Length::Fixed(width))
-    };
+/// The heading, which is where the table is both sorted and narrowed.
+///
+/// One press per column lays the table out by it, and pressing the one it is
+/// already under turns it round. Three of them narrow as well — where, bank and
+/// category — because those are the columns with a small, known set of values,
+/// and a filter belongs on the column it filters rather than in a row of chips
+/// somebody has to match up by eye.
+///
+/// The rest are sort-only. A maker's name is not a set anybody can be offered,
+/// and the search field already reads it.
+fn heading(app: &App) -> Element<'_, Message> {
+    let sorting = app.sorting();
+    let looking = app.looking();
+
+    let banks: Vec<Bank> = (0..BANK_COUNT)
+        .filter_map(|at| Bank::new(at).ok())
+        .collect();
     container(
         row![
             container(space()).width(Length::Fixed(ICON_COLUMN)),
-            label("WHERE", PLACE),
-            label("SOUND", NAME),
-            label("MAKER", MAKER),
-            label("CATEGORY", CATEGORY),
-            label("IS", TERMS),
-            label("VERSION", VERSION),
-            text("ABOUT").size(10).style(|theme: &Theme| text::Style {
-                color: Some(materials(theme).metal_low),
-            }),
+            narrowed(
+                By::Where,
+                sorting,
+                PLACE,
+                Where::ALL
+                    .map(|place| (place.label().to_owned(), Some(place)))
+                    .to_vec(),
+                looking.place,
+                Message::PatchPlace,
+            ),
+            narrowed(
+                By::Bank,
+                sorting,
+                BANK,
+                banks
+                    .iter()
+                    .map(|bank| (bank.letter().to_string(), Some(*bank)))
+                    .collect(),
+                looking.bank,
+                Message::PatchBank,
+            ),
+            sorted(By::Number, sorting, NUMBER),
+            sorted(By::Sound, sorting, NAME),
+            sorted(By::Maker, sorting, MAKER),
+            narrowed(
+                By::Category,
+                sorting,
+                CATEGORY,
+                seen(app)
+                    .into_iter()
+                    .map(|category| (category.label().to_owned(), Some(category)))
+                    .collect(),
+                looking.category,
+                Message::PatchCategory,
+            ),
+            plain("IS", TERMS),
+            sorted(By::Version, sorting, VERSION),
+            plain("ABOUT", ABOUT),
         ]
         .spacing(COLUMN_GAP)
         .align_y(Vertical::Center),
     )
-    .padding(Padding::from([0.0, 8.0]).right(GUTTER + 8.0))
+    .padding(Padding::from([0.0, 8.0]).right(GUTTER + 8.0 + KEEP))
     .into()
 }
+
+/// A column heading that only sorts.
+fn sorted<'a>(by: By, sorting: Sorting, width: f32) -> Element<'a, Message> {
+    container(caret(by, sorting))
+        .width(Length::Fixed(width))
+        .into()
+}
+
+/// A column heading that sorts and narrows.
+///
+/// The chooser carries the heading when nothing is chosen and the value when
+/// something is, so the column says what it is showing without a second line.
+fn narrowed<'a, T>(
+    by: By,
+    sorting: Sorting,
+    width: f32,
+    values: Vec<(String, Option<T>)>,
+    chosen: Option<T>,
+    said: impl Fn(Option<T>) -> Message + 'a,
+) -> Element<'a, Message>
+where
+    T: Clone + PartialEq + 'a,
+{
+    let mut options: Vec<Narrowing<T>> = vec![Narrowing {
+        said: by.heading().to_owned(),
+        value: None,
+    }];
+    options.extend(
+        values
+            .into_iter()
+            .map(|(said, value)| Narrowing { said, value }),
+    );
+    // Always something chosen, never `None`: a column showing everything is
+    // showing its own heading, and `None` would draw an empty box that says the
+    // column has lost its name rather than that it is not narrowed.
+    let now = Some(match chosen {
+        Some(value) => Narrowing {
+            said: options
+                .iter()
+                .find(|one| one.value.as_ref() == Some(&value))
+                .map_or_else(String::new, |one| one.said.clone()),
+            value: Some(value),
+        },
+        None => Narrowing {
+            said: by.heading().to_owned(),
+            value: None,
+        },
+    });
+    // The chooser *is* the heading. It carries the column's name while nothing
+    // is chosen and the chosen value afterwards, so the strip says what each
+    // column holds and what it is showing in one line rather than two saying
+    // the same word twice.
+    row![
+        pick_list(options, now, move |one| said(one.value))
+            .text_size(10)
+            .padding([2, 5])
+            .width(Length::Fixed(width - ARROW))
+            .style(control_ui::selector)
+            .menu_style(control_ui::shortlist),
+        arrow(by, sorting),
+    ]
+    .spacing(0)
+    .align_y(Vertical::Center)
+    .width(Length::Fixed(width))
+    .into()
+}
+
+/// How much room the sort mark takes beside a chooser.
+const ARROW: f32 = 16.0;
+
+/// The mark beside a chooser that lays the table out by its column.
+///
+/// A caret and nothing else, because the chooser has already said the name. It
+/// is drawn dim until the table is under that column, which is how somebody
+/// tells at a glance which of the columns it is laid out by.
+fn arrow<'a>(by: By, sorting: Sorting) -> Element<'a, Message> {
+    let under = sorting.by == by;
+    let said = if under && sorting.down {
+        "\u{25be}"
+    } else {
+        "\u{25b4}"
+    };
+    button(text(said).size(9).style(move |theme: &Theme| text::Style {
+        color: Some(if under {
+            materials(theme).metal
+        } else {
+            materials(theme).recess_edge
+        }),
+    }))
+    .padding([2, 3])
+    .style(|_theme: &Theme, _status| button::Style::default())
+    .on_press(Message::SortSounds(by))
+    .into()
+}
+
+/// One option of a column's chooser.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Narrowing<T> {
+    /// What it is called.
+    said: String,
+    /// What it narrows to, or nothing for the heading itself.
+    value: Option<T>,
+}
+
+impl<T> std::fmt::Display for Narrowing<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.said)
+    }
+}
+
+/// The heading as a press, with the mark that says which way round it is.
+fn caret<'a>(by: By, sorting: Sorting) -> Element<'a, Message> {
+    let under = sorting.by == by;
+    let said = if under {
+        // The arrow points the way the column runs, which is what an arrow in a
+        // table heading has always meant.
+        format!(
+            "{} {}",
+            by.heading(),
+            if sorting.down { "\u{2193}" } else { "\u{2191}" }
+        )
+    } else {
+        by.heading().to_owned()
+    };
+    button(text(said).size(10).style(move |theme: &Theme| text::Style {
+        color: Some(if under {
+            materials(theme).metal
+        } else {
+            materials(theme).metal_low
+        }),
+    }))
+    .padding([1, 2])
+    .style(|_theme: &Theme, _status| button::Style::default())
+    .on_press(Message::SortSounds(by))
+    .into()
+}
+
+/// A heading that is neither sorted nor narrowed.
+///
+/// Two columns are: what a sound *is*, which is a handful of chips rather than
+/// one value to sort by, and what it sounds like, which is a sentence. Both are
+/// still read by the search field.
+fn plain<'a>(said: &'static str, width: f32) -> Element<'a, Message> {
+    container(text(said).size(10).style(|theme: &Theme| text::Style {
+        color: Some(materials(theme).metal_low),
+    }))
+    .padding([1, 2])
+    .width(Length::Fixed(width))
+    .into()
+}
+
+/// The room what a sound is like takes, which is what is left.
+const ABOUT: f32 = 132.0;
 
 /// One sound, as a row.
 fn line<'a>(
@@ -503,6 +738,17 @@ fn line<'a>(
             .width(Length::Fixed(ICON_COLUMN))
             .align_x(Horizontal::Center),
         container(place_cell(row)).width(Length::Fixed(PLACE)),
+        glass(
+            row.bank().map(|bank| bank.letter().to_string()),
+            BANK,
+            BANK_DOTS,
+        ),
+        glass(
+            row.number()
+                .map(|number| number.saturating_add(1).to_string()),
+            NUMBER,
+            NUMBER_DOTS,
+        ),
         container(text(row.name()).size(13)).width(Length::Fixed(NAME)),
         container(dim(row.maker().unwrap_or("\u{2014}").to_owned(), 12.0))
             .width(Length::Fixed(MAKER)),
@@ -521,7 +767,7 @@ fn line<'a>(
                     color: Some(materials(theme).metal_low),
                 })
         )
-        .width(Fill)
+        .width(Length::Fixed(ABOUT))
         .clip(true),
     ]
     .spacing(COLUMN_GAP)
@@ -545,15 +791,47 @@ fn line<'a>(
         .into()
 }
 
-/// Where the sound is, and the slot it names.
-fn place_cell<'a>(row: &Row<'a>) -> Element<'a, Message> {
-    let place = row.place();
-    let mut cell = row![chip(place.label().to_owned(), place_colour(place))].spacing(5);
-    if let Some(slot) = row.slot() {
-        cell = cell.push(dim(slot, 11.0));
-    }
-    cell.align_y(Vertical::Center).into()
+/// Where the sound is.
+fn place_cell<'a>(of_row: &Row<'a>) -> Element<'a, Message> {
+    let place = of_row.place();
+    chip(place.label().to_owned(), place_colour(place))
 }
+
+/// The bank a sound sits in, on the instrument's own glass.
+///
+/// A bank letter and a program number are what the front panel's display shows
+/// and nothing else in this window writes, so they are written the way it
+/// writes them: dark dots on a lit field, at the pitch every other display here
+/// is drawn at. Sixty of them down a table reads as a rack of little screens,
+/// which is what a list of slots in a synthesizer is.
+fn glass<'a>(said: Option<String>, width: f32, dots: i32) -> Element<'a, Message> {
+    let Some(said) = said else {
+        return container(dim("\u{2014}".to_owned(), 11.0))
+            .width(Length::Fixed(width))
+            .align_x(Horizontal::Center)
+            .into();
+    };
+    // Sized to the column rather than to the word, so every cell down the
+    // column is the same display rather than a row of screens that grow and
+    // shrink with what is on them. A `B` and a `128` are the same slot written
+    // shorter, not a smaller instrument.
+    let mut screen = Screen::new(dots, LINE);
+    screen.centre(0, &said, control_ui::Size::Small);
+    container(
+        Element::from(control_ui::lcd(screen, control_ui::Confidence::Confirmed)).map(Message::Ui),
+    )
+    .width(Length::Fixed(width))
+    .align_x(Horizontal::Center)
+    .into()
+}
+
+/// How many dots deep one line of a display is.
+const LINE: i32 = 7;
+/// How many dots wide the bank's own display is: one character, with a dot
+/// either side so the glass is a frame rather than a fit.
+const BANK_DOTS: i32 = 7;
+/// And the number's: three characters, which is `128`.
+const NUMBER_DOTS: i32 = 19;
 
 /// The colour a place is drawn in.
 ///
@@ -786,7 +1064,7 @@ pub fn switch<'a>(browsing: Browsing) -> Element<'a, Message> {
 mod tests {
     use deepmind_patches::Category;
 
-    use crate::app::Where;
+    use crate::app::{By, Where};
 
     use super::{CATEGORY, PLACE};
 
@@ -809,20 +1087,30 @@ mod tests {
     }
 
     #[test]
-    fn the_place_column_holds_a_place_and_a_slot() {
-        // `Synth` and `A128` side by side is the widest this cell gets, and the
-        // whole reason the column exists is that a person can see where a sound
-        // is without pressing anything.
+    fn the_place_column_holds_the_longest_place() {
+        // The bank and the number are their own columns now, so this cell holds
+        // one chip and nothing else. It still has to hold the longest of the
+        // three without clipping, because a place that read `Librar` would be a
+        // place nobody trusts.
         let longest = Where::ALL
             .into_iter()
             .map(|place| place.label().len())
             .max()
             .unwrap_or_default();
         let needed = u16::try_from(longest).unwrap_or(u16::MAX);
-        // The place chip, its padding, a gap, and four characters of slot.
         assert!(
-            PLACE > f32::from(needed).mul_add(6.0, 12.0 + 5.0 + 26.0),
-            "a {longest}-character place leaves no room for a slot beside it"
+            PLACE > f32::from(needed).mul_add(6.0, 12.0),
+            "a {longest}-character place does not fit the place column"
         );
+    }
+
+    #[test]
+    fn every_column_that_sorts_is_drawn() {
+        // The heading is the only place the table can be sorted from, so a
+        // column in `By::ALL` that nothing draws a heading for is a sort
+        // nobody can reach.
+        for by in By::ALL {
+            assert!(!by.heading().is_empty(), "{by:?} has no heading to press");
+        }
     }
 }

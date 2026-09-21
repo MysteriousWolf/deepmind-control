@@ -291,6 +291,8 @@ pub struct Looking {
     pub category: Option<Category>,
     /// Vocabulary terms, each of which a patch has to carry.
     pub terms: Vec<(deepmind_patches::Axis, String)>,
+    /// One bank, where one is chosen. Only the two nearby places have banks.
+    pub bank: Option<deepmind_midi::ids::Bank>,
     /// One of the three places a sound can be, where one is chosen.
     ///
     /// The column's own filter. Here rather than beside the table because it
@@ -309,6 +311,7 @@ impl Looking {
             || self.category.is_some()
             || !self.terms.is_empty()
             || self.place.is_some()
+            || self.bank.is_some()
     }
 
     /// Whether one patch survives it.
