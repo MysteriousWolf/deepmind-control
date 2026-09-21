@@ -80,6 +80,88 @@ pub enum Where {
     Library,
 }
 
+/// The sound a row names, as something that outlives the drawing.
+///
+/// A table row is rebuilt every frame, so what is chosen cannot be a reference
+/// to one. A place on the shelf or a patch's id are both stable across a
+/// redraw and across a sort, which is what a selection has to survive.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Chosen {
+    /// The program at this place on the shelf.
+    Held(usize),
+    /// The shared patch with this id.
+    Patch(String),
+}
+
+/// Everything that can be done to a sound.
+///
+/// **One verb set, used in three places**: the toolbar along the top, the menu
+/// a right-press opens, and this file. A window whose menu and toolbar called
+/// the same thing two things would be a window somebody has to learn twice.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Action {
+    /// Hear it now. Nothing is kept: the edit buffer is the sound in front of
+    /// somebody rather than one of the instrument's 1024.
+    Play,
+    /// Hear it and go to the panel, which is where it is changed.
+    Edit,
+    /// Onto this machine's shelf.
+    CopyHere,
+    /// Into the instrument's memory, at a slot somebody chooses.
+    Store,
+    /// Describe it and write the files a pull request is made of.
+    Share,
+    /// Write it out as a `.syx` on its own.
+    Export,
+    /// Replace it with the newer version the library has published.
+    Update,
+}
+
+impl Action {
+    /// Every one, in the order they are offered.
+    ///
+    /// Hearing it first, because that is what somebody came to the list to do;
+    /// then the two that move it somewhere; then the two that send it out; then
+    /// the one that only sometimes applies.
+    pub const ALL: [Self; 7] = [
+        Self::Play,
+        Self::Edit,
+        Self::CopyHere,
+        Self::Store,
+        Self::Share,
+        Self::Export,
+        Self::Update,
+    ];
+
+    /// What it is called, everywhere it is offered.
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Play => "Play",
+            Self::Edit => "Edit",
+            Self::CopyHere => "Copy here",
+            Self::Store => "Store\u{2026}",
+            Self::Share => "Share\u{2026}",
+            Self::Export => "Export\u{2026}",
+            Self::Update => "Update",
+        }
+    }
+
+    /// What it does, for the footer while the pointer is on it.
+    #[must_use]
+    pub const fn about(self) -> &'static str {
+        match self {
+            Self::Play => "Send it to the edit buffer. Nothing is stored and nothing is kept.",
+            Self::Edit => "Send it to the edit buffer and go to the front panel.",
+            Self::CopyHere => "Put it on this machine's shelf.",
+            Self::Store => "Write it into the instrument's memory, at a slot you choose.",
+            Self::Share => "Describe it and write the files a pull request is made of.",
+            Self::Export => "Write it out as a `.syx` file of its own.",
+            Self::Update => "Replace it with the newer version the library has published.",
+        }
+    }
+}
+
 /// Which column the table is laid out by.
 ///
 /// Named after the column heading it belongs to, because that is where
@@ -294,6 +376,16 @@ pub enum Message {
     SortSounds(By),
     /// Put every column's chooser back to showing everything.
     ShowEverything,
+    /// Choose a sound, and play it.
+    ChooseSound(Chosen),
+    /// Choose a sound and open the menu on it.
+    OpenMenu(Chosen),
+    /// Put the menu away.
+    CloseMenu,
+    /// Remember where the pointer is over the table.
+    PointerAt(iced::Point),
+    /// Do something to the sound that is chosen.
+    Act(Action),
     /// Put one shared patch, by its id, on the shelf.
     ShelvePatch(String),
     /// Play one shared patch without keeping it anywhere.
@@ -351,6 +443,15 @@ pub struct App {
     publishing: Publishing,
     /// Which way round the table is laid out.
     sorting: Sorting,
+    /// The sound a press chose, where one is chosen.
+    picked: Option<Chosen>,
+    /// Where the menu a right-press opened is standing, while one is open.
+    menu: Option<iced::Point>,
+    /// Where the pointer last was over the table.
+    ///
+    /// Tracked only so that a menu opens where the press was. Not part of the
+    /// sound and never sent anywhere.
+    pointer: iced::Point,
     /// The shared patch being tried, where one is.
     ///
     /// Not part of the sound and never written anywhere. A patch being
@@ -434,6 +535,9 @@ impl App {
             looking: Looking::default(),
             publishing: Publishing::default(),
             sorting: Sorting::default(),
+            picked: None,
+            menu: None,
+            pointer: iced::Point::ORIGIN,
             trying: None,
             bank: Bank::A,
             view: View::Panel,
@@ -490,6 +594,21 @@ impl App {
     #[cfg(feature = "previews")]
     pub fn hold(&mut self, name: &str, bytes: &[u8]) {
         self.shelve(name, bytes);
+    }
+
+    /// Reads a checkout of the shared patches, with no folder chooser.
+    ///
+    /// What [`Message::OpenPatches`] does, for a caller that already knows
+    /// where the checkout is. The previews do: the table's whole subject is
+    /// every sound *wherever it is*, and a picture taken with nothing but a
+    /// shelf in it is a picture of a third of the columns.
+    ///
+    /// # Errors
+    ///
+    /// Whatever the folder was not a patch library for.
+    #[cfg(feature = "previews")]
+    pub fn read_patches(&mut self, root: &Path) -> Result<(), String> {
+        self.catalogue.open(root)
     }
 
     /// Returns what the last scan found.
@@ -580,6 +699,67 @@ impl App {
     #[must_use]
     pub const fn sorting(&self) -> Sorting {
         self.sorting
+    }
+
+    /// The sound a press chose, where one is chosen.
+    #[must_use]
+    pub const fn picked(&self) -> Option<&Chosen> {
+        self.picked.as_ref()
+    }
+
+    /// Where the menu is standing, while one is open.
+    #[must_use]
+    pub const fn menu(&self) -> Option<iced::Point> {
+        self.menu
+    }
+
+    /// Whether an action can be done to what is chosen.
+    ///
+    /// **The one place that decides**, so the toolbar and the menu grey out the
+    /// same presses: a window where a menu offered what its toolbar refused
+    /// would be a window that disagrees with itself.
+    #[must_use]
+    pub fn can(&self, action: Action) -> bool {
+        let Some(picked) = &self.picked else {
+            return false;
+        };
+        match action {
+            // Anything can be heard, put on the panel, written out or
+            // described, wherever it is.
+            Action::Play | Action::Edit | Action::Export | Action::Share => true,
+            // Only something that is not already here.
+            Action::CopyHere => {
+                matches!(picked, Chosen::Patch(_)) && self.catalogue.held().is_some()
+            }
+            // **Not yet, and not because of this window.** The protocol writes
+            // a stored program by sending a program dump *to* the instrument —
+            // the library's own note says a preset pack is exactly that — but
+            // `Device` publishes no call for it: every `request_*` asks for
+            // something and `edit` moves one parameter. That is
+            // `deepmind-midi#49`, and `docs/waiting.md` says what this window
+            // does meanwhile: the verb is drawn and refused, with the reason
+            // said out loud, rather than left off the list as though nobody
+            // had thought of it.
+            Action::Store => false,
+            // Only where the library has published a newer version than the one
+            // this is.
+            Action::Update => self.newer().is_some(),
+        }
+    }
+
+    /// The newest published version of what is chosen, when it is not already
+    /// the newest.
+    #[must_use]
+    fn newer(&self) -> Option<deepmind_midi::program::Program> {
+        let held = self.catalogue.held()?;
+        let Chosen::Held(at) = self.picked.as_ref()? else {
+            return None;
+        };
+        let program = &self.shelf.held().get(*at)?.program;
+        let found = held.matching(program)?;
+        (!found.latest)
+            .then(|| held.program(found.patch).ok())
+            .flatten()
     }
 
     /// The shared patch being tried, where one is.
@@ -731,6 +911,11 @@ impl App {
             | Message::PatchBank(_)
             | Message::SortSounds(_)
             | Message::ShowEverything
+            | Message::ChooseSound(_)
+            | Message::OpenMenu(_)
+            | Message::CloseMenu
+            | Message::PointerAt(_)
+            | Message::Act(_)
             | Message::ShelvePatch(_)
             | Message::AuditionPatch(_) => self.looking_at(message),
             Message::PublishAuthor(_)
@@ -963,6 +1148,14 @@ impl App {
             Message::PatchBank(bank) => self.looking.bank = bank,
             Message::SortSounds(by) => self.sort_sounds(by),
             Message::ShowEverything => self.looking = Looking::default(),
+            Message::ChooseSound(chosen) => self.choose_sound(chosen),
+            Message::OpenMenu(chosen) => {
+                self.choose_sound(chosen);
+                self.menu = Some(self.pointer);
+            }
+            Message::CloseMenu => self.menu = None,
+            Message::PointerAt(at) => self.pointer = at,
+            Message::Act(action) => self.act(action),
             Message::ShelvePatch(id) => self.shelve_patch(&id),
             Message::AuditionPatch(id) => self.audition(&id),
             _ => {}
@@ -1089,6 +1282,108 @@ impl App {
                 self.say(format!("Written to {where_to}."));
             }
             Err(trouble) => self.say(format!("That would not be written: {trouble}")),
+        }
+    }
+
+    /// Chooses a sound, and plays it.
+    ///
+    /// Both at once, because playing costs nothing: the edit buffer is the
+    /// sound in front of somebody rather than one of the instrument's 1024, so
+    /// a press that both selects and sounds is a press with no downside.
+    /// Selecting without hearing would mean two presses to do the one thing
+    /// everybody came here for.
+    fn choose_sound(&mut self, chosen: Chosen) {
+        self.picked = Some(chosen.clone());
+        self.menu = None;
+        match chosen {
+            Chosen::Held(at) => self.load(at),
+            Chosen::Patch(id) => self.audition(&id),
+        }
+    }
+
+    /// Does one thing to the sound that is chosen.
+    ///
+    /// The single place every verb is carried out, whichever of the three
+    /// surfaces asked for it. Nothing happens for an action
+    /// [`can`](Self::can) refuses, so a press that slipped through a disabled
+    /// button is a press that does nothing rather than one that does something
+    /// surprising.
+    fn act(&mut self, action: Action) {
+        self.menu = None;
+        if !self.can(action) {
+            return;
+        }
+        let Some(chosen) = self.picked.clone() else {
+            return;
+        };
+        match action {
+            Action::Play => self.choose_sound(chosen),
+            Action::Edit => {
+                self.choose_sound(chosen);
+                self.view = View::Panel;
+                self.editing = None;
+            }
+            Action::CopyHere => {
+                if let Chosen::Patch(id) = chosen {
+                    self.shelve_patch(&id);
+                }
+            }
+            Action::Store => self.say(
+                "Writing into the instrument's memory needs a call deepmind-midi does not \
+                 publish yet: deepmind-midi#49. See docs/waiting.md."
+                    .to_owned(),
+            ),
+            Action::Share => {
+                self.browsing = Browsing::Publish;
+                self.say("Describe the sound on the screen, then write the files.".to_owned());
+            }
+            Action::Export => self.export_one(),
+            Action::Update => self.update_one(),
+        }
+    }
+
+    /// Writes the chosen sound out as a `.syx` of its own.
+    fn export_one(&mut self) {
+        let Some(program) = self.chosen_program() else {
+            return;
+        };
+        let name = program.name().as_str().trim().to_owned();
+        match crate::shelf::patch_to_syx(&program) {
+            Ok(bytes) => match files::save(&name, &bytes) {
+                Some(Ok(where_to)) => self.say(format!("Written to {where_to}.")),
+                Some(Err(trouble)) => self.say(format!("That would not be written: {trouble}")),
+                None => {}
+            },
+            Err(trouble) => self.say(format!("{name} would not be packed: {trouble}")),
+        }
+    }
+
+    /// Replaces the chosen program with the newest published version of it.
+    ///
+    /// Only what is on the shelf, and only in place: the slot it sits in is the
+    /// slot it keeps, because a librarian that moved a program while updating
+    /// it would be a librarian rearranging a bank nobody asked it to.
+    fn update_one(&mut self) {
+        let Some(newest) = self.newer() else {
+            return;
+        };
+        let Some(Chosen::Held(at)) = self.picked.clone() else {
+            return;
+        };
+        let name = newest.name().as_str().trim().to_owned();
+        if self.shelf.replace(at, newest) {
+            self.say(format!("{name} is the published version now."));
+        }
+    }
+
+    /// The program the chosen sound holds, wherever it is.
+    fn chosen_program(&self) -> Option<deepmind_midi::program::Program> {
+        match self.picked.as_ref()? {
+            Chosen::Held(at) => self.shelf.held().get(*at).map(|held| held.program.clone()),
+            Chosen::Patch(id) => {
+                let held = self.catalogue.held()?;
+                held.program(held.index().get(id)?).ok()
+            }
         }
     }
 

@@ -34,16 +34,18 @@ repository.**
 
 ## Open
 
-Two, both from 26.5, and both answered structurally rather than factually.
+Three. Two of them came out of 26.5 and were answered structurally rather
+than factually; the third is the only one of the three that blocks a press.
 
 | | | What the window does meanwhile |
 | --- | --- | --- |
 | [#38](https://github.com/MysteriousWolf/deepmind-midi/issues/38) | What a modulation depth is worth: the law between `Mod n Depth` and the destination's own range | **Assumes full depth moves the destination over its whole range.** 26.5 published `ParamId::modulation_reach`, which is the accessor and not the answer: it returns `None` for every pair, because the manual prints the depth's own range and nothing relating a depth to what it does at the far end of a routing. The assumption is now a fallback behind that question, in `reach_of` in `control-ui/src/mapping.rs`, which both the depth-setting drag and the reach bands go through. When a measurement lands in `spec/measurements.toml` the fallback stops being reached, with no change here. It blocks nothing: the drag writes to the same byte the depth fader already held |
 | [#43](https://github.com/MysteriousWolf/deepmind-midi/issues/43) | The ends `cell_of` and `glyph` have no picture for | **Mostly answered by 26.5.1, with no diff here.** The three undrawn sources are drawn (`BreathCtrl` by a new breath glyph, `Voice Num` and `Uni Voice` by cells that count), so every source but `Off` has a picture; the eleven destinations naming a set with no one narrowest member are drawn as the set; and the rest take the glyph of the one parameter they move. The patch bay picks the sources up through `ValueTable::cell_of`, which it was already calling; the destinations took a two-line change, because this window asked the destination table for the glyph of the one parameter a value moves and never for the value's own cell, which did not exist when it was written. What is left is the 48 `FX n Param m`, where the library states the position rather than filling it: what one *is* depends on the algorithm loaded, so there is no one picture, and the window draws the empty box and the name beside it |
+| [#49](https://github.com/MysteriousWolf/deepmind-midi/issues/49) | No `Device` call sends a program dump *to* the instrument, so nothing can write one of its 1024 slots | **Draws the verb and refuses it, with the reason said out loud.** `Store…` is one of the seven verbs on the librarian's toolbar and in its right-press menu, and it is the only one [`App::can`](../crates/control/src/app.rs) returns `false` for unconditionally. Leaving it off the list would read as though nobody had thought of it; greyed out with a sentence behind it says where the gap is. Everything else about storing is already here — the slot picker, the conflict, the program bytes — and waits on one call. Nothing is worked around: a host that assembled the frame itself would be a second copy of a message this library already encodes |
 
-Both are the kind of ask that gets answered structurally before it is answered
-factually: the library gave the window somewhere to ask, said what it does not
-know, and said where the answer would land. #43 has since been most of the way
+The first two are the kind of ask that gets answered structurally before it is
+answered factually: the library gave the window somewhere to ask, said what it
+does not know, and said where the answer would land. #43 has since been most of the way
 answered that way — 26.5.1 drew 22 more cells and this window picked up every
 one of them without a diff, because the call it makes had not changed. What is
 left of it, and the whole of #38, is a measurement nobody has taken. The guess

@@ -15,8 +15,8 @@
 
 use deepmind_midi::ids::{BANK_COUNT, Bank};
 use deepmind_midi::sysex::inquiry::Version;
-use iced::widget::{button, column, progress_bar, row, space, text};
-use iced::{Center, Element, Fill, Length, Theme};
+use iced::widget::{column, progress_bar, row, space, text};
+use iced::{Center, Element, Fill, Length};
 
 use crate::app::{App, Browsing, Message};
 use crate::shelf::Shelf;
@@ -27,7 +27,7 @@ use crate::shelf::Shelf;
 /// surface of its own — see [`crate::sounds`] — so the only switch here is
 /// between reading and contributing.
 pub fn view(app: &App) -> Element<'_, Message> {
-    column![crate::sounds::switch(app.browsing())]
+    column![chrome(app)]
         .push(match app.browsing() {
             Browsing::Sounds => sounds(app),
             Browsing::Publish => crate::sharing::view(app),
@@ -37,16 +37,39 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .into()
 }
 
+/// The one line above both surfaces: which of the two, and the four presses
+/// that are about files.
+///
+/// **Left is where you are, right is what you do to the disk**, which is the
+/// arrangement the whole librarian is laid out under: the seven verbs in
+/// [`crate::sounds`] sit under this on the same principle, with what is about
+/// the chosen sound on the left of their row and what is about the library on
+/// the right of it.
+///
+/// The four are marks and not words for the reason every mark in this window
+/// is: `Save the shelf\u{2026}` beside `Save the sound\u{2026}` beside `Open\u{2026}` is a
+/// sentence along the top of a list, and what each one does is said in full in
+/// the footer while the pointer is on it.
+fn chrome(app: &App) -> Element<'_, Message> {
+    row![
+        crate::sounds::switch(app.browsing()),
+        space().width(Fill),
+        files(app),
+    ]
+    .spacing(14)
+    .align_y(Center)
+    .into()
+}
+
 /// Every sound, and what fills the shelf they are drawn from.
 ///
-/// The two presses that put something *on* the shelf stay here — opening a
-/// file, reading a bank — because they are about this machine and this
-/// instrument rather than about the list. Everything below them is
-/// [`crate::sounds`], which is one table of every sound wherever it is.
+/// The bank row stays here — which of the eight a read would read, and the
+/// press that reads it — because it is about this instrument rather than about
+/// the list. Everything below it is [`crate::sounds`], which is one table of
+/// every sound wherever it is.
 fn sounds(app: &App) -> Element<'_, Message> {
     let shelf = app.shelf();
     column![
-        actions(app),
         banks(app.bank(), app.is_connected()),
         standing(shelf, app.firmware()),
     ]
@@ -56,29 +79,37 @@ fn sounds(app: &App) -> Element<'_, Message> {
     .into()
 }
 
-/// A button that is not a parameter, in the instrument's own materials.
+/// The four presses that are about files rather than about any one sound.
 ///
-/// The window's own, so that the two surfaces press the same button.
-fn chrome(label: &str) -> button::Button<'_, Message, Theme, iced::Renderer> {
-    button(text(label).size(13))
-        .padding([5, 12])
-        .style(control_ui::chrome)
-}
-
-/// What can be done to a shelf, and to the sound beside it.
-fn actions(app: &App) -> Element<'_, Message> {
+/// A `.syx` in and a `.syx` out, the whole shelf out as a pack, and the one
+/// that calls off a transfer already going. None of them is a verb from
+/// [`crate::app::Action`]: those act on the row somebody chose, and these act
+/// on the shelf and the disk, which is why they stand in a different corner.
+fn files(app: &App) -> Element<'_, Message> {
     let shelf = app.shelf();
-    let reading = shelf.transfer().is_some();
     row![
-        chrome("Open\u{2026}").on_press(Message::Open),
-        chrome("Save the sound\u{2026}")
-            .on_press_maybe(app.patch().is_known().then_some(Message::SavePatch)),
-        chrome("Save the shelf\u{2026}")
-            .on_press_maybe((!shelf.is_empty()).then_some(Message::SavePack)),
-        space().width(Fill),
-        chrome("Stop").on_press_maybe(reading.then_some(Message::Cancel)),
+        crate::sounds::press(
+            control_ui::OPEN,
+            Some(Message::Open),
+            "Open a `.syx` file and put what it holds on the shelf.",
+        ),
+        crate::sounds::press(
+            control_ui::EXPORT,
+            app.patch().is_known().then_some(Message::SavePatch),
+            "Write the sound on the screen out as one `.syx` file.",
+        ),
+        crate::sounds::press(
+            control_ui::PACK,
+            (!shelf.is_empty()).then_some(Message::SavePack),
+            "Write the whole shelf out as one `.syx` pack.",
+        ),
+        crate::sounds::press(
+            control_ui::SHUT,
+            shelf.transfer().is_some().then_some(Message::Cancel),
+            "Stop the bank read that is going out now.",
+        ),
     ]
-    .spacing(10)
+    .spacing(2)
     .align_y(Center)
     .into()
 }
@@ -99,7 +130,11 @@ fn banks<'a>(chosen: Bank, open: bool) -> Element<'a, Message> {
     });
     row![text("Bank").size(13)]
         .extend(tabs)
-        .push(chrome("Read it onto the shelf").on_press_maybe(open.then_some(Message::ReadBank)))
+        .push(crate::sounds::press(
+            control_ui::READ,
+            open.then_some(Message::ReadBank),
+            "Read the chosen bank off the synthesizer onto this machine's shelf.",
+        ))
         .spacing(6)
         .align_y(Center)
         .into()

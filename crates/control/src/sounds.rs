@@ -39,11 +39,12 @@ use deepmind_patches::index::IndexPatch;
 use deepmind_patches::{Category, Icon};
 use iced::alignment::{Horizontal, Vertical};
 use iced::widget::{
-    button, column, container, pick_list, row, scrollable, space, text, text_input,
+    button, column, container, mouse_area, pick_list, responsive, row, scrollable, space, stack,
+    text, text_input,
 };
 use iced::{Background, Center, Element, Fill, Length, Padding, Theme, border};
 
-use crate::app::{App, Browsing, By, Message, Sorting, Where};
+use crate::app::{Action, App, Browsing, By, Chosen, Message, Sorting, Where};
 use crate::catalogue::{Catalogue, Held, Looking, State};
 use crate::shelf::Held as OnShelf;
 use deepmind_midi::ids::{BANK_COUNT, Bank};
@@ -193,11 +194,15 @@ impl Row<'_> {
         }
     }
 
-    /// What pressing it does. Every row plays; nothing is kept by a press.
-    fn played(&self) -> Message {
+    /// Which sound this row is, as something that outlives the drawing.
+    ///
+    /// A row is rebuilt every frame and moves every time the table is sorted,
+    /// so what a press hands on cannot be the row: a place on the shelf and a
+    /// patch's id both survive both.
+    fn chosen(&self) -> Chosen {
         match self {
-            Self::Held { at, .. } => Message::Load(*at),
-            Self::Patch(patch) => Message::AuditionPatch(patch.id.clone()),
+            Self::Held { at, .. } => Chosen::Held(*at),
+            Self::Patch(patch) => Chosen::Patch(patch.id.clone()),
         }
     }
 
@@ -268,34 +273,280 @@ impl Row<'_> {
 }
 
 /// The whole surface.
+///
+/// Measured before it is drawn, for one reason: a menu opens where the pointer
+/// was, and a menu that opens below the bottom of the window is a menu nobody
+/// can reach. How much room there is is the only thing that can bring it back
+/// inside, and it is the only thing this closure uses it for.
 pub fn view(app: &App) -> Element<'_, Message> {
-    column![actions(app.catalogue()), standing(app), finding(app)]
-        .push(table(app))
-        .spacing(10)
+    responsive(move |room| surface(app, room)).into()
+}
+
+/// The surface, once it knows how much room it has.
+fn surface(app: &App, room: iced::Size) -> Element<'_, Message> {
+    // The pointer is tracked here rather than on the rows, because a row's own
+    // coordinates start at the row: a menu placed from those would open at the
+    // top of the table every time.
+    let laid = mouse_area(
+        column![actions(app), standing(app), finding(app)]
+            .push(table(app))
+            .spacing(10),
+    )
+    .on_move(Message::PointerAt);
+    let Some(at) = app.menu() else {
+        return laid.into();
+    };
+    stack![laid, shade(), floating(app, at, room)].into()
+}
+
+/// What can be done to the sound that is chosen, and what can be done to the
+/// library.
+///
+/// **Two groups and a gap between them**, which is the whole of the layout: on
+/// the left the seven verbs, every one of them about the one row somebody
+/// pressed; on the right the three presses that are about the library itself
+/// rather than about any sound in it. A row where *export this patch* stood
+/// beside *fetch the newest release* would be a row somebody has to read
+/// before using.
+fn actions(app: &App) -> Element<'_, Message> {
+    row![toolbar(app), space().width(Fill), library(app.catalogue())]
+        .spacing(14)
+        .align_y(Center)
         .into()
 }
 
-/// A button that is not a parameter, in the instrument's own materials.
-fn chrome(label: &str) -> button::Button<'_, Message, Theme, iced::Renderer> {
-    button(text(label).size(13))
-        .padding([5, 12])
-        .style(control_ui::chrome)
+/// The seven verbs, along the top.
+///
+/// The same seven the menu a right-press opens carries, in the same order, with
+/// the same marks and greyed out by the same rule — [`App::can`] decides for
+/// both. A toolbar that offered what its own menu refused would be a window
+/// that disagrees with itself.
+///
+/// Marks and no words, because the words are long (`Copy here`, `Store\u{2026}`)
+/// and seven of them is a sentence across the top of the table. What each one
+/// does is said in the footer while the pointer is on it, which is where this
+/// window already says what is under the pointer, and it is said in full: the
+/// menu is where the words stand beside the marks, and somebody who wants to
+/// read rather than recognise opens it.
+fn toolbar(app: &App) -> Element<'_, Message> {
+    row(Action::ALL.map(|action| tool(app, action)))
+        .spacing(2)
+        .align_y(Center)
+        .into()
 }
 
-/// What can be done to the library.
-fn actions(catalogue: &Catalogue) -> Element<'_, Message> {
+/// One verb, as a mark on the panel.
+fn tool(app: &App, action: Action) -> Element<'_, Message> {
+    let usable = app.can(action);
+    hinting(
+        button(mark(action_badge(action), usable))
+            .padding([5, 7])
+            .style(control_ui::marked)
+            .on_press_maybe(usable.then_some(Message::Act(action))),
+        action.about(),
+    )
+}
+
+/// What is done to the library itself, up in the corner.
+///
+/// Three, and none of them is about a sound: where the shared patches come
+/// from, and the one press that takes everything the filters left standing onto
+/// this machine at once. Top right because that is where a window's own
+/// housekeeping goes and because the left of this row belongs to the sound
+/// somebody has in hand.
+fn library(catalogue: &Catalogue) -> Element<'_, Message> {
     let working = catalogue.working();
     let loadable = catalogue.held().is_some_and(Held::loadable);
     row![
-        chrome("Fetch the newest").on_press_maybe((!working).then_some(Message::FetchPatches)),
-        chrome("Open a checkout\u{2026}")
-            .on_press_maybe((!working).then_some(Message::OpenPatches)),
-        space().width(Fill),
-        chrome("Put these on the shelf").on_press_maybe(loadable.then_some(Message::ShelveShowing)),
+        press(
+            control_ui::FETCH,
+            (!working).then_some(Message::FetchPatches),
+            "Fetch the newest published library over the network.",
+        ),
+        press(
+            control_ui::FOLDER,
+            (!working).then_some(Message::OpenPatches),
+            "Read a checkout of the shared patches off a folder on this machine.",
+        ),
+        press(
+            control_ui::SHELVE,
+            loadable.then_some(Message::ShelveShowing),
+            "Put every sound the filters left standing onto this machine's shelf.",
+        ),
     ]
-    .spacing(10)
+    .spacing(2)
     .align_y(Center)
     .into()
+}
+
+/// One press whose whole face is a mark, and what it says about itself.
+///
+/// The one press the whole librarian is built from, here and in
+/// [`crate::librarian`]: a nine-dot mark on the bare panel, greyed while it is
+/// refused, with its sentence in the footer under the pointer.
+pub fn press<'a>(
+    badge: control_ui::Badge,
+    said: Option<Message>,
+    about: &'static str,
+) -> Element<'a, Message> {
+    let usable = said.is_some();
+    hinting(
+        button(mark(badge, usable))
+            .padding([5, 7])
+            .style(control_ui::marked)
+            .on_press_maybe(said),
+        about,
+    )
+}
+
+/// The menu a right-press opens, standing where the press was.
+///
+/// The same seven verbs the toolbar carries, and here they carry their words as
+/// well: a menu is what somebody opens when the mark alone was not enough, so a
+/// menu of marks would be a menu that answers nothing. The mark stays beside
+/// the word so that the two are learnt together, which is the only reason the
+/// toolbar can be marks alone.
+fn menu(app: &App) -> Element<'_, Message> {
+    container(column(Action::ALL.map(|action| entry(app, action))).spacing(1))
+        .width(Length::Fixed(MENU_WIDE))
+        .padding(4)
+        .style(|theme: &Theme| {
+            let material = materials(theme);
+            container::Style {
+                background: Some(Background::Color(material.plate)),
+                border: border::rounded(4).width(1.0).color(material.metal_low),
+                shadow: iced::Shadow {
+                    color: iced::Color::from_rgba(0.0, 0.0, 0.0, 0.45),
+                    offset: iced::Vector::new(0.0, 3.0),
+                    blur_radius: 9.0,
+                },
+                ..container::Style::default()
+            }
+        })
+        .into()
+}
+
+/// One line of the menu: the mark, and the word beside it.
+fn entry(app: &App, action: Action) -> Element<'_, Message> {
+    let usable = app.can(action);
+    hinting(
+        button(
+            row![
+                container(mark(action_badge(action), usable))
+                    .width(Length::Fixed(MENU_MARK))
+                    .align_x(Horizontal::Center),
+                text(action.label())
+                    .size(12)
+                    .style(move |theme: &Theme| text::Style {
+                        color: Some(if usable {
+                            theme.extended_palette().background.base.text
+                        } else {
+                            materials(theme).metal_low
+                        }),
+                    }),
+            ]
+            .spacing(8)
+            .align_y(Center),
+        )
+        .width(Fill)
+        .padding([4, 6])
+        .style(control_ui::marked)
+        .on_press_maybe(usable.then_some(Message::Act(action))),
+        action.about(),
+    )
+}
+
+/// How wide the menu stands.
+///
+/// Wide enough for the longest verb and its mark and no wider. It is a fixed
+/// number rather than the toolkit's own shrink because the menu is placed by
+/// hand: a floating thing has to be brought back inside the window when it
+/// opens near an edge, and nothing can do that arithmetic without knowing how
+/// much room the thing takes.
+const MENU_WIDE: f32 = 190.0;
+
+/// The column the marks down the menu stand in.
+///
+/// Wide enough for a nine-dot mark at the pitch every drawing in this window
+/// shares, which is what decides it: a column narrower than the mark is a
+/// column the mark sits on top of the word in.
+const MENU_MARK: f32 = 24.0;
+
+/// How tall the menu stands: seven lines, their gaps, and the rim.
+const MENU_TALL: f32 = 7.0 * 31.0 + 6.0 * 1.0 + 8.0;
+
+/// The mark a verb wears, everywhere it is offered.
+///
+/// One mark per verb and the same one in both places, which is what makes a
+/// toolbar of marks readable at all: somebody learns the seven once, in the
+/// menu where the words are, and reads them thereafter along the top.
+const fn action_badge(action: Action) -> control_ui::Badge {
+    match action {
+        Action::Play => control_ui::PLAY,
+        // The front panel itself, because that is where the press goes: `Edit`
+        // hears the sound and puts somebody in front of the instrument.
+        Action::Edit => control_ui::PANEL,
+        Action::CopyHere => control_ui::SHELVE,
+        Action::Store => control_ui::STORE,
+        Action::Share => control_ui::SHARE,
+        Action::Export => control_ui::EXPORT,
+        Action::Update => control_ui::UPDATE,
+    }
+}
+
+/// A mark, stencilled on the panel, dim while the press it is on is refused.
+pub fn mark<'a>(badge: control_ui::Badge, usable: bool) -> Element<'a, Message> {
+    Element::from(stencil(badge.screen(), move |theme: &Theme| {
+        let material = materials(theme);
+        if usable {
+            material.metal
+        } else {
+            material.metal_low
+        }
+    }))
+    .map(Message::Ui)
+}
+
+/// Says what a press does in the footer while the pointer is on it.
+///
+/// The same arrangement the window's own chrome is under: a press whose face is
+/// a nine-dot mark has nowhere to carry a word, so the word goes where this
+/// window already says what is under the pointer.
+pub fn hinting<'a>(
+    what: impl Into<Element<'a, Message>>,
+    said: &'static str,
+) -> Element<'a, Message> {
+    mouse_area(what.into())
+        .on_enter(Message::Ui(control_ui::Message::Hinted(Some(said))))
+        .on_exit(Message::Ui(control_ui::Message::Hinted(None)))
+        .into()
+}
+
+/// Nothing to look at, and a press anywhere on it puts the menu away.
+///
+/// Laid over the whole surface under the menu rather than around it, because
+/// the way out of an open menu is *somewhere else* and somewhere else is
+/// everywhere. It takes the press rather than passing it on, so the row
+/// underneath is not also chosen by the press that closed the menu.
+fn shade<'a>() -> Element<'a, Message> {
+    mouse_area(space().width(Fill).height(Fill))
+        .on_press(Message::CloseMenu)
+        .on_right_press(Message::CloseMenu)
+        .into()
+}
+
+/// The menu, brought inside the window.
+///
+/// It opens where the press was, and it is moved back up or left by however
+/// much of it would otherwise be off the edge. A menu that opens seven lines
+/// below the bottom of the window is a menu nobody can reach, and the last row
+/// of a full table is exactly where somebody right-presses.
+fn floating(app: &App, at: iced::Point, room: iced::Size) -> Element<'_, Message> {
+    let left = at.x.min((room.width - MENU_WIDE).max(0.0)).max(0.0);
+    let top = at.y.min((room.height - MENU_TALL).max(0.0)).max(0.0);
+    container(menu(app))
+        .padding(Padding::ZERO.left(left).top(top))
+        .into()
 }
 
 /// What is on the table, in one line.
@@ -488,10 +739,11 @@ fn table(app: &App) -> Element<'_, Message> {
         return container(text(said).size(13)).padding([12, 0]).into();
     }
     let known = app.catalogue().held();
+    let picked = app.picked();
     let lines = standing
         .into_iter()
         .enumerate()
-        .map(|(at, row)| line(&row, at, known, app.trying()));
+        .map(|(at, row)| line(&row, at, known, app.trying(), picked));
     column![heading(app)]
         .push(
             scrollable(container(column(lines).spacing(1)).padding(Padding::ZERO.right(GUTTER)))
@@ -726,13 +978,20 @@ fn line<'a>(
     at: usize,
     known: Option<&'a Held>,
     trying: Option<&str>,
+    picked: Option<&Chosen>,
 ) -> Element<'a, Message> {
     let banded = at % 2 == 1;
+    let chosen = row.chosen();
     let category = row.category();
     let colour = known
         .zip(category)
         .and_then(|(known, category)| known.category_colour(category));
-    let lit = matches!(row, Row::Patch(patch) if trying == Some(patch.id.as_str()));
+    // One lamp for two facts that almost always agree: this is the row
+    // somebody has in hand. Choosing a row plays it, so the sound that is
+    // sounding and the sound the toolbar is about are the same row unless
+    // something else has been loaded since.
+    let lit = picked == Some(&chosen)
+        || matches!(row, Row::Patch(patch) if trying == Some(patch.id.as_str()));
     let face = row![
         container(drawn(icon_of(row, known), colour))
             .width(Length::Fixed(ICON_COLUMN))
@@ -772,15 +1031,18 @@ fn line<'a>(
     ]
     .spacing(COLUMN_GAP)
     .align_y(Vertical::Center);
-    // Every row plays, whichever place it came from, and nothing a press does
-    // is kept: a shelf program goes to the edit buffer and so does a library
-    // one. The press at the end is the one that keeps, and only a library row
-    // has anything to keep.
-    let played = button(face)
-        .width(Length::Fill)
-        .padding([5, 8])
-        .style(move |theme: &Theme, status| banded_like(theme, banded, lit, status))
-        .on_press(row.played());
+    // A press chooses the row and plays it, whichever place it came from, and
+    // nothing a press does is kept: a shelf program goes to the edit buffer and
+    // so does a library one. A right-press chooses it as well and opens the
+    // menu on it, so there is no way to act on a row somebody has not heard.
+    let played = mouse_area(
+        button(face)
+            .width(Length::Fill)
+            .padding([5, 8])
+            .style(move |theme: &Theme, status| banded_like(theme, banded, lit, status))
+            .on_press(Message::ChooseSound(chosen.clone())),
+    )
+    .on_right_press(Message::OpenMenu(chosen));
     let keeps = match row {
         Row::Patch(patch) if known.is_some_and(Held::loadable) => Some(patch.id.clone()),
         _ => None,
@@ -986,17 +1248,13 @@ fn keep<'a>(id: Option<String>) -> Element<'a, Message> {
     let Some(id) = id else {
         return space().width(Length::Fixed(KEEP)).into();
     };
-    container(
-        button(
-            Element::from(stencil(control_ui::DOWN.screen(), |theme: &Theme| {
-                materials(theme).metal_low
-            }))
-            .map(Message::Ui),
-        )
-        .padding([5, 8])
-        .style(control_ui::chrome)
-        .on_press(Message::ShelvePatch(id)),
-    )
+    container(hinting(
+        button(mark(control_ui::SHELVE, true))
+            .padding([4, 6])
+            .style(control_ui::marked)
+            .on_press(Message::ShelvePatch(id)),
+        Action::CopyHere.about(),
+    ))
     .width(Length::Fixed(KEEP))
     .align_x(Horizontal::Center)
     .into()

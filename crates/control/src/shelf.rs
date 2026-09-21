@@ -444,6 +444,22 @@ impl Shelf {
         Some(program)
     }
 
+    /// Puts a different program in one of the shelf's places.
+    ///
+    /// In place, keeping the slot: updating a sound to a newer version of
+    /// itself is not moving it, and a librarian that rearranged a bank while
+    /// updating one of its programs would be a librarian nobody could hand a
+    /// backup to. Returns whether there was a place to put it.
+    pub fn replace(&mut self, index: usize, program: Program) -> bool {
+        match self.held.get_mut(index) {
+            Some(held) => {
+                held.program = program;
+                true
+            }
+            None => false,
+        }
+    }
+
     /// Writes the shelf out as a `.syx` file.
     ///
     /// One dump per program, in the order they are held, which is the whole

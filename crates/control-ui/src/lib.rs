@@ -200,8 +200,9 @@ mod section;
 mod sequencer;
 mod style;
 
-pub use badge::{ABOUT, ARROW, Badge, DOWN, MAP, PANEL, PLUGGED, PORT, READ, RESCAN, SHUT};
-pub use badge::{SIDE, UP, WHO};
+pub use badge::{ABOUT, ARROW, Badge, DOWN, EXPORT, FETCH, FOLDER, MAP, OPEN, PACK, PANEL};
+pub use badge::{PLAY, PLUGGED, PORT, READ, RESCAN, SHARE, SHELVE, SHUT, SIDE, STORE, UP};
+pub use badge::{UPDATE, WHO};
 pub use confidence::Confidence;
 pub use effect::width as effects_width;
 pub use fader::{Axis, Fader, fader};

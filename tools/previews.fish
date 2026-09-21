@@ -6,6 +6,10 @@
 #   tools/previews.fish --seed 1234     # the same set again
 #   tools/previews.fish --check         # the release gate: are they current?
 #
+# Set PATCHES_CHECKOUT to a clone of deepmind-patches to have the librarian's
+# picture taken with the shared library open in it. Without it the table shows
+# only what is on the shelf, which is a third of its columns.
+#
 # A release ships screenshots and screenshots go stale silently, because nothing
 # reads a picture. So --check is run before a release is cut. It fails when a
 # picture is missing, when the code that draws them has uncommitted changes, and

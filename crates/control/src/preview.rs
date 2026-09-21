@@ -229,6 +229,17 @@ impl Session {
         let (link, _panel) = open_simulator_holding(Pack::empty(), sound(seed), Options::default());
         app.attach(PortRef::simulator(), link);
         app.hold(SHELF, &pack(seed));
+        // And the shared library, where this machine has a checkout of it. The
+        // table's whole subject is every sound *wherever it is*, so a picture
+        // taken with nothing but a shelf in it is a picture of a third of the
+        // columns: no maker, no vocabulary, no version. It is read from the
+        // environment rather than downloaded, because a picture that needs the
+        // network is a picture that cannot be taken twice the same.
+        if let Ok(root) = std::env::var("PATCHES_CHECKOUT")
+            && let Err(trouble) = app.read_patches(std::path::Path::new(&root))
+        {
+            eprintln!("previews: {root} is not a patch library: {trouble}");
+        }
         Self {
             app,
             pages,

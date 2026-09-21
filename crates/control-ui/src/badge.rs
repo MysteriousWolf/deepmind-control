@@ -955,11 +955,269 @@ pub mod wave {
     pub(super) const DOWN: i32 = 5;
 }
 
+/// Hear this sound now: a transport triangle.
+///
+/// The one mark in this module that was already decided before it was drawn.
+/// Every machine that has ever made a sound on demand has carried this
+/// triangle, and a press whose face is the most-recognised shape in the
+/// business has nothing to gain from invention.
+///
+/// Solid, and the full nine across. An outline triangle at this size is three
+/// hairline diagonals meeting at a point nobody can see, and what tells a
+/// triangle from a chevron is that one of them is filled.
+pub const PLAY: Badge = Badge::new(
+    &[
+        0b1_0000_0000,
+        0b1_1100_0000,
+        0b1_1111_0000,
+        0b1_1111_1100,
+        0b1_1111_1111,
+        0b1_1111_1100,
+        0b1_1111_0000,
+        0b1_1100_0000,
+        0b1_0000_0000,
+    ],
+    SIDE,
+);
+
+/// Put it on this machine: an arrow coming down onto a shelf.
+///
+/// The shelf is two solid rows, which is a *shelf* rather than [`READ`]'s
+/// single-row tray, and the arrow is a solid head on a two-dot shaft. Both
+/// were outlines once — a three-sided box and a hairline arrow — and at nine
+/// dots on this window's pitch an outline is a dotted line: the box read as a
+/// dashed rectangle and the head read as a plus sign. Everything in this mark
+/// is filled for that reason.
+///
+/// It is drawn as the exact reflection of [`STORE`], because the pair is the
+/// whole gesture: a sound comes off the instrument onto the machine, or goes
+/// off the machine into the instrument, and those are one movement seen from
+/// two ends. A test holds them to it.
+pub const SHELVE: Badge = Badge::new(
+    &[
+        0b0_0001_0000,
+        0b0_0001_0000,
+        0b0_1111_1110,
+        0b0_0111_1100,
+        0b0_0011_1000,
+        0b0_0001_0000,
+        0b0_0000_0000,
+        0b1_1111_1111,
+        0b1_1111_1111,
+    ],
+    SIDE,
+);
+
+/// Write it into the instrument's memory: the same arrow, going the other way.
+///
+/// Up, into a shelf drawn above it rather than below, which is the whole of
+/// what tells the two apart: what is at the point of the arrow is where the
+/// sound ends up.
+///
+/// Drawn out rather than flipped in code, the same as [`UP`] and [`DOWN`], and
+/// held to the reflection by a test: a pair that is visibly one mark reflected
+/// is a pair, and a pair that differs by one row is a mistake nobody can see
+/// and everybody can feel.
+pub const STORE: Badge = Badge::new(
+    &[
+        0b1_1111_1111,
+        0b1_1111_1111,
+        0b0_0000_0000,
+        0b0_0001_0000,
+        0b0_0011_1000,
+        0b0_0111_1100,
+        0b0_1111_1110,
+        0b0_0001_0000,
+        0b0_0001_0000,
+    ],
+    SIDE,
+);
+
+/// Share it: one thing branching into two.
+///
+/// What a pull request *is*, drawn as what it is: a history with your copy
+/// coming off it. A node at the top, a stem, and a crossbar that carries two
+/// nodes below — which at nine dots is the only shape that says *this came from
+/// that* without a word. Every node is a filled block three dots by two, because
+/// a node drawn as a ring at this size is a ring with nothing in it.
+///
+/// Not an outward arrow, because half this module is already arrows and the
+/// difference between four of them would be which way each one pointed. Not a
+/// cloud either: nothing here uploads anything, and the files this press writes
+/// go into a folder on somebody's own disk.
+pub const SHARE: Badge = Badge::new(
+    &[
+        0b0_0000_0000,
+        0b0_0011_1000,
+        0b0_0011_1000,
+        0b0_0001_0000,
+        0b0_1111_1110,
+        0b0_1000_0010,
+        0b1_1100_0111,
+        0b1_1100_0111,
+        0b0_0000_0000,
+    ],
+    SIDE,
+);
+
+/// Write it out as a file: a page with the sound leaving it.
+///
+/// A page, because that is what a `.syx` on a disk is to the person who asked
+/// for one, and an arrow through a gap in its edge, because what the press does
+/// is put something *outside* this window. The gap is the whole mark: an arrow
+/// drawn over an unbroken edge is an arrow standing next to a page, and an
+/// arrow coming through one is a page letting something out.
+///
+/// The head is a chevron and not a pair of single dots. One dot above the shaft
+/// and one below reads as a plus sign at this pitch, which is what it read as
+/// until it was drawn as two dots stepping away from the point.
+pub const EXPORT: Badge = Badge::new(
+    &[
+        0b0_0000_0000,
+        0b1_1111_0000,
+        0b1_0001_0100,
+        0b1_0001_0010,
+        0b1_0000_1111,
+        0b1_0001_0010,
+        0b1_0001_0100,
+        0b1_1111_0000,
+        0b0_0000_0000,
+    ],
+    SIDE,
+);
+
+/// Take the newer one: two chevrons, going up.
+///
+/// One chevron is a direction and two are a *step* — the mark every piece of
+/// software that has ever offered a newer version of something has settled on,
+/// and the only one here that says "further along" rather than "this way".
+///
+/// Not a circular arrow. [`RESCAN`] is a magnifier for the reason written
+/// there: three quarters of a ring with a stub on it, at nine dots, is a broken
+/// circle with specks round it.
+///
+/// Each chevron is two dots thick. A one-dot diagonal is the one stroke this
+/// grid cannot draw — [`SHUT`]'s cross gets away with it because two of them
+/// meet in the middle — and a pair of them read as a scatter of specks rather
+/// than as a pair of arrowheads.
+pub const UPDATE: Badge = Badge::new(
+    &[
+        0b0_0011_1000,
+        0b0_0111_1100,
+        0b0_1110_1110,
+        0b1_1000_0011,
+        0b0_0011_1000,
+        0b0_0111_1100,
+        0b0_1110_1110,
+        0b1_1000_0011,
+        0b0_0000_0000,
+    ],
+    SIDE,
+);
+
+/// Go and get the newest published library: sounds arriving on the shelf.
+///
+/// The band's own `SHELF` spines with [`SHELVE`]'s own arrow coming down onto
+/// them, because that is literally what the press does: the repository's
+/// newest release is fetched and the shelf it fills is the one already drawn
+/// in this module. A mark for *download* would have been a cloud, and nothing
+/// here talks to a cloud — it talks to a tagged release of a git repository,
+/// which is a shelf somebody published.
+pub const FETCH: Badge = Badge::new(
+    &[
+        0b0_0001_0000,
+        0b0_1111_1110,
+        0b0_0111_1100,
+        0b0_0011_1000,
+        0b0_0001_0000,
+        0b0_1010_1010,
+        0b0_1010_1010,
+        0b0_1111_1110,
+        0b0_0000_0000,
+    ],
+    SIDE,
+);
+
+/// Read a checkout off this disk: a folder.
+///
+/// The other way the shared library arrives, and the one that is not a
+/// download: somebody has the repository cloned already and this press reads it
+/// where it sits. A folder is the one shape that has meant *a place on a disk*
+/// since before any of this, and the tab along its top is the whole of what
+/// tells it from the `PROGRAM` card the band wears.
+pub const FOLDER: Badge = Badge::new(
+    &[
+        0b0_0000_0000,
+        0b1_1110_0000,
+        0b1_1111_1111,
+        0b1_0000_0001,
+        0b1_0000_0001,
+        0b1_0000_0001,
+        0b1_0000_0001,
+        0b1_1111_1111,
+        0b0_0000_0000,
+    ],
+    SIDE,
+);
+
+/// Open a file: something coming up out of a box.
+///
+/// The pair to [`FOLDER`], and told apart from it the way [`PORT`] and
+/// [`PLUGGED`] are: two presses that both go to the disk, distinguished by the
+/// mark and not by the word beside them, because the words are in the footer.
+/// A folder is *there is a checkout somewhere*; this is *give me what is in
+/// that file*.
+///
+/// It was an open folder for a while — a lip wider than the back, with its
+/// sides leaning out — and at nine dots an open folder is a blob. What reads is
+/// the thing coming out: a solid arrowhead rising clear of a closed box.
+pub const OPEN: Badge = Badge::new(
+    &[
+        0b0_0001_0000,
+        0b0_0011_1000,
+        0b0_0111_1100,
+        0b0_0001_0000,
+        0b0_0000_0000,
+        0b0_1111_1110,
+        0b0_1000_0010,
+        0b0_1000_0010,
+        0b0_1111_1110,
+    ],
+    SIDE,
+);
+
+/// Write the whole shelf out as one file: the shelf, leaving.
+///
+/// The band's own `SHELF` spines with [`EXPORT`]'s own arrow coming off the
+/// end of them, because that is exactly what the press does and the two halves are
+/// already drawn. A pack is not one sound written out — that is [`EXPORT`] —
+/// it is every sound on the shelf in one file, so the mark has to carry the
+/// shelf in it or the two presses are the same press twice.
+///
+/// The spines stand on a floor rather than hanging in the air, and the arrow
+/// leaves from the top one: a shelf drawn without its floor is three tally
+/// marks.
+pub const PACK: Badge = Badge::new(
+    &[
+        0b0_0000_0000,
+        0b1_0101_0000,
+        0b1_0101_0100,
+        0b1_0101_0010,
+        0b1_0101_1111,
+        0b1_0101_0010,
+        0b1_0101_0100,
+        0b1_1111_0000,
+        0b0_0000_0000,
+    ],
+    SIDE,
+);
+
 #[cfg(test)]
 mod tests {
-    use super::{ABOUT, AMPLIFIER, ARPEGGIO, ARROW, Badge, CHAIN, CONTOUR, DOWN, MAP};
-    use super::{FREEZE, LOCKED, MATRIX, MORE, PANEL, PLUGGED, PORT, POWER};
-    use super::{PROGRAM, PULSE, READ, RESCAN};
+    use super::{ABOUT, AMPLIFIER, ARPEGGIO, ARROW, Badge, CHAIN, CONTOUR, DOWN, EXPORT};
+    use super::{FETCH, FOLDER, MAP, OPEN, PACK};
+    use super::{FREEZE, LOCKED, MATRIX, MORE, PANEL, PLAY, PLUGGED, PORT, POWER};
+    use super::{PROGRAM, PULSE, READ, RESCAN, SHARE, SHELVE, STORE, UPDATE};
     use super::{SAW, SHELF, SHUT, SIDE, SINE, SLOPE, SPEAKER, STEPS, UP, VOICES, WHO, wave};
 
     /// Every mark this module publishes.
@@ -967,7 +1225,7 @@ mod tests {
     /// All of them, and it is a list somebody has to add to: the four the band
     /// of ways in wears were written under the ten the chrome wears and were
     /// checked by nothing for it.
-    const ALL: [(&str, Badge); 29] = [
+    const ALL: [(&str, Badge); 39] = [
         ("who", WHO),
         ("read", READ),
         ("rescan", RESCAN),
@@ -997,6 +1255,16 @@ mod tests {
         ("amplifier", AMPLIFIER),
         ("voices", VOICES),
         ("arpeggio", ARPEGGIO),
+        ("play", PLAY),
+        ("shelve", SHELVE),
+        ("store", STORE),
+        ("share", SHARE),
+        ("export", EXPORT),
+        ("update", UPDATE),
+        ("fetch", FETCH),
+        ("folder", FOLDER),
+        ("open", OPEN),
+        ("pack", PACK),
     ];
 
     /// Every mark this module publishes, the waves among them.
@@ -1109,6 +1377,26 @@ mod tests {
                     up.is_inked(column, row),
                     down.is_inked(column, UP.down() - 1 - row),
                     "the arrows differ at {column},{row}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_two_movements_are_one_mark_reflected() {
+        // A sound coming off the instrument onto the machine and a sound going
+        // off the machine into the instrument are one movement seen from two
+        // ends, so they are one drawing seen from two ends. Drawn out twice
+        // rather than flipped in code, which is what this holds them to.
+        let shelve = SHELVE.screen();
+        let store = STORE.screen();
+
+        for row in 0..SIDE {
+            for column in 0..SIDE {
+                assert_eq!(
+                    shelve.is_inked(column, row),
+                    store.is_inked(column, SIDE - 1 - row),
+                    "the two movements differ at {column},{row}"
                 );
             }
         }
