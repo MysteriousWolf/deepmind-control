@@ -109,48 +109,72 @@ tags is a repository with fewer packs in it.
   The tag list is read off the packs that carry them rather than declared by
   the repository, so it cannot disagree with the packs.
 
-## What has to be decided next
+## The decisions, and which of them are taken
 
-Each of these is a decision rather than an implementation, which is why none of
-them has been made yet. In the order they would have to be taken:
+All six are decisions rather than implementations, which is why they were listed
+before anything was built. **The first three are taken and shipped**, in the
+order they had to be.
 
-1. **A catalogue is a directory, before it is a URL.** Clone the repository,
-   point the application at the folder, browse it, open a pack onto the shelf.
-   It needs a file dialog and a surface and no new dependency, and it is how the
-   fetching version gets tested.
-2. **Fetching is a dependency decision.** There is no HTTP client in this
-   workspace. Adding one is a TLS stack, a proxy story, a timeout policy and an
-   offline story, on three platforms, in an application that currently opens a
-   MIDI port and nothing else. The shape that avoids most of it is fetching raw
-   files over HTTPS from the repository host and caching them on disk, with no
-   API and no authentication.
-3. **Verification is what makes fetching safe to repeat.** `sha256` is carried
-   in the index and nothing hashes anything yet, because a digest is worth
-   having the day a file arrives over a wire rather than the day it is read off
-   a disk somebody already trusts. A fetching reader checks it, refuses what
-   does not match, and says which pack lied.
-4. **Trust is a person, not a signature.** The repository is trusted the way a
-   package index is: because somebody reviewed the pull request. This
-   application should not grow a key store, and should not pretend a hash in an
-   index it fetched from the same place as the file proves anything about who
-   wrote it.
-5. **A patch is not a trademark.** A pack named after a record, a film or
-   another manufacturer's instrument is somebody else's problem arriving in this
-   repository's issue tracker. The contributing guide says what a name may be,
-   and a maintainer enforces it at review, which is the only place it can be
-   enforced.
-6. **Licensing is the contributor's and is carried, not interpreted.** The index
-   has a `licence` field and this application prints it. It is not entitled to
-   decide what somebody may do with somebody else's sounds, and a field it
-   silently dropped would be a field a contributor thought they had filled in.
+1. **A catalogue is a directory, before it is a URL.** *Taken.* `git clone` the
+   repository, press `Open a checkout…`, browse it, put anything on the shelf.
+   It needs a folder dialog and a surface and no network at all, and it is how
+   the fetching route was tested — because what fetching produces is the same
+   directory.
+2. **Fetching is a dependency decision.** *Taken: `ureq` 3, behind the
+   `deepmind-patches` crate's own `fetch` feature.* It is `rustls` rather than
+   the system's TLS, so it is Rust the whole way down on all three desktops with
+   nothing to find at build time, and it blocks on a thread rather than dragging
+   an async runtime into a repository that gets its frames from `thread::sleep`.
+   Two requests: `index.toml` and `patches.tar.gz`, both release assets on a
+   plain redirect. No API, no token and no rate limit — the unauthenticated
+   GitHub API allows sixty requests an hour, which an editor crawling a tree
+   would spend on startup.
+3. **Verification is what makes fetching safe to repeat.** *Taken by the
+   library, not here.* Every patch carries its `sha256` and its
+   `Fingerprint` in the index the release ships, both computed by CI from the
+   bytes rather than typed. A `deepmind-patches` release that disagreed with
+   itself would not have built.
+4. **Trust is a person, not a signature.** *Unchanged, and still right.* The
+   repository is trusted the way a package index is: because somebody reviewed
+   the pull request. This application has not grown a key store and does not
+   pretend a hash it fetched from the same place as the file proves anything
+   about who wrote it.
+5. **A patch is not a trademark.** *The repository's to enforce*, in its
+   contributing guide and at review, which is the only place it can be.
+6. **Licensing is the contributor's and is carried, not interpreted.** *Taken.*
+   Every patch carries an SPDX identifier its author chose, the validator checks
+   it is one, and this application prints it as written. It is not entitled to
+   decide what somebody may do with somebody else's sounds.
 
-## What it would look like in the window
+## What it looks like in the window
 
-The librarian, with a second place to read a shelf from. A catalogue is browsed
-the way a pack is browsed — a search field, a count, cards — and pressing one
-puts its programs on the same shelf every other route already fills, which is
-where loading, saving and reading a bank already work.
+The librarian, with a second place to read a shelf from — which is what it says
+above, and what was built. A switch at the top of the surface, `This machine`
+and `Shared`; the catalogue browsed the way the shelf is, with a search field, a
+count and cards; and pressing one puts that sound on the same shelf every other
+route already fills, which is where loading, saving and reading a bank already
+work.
+
+The cards carry the library's own pictures. Every patch has a 7x7 one-bit icon
+and so does every category, drawn once in the repository and shipped in the
+index, and they arrive as the same `Pixels` this window already blits a glyph
+and a modulation cell from — so a patch's picture is on the instrument's own
+dots at the instrument's own pitch, with nothing invented here.
 
 It is a desktop-only surface for the reason the rest of the librarian is: a
 preset pack is thirty-five kilobytes of SysEx and a plugin event buffer is sized
 for a few notes.
+
+## What is left
+
+- **The fingerprint is read but not yet drawn.** `Held::matching` answers which
+  patch and which version a program on the shelf is, which is the question
+  somebody holding a bank off an instrument actually has. Nothing puts it on a
+  card yet.
+- **Demos are not played.** The release carries `demos.tar.gz` and the index
+  names each patch's clips; this fetches neither. An audio output is a
+  dependency decision of its own and has not been taken.
+- **A fetched catalogue is not reused between runs.** It is cached where the
+  platform keeps a cache, and nothing reads it back on the next start, so the
+  first press of `Fetch the newest` downloads again. Cheap to fix and not
+  interesting until there is more than one release.

@@ -22,7 +22,7 @@ use iced::widget::{
 };
 use iced::{Background, Center, Element, Fill, Length, Padding, Theme, border};
 
-use crate::app::{App, Message};
+use crate::app::{App, Browsing, Message};
 use crate::shelf::{Held, ORDERS, Shelf};
 
 /// Width of one program on the shelf.
@@ -39,8 +39,25 @@ const CARD: f32 = 190.0;
 /// is a column somebody has to guess at.
 const GUTTER: f32 = 16.0;
 
-/// The whole librarian.
+/// The whole librarian: this machine's shelf, or the shared one.
+///
+/// Two shelves and one surface. They answer the same question — *what sounds
+/// can I have* — and the second one's answer becomes the first one's the moment
+/// anything on it is pressed, because a shared patch put on the shelf is a
+/// shared patch this machine holds. See [`crate::shared`].
 pub fn view(app: &App) -> Element<'_, Message> {
+    column![crate::shared::switch(app.browsing())]
+        .push(match app.browsing() {
+            Browsing::Shelf => shelf(app),
+            Browsing::Shared => crate::shared::view(app),
+        })
+        .spacing(12)
+        .padding([0, 12])
+        .into()
+}
+
+/// This machine's own shelf.
+fn shelf(app: &App) -> Element<'_, Message> {
     let shelf = app.shelf();
     column![
         actions(app),
@@ -51,7 +68,6 @@ pub fn view(app: &App) -> Element<'_, Message> {
     .extend(progress(shelf))
     .push(programs(shelf, app.firmware()))
     .spacing(12)
-    .padding([0, 12])
     .into()
 }
 

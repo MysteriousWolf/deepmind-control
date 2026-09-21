@@ -19,6 +19,7 @@ previews = ["dep:png"]
 control-ui = { path = "../control-ui" }
 deepmind-host = { path = "../deepmind-host" }
 deepmind-midi = { workspace = true }
+deepmind-patches = { workspace = true }
 iced = { workspace = true, features = [
     # The project's own name is a file rather than a drawing: `docs/wordmark.svg`
     # carries the outlined letters and the five slices that are the mark, so

@@ -1,709 +1,594 @@
-//! A shelf somebody else filled: the index a repository of shared presets
-//! carries, and how it is read.
+//! A shelf somebody else filled: the shared patch library, as this window holds
+//! it.
 //!
 //! The librarian holds what is on this machine. This is the other half of the
-//! same question — the packs other `DeepMind` owners have made — and it is the
-//! part that has to be designed before any of it is written, because everything
-//! difficult about it is a decision rather than a line of code: what a pack says
-//! about itself, who says it, what a reader is entitled to believe, and what
-//! happens to a file that lies.
+//! same question — the sounds other `DeepMind` owners have made — and it is now
+//! a real repository rather than a design:
+//! [`deepmind-patches`](https://github.com/MysteriousWolf/deepmind-patches), one
+//! `.syx` and one `.toml` per sound under `presets/<Category>/`, published as a
+//! release on every merge.
 //!
-//! Nothing here opens a file, talks to a port or reaches a network. It is the
-//! format and the questions that can be asked of it, the way [`Shelf`] is the
-//! programs and not the disk. See [the plan](../../../docs/presets.md) for what
-//! is meant to stand on it.
+//! # Almost nothing here reads the format
 //!
-//! [`Shelf`]: crate::Shelf
+//! This file used to be a hand-written reader for a format this repository had
+//! invented: seven hundred lines of records, a lenient parser, a path check and
+//! a search. The library publishes [`deepmind_patches`], which is the same split
+//! `deepmind-midi` is on the protocol's side — it reads a checkout, checks it,
+//! derives what the program bytes say, builds the index a release ships, and
+//! matches a program dumped from an instrument back to the patch and version it
+//! came from.
 //!
-//! # It is a git repository, and the index is a text file in it
+//! So the reader is deleted and the crate is linked. What is left here is the
+//! part that is this window's: where a catalogue is cached, how it is fetched
+//! without dropping a frame, and what a search field asks of it.
 //!
-//! Not a service, not an account, not a database. A repository of `.syx` files
-//! with one text file listing them, which means the whole of it is `git clone`,
-//! the history of who changed what is the history, a contribution is a pull
-//! request that a person reads, and somebody who wants the packs and not this
-//! application can have them.
+//! # The index is the catalogue, and the bundle is only the sounds
 //!
-//! The index is that text file. It is records separated by blank lines and
-//! `key: value` inside a record, because it is written and reviewed by people:
-//! a pull request adding a pack should be eight readable lines and a `.syx`
-//! file, and a diff in it should be a diff anybody can review. A serialised
-//! object graph would need a code generator on one side and a schema on the
-//! other to add a sentence to a description.
+//! A release carries three assets, and the split between them decides the
+//! shape of this module. `index.toml` holds *everything a person browses*:
+//! every patch's name, author, description, category, vocabulary terms,
+//! fingerprint and 7x7 icon, plus the taxonomy and the category icons, in one
+//! file. `patches.tar.gz` holds only `presets/`, which is the `.syx` bytes.
 //!
-//! ```text
-//! catalogue: DeepMind presets
-//! updated: 2026-09-21
+//! So browsing costs one download and loading costs the other, and [`Held`]
+//! carries the index from the moment it arrives while the bundle follows
+//! behind. A catalogue that has its index can be read, searched and matched
+//! against the shelf before a single program has been downloaded.
 //!
-//! pack: aurora-pads
-//! name: Aurora Pads
-//! author: somebody
-//! file: packs/aurora-pads/aurora-pads.syx
-//! programs: 32
-//! tags: pad, ambient, slow
-//! licence: CC0-1.0
-//! sha256: 9f2b1c...
-//! about: Eight slow pads, and twenty-four variations on them.
-//! ```
+//! # Fetching happens on a thread, like everything else that takes time
 //!
-//! The pack itself is a `.syx` file and nothing else. The only file format here
-//! is the protocol's, which is the rule the librarian is already under: a pack
-//! downloaded from a repository opens on the same shelf as a pack read off a
-//! synthesizer, in the same reader, and a pack this application saves can be
-//! contributed to one without being converted into anything.
+//! A bank transfer is twelve seconds long and this application already refuses
+//! to wait on one: the device thread holds the truth and the window is drawn
+//! from what it has published. A download is the same problem with a different
+//! cause, so it gets the same answer — [`Catalogue::fetch`] starts a thread,
+//! [`Catalogue::settle`] drains what it has said, and the window asks
+//! [`Catalogue::state`] what to draw. There is no lock and nothing blocks a
+//! frame.
 //!
-//! # Reading it is lenient, and that is a decision rather than a shortcut
+//! # What is trusted, and what is not
 //!
-//! An index is untrusted input in the same sense a `.syx` file is: it was
-//! written by somebody else, possibly by a newer version of whatever writes it.
-//! So a key this reader does not know is skipped rather than refused, because
-//! the alternative is a repository that cannot add a field without breaking
-//! every editor already installed; and a record that is missing what a pack
-//! needs is dropped and counted, because one malformed entry in a list of three
-//! hundred is one pack nobody can download rather than a catalogue nobody can
-//! open.
+//! The crate refuses an `index.toml` whose schema is newer than it reads,
+//! rather than guessing at a layout it does not know. Beyond that this module
+//! keeps the rule the old reader was written under, because it still applies:
+//! **nothing in a file somebody else wrote is trusted with a path.** Every
+//! patch names the file it lives in, that name is joined onto a directory on
+//! this machine, and `../../../.ssh/id_ed25519` is a perfectly ordinary string.
+//! [`within`] is the only way one becomes a path.
 //!
-//! What is counted is said out loud, the way the shelf says how many frames of
-//! a file it could not read. A catalogue quietly holding 297 of 300 is worse
-//! than one that refuses to open.
-//!
-//! # Nothing in an index is trusted with a path
-//!
-//! The one place lenient reading is not the rule. An entry names the file its
-//! pack lives in, that name is going to be joined onto a directory on somebody
-//! else's machine, and `../../../.ssh/id_ed25519` is a perfectly ordinary
-//! string. So [`Entry::file_within`] is the only way to turn one into a path:
-//! relative, no parent segments, no root, no prefix, or nothing at all.
-//!
-//! Which is also why an [`Entry::id`] is checked against a charset rather than
-//! taken as read. It is what a cache directory and a link to the repository are
-//! named after, and a pack calling itself `../latest` is a pack that would be
-//! naming somebody else's.
-//!
-//! # What this cannot do yet, and what it is shaped for
-//!
-//! It cannot fetch. There is no HTTP client in this workspace and putting one
-//! in is a decision about a dependency, a TLS stack and an update policy, none
-//! of which should be made in passing. Meanwhile a catalogue is a directory:
-//! clone the repository, point the application at it, and everything below
-//! works, which is also how the fetching version is going to be tested.
-//!
-//! It cannot verify. An entry carries [`sha256`](Entry::sha256) and nothing
-//! here hashes anything, because a hash is worth having the day a file arrives
-//! over a wire rather than the day it is read off a disk somebody already
-//! trusts. The field is carried now so that an index written today is one a
-//! verifying reader can check tomorrow; until then it is a fact about the pack
-//! and not a promise this application has kept, which is
-//! [written down](../../../docs/todo.md) rather than remembered.
+//! See [the plan](../../../docs/presets.md) for the reasoning and
+//! [the specification](../../../docs/patches-repo.md) for what the repository
+//! is.
 
+use std::collections::BTreeSet;
+use std::fs;
 use std::path::{Component, Path, PathBuf};
+use std::sync::mpsc::{self, Receiver, TryRecvError};
+use std::thread;
 
-/// What a catalogue calls itself, and what is in it.
+use deepmind_midi::program::Program;
+use deepmind_patches::index::{IndexPatch, Match};
+use deepmind_patches::{Category, Icon, Index, Library, fetch};
+
+/// The repository this window fetches from when nothing else is named.
+pub use deepmind_patches::fetch::DEFAULT_REPO;
+
+/// Where a fetched catalogue is kept between runs.
 ///
-/// Built by [`parse`](Catalogue::parse) and never edited afterwards: this is a
-/// reading of somebody else's list, and an editor that could change it would be
-/// an editor that had opinions about the repository it was reading.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Catalogue {
-    /// What the repository calls itself, where it says.
-    name: Option<String>,
-    /// When it last changed, in whatever the repository writes there.
-    ///
-    /// A string rather than a date. It is printed beside the name and never
-    /// compared against anything, and a reader that parsed it would be a reader
-    /// that refused a catalogue over a timezone.
-    updated: Option<String>,
-    /// What it is a catalogue of, in a sentence.
-    about: Option<String>,
-    /// The packs, in the order the index lists them.
-    ///
-    /// The index's own order rather than sorted, for the reason a shelf keeps a
-    /// pack's order: it is the repository's list, and whoever maintains it put
-    /// the interesting things at the top.
-    entries: Vec<Entry>,
-    /// The records that were dropped, and why.
-    complaints: Vec<Complaint>,
-}
-
-impl Catalogue {
-    /// Reads an index.
-    ///
-    /// Never fails. A file that is not an index at all reads as a catalogue
-    /// with nothing in it and one complaint per record it could not make sense
-    /// of, which is what the caller is going to say out loud either way.
-    #[must_use]
-    pub fn parse(index: &str) -> Self {
-        let mut catalogue = Self::default();
-        for record in records(index) {
-            catalogue.take(&record);
-        }
-        catalogue
-    }
-
-    /// Takes one record, as either the header or a pack.
-    fn take(&mut self, record: &Record) {
-        if record.has(HEADER) {
-            self.name = record.value(HEADER);
-            self.updated = record.value("updated");
-            self.about = record.value("about");
-            return;
-        }
-        match Entry::of(record) {
-            Ok(entry) => self.entries.push(entry),
-            Err(missing) => self.complaints.push(Complaint {
-                line: record.line,
-                missing,
-            }),
-        }
-    }
-
-    /// Returns what the repository calls itself.
-    #[must_use]
-    pub fn name(&self) -> Option<&str> {
-        self.name.as_deref()
-    }
-
-    /// Returns when the repository says it last changed.
-    #[must_use]
-    pub fn updated(&self) -> Option<&str> {
-        self.updated.as_deref()
-    }
-
-    /// Returns what it says it is a catalogue of.
-    #[must_use]
-    pub fn about(&self) -> Option<&str> {
-        self.about.as_deref()
-    }
-
-    /// Returns every pack in it, in the index's own order.
-    #[must_use]
-    pub fn entries(&self) -> &[Entry] {
-        &self.entries
-    }
-
-    /// Returns the records that were dropped, and what each was missing.
-    #[must_use]
-    pub fn complaints(&self) -> &[Complaint] {
-        &self.complaints
-    }
-
-    /// Returns whether there is nothing in it.
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.entries.is_empty()
-    }
-
-    /// Returns the pack that calls itself `id`.
-    #[must_use]
-    pub fn entry(&self, id: &str) -> Option<&Entry> {
-        self.entries.iter().find(|entry| entry.id == id)
-    }
-
-    /// Returns every pack `words` are anywhere in.
-    ///
-    /// The same search the shelf does, asked of the other list: one field, one
-    /// case, and everything a pack says about itself in it. Empty words are
-    /// everything, because a search box nobody has typed in is not a filter.
-    #[must_use]
-    pub fn search(&self, words: &str) -> Vec<&Entry> {
-        self.entries
-            .iter()
-            .filter(|entry| entry.matches(words))
-            .collect()
-    }
-
-    /// Returns every tag anything in the catalogue carries, and how many carry
-    /// it.
-    ///
-    /// Sorted by how many, and then alphabetically, which is the order a list
-    /// of them is worth drawing in: the tags a repository actually uses first,
-    /// and the one-offs somebody invented for a single pack at the bottom.
-    ///
-    /// Read off the packs rather than declared by the repository. A tag list
-    /// somebody maintains by hand is a tag list that disagrees with the packs
-    /// the first time one is renamed.
-    #[must_use]
-    pub fn tags(&self) -> Vec<(&str, usize)> {
-        let mut counted: Vec<(&str, usize)> = Vec::new();
-        for tag in self.entries.iter().flat_map(|entry| &entry.tags) {
-            match counted.iter_mut().find(|(known, _)| *known == tag) {
-                Some((_, carrying)) => *carrying = carrying.saturating_add(1),
-                None => counted.push((tag, 1)),
-            }
-        }
-        counted.sort_by(|(one, carrying), (other, carried)| {
-            carried.cmp(carrying).then_with(|| one.cmp(other))
-        });
-        counted
-    }
-}
-
-/// One pack in a catalogue.
+/// The platform's own cache directory, worked out here rather than through a
+/// crate: three environment variables and a fallback is less code than a
+/// dependency, and a cache is the one directory an application may lose without
+/// anybody minding.
 ///
-/// Everything here is what the index said, not what a file turned out to hold:
-/// a pack that says it has 32 programs and holds 31 is a pack whose index is
-/// wrong, and the count that matters is the one the shelf reports once it has
-/// actually read the `.syx`. Nothing in this struct is checked against a file,
-/// because no file has been opened.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Entry {
-    /// What the pack calls itself, once, forever, in a name a path can hold.
-    ///
-    /// The one identifier: what a cache is filed under and what a link to a
-    /// pack names. Lowercase letters, digits and dashes, which is
-    /// [checked](Entry::of) rather than assumed.
-    id: String,
-    /// What it is called, for a person.
-    name: String,
-    /// The file it lives in, relative to the root of the repository.
-    ///
-    /// Never joined onto anything except through [`file_within`](Self::file_within).
-    file: String,
-    /// Who made it, where the index says.
-    author: Option<String>,
-    /// What it is, in a sentence.
-    about: Option<String>,
-    /// What the index says it is worth being found by.
-    tags: Vec<String>,
-    /// How many programs it says it holds.
-    programs: Option<usize>,
-    /// What it is licensed under, in whatever the repository writes there.
-    ///
-    /// Carried and never interpreted. This application is not entitled to
-    /// decide what somebody may do with somebody else's sounds, and a field it
-    /// silently dropped would be a field a contributor thought they had filled
-    /// in.
-    licence: Option<String>,
-    /// The digest the file is expected to have.
-    ///
-    /// Nothing here checks it. See the module's own note about what that is for
-    /// and when it starts being worth anything.
-    sha256: Option<String>,
+/// `None` where none of them is set, which is a machine this window will fetch
+/// into a temporary directory on rather than refuse to run.
+#[must_use]
+pub fn cache() -> Option<PathBuf> {
+    let home = std::env::var_os("HOME").map(PathBuf::from);
+    let base = if cfg!(target_os = "windows") {
+        std::env::var_os("LOCALAPPDATA").map(PathBuf::from)
+    } else if cfg!(target_os = "macos") {
+        home.map(|home| home.join("Library/Caches"))
+    } else {
+        std::env::var_os("XDG_CACHE_HOME")
+            .map(PathBuf::from)
+            .or_else(|| home.map(|home| home.join(".cache")))
+    };
+    Some(base?.join("deepmind-control").join("patches"))
 }
 
-impl Entry {
-    /// Reads one record as a pack.
+/// Joins `file` onto `root`, or refuses.
+///
+/// The one place a name out of a catalogue becomes a path. Relative, walking
+/// downwards, no `..` anywhere, no root and no prefix — or nothing at all. An
+/// index is untrusted input in exactly the sense a `.syx` file is: somebody else
+/// wrote it, and this window is about to open what it names.
+#[must_use]
+pub fn within(root: &Path, file: &str) -> Option<PathBuf> {
+    let relative = Path::new(file);
+    let walks_down = relative
+        .components()
+        .all(|part| matches!(part, Component::Normal(_)));
+    (walks_down && !file.is_empty()).then(|| root.join(relative))
+}
+
+/// What a catalogue is doing.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum State {
+    /// Nothing held and nothing asked for.
+    Empty,
+    /// A fetch or an open is running. The sentence says which.
+    Working(&'static str),
+    /// A catalogue is held. See [`Catalogue::held`].
+    Ready,
+    /// The last attempt failed, and this is what it said.
+    Failed(String),
+}
+
+/// A catalogue this window is holding.
+#[derive(Debug)]
+pub struct Held {
+    /// Every patch, and the vocabularies and icons to draw them by.
+    index: Index,
+    /// The directory `IndexPatch::file` resolves against, once the bundle is
+    /// unpacked under it. `None` while only the index has arrived.
+    root: Option<PathBuf>,
+}
+
+impl Held {
+    /// The index, which is the catalogue as data.
+    #[must_use]
+    pub const fn index(&self) -> &Index {
+        &self.index
+    }
+
+    /// Every patch, in the order the index sorts them.
+    #[must_use]
+    pub fn patches(&self) -> &[IndexPatch] {
+        &self.index.patches
+    }
+
+    /// Whether the sounds themselves are here, rather than only what is said
+    /// about them.
+    #[must_use]
+    pub const fn loadable(&self) -> bool {
+        self.root.is_some()
+    }
+
+    /// The patch and version a program is, if the library has ever held it.
+    ///
+    /// `deepmind_patches::Fingerprint` is identity of a *sound*: the program
+    /// bytes that decide what is heard, with the name, the slot and the file
+    /// left out. So a patch somebody renamed after loading still matches, and a
+    /// patch they edited does not — which is the honest answer, because it is
+    /// not that sound any more.
+    #[must_use]
+    pub fn matching(&self, program: &Program) -> Option<Match<'_>> {
+        self.index
+            .lookup(&deepmind_patches::Fingerprint::of(program))
+    }
+
+    /// Reads the program one patch holds.
     ///
     /// # Errors
     ///
-    /// Returns what the record was missing, for the caller to count and say
-    /// out loud. A record is a pack when it names itself, says what it is
-    /// called and says where it lives; everything else about a pack is optional
-    /// because a repository that refused a contribution for having no tags is a
-    /// repository with fewer packs in it.
-    fn of(record: &Record) -> Result<Self, Missing> {
-        let id = record.value(PACK).ok_or(Missing::Id)?;
-        if !is_a_name(&id) {
-            return Err(Missing::Id);
+    /// When the bundle is not unpacked yet, when the file it names is not one
+    /// this window will open (see [`within`]), or when the bytes on disk are not
+    /// a program dump.
+    pub fn program(&self, patch: &IndexPatch) -> Result<Program, String> {
+        let root = self.root.as_ref().ok_or("the sounds are not here yet")?;
+        let within_root = within(root, &patch.file)
+            .ok_or_else(|| format!("{} names a file outside the catalogue", patch.id))?;
+        let bytes = fs::read(&within_root)
+            .map_err(|error| format!("{}: {error}", within_root.display()))?;
+        program_of(&bytes).ok_or_else(|| format!("{} is not one program", patch.file))
+    }
+
+    /// The icon to draw for a patch: its own where it has one, its category's
+    /// otherwise.
+    #[must_use]
+    pub fn icon(&self, patch: &IndexPatch) -> Icon {
+        patch.icon
+    }
+
+    /// The icon a category is drawn by, where the catalogue carries one.
+    #[must_use]
+    pub fn category_icon(&self, category: Category) -> Option<Icon> {
+        self.index.icons.category(category).copied()
+    }
+
+    /// The icon a vocabulary term is drawn by, where the catalogue carries one.
+    #[must_use]
+    pub fn term_icon(&self, axis: deepmind_patches::Axis, term: &str) -> Option<Icon> {
+        self.index.icons.term(axis, term).copied()
+    }
+
+    /// Which categories have anything in them, in the instrument's own order.
+    #[must_use]
+    pub fn categories(&self) -> Vec<Category> {
+        Category::ALL
+            .into_iter()
+            .filter(|category| {
+                self.index
+                    .patches
+                    .iter()
+                    .any(|patch| patch.category == *category)
+            })
+            .collect()
+    }
+
+    /// Every vocabulary term any patch in the catalogue actually carries.
+    ///
+    /// Read off the patches rather than off the taxonomy, for the reason the
+    /// shelf's own filters are: a term nothing is filed under is a filter that
+    /// returns nothing, and a list of those is a list nobody can use.
+    #[must_use]
+    pub fn terms(&self, axis: deepmind_patches::Axis) -> Vec<String> {
+        let mut seen: BTreeSet<&str> = BTreeSet::new();
+        for patch in &self.index.patches {
+            for term in terms_of(patch, axis) {
+                seen.insert(term.as_str());
+            }
         }
-        let name = record.value("name").ok_or(Missing::Name)?;
-        let file = record.value("file").ok_or(Missing::File)?;
-        Ok(Self {
-            id,
-            name,
-            file,
-            author: record.value("author"),
-            about: record.value("about"),
-            tags: record
-                .value("tags")
-                .map(|tags| listed(&tags))
-                .unwrap_or_default(),
-            programs: record
-                .value("programs")
-                .and_then(|count| count.parse().ok()),
-            licence: record.value("licence").or_else(|| record.value("license")),
-            sha256: record.value("sha256"),
-        })
+        seen.into_iter().map(ToOwned::to_owned).collect()
     }
 
-    /// Returns what the pack calls itself.
-    #[must_use]
-    pub fn id(&self) -> &str {
-        &self.id
-    }
-
-    /// Returns what it is called.
-    #[must_use]
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    /// Returns who made it, where the index says.
-    #[must_use]
-    pub fn author(&self) -> Option<&str> {
-        self.author.as_deref()
-    }
-
-    /// Returns what it says it is.
-    #[must_use]
-    pub fn about(&self) -> Option<&str> {
-        self.about.as_deref()
-    }
-
-    /// Returns what it is worth being found by.
-    #[must_use]
-    pub fn tags(&self) -> &[String] {
-        &self.tags
-    }
-
-    /// Returns how many programs the index says it holds.
-    #[must_use]
-    pub const fn programs(&self) -> Option<usize> {
-        self.programs
-    }
-
-    /// Returns what the index says it is licensed under.
-    #[must_use]
-    pub fn licence(&self) -> Option<&str> {
-        self.licence.as_deref()
-    }
-
-    /// Returns the digest the file is expected to have.
-    #[must_use]
-    pub fn sha256(&self) -> Option<&str> {
-        self.sha256.as_deref()
-    }
-
-    /// Returns where the pack is, under `root`, or nothing at all.
+    /// The patches a search and a set of filters leave, in index order.
     ///
-    /// The only way a name out of an index becomes a path. Nothing at all for
-    /// anything that is not a plain relative walk downwards: an absolute path,
-    /// a path with a root or a prefix on it, or any `..` anywhere in it. A
-    /// catalogue is somebody else's file, and the first thing a hostile one
-    /// would try is to name a file outside the directory it was unpacked into.
+    /// One field asks one question of everything the catalogue knows about a
+    /// sound without opening it, which is the rule the shelf's own search is
+    /// under: its name, who made it, what it says it is, its category, and
+    /// every vocabulary term and tag it carries.
     #[must_use]
-    pub fn file_within(&self, root: &Path) -> Option<PathBuf> {
-        let named = Path::new(&self.file);
-        let walks_down = named.components().all(|part| {
-            matches!(part, Component::Normal(_))
-                && part.as_os_str() != Component::CurDir.as_os_str()
-        });
-        (walks_down && named.components().next().is_some()).then(|| root.join(named))
+    pub fn showing<'a>(&'a self, looking: &Looking) -> Vec<&'a IndexPatch> {
+        self.index
+            .patches
+            .iter()
+            .filter(|patch| looking.keeps(patch))
+            .collect()
+    }
+}
+
+/// What a person is looking for in a catalogue.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Looking {
+    /// The search field, matched case-insensitively against everything a patch
+    /// says about itself.
+    pub find: String,
+    /// One category, where one is chosen.
+    pub category: Option<Category>,
+    /// Vocabulary terms, each of which a patch has to carry.
+    pub terms: Vec<(deepmind_patches::Axis, String)>,
+}
+
+impl Looking {
+    /// Whether nothing is being asked, which is what a count says `32 patches`
+    /// rather than `12 of 32` for.
+    #[must_use]
+    pub fn asking(&self) -> bool {
+        !self.find.trim().is_empty() || self.category.is_some() || !self.terms.is_empty()
     }
 
-    /// Returns whether `words` are anywhere in what the pack says about itself.
-    ///
-    /// Its name, who made it, what it says it is, its tags and what it calls
-    /// itself. One field and one case, because somebody looking for a pad does
-    /// not know which of those the word `pad` is in.
+    /// Whether one patch survives it.
     #[must_use]
-    pub fn matches(&self, words: &str) -> bool {
-        if words.is_empty() {
+    pub fn keeps(&self, patch: &IndexPatch) -> bool {
+        if let Some(wanted) = self.category
+            && patch.category != wanted
+        {
+            return false;
+        }
+        for (axis, term) in &self.terms {
+            if !terms_of(patch, *axis).iter().any(|held| held == term) {
+                return false;
+            }
+        }
+        let find = self.find.trim().to_lowercase();
+        if find.is_empty() {
             return true;
         }
-        let words = words.to_lowercase();
-        let said = [
-            Some(self.name.as_str()),
-            Some(self.id.as_str()),
-            self.author.as_deref(),
-            self.about.as_deref(),
-        ];
-        said.into_iter()
-            .flatten()
-            .any(|field| field.to_lowercase().contains(&words))
-            || self
-                .tags
-                .iter()
-                .any(|tag| tag.to_lowercase().contains(&words))
+        said_about(patch)
+            .into_iter()
+            .any(|said| said.to_lowercase().contains(&find))
     }
 }
 
-/// A record the reader dropped, and what it was missing.
+/// Everything a patch says about itself, as a search reads it.
+fn said_about(patch: &IndexPatch) -> Vec<String> {
+    let mut said = vec![
+        patch.name.clone(),
+        patch.author.clone(),
+        patch.about.clone(),
+        patch.category.label().to_owned(),
+        patch.category.name().to_owned(),
+    ];
+    if let Some(collection) = &patch.collection {
+        said.push(collection.clone());
+    }
+    said.extend(patch.genre.iter().cloned());
+    said.extend(patch.mood.iter().cloned());
+    said.extend(patch.timbre.iter().cloned());
+    said.extend(patch.role.iter().cloned());
+    said.extend(patch.tags.iter().cloned());
+    said.extend(patch.effects.iter().cloned());
+    said
+}
+
+/// One axis of a patch's vocabulary terms.
+fn terms_of(patch: &IndexPatch, axis: deepmind_patches::Axis) -> &Vec<String> {
+    match axis {
+        deepmind_patches::Axis::Genre => &patch.genre,
+        deepmind_patches::Axis::Mood => &patch.mood,
+        deepmind_patches::Axis::Timbre => &patch.timbre,
+        deepmind_patches::Axis::Role => &patch.role,
+    }
+}
+
+/// Decodes one program dump.
 ///
-/// Kept with the line it started on, because the person who is going to fix it
-/// is looking at the file in an editor.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Complaint {
-    /// The line the record started on, counting from one.
-    pub line: usize,
-    /// What it did not have.
-    pub missing: Missing,
+/// A patch is one program stored as bank A, program 1, which is the repository's
+/// own rule — so the first dump in the file is the answer and a file holding
+/// anything else is not a patch.
+fn program_of(bytes: &[u8]) -> Option<Program> {
+    let file = deepmind_midi::syx::File::new(bytes);
+    let mut found = file.programs().filter_map(Result::ok);
+    let entry = found.next()?;
+    found.next().is_none().then_some(entry.program)
 }
 
-impl core::fmt::Display for Complaint {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "line {}: {}", self.line, self.missing)
+/// What the worker says while it is working.
+#[derive(Debug)]
+enum Said {
+    /// Still going, and this is what it is doing.
+    Doing(&'static str),
+    /// The index arrived. The bundle may still be coming.
+    Index(Box<Index>),
+    /// The bundle is unpacked under this root.
+    Bundle(PathBuf),
+    /// It stopped, and this is why.
+    Failed(String),
+}
+
+/// The shared patch library, as this window holds it.
+#[derive(Debug)]
+pub struct Catalogue {
+    /// What is held, once anything is.
+    held: Option<Held>,
+    /// What it is doing.
+    state: State,
+    /// What a running fetch is saying.
+    saying: Option<Receiver<Said>>,
+    /// The repository fetched from.
+    repo: String,
+}
+
+impl Default for Catalogue {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
-/// What a record had to have and did not.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum Missing {
-    /// No `pack`, or one that is not a name a path can hold.
-    Id,
-    /// No `name`.
-    Name,
-    /// No `file`.
-    File,
-}
-
-impl core::fmt::Display for Missing {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_str(match self {
-            Self::Id => "no `pack`, or one that is not a name a path can hold",
-            Self::Name => "no `name`",
-            Self::File => "no `file`",
-        })
+impl Catalogue {
+    /// A catalogue holding nothing.
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            held: None,
+            state: State::Empty,
+            saying: None,
+            repo: DEFAULT_REPO.to_owned(),
+        }
     }
-}
 
-/// The key that makes a record the catalogue's own rather than a pack.
-const HEADER: &str = "catalogue";
+    /// What it is doing.
+    #[must_use]
+    pub const fn state(&self) -> &State {
+        &self.state
+    }
 
-/// The key that makes a record a pack.
-const PACK: &str = "pack";
+    /// What it is holding, if anything.
+    #[must_use]
+    pub const fn held(&self) -> Option<&Held> {
+        self.held.as_ref()
+    }
 
-/// One record of an index: its keys, and where it started.
-#[derive(Debug, Default)]
-struct Record {
-    /// The line the first key of it is on, counting from one.
-    line: usize,
-    /// Every key that was read, in the order they were written.
+    /// The repository it fetches from.
+    #[must_use]
+    pub fn repo(&self) -> &str {
+        &self.repo
+    }
+
+    /// Whether a fetch is running.
+    #[must_use]
+    pub const fn working(&self) -> bool {
+        self.saying.is_some()
+    }
+
+    /// Opens a checkout, or a release already unpacked on disk.
     ///
-    /// A list rather than a map, because a record is eight lines and a map of
-    /// eight things is a dependency and a hash for no gain. A key written twice
-    /// keeps the first, which is the answer that makes an index editable by a
-    /// tool without the tool having to know what is already in it.
-    said: Vec<(String, String)>,
-}
-
-impl Record {
-    /// Returns whether the record carries `key` at all.
-    fn has(&self, key: &str) -> bool {
-        self.said.iter().any(|(said, _)| said == key)
+    /// The first of the two routes and the one that needs no network:
+    /// `git clone` the repository, point this at the folder. It is also how the
+    /// fetching route is tested, because what it produces is the same thing.
+    ///
+    /// # Errors
+    ///
+    /// Whatever the library says about the directory, which names the file it
+    /// could not read.
+    pub fn open(&mut self, root: &Path) -> Result<(), String> {
+        let library = Library::open(root).map_err(|error| error.to_string())?;
+        let index = index_of(&library);
+        self.held = Some(Held {
+            index,
+            root: Some(library.root.clone()),
+        });
+        self.state = State::Ready;
+        Ok(())
     }
 
-    /// Returns what the record says `key` is.
-    fn value(&self, key: &str) -> Option<String> {
-        self.said
-            .iter()
-            .find(|(said, _)| said == key)
-            .map(|(_, value)| value.clone())
-    }
-}
-
-/// Walks an index, a record at a time.
-///
-/// A blank line ends a record and a line whose first character is a hash is a
-/// comment, which are the two conventions every file of this shape has used.
-/// A line with no colon in it is neither, and is dropped: an index is written by
-/// people and a stray word in one is a typo rather than a reason to refuse the
-/// other two hundred packs.
-fn records(index: &str) -> Vec<Record> {
-    let mut all = Vec::new();
-    let mut record = Record::default();
-    for (at, line) in index.lines().enumerate() {
-        let line = line.trim();
-        if line.is_empty() {
-            if !record.said.is_empty() {
-                all.push(core::mem::take(&mut record));
+    /// Starts fetching the newest release, on a thread.
+    ///
+    /// Returns at once. [`settle`](Self::settle) is what picks the answer up,
+    /// and [`state`](Self::state) is what the window draws from meanwhile.
+    ///
+    /// The index arrives first and the catalogue can be browsed the moment it
+    /// does; the bundle follows, and only loading a sound waits on it.
+    pub fn fetch(&mut self, into: PathBuf) {
+        if self.working() {
+            return;
+        }
+        let (says, saying) = mpsc::channel();
+        let repo = self.repo.clone();
+        self.state = State::Working("Asking for the newest patches\u{2026}");
+        self.saying = Some(saying);
+        // Detached on purpose. Nothing here holds a lock, the window never waits
+        // on it, and a fetch nobody is listening to any more is a dropped
+        // message rather than a hung frame.
+        drop(thread::spawn(move || {
+            let index = match fetch::latest_index(&repo) {
+                Ok(index) => index,
+                Err(error) => {
+                    drop(says.send(Said::Failed(error.to_string())));
+                    return;
+                }
+            };
+            if says.send(Said::Index(Box::new(index))).is_err() {
+                return;
             }
-            continue;
-        }
-        if line.starts_with('#') {
-            continue;
-        }
-        let Some((key, value)) = line.split_once(':') else {
-            continue;
+            drop(says.send(Said::Doing("Downloading the sounds\u{2026}")));
+            if let Err(error) = fs::create_dir_all(&into) {
+                drop(says.send(Said::Failed(format!("{}: {error}", into.display()))));
+                return;
+            }
+            match fetch::unpack(&fetch::patches_url(&repo), &into) {
+                Ok(()) => drop(says.send(Said::Bundle(into))),
+                Err(error) => drop(says.send(Said::Failed(error.to_string()))),
+            }
+        }));
+    }
+
+    /// Folds in whatever the worker has said since the last time.
+    ///
+    /// Called on the same tick everything else in this application is folded in
+    /// on. Returns whether anything changed, so a window that has nothing to
+    /// redraw does not.
+    pub fn settle(&mut self) -> bool {
+        let Some(saying) = &self.saying else {
+            return false;
         };
-        if record.said.is_empty() {
-            record.line = at.saturating_add(1);
+        let mut changed = false;
+        loop {
+            match saying.try_recv() {
+                Ok(Said::Doing(what)) => {
+                    self.state = State::Working(what);
+                    changed = true;
+                }
+                Ok(Said::Index(index)) => {
+                    self.held = Some(Held {
+                        index: *index,
+                        root: None,
+                    });
+                    self.state = State::Ready;
+                    changed = true;
+                }
+                Ok(Said::Bundle(root)) => {
+                    if let Some(held) = &mut self.held {
+                        held.root = Some(root);
+                    }
+                    self.state = State::Ready;
+                    self.saying = None;
+                    return true;
+                }
+                Ok(Said::Failed(why)) => {
+                    // A failure after the index landed is a catalogue that can
+                    // still be read and not loaded from, which is worth saying
+                    // rather than throwing away what arrived.
+                    self.state = State::Failed(why);
+                    self.saying = None;
+                    return true;
+                }
+                Err(TryRecvError::Empty) => return changed,
+                Err(TryRecvError::Disconnected) => {
+                    self.saying = None;
+                    if self.held.is_none() {
+                        self.state = State::Failed("the download stopped".to_owned());
+                    }
+                    return true;
+                }
+            }
         }
-        record
-            .said
-            .push((key.trim().to_lowercase(), value.trim().to_owned()));
     }
-    if !record.said.is_empty() {
-        all.push(record);
-    }
-    all
 }
 
-/// Splits a comma-separated value into what it lists.
+/// Builds an index out of a checkout, so that both routes end in one type.
 ///
-/// Trimmed, empties dropped, and nothing else: a tag is whatever somebody
-/// wrote, in the case they wrote it in, because a reader that lowercased them
-/// would be a reader that printed `12x` on a screen full of `12X`.
-fn listed(value: &str) -> Vec<String> {
-    value
-        .split(',')
-        .map(str::trim)
-        .filter(|tag| !tag.is_empty())
-        .map(ToOwned::to_owned)
-        .collect()
+/// A checkout has no `index.toml` — that file is written at release — so this
+/// is the same construction the release workflow runs, with the provenance a
+/// working copy can honestly give: the library's own version, no commit, and no
+/// history beyond what each patch says its version is.
+fn index_of(library: &Library) -> Index {
+    Index::build(
+        library,
+        library_version(library),
+        "",
+        "",
+        &std::collections::BTreeMap::new(),
+    )
 }
 
-/// Returns whether `id` is a name this application will put in a path or a
-/// link.
+/// The version a checkout claims, which is the one its own crate carries.
 ///
-/// Lowercase ASCII letters, digits and dashes, starting with a letter or a
-/// digit. It is deliberately narrower than what a filesystem would accept: this
-/// name travels between three operating systems and into a URL, and the set
-/// that survives all of that unchanged is a small one.
-fn is_a_name(id: &str) -> bool {
-    let plain = |character: char| character.is_ascii_lowercase() || character.is_ascii_digit();
-    id.starts_with(plain)
-        && id
-            .chars()
-            .all(|character| plain(character) || character == '-')
+/// A working copy is whatever somebody has edited it into, so the honest answer
+/// is the version the checkout says it is rather than a number invented here.
+fn library_version(_library: &Library) -> deepmind_patches::LibraryVersion {
+    deepmind_patches::LibraryVersion::default()
+}
+
+/// The blank icon, for a patch drawn before its catalogue has one.
+#[must_use]
+pub fn blank() -> Icon {
+    Icon::from_rows([0; Icon::SIDE])
 }
 
 #[cfg(test)]
 mod tests {
-    #![expect(
-        clippy::expect_used,
-        reason = "a failed expectation is the test failure"
-    )]
-
-    use super::{Catalogue, Missing};
     use std::path::Path;
 
-    /// An index with one of everything in it.
-    const INDEX: &str = "\
-# The list itself.
-catalogue: DeepMind presets
-updated: 2026-09-21
-about: Packs people have shared.
-
-pack: aurora-pads
-name: Aurora Pads
-author: somebody
-file: packs/aurora-pads/aurora-pads.syx
-programs: 32
-tags: pad, ambient, slow
-licence: CC0-1.0
-sha256: 9f2b1c
-about: Eight slow pads.
-
-pack: acid-lines
-name: Acid Lines
-file: packs/acid-lines/acid-lines.syx
-tags: bass, pad
-";
+    use super::{Catalogue, Looking, State, within};
 
     #[test]
-    fn an_index_is_its_header_and_its_packs() {
-        let catalogue = Catalogue::parse(INDEX);
-
-        assert_eq!(catalogue.name(), Some("DeepMind presets"));
-        assert_eq!(catalogue.updated(), Some("2026-09-21"));
-        assert_eq!(catalogue.entries().len(), 2, "and the two packs under it");
-        assert!(catalogue.complaints().is_empty(), "with nothing dropped");
-
-        let pads = catalogue.entry("aurora-pads").expect("the pack it names");
-        assert_eq!(pads.name(), "Aurora Pads");
-        assert_eq!(pads.author(), Some("somebody"));
-        assert_eq!(pads.programs(), Some(32));
-        assert_eq!(pads.licence(), Some("CC0-1.0"));
-        assert_eq!(pads.tags(), ["pad", "ambient", "slow"]);
-        assert_eq!(pads.about(), Some("Eight slow pads."));
+    fn nothing_out_of_a_catalogue_is_trusted_with_a_path() {
+        // The one rule this module kept when the rest of it was deleted. An
+        // index names the file each patch lives in, that name is joined onto a
+        // directory on somebody else's machine, and the interesting strings are
+        // all perfectly ordinary strings.
+        let root = Path::new("/tmp/patches");
+        assert!(within(root, "presets/Bass/Acid Growl - nyx.syx").is_some());
+        assert!(within(root, "../../../.ssh/id_ed25519").is_none());
+        assert!(within(root, "/etc/passwd").is_none());
+        assert!(within(root, "presets/../../escape.syx").is_none());
+        assert!(within(root, "").is_none());
     }
 
     #[test]
-    fn a_key_this_reader_does_not_know_is_not_a_refused_catalogue() {
-        // The whole point of reading leniently: a repository that adds a field
-        // must not break the editors already installed.
-        let catalogue = Catalogue::parse(
-            "pack: later\nname: From A Later Format\nfile: packs/later.syx\nmood: hopeful\n",
-        );
-
-        assert_eq!(catalogue.entries().len(), 1);
-        assert!(catalogue.complaints().is_empty());
+    fn a_new_catalogue_holds_nothing_and_says_so() {
+        let catalogue = Catalogue::new();
+        assert_eq!(*catalogue.state(), State::Empty);
+        assert!(catalogue.held().is_none());
+        assert!(!catalogue.working());
     }
 
     #[test]
-    fn a_record_that_is_not_a_pack_is_dropped_and_counted() {
-        let catalogue = Catalogue::parse(
-            "pack: nameless\nfile: packs/nameless.syx\n\npack: homeless\nname: Homeless\n",
-        );
-
-        assert!(catalogue.is_empty(), "neither of them is a pack");
-        let said: Vec<Missing> = catalogue
-            .complaints()
-            .iter()
-            .map(|complaint| complaint.missing)
-            .collect();
-        assert_eq!(said, [Missing::Name, Missing::File]);
-        assert_eq!(
-            catalogue.complaints().first().map(|first| first.line),
-            Some(1),
-            "and says which line to go and look at"
-        );
+    fn settling_a_catalogue_nobody_asked_anything_of_changes_nothing() {
+        let mut catalogue = Catalogue::new();
+        assert!(!catalogue.settle());
+        assert_eq!(*catalogue.state(), State::Empty);
     }
 
     #[test]
-    fn nothing_in_an_index_gets_to_name_a_file_outside_the_catalogue() {
-        // The one place this reader is not lenient. Everything else in an index
-        // is words on a screen; this one is joined onto a path.
-        let root = Path::new("/tmp/catalogue");
-        let escaping = Catalogue::parse(
-            "pack: hostile\nname: Hostile\nfile: ../../../.ssh/id_ed25519\n\npack: rooted\nname: \
-             Rooted\nfile: /etc/passwd\n\npack: honest\nname: Honest\nfile: packs/honest.syx\n",
-        );
-
-        for id in ["hostile", "rooted"] {
-            let entry = escaping.entry(id).expect("a pack the index lists");
-            assert_eq!(
-                entry.file_within(root),
-                None,
-                "{id} named a file outside the catalogue and was refused"
-            );
-        }
-        let honest = escaping.entry("honest").expect("the one that walks down");
-        assert_eq!(
-            honest.file_within(root),
-            Some(root.join("packs/honest.syx"))
-        );
-    }
-
-    #[test]
-    fn a_pack_that_calls_itself_something_a_path_cannot_hold_is_not_a_pack() {
-        let catalogue = Catalogue::parse(
-            "pack: ../latest\nname: Sneaky\nfile: packs/sneaky.syx\n\npack: Shouty Name\nname: \
-             Shouty\nfile: packs/shouty.syx\n",
-        );
-
-        assert!(catalogue.is_empty(), "neither name survives a path");
-        assert_eq!(catalogue.complaints().len(), 2);
-    }
-
-    #[test]
-    fn a_search_reads_everything_a_pack_says_about_itself() {
-        let catalogue = Catalogue::parse(INDEX);
-
-        let by_name: Vec<&str> = catalogue
-            .search("acid")
-            .into_iter()
-            .map(super::Entry::id)
-            .collect();
-        assert_eq!(by_name, ["acid-lines"], "what it is called");
-
-        let by_tag: Vec<&str> = catalogue
-            .search("PAD")
-            .into_iter()
-            .map(super::Entry::id)
-            .collect();
-        assert_eq!(
-            by_tag,
-            ["aurora-pads", "acid-lines"],
-            "and a tag, in either case, wherever it is"
-        );
-
-        assert_eq!(
-            catalogue.search("").len(),
-            2,
-            "and a field nobody has typed in is not a filter"
-        );
-    }
-
-    #[test]
-    fn the_tags_are_read_off_the_packs_that_carry_them() {
-        let catalogue = Catalogue::parse(INDEX);
-
-        assert_eq!(
-            catalogue.tags(),
-            [("pad", 2), ("ambient", 1), ("bass", 1), ("slow", 1)],
-            "the ones the repository actually uses first"
-        );
+    fn an_empty_search_is_not_asking_anything() {
+        let mut looking = Looking::default();
+        assert!(!looking.asking());
+        looking.find = "   ".to_owned();
+        assert!(!looking.asking(), "whitespace is not a question");
+        looking.find = "pad".to_owned();
+        assert!(looking.asking());
     }
 }

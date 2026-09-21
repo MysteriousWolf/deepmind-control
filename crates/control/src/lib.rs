@@ -41,12 +41,20 @@
 //!
 //! # And a shelf somebody else filled
 //!
-//! [`catalogue`] is the third thing, and it is groundwork rather than a
-//! surface: the index a repository of shared presets would carry, read the way
-//! this application reads everything somebody else wrote — leniently, saying
-//! what it could not read, and trusting nothing in it with a path. Nothing
-//! draws it yet. See [the plan](../../../docs/presets.md) for what it is for and
-//! what has to be decided before any of it fetches anything.
+//! [`catalogue`] is the librarian's second shelf, and it is a surface now:
+//! [`deepmind-patches`](https://github.com/MysteriousWolf/deepmind-patches) is
+//! a real repository, one `.syx` and one `.toml` per sound, published as a
+//! release on every merge. It is reached either by `git clone` and a folder
+//! dialog or by fetching the newest release on a thread, and pressing anything
+//! on it puts that sound on the same [`Shelf`] every other route already fills.
+//! Which of the two shelves is showing is [`Browsing`].
+//!
+//! Almost none of the format is read here. The library publishes the
+//! `deepmind-patches` crate, which is the same split `deepmind-midi` is on the
+//! protocol's side, and this application links it rather than keeping a reader
+//! of its own. See [the plan](../../../docs/presets.md) for the reasoning and
+//! [the specification](../../../docs/patches-repo.md) for what the repository
+//! is.
 //!
 //! There is no third surface. One of the fourteen sections is what an `EDIT` press
 //! opens, and it opens *over* the panel rather than instead of it: a sheet with
@@ -61,9 +69,10 @@ mod files;
 mod librarian;
 #[cfg(feature = "previews")]
 pub mod preview;
+mod shared;
 mod shelf;
 mod window;
 
-pub use app::{App, Message, View};
+pub use app::{App, Browsing, Message, View};
 pub use shelf::{Held, ORDERS, Order, Shelf, Source, Transfer, patch_to_syx};
 pub use window::run;

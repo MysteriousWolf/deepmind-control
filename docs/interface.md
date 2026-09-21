@@ -494,6 +494,33 @@ There were three surfaces once, and the middle one held whichever section was
 open. It is gone with the tab bar: a section is not a third thing this
 application is.
 
+**The librarian has two shelves, and they are one surface.** This machine's, and
+the sounds other people have published —
+[`deepmind-patches`](https://github.com/MysteriousWolf/deepmind-patches), one
+`.syx` and one `.toml` per sound, published as a release on every merge. A
+switch at the top rather than a tab bar: there are two of them, they answer the
+same question (*what sounds can I have*), and a bar of two is a bar that looks
+like it is missing the rest.
+
+They are one surface because the second one's answer *becomes* the first one's:
+pressing a shared patch puts it on the shelf every other route already fills,
+where loading, saving and reading a bank already work. A catalogue is a shelf
+somebody else filled, not a third place to be.
+
+**The shared shelf draws the library's own pictures.** Every patch carries a 7x7
+one-bit icon and so does every category, drawn once in the repository and
+shipped in its index. They arrive as the same `Pixels` this window already blits
+a glyph and a modulation cell from, so a patch's picture is on the instrument's
+own dots at the instrument's own pitch. An author who draws one gets it drawn;
+an author who does not gets their category's. Nothing about a shared sound is
+invented here, which is the same rule the panel is under.
+
+**Almost none of the format is read here either.** The library publishes the
+`deepmind-patches` crate — the same split `deepmind-midi` is on the protocol's
+side — so this application links a reader rather than keeping one. What is left
+in `catalogue.rs` is where a catalogue is cached, how it is fetched without
+dropping a frame, and what a search field asks of it.
+
 **The shelf is a grid and not a list.** A pack is 128 programs, and the one
 thing this surface can offer that the instrument's two-line display cannot is
 all of them at once: four across at the window's opening width, in slot order,

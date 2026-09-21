@@ -28,6 +28,19 @@ use rfd::FileDialog;
 /// otherwise.
 const SYSEX: &str = "syx";
 
+/// Asks for a folder, for pointing at a checkout of the shared patches.
+///
+/// The first of the catalogue's two routes and the one that needs no network:
+/// `git clone` the repository, point this at it. Nothing is read here — the
+/// caller hands the path to [`crate::catalogue::Catalogue::open`], which is
+/// where the library's own reader lives.
+#[must_use]
+pub fn folder() -> Option<PathBuf> {
+    FileDialog::new()
+        .set_title("Choose a checkout of the shared patches")
+        .pick_folder()
+}
+
 /// Asks for a `.syx` file to open, and reads it.
 ///
 /// Returns what it is called and what is in it, or nothing at all when the

@@ -12,6 +12,7 @@ use deepmind_midi::program::ProgramName;
 use deepmind_midi::sysex::inquiry::{Identity, Version};
 use deepmind_midi::wire::Channel;
 
+use crate::catalogue::{Catalogue, Looking};
 use crate::files;
 use crate::shelf::{self, Order, Shelf};
 
@@ -46,6 +47,22 @@ pub enum View {
     /// places, the band is a row of tabs, and a tab that covered the surface it
     /// is part of would be a modal wearing a tab's clothes.
     Section(Group),
+}
+
+/// Which shelf the librarian is showing.
+///
+/// The librarian holds what is on this machine and the catalogue holds what
+/// everybody else has made, and they are one surface rather than two because
+/// they answer the same question: *what sounds can I have*. Pressing a patch in
+/// the second puts it on the first, which is the one shelf every other route
+/// already fills.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum Browsing {
+    /// The sounds a file or a bank read put here.
+    #[default]
+    Shelf,
+    /// The sounds other people have published.
+    Shared,
 }
 
 /// Everything that happens to the window.
@@ -98,6 +115,20 @@ pub enum Message {
     Search(String),
     /// Draw the shelf the other way round.
     SortBy(Order),
+    /// Show this machine's shelf, or the shared one.
+    Browse(Browsing),
+    /// Fetch the newest release of the shared patches.
+    FetchPatches,
+    /// Ask for a folder and read a checkout of the shared patches out of it.
+    OpenPatches,
+    /// Narrow the shared patches to the ones these words are anywhere in.
+    FindPatch(String),
+    /// Narrow the shared patches to one category, or to all of them.
+    PatchCategory(Option<deepmind_patches::Category>),
+    /// Put one shared patch, by its id, on the shelf.
+    ShelvePatch(String),
+    /// Put every shared patch the search left on the shelf.
+    ShelveShowing,
     /// Something a view asked for.
     Ui(control_ui::Message),
 }
@@ -123,6 +154,12 @@ pub struct App {
     channel: Option<Channel>,
     /// The sound, as far as this window knows it.
     patch: Patch,
+    /// The sounds other people have published, once any are held.
+    catalogue: Catalogue,
+    /// Which of the librarian's two shelves is showing.
+    browsing: Browsing,
+    /// What is being asked of the shared shelf.
+    looking: Looking,
     /// The section open over the window, where one is.
     editing: Option<Group>,
     /// The control the pointer is over, which the footer describes.
@@ -193,6 +230,9 @@ impl App {
             hinted: None,
             mapper: Mapper::new(DEFAULT_FIRMWARE),
             shelf: Shelf::new(),
+            catalogue: Catalogue::new(),
+            browsing: Browsing::default(),
+            looking: Looking::default(),
             bank: Bank::A,
             view: View::Panel,
             negative: false,
@@ -311,6 +351,27 @@ impl App {
     fn settle(&mut self) {
         let firmware = self.firmware();
         self.mapper.reading(firmware);
+        // The download says what it has done on the same tick the device thread
+        // does, and for the same reason: neither of them is waited on.
+        self.catalogue.settle();
+    }
+
+    /// The sounds other people have published.
+    #[must_use]
+    pub const fn catalogue(&self) -> &Catalogue {
+        &self.catalogue
+    }
+
+    /// Which of the librarian's two shelves is showing.
+    #[must_use]
+    pub const fn browsing(&self) -> Browsing {
+        self.browsing
+    }
+
+    /// What is being asked of the shared shelf.
+    #[must_use]
+    pub const fn looking(&self) -> &Looking {
+        &self.looking
     }
 
     /// Returns the channel edits go out on, once one is settled.
@@ -531,6 +592,13 @@ impl App {
                     Livery::Banners => Livery::Plain,
                 };
             }
+            Message::Browse(browsing) => self.browsing = browsing,
+            Message::FetchPatches => self.fetch_patches(),
+            Message::OpenPatches => self.open_patches(),
+            Message::FindPatch(words) => self.looking.find = words,
+            Message::PatchCategory(category) => self.looking.category = category,
+            Message::ShelvePatch(id) => self.shelve_patch(&id),
+            Message::ShelveShowing => self.shelve_showing(),
             Message::Ui(control_ui::Message::Rename(name)) => self.rename(name),
             Message::Ui(control_ui::Message::Pointed(parameter)) => self.pointed = parameter,
             Message::Ui(control_ui::Message::Hinted(said)) => self.hinted = said,
@@ -604,6 +672,93 @@ impl App {
         match files::read(path) {
             Ok((name, bytes)) => self.shelve(&name, &bytes),
             Err(trouble) => self.say(format!("{} would not open: {trouble}", path.display())),
+        }
+    }
+
+    /// Starts fetching the newest release of the shared patches.
+    fn fetch_patches(&mut self) {
+        let Some(into) = crate::catalogue::cache() else {
+            self.say("This machine has nowhere to keep a downloaded catalogue.".to_owned());
+            return;
+        };
+        self.catalogue.fetch(into);
+        self.browsing = Browsing::Shared;
+    }
+
+    /// Reads a checkout of the shared patches out of a folder somebody chose.
+    fn open_patches(&mut self) {
+        let Some(root) = files::folder() else {
+            return;
+        };
+        match self.catalogue.open(&root) {
+            Ok(()) => {
+                self.browsing = Browsing::Shared;
+                let held = self.catalogue.held().map_or(0, |held| held.patches().len());
+                self.say(format!(
+                    "{held} shared patches, read off {}.",
+                    root.display()
+                ));
+            }
+            Err(trouble) => self.say(format!("That folder is not a patch library: {trouble}")),
+        }
+    }
+
+    /// Puts one shared patch on the shelf.
+    fn shelve_patch(&mut self, id: &str) {
+        let Some(held) = self.catalogue.held() else {
+            return;
+        };
+        let Some(patch) = held.index().get(id) else {
+            return;
+        };
+        match held.program(patch) {
+            Ok(program) => {
+                let name = format!("{} - {}", patch.name, patch.author);
+                match crate::shelf::patch_to_syx(&program) {
+                    Ok(bytes) => self.shelve(&name, &bytes),
+                    Err(trouble) => self.say(format!("{name} would not be written: {trouble}")),
+                }
+            }
+            Err(trouble) => self.say(format!("{} would not open: {trouble}", patch.name)),
+        }
+    }
+
+    /// Puts every shared patch the search left on the shelf, in index order.
+    ///
+    /// A filtered catalogue becomes a pack, which is the one thing a `.syx`
+    /// file is for: the twelve pads somebody searched for go onto the shelf as
+    /// twelve programs and out of the librarian as one file, in the order the
+    /// catalogue holds them.
+    fn shelve_showing(&mut self) {
+        let Some(held) = self.catalogue.held() else {
+            return;
+        };
+        let showing = held.showing(&self.looking);
+        if showing.is_empty() {
+            self.say("Nothing to put on the shelf.".to_owned());
+            return;
+        }
+        let mut bytes = Vec::new();
+        let mut missed = 0_usize;
+        for patch in &showing {
+            match held.program(patch).and_then(|program| {
+                crate::shelf::patch_to_syx(&program).map_err(|error| error.to_string())
+            }) {
+                Ok(one) => bytes.extend_from_slice(&one),
+                Err(_) => missed = missed.saturating_add(1),
+            }
+        }
+        if bytes.is_empty() {
+            self.say("None of those could be read.".to_owned());
+            return;
+        }
+        let name = match self.looking.category {
+            Some(category) => category.label().to_owned(),
+            None => "Shared patches".to_owned(),
+        };
+        self.shelve(&name, &bytes);
+        if missed > 0 {
+            self.say(format!("{missed} of those could not be read."));
         }
     }
 
