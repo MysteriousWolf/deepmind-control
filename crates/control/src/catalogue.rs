@@ -291,6 +291,13 @@ pub struct Looking {
     pub category: Option<Category>,
     /// Vocabulary terms, each of which a patch has to carry.
     pub terms: Vec<(deepmind_patches::Axis, String)>,
+    /// One of the three places a sound can be, where one is chosen.
+    ///
+    /// The column's own filter. Here rather than beside the table because it
+    /// narrows the same list everything else narrows, and a place that lived
+    /// somewhere else would be the tab this replaced wearing a filter's
+    /// clothes.
+    pub place: Option<crate::app::Where>,
 }
 
 impl Looking {
@@ -298,7 +305,10 @@ impl Looking {
     /// rather than `12 of 32` for.
     #[must_use]
     pub fn asking(&self) -> bool {
-        !self.find.trim().is_empty() || self.category.is_some() || !self.terms.is_empty()
+        !self.find.trim().is_empty()
+            || self.category.is_some()
+            || !self.terms.is_empty()
+            || self.place.is_some()
     }
 
     /// Whether one patch survives it.

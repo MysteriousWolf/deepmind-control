@@ -165,28 +165,36 @@ It is a desktop-only surface for the reason the rest of the librarian is: a
 preset pack is thirty-five kilobytes of SysEx and a plugin event buffer is sized
 for a few notes.
 
-## The three surfaces
+## One table, and where a sound is, is a column
 
-The librarian is one surface with three shelves, switched at the top, because
-they are three answers to one question — *what sounds can I have*.
+The librarian was three lists — this machine, the shared library, and sharing
+one — switched at the top. Two of those were the same kind of thing and the tab
+was wrong: somebody looking for a pad had to look twice, and nothing could tell
+them that the pad on their shelf and the pad in the library were **the same
+sound**.
 
-**This machine** is the shelf every route already fills. A program on it that
-the library has ever published says so, at the version it matched, and where
-that is not the newest one it says that too. **The fingerprint is what makes
-this work**: it is identity of a *sound*, taken over the bytes that decide what
-is heard with the name, the slot and the file left out, so a program somebody
-renamed still matches and one they edited does not. A bank read off an
-instrument becomes legible: this row is `Acid Growl` by `nyx`, and this one is
-something nobody has ever shared.
+So there is one table, and `WHERE` is a column: `Synth` with the slot beside
+it, `Machine`, or `Library`. The search and the filters run over all of it, and
+a row is a row whichever place it came from.
 
-**Shared** is the catalogue, as a table rather than a grid of cards. A card is
-right for a slot and a name; a shared patch carries a maker, a category, four
-vocabularies and a sentence, and a grid of those is a grid of paragraphs. One
-fact per column, so the eye runs down the column it cares about. Colour comes
-from the library's own `palette.toml` — twelve category colours and one per
-vocabulary axis — carried in the index so a reader needs no second file, and
-tinted most of the way back to the panel here, because a chip at full strength
-on a dark panel is the loudest thing on the surface.
+**A shelf program borrows what the library knows about it.** A program read off
+an instrument carries a name, a slot and 242 bytes and nothing else — no maker,
+no description, no vocabulary. But the fingerprint is identity of a *sound*,
+taken over the bytes that decide what is heard with the name, the slot and the
+file left out, so where the library has ever published those bytes the row
+fills in the rest, and says which version it is. A program somebody renamed
+still matches; one they edited does not, because it is not that sound any more.
+A bank read off an instrument becomes legible: this row is `Acid Growl` by
+`nyx`, this one is something nobody has ever shared.
+
+**The colours are the library's.** `resources/palette.toml` names twelve
+category colours and one per vocabulary axis, carried in the index so a reader
+needs no second file. Every chip is tinted from it — the category cells, the
+vocabulary terms, the filters above them, the bank letters, and the dots of the
+icon editor — because a filter in a different colour from what it filters is a
+filter somebody has to read rather than recognise. Tinted rather than filled:
+`#E4572E` at full strength on a dark panel is the loudest thing on the surface,
+and an icon drawn *in* `#5DB56A` is a smudge.
 
 **Pressing a row plays it and nothing is kept.** The edit buffer is the sound in
 front of somebody rather than one of the instrument's 1024, so auditioning costs
@@ -197,7 +205,8 @@ the library on the machine is playable memory rather than an archive. The press
 at the end of the row is what keeps one.
 
 **Share one** is the other direction, and the only surface here that makes
-something. It takes the sound on the screen and writes the pair a pull request
+something. It is the one thing that is still a switch of its own, because it is
+not a place a sound is — it is what somebody does about one. It takes the sound on the screen and writes the pair a pull request
 is made of, laid out the way the repository is, with a note beside it saying
 what the next four steps are. It asks for a maker, a sentence, a licence and at
 least one vocabulary term — and nothing else, because everything else is
@@ -218,6 +227,8 @@ already draws twelve good ones.
 - **A checkout has no version to report.** `index.toml` is written at release
   time, so a working copy falls back to `0.0.0`, which reads like a fault
   rather than like *this is a folder somebody cloned*.
-- **Nothing offers to replace a stale program.** The shelf says which of its
-  programs have a newer version published; putting the new one in its place is
-  still two presses on the other shelf.
+- **Nothing offers to replace a stale program.** A row says a newer version is
+  published; putting it in that program's place is still two presses.
+- **The table does not sort.** It is shelf order and then index order, which is
+  nearest-first and is right until somebody wants every sound by one maker
+  together. The columns are the obvious thing to sort by.

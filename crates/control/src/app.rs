@@ -49,22 +49,50 @@ pub enum View {
     Section(Group),
 }
 
-/// Which shelf the librarian is showing.
+/// What the librarian is doing.
 ///
-/// The librarian holds what is on this machine and the catalogue holds what
-/// everybody else has made, and they are one surface rather than two because
-/// they answer the same question: *what sounds can I have*. Pressing a patch in
-/// the second puts it on the first, which is the one shelf every other route
-/// already fills.
+/// Two, and they are not two lists: one is every sound this window can see and
+/// the other is what it takes to publish one. **Where a sound lives is a
+/// column, not a tab.** A tab per place was three lists of the same kind of
+/// thing, which meant a person looking for a pad had to look three times and
+/// could not see that the pad on their shelf and the pad in the library were
+/// the same sound.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum Browsing {
-    /// The sounds a file or a bank read put here.
+    /// Every sound, wherever it is.
     #[default]
-    Shelf,
-    /// The sounds other people have published.
-    Shared,
+    Sounds,
     /// What it takes to publish one of your own.
     Publish,
+}
+
+/// Where a sound is.
+///
+/// The three places this window can see one, which is a fact about the sound
+/// and so belongs in a column beside it rather than in a tab above it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Where {
+    /// On this machine: opened from a `.syx` file.
+    Machine,
+    /// On the synthesizer: read out of one of its banks.
+    Instrument,
+    /// In the shared library, published by somebody.
+    Library,
+}
+
+impl Where {
+    /// The three, in the order somebody reads them: nearest first.
+    pub const ALL: [Self; 3] = [Self::Instrument, Self::Machine, Self::Library];
+
+    /// What the column prints.
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Machine => "Machine",
+            Self::Instrument => "Synth",
+            Self::Library => "Library",
+        }
+    }
 }
 
 /// What a person is writing about a sound they are about to share.
@@ -197,6 +225,8 @@ pub enum Message {
     FindPatch(String),
     /// Narrow the shared patches to one category, or to all of them.
     PatchCategory(Option<deepmind_patches::Category>),
+    /// Narrow the list to sounds in one place, or to all of them.
+    PatchPlace(Option<Where>),
     /// Put one shared patch, by its id, on the shelf.
     ShelvePatch(String),
     /// Play one shared patch without keeping it anywhere.
@@ -608,97 +638,6 @@ impl App {
             // neither touches what a save would write.
             Message::Search(words) => self.shelf.search(words),
             Message::SortBy(order) => self.shelf.sort_by(order),
-            // A section asked for is a section opened, which is what the
-            // instrument's own `EDIT` does: the display becomes that section
-            // and the front of the synthesizer does not move. Here the sheet
-            // comes up over the panel the press is on.
-            //
-            // One at a time. A second sheet over the first would be a window
-            // nobody can find the bottom of, so asking for a section while one
-            // is open is the same press the hardware's second `EDIT` is: the
-            // sheet becomes the other section.
-            // A plate's `EDIT`: the section as a sheet over the front panel,
-            // which is what the press does on the instrument. Asking for one
-            // from anywhere else brings the panel back under it, because that
-            // is what the sheet is laid over.
-            Message::Ui(control_ui::Message::Show(section)) => {
-                self.view = View::Panel;
-                self.editing = Some(section);
-            }
-            // A cap of the band: the section as the surface itself. Whatever
-            // sheet was over the panel comes down with it, the way it does for
-            // the shelf, because a sheet belongs to the surface it was opened
-            // from.
-            Message::Ui(control_ui::Message::Open(section)) => {
-                self.view = View::Section(section);
-                self.editing = None;
-            }
-            // The shelf, which is the one cap of the band that is a surface
-            // rather than a section. Whatever sheet was over the panel comes
-            // down with it: a sound's filter is not open while somebody is
-            // looking at a list of sounds.
-            Message::Ui(control_ui::Message::Shelf) => {
-                self.view = View::Library;
-                self.editing = None;
-            }
-            // The way back out from under a sheet: the mark on its own bar, a
-            // press on the panel around it, or the escape key. It says nothing
-            // about which surface is underneath, because it is not a place to
-            // go — escape from the shelf leaves somebody on the shelf.
-            Message::Ui(control_ui::Message::Close) => self.editing = None,
-            // The first cap of the band, which *is* a place to go: the front of
-            // the instrument, with nothing over it, from wherever somebody was.
-            Message::Ui(control_ui::Message::Front) => {
-                self.view = View::Panel;
-                self.editing = None;
-            }
-            Message::Ui(control_ui::Message::Edit { parameter, value }) => {
-                self.moved(parameter, value);
-                // A routing pointed at the window is asking where it goes, and
-                // this is the answer arriving. Whichever of the two ways said
-                // it, a name chosen from the searchable list or a control taken
-                // hold of somewhere else in the window, the question has been
-                // answered and the mode comes down.
-                if self
-                    .mapper
-                    .mapped()
-                    .is_some_and(|mapped| mapped.destination() == parameter)
-                {
-                    self.mapper.map(None);
-                }
-            }
-            // The two halves of one gesture: a drag on a lit control while a
-            // routing is pointed at the window says where the routing goes and
-            // how much of it arrives. Both bytes were worked out by the view
-            // that knows which control the drag is on; this is where they go
-            // out, and the mode stays up until the hand lets go.
-            Message::Ui(control_ui::Message::Reach {
-                destination,
-                at,
-                depth,
-                by,
-            }) => {
-                self.moved(destination, at);
-                self.moved(depth, by);
-            }
-            Message::Ui(control_ui::Message::Swap { one, other }) => {
-                // Read both sides before either moves, or the second pair is
-                // written from a parameter the first pair has already changed.
-                let held: Vec<(ParamId, Option<u8>, ParamId, Option<u8>)> = one
-                    .into_iter()
-                    .zip(other)
-                    .map(|(one, other)| {
-                        (one, self.patch.value(one), other, self.patch.value(other))
-                    })
-                    .collect();
-                for (one, was, other, is) in held {
-                    if let (Some(was), Some(is)) = (was, is) {
-                        self.moved(one, is);
-                        self.moved(other, was);
-                    }
-                }
-            }
-            Message::Ui(control_ui::Message::Mapper(at)) => self.mapper.map(at),
             Message::Invert => self.negative = !self.negative,
             Message::Wear => {
                 self.livery = match self.livery {
@@ -706,25 +645,24 @@ impl App {
                     Livery::Banners => Livery::Plain,
                 };
             }
-            Message::Browse(browsing) => self.browsing = browsing,
-            Message::FetchPatches => self.fetch_patches(),
-            Message::OpenPatches => self.open_patches(),
-            Message::FindPatch(words) => self.looking.find = words,
-            Message::PatchCategory(category) => self.looking.category = category,
-            Message::ShelvePatch(id) => self.shelve_patch(&id),
-            Message::AuditionPatch(id) => self.audition(&id),
-            Message::PublishAuthor(said) => self.publishing.author = said,
-            Message::PublishAbout(said) => self.publishing.about = said,
-            Message::PublishLicence(said) => self.publishing.licence = said,
-            Message::PublishCollection(said) => self.publishing.collection = said,
-            Message::PublishTerm(axis, term) => self.publish_term(&axis, &term),
-            Message::PublishDot(across, down) => self.publish_dot(across, down),
-            Message::PublishIcon(from_category) => self.publish_icon(from_category),
-            Message::PublishWrite => self.publish_write(),
             Message::ShelveShowing => self.shelve_showing(),
-            Message::Ui(control_ui::Message::Rename(name)) => self.rename(name),
-            Message::Ui(control_ui::Message::Pointed(parameter)) => self.pointed = parameter,
-            Message::Ui(control_ui::Message::Hinted(said)) => self.hinted = said,
+            Message::Browse(_)
+            | Message::FetchPatches
+            | Message::OpenPatches
+            | Message::FindPatch(_)
+            | Message::PatchCategory(_)
+            | Message::PatchPlace(_)
+            | Message::ShelvePatch(_)
+            | Message::AuditionPatch(_) => self.looking_at(message),
+            Message::PublishAuthor(_)
+            | Message::PublishAbout(_)
+            | Message::PublishLicence(_)
+            | Message::PublishCollection(_)
+            | Message::PublishTerm(..)
+            | Message::PublishDot(..)
+            | Message::PublishIcon(_)
+            | Message::PublishWrite => self.writing(message),
+            Message::Ui(asked) => self.asked(asked),
         }
         self.drain();
         // After the drain, because the drain is what an inquiry's answer
@@ -805,7 +743,6 @@ impl App {
             return;
         };
         self.catalogue.fetch(into);
-        self.browsing = Browsing::Shared;
     }
 
     /// Reads a checkout of the shared patches out of a folder somebody chose.
@@ -815,7 +752,6 @@ impl App {
         };
         match self.catalogue.open(&root) {
             Ok(()) => {
-                self.browsing = Browsing::Shared;
                 let held = self.catalogue.held().map_or(0, |held| held.patches().len());
                 self.say(format!(
                     "{held} shared patches, read off {}.",
@@ -823,6 +759,150 @@ impl App {
                 ));
             }
             Err(trouble) => self.say(format!("That folder is not a patch library: {trouble}")),
+        }
+    }
+
+    /// Everything the drawing asked for.
+    ///
+    /// The view layer speaks one message type and this window speaks another,
+    /// so every press on a fader, a cap or a sheet's own bar arrives here.
+    /// Gathered into one place because they are one boundary: what crosses it
+    /// is the view saying *somebody did this*, and what happens about it is
+    /// always this file's business rather than the drawing's.
+    fn asked(&mut self, message: control_ui::Message) {
+        match message {
+            // A section asked for is a section opened, which is what the
+            // instrument's own `EDIT` does: the display becomes that section
+            // and the front of the synthesizer does not move. Here the sheet
+            // comes up over the panel the press is on.
+            //
+            // One at a time. A second sheet over the first would be a window
+            // nobody can find the bottom of, so asking for a section while one
+            // is open is the same press the hardware's second `EDIT` is: the
+            // sheet becomes the other section.
+            // A plate's `EDIT`: the section as a sheet over the front panel,
+            // which is what the press does on the instrument. Asking for one
+            // from anywhere else brings the panel back under it, because that
+            // is what the sheet is laid over.
+            control_ui::Message::Show(section) => {
+                self.view = View::Panel;
+                self.editing = Some(section);
+            }
+            // A cap of the band: the section as the surface itself. Whatever
+            // sheet was over the panel comes down with it, the way it does for
+            // the shelf, because a sheet belongs to the surface it was opened
+            // from.
+            control_ui::Message::Open(section) => {
+                self.view = View::Section(section);
+                self.editing = None;
+            }
+            // The shelf, which is the one cap of the band that is a surface
+            // rather than a section. Whatever sheet was over the panel comes
+            // down with it: a sound's filter is not open while somebody is
+            // looking at a list of sounds.
+            control_ui::Message::Shelf => {
+                self.view = View::Library;
+                self.editing = None;
+            }
+            // The way back out from under a sheet: the mark on its own bar, a
+            // press on the panel around it, or the escape key. It says nothing
+            // about which surface is underneath, because it is not a place to
+            // go — escape from the shelf leaves somebody on the shelf.
+            control_ui::Message::Close => self.editing = None,
+            // The first cap of the band, which *is* a place to go: the front of
+            // the instrument, with nothing over it, from wherever somebody was.
+            control_ui::Message::Front => {
+                self.view = View::Panel;
+                self.editing = None;
+            }
+            control_ui::Message::Edit { parameter, value } => {
+                self.moved(parameter, value);
+                // A routing pointed at the window is asking where it goes, and
+                // this is the answer arriving. Whichever of the two ways said
+                // it, a name chosen from the searchable list or a control taken
+                // hold of somewhere else in the window, the question has been
+                // answered and the mode comes down.
+                if self
+                    .mapper
+                    .mapped()
+                    .is_some_and(|mapped| mapped.destination() == parameter)
+                {
+                    self.mapper.map(None);
+                }
+            }
+            // The two halves of one gesture: a drag on a lit control while a
+            // routing is pointed at the window says where the routing goes and
+            // how much of it arrives. Both bytes were worked out by the view
+            // that knows which control the drag is on; this is where they go
+            // out, and the mode stays up until the hand lets go.
+            control_ui::Message::Reach {
+                destination,
+                at,
+                depth,
+                by,
+            } => {
+                self.moved(destination, at);
+                self.moved(depth, by);
+            }
+            control_ui::Message::Swap { one, other } => {
+                // Read both sides before either moves, or the second pair is
+                // written from a parameter the first pair has already changed.
+                let held: Vec<(ParamId, Option<u8>, ParamId, Option<u8>)> = one
+                    .into_iter()
+                    .zip(other)
+                    .map(|(one, other)| {
+                        (one, self.patch.value(one), other, self.patch.value(other))
+                    })
+                    .collect();
+                for (one, was, other, is) in held {
+                    if let (Some(was), Some(is)) = (was, is) {
+                        self.moved(one, is);
+                        self.moved(other, was);
+                    }
+                }
+            }
+            control_ui::Message::Mapper(at) => self.mapper.map(at),
+            control_ui::Message::Rename(name) => self.rename(name),
+            control_ui::Message::Pointed(parameter) => self.pointed = parameter,
+            control_ui::Message::Hinted(said) => self.hinted = said,
+        }
+    }
+
+    /// Everything somebody does to the list of sounds.
+    ///
+    /// One conversation, like [`writing`](Self::writing): what is being looked
+    /// for, where it is being looked for, and what happens to the one that was
+    /// pressed. None of it touches the sound on the screen.
+    fn looking_at(&mut self, message: Message) {
+        match message {
+            Message::Browse(browsing) => self.browsing = browsing,
+            Message::FetchPatches => self.fetch_patches(),
+            Message::OpenPatches => self.open_patches(),
+            Message::FindPatch(words) => self.looking.find = words,
+            Message::PatchCategory(category) => self.looking.category = category,
+            Message::PatchPlace(place) => self.looking.place = place,
+            Message::ShelvePatch(id) => self.shelve_patch(&id),
+            Message::AuditionPatch(id) => self.audition(&id),
+            _ => {}
+        }
+    }
+
+    /// Everything somebody is writing about a sound they are about to share.
+    ///
+    /// Gathered into one arm because they are one conversation: eight messages
+    /// that all move the same half-written record and none of which the rest of
+    /// this window has any opinion about.
+    fn writing(&mut self, message: Message) {
+        match message {
+            Message::PublishAuthor(said) => self.publishing.author = said,
+            Message::PublishAbout(said) => self.publishing.about = said,
+            Message::PublishLicence(said) => self.publishing.licence = said,
+            Message::PublishCollection(said) => self.publishing.collection = said,
+            Message::PublishTerm(axis, term) => self.publish_term(&axis, &term),
+            Message::PublishDot(across, down) => self.publish_dot(across, down),
+            Message::PublishIcon(from_category) => self.publish_icon(from_category),
+            Message::PublishWrite => self.publish_write(),
+            _ => {}
         }
     }
 

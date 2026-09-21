@@ -43,6 +43,10 @@ const DOT: f32 = 26.0;
 /// How wide the fields beside the grid stand.
 const FIELD: f32 = 340.0;
 
+/// How far an inked dot is carried from the metal towards its category's
+/// colour. The table's own, so the two agree.
+const INKED: f32 = 0.55;
+
 /// The whole of it.
 pub fn view(app: &App) -> Element<'_, Message> {
     let said = app.publishing();
@@ -51,7 +55,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .push(
             scrollable(
                 column![
-                    row![grid(said), fields(said)].spacing(24),
+                    row![grid(app, said, category), fields(said)].spacing(24),
                     terms(app, said),
                     writing(app, said, category),
                 ]
@@ -90,9 +94,23 @@ fn standing(app: &App, category: Option<Category>) -> Element<'_, Message> {
 }
 
 /// The icon, and the two presses that start it over.
-fn grid(said: &Publishing) -> Element<'_, Message> {
-    let rows = (0..7).map(|down| {
-        row((0..7).map(|across| dot(said, across, down)))
+///
+/// Inked in the colour its category is drawn in everywhere else on this
+/// surface, so that what somebody is drawing looks like what will appear in the
+/// table beside every other sound of that kind. A picture drawn in one colour
+/// and shown in another is a picture somebody has to imagine twice.
+fn grid<'a>(
+    app: &'a App,
+    said: &'a Publishing,
+    category: Option<Category>,
+) -> Element<'a, Message> {
+    let colour = app
+        .catalogue()
+        .held()
+        .zip(category)
+        .and_then(|(held, category)| held.category_colour(category));
+    let rows = (0..7).map(move |down| {
+        row((0..7).map(move |across| dot(said, across, down, colour)))
             .spacing(2)
             .into()
     });
@@ -112,7 +130,12 @@ fn grid(said: &Publishing) -> Element<'_, Message> {
 }
 
 /// One dot of the grid.
-fn dot(said: &Publishing, across: usize, down: usize) -> Element<'_, Message> {
+fn dot(
+    said: &Publishing,
+    across: usize,
+    down: usize,
+    colour: Option<[u8; 3]>,
+) -> Element<'_, Message> {
     let inked = said.inked(across, down);
     button(space())
         .width(Length::Fixed(DOT))
@@ -125,7 +148,14 @@ fn dot(said: &Publishing, across: usize, down: usize) -> Element<'_, Message> {
                 // field, which is what the display in the middle of the panel
                 // does and what this picture will be drawn on everywhere else.
                 background: Some(Background::Color(if inked {
-                    material.metal
+                    // The same lift the table gives an icon: carried from the
+                    // metal towards the category's colour rather than set to
+                    // it, because a seven-dot picture *in* `#5DB56A` is a
+                    // smudge.
+                    match colour {
+                        Some(rgb) => control_ui::mix(material.metal, crate::sounds::of(rgb), INKED),
+                        None => material.metal,
+                    }
                 } else if lit {
                     control_ui::mix(material.recess, material.metal, 0.3)
                 } else {
@@ -233,6 +263,10 @@ fn terms<'a>(app: &'a App, said: &'a Publishing) -> Element<'a, Message> {
 }
 
 /// One term, on or off.
+///
+/// The same press the table's own filters are, in the same colour: choosing a
+/// term here and filtering by it there are one gesture, and a window that drew
+/// them differently would be asking somebody to learn it twice.
 fn chip<'a>(
     term: String,
     axis: &'static str,
@@ -240,36 +274,12 @@ fn chip<'a>(
     carried: bool,
 ) -> Element<'a, Message> {
     let said = term.clone();
-    button(text(term).size(11))
-        .padding([2, 7])
-        .style(move |theme: &Theme, _status| {
-            let material = materials(theme);
-            let ground = match (carried, colour) {
-                (true, Some([red, green, blue])) => control_ui::mix(
-                    material.recess,
-                    iced::Color::from_rgb8(red, green, blue),
-                    0.45,
-                ),
-                (true, None) => material.plate,
-                (false, _) => material.recess,
-            };
-            button::Style {
-                background: Some(Background::Color(ground)),
-                text_color: if carried {
-                    material.metal
-                } else {
-                    material.metal_low
-                },
-                border: border::rounded(3).width(1.0).color(if carried {
-                    material.lit
-                } else {
-                    material.recess_edge
-                }),
-                ..button::Style::default()
-            }
-        })
-        .on_press(Message::PublishTerm(axis.to_owned(), said))
-        .into()
+    crate::sounds::filter(
+        term,
+        colour,
+        carried,
+        Message::PublishTerm(axis.to_owned(), said),
+    )
 }
 
 /// The press that writes the pair, and what is still wanted.

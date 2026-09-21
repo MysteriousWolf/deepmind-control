@@ -70,9 +70,9 @@ mod librarian;
 #[cfg(feature = "previews")]
 pub mod preview;
 mod publish;
-mod shared;
 mod sharing;
 mod shelf;
+mod sounds;
 mod window;
 
 pub use app::{App, Browsing, Message, Publishing, View};
