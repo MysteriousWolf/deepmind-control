@@ -209,7 +209,7 @@ pub use footer::footer;
 pub use home::{Livery, Way, band, panel, panel_width, panelled, screen, unplated, ways, ways_in};
 pub use home::{swatch as livery_swatch, ways_width};
 pub use knob::{Knob, knob};
-pub use lcd::{Band, Ink, PITCH, Screen, Size, lcd, stencil, swatch};
+pub use lcd::{Band, Ink, PITCH, PROSE, RATE, Screen, Size, lcd, stencil, swatch};
 pub use logo::logo;
 pub use mapping::{Mapper, Mapping, Reach};
 pub use modal::{margins, modal, page, sheet};

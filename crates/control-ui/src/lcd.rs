@@ -146,7 +146,11 @@ const SURROUND: f32 = BEZEL + MARGIN;
 /// Eight, which at this pitch is twenty points a second: slow enough to read a
 /// ten-character name without chasing it and fast enough that a name arrives
 /// rather than creeps.
-const RATE: f32 = 8.0;
+///
+/// Published with [`PROSE`] because [`Screen::marquee_at`] takes one of the two
+/// and a caller that cannot name either is a caller writing down a number this
+/// window has already decided.
+pub const RATE: f32 = 8.0;
 
 /// How fast a line of prose too long for its field travels, in dots a second.
 ///
