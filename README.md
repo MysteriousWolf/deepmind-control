@@ -69,7 +69,16 @@ library's edge lists rather than from the topology's name.
 The librarian is the second surface: it reads and writes `.syx` files, reads a
 bank off the instrument with a progress bar and a stop button, browses what it
 found in slot order, and loads any of it into the edit buffer as a difference
-rather than as 242 parameters.
+rather than as 242 parameters. A pack is 128 programs, so it can also be
+searched — one field, matched against a name, a slot and the category a program
+calls itself — and read in slot, name or category order. Neither moves anything
+on the shelf: a save writes the pack that was opened, in its own order.
+
+Groundwork for the other half of that question, the packs other people have
+made, is in `crates/control/src/catalogue.rs`: the index a git repository of
+shared presets would carry, read leniently and searched the same way. Nothing
+fetches anything yet, and [presets.md](docs/presets.md) is the design and the
+decisions still to take.
 
 Everything above runs against the library's simulated synthesizer, which appears
 in the port list as an ordinary choice, so none of it needs hardware.
@@ -106,6 +115,7 @@ Nothing here has been run against a synthesizer yet.
 | --- | --- |
 | [Plan](docs/plan.md) | What is being built, in what order, and the decisions behind it |
 | [Interface](docs/interface.md) | What a control looks like, and its three states |
+| [Presets](docs/presets.md) | The repository of shared packs, what is built towards it, and what is not decided |
 | [Waiting](docs/waiting.md) | What has been asked of the library, and what each answer changes here |
 | [To do](docs/todo.md) | What a change here left open, and who has to decide it |
 | [Protocol](https://github.com/MysteriousWolf/deepmind-midi/blob/main/docs/midi-spec.md) | Lives in the library, with the specification it is generated from |

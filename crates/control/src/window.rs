@@ -380,7 +380,7 @@ fn glass(app: &App) -> Element<'_, Message> {
         .on_hint("Turn every display in this window over, dark glass for light.")
 }
 
-/// What the instrument's own display would be showing./// What the instrument's own display would be showing.
+/// What the instrument's own display would be showing.
 ///
 /// The panel leaves a screen-shaped hole in itself and the application fills
 /// it, because what a display says is the application's business rather than
@@ -476,8 +476,8 @@ fn fold(words: &str, columns: i32) -> Vec<String> {
     lines
 }
 
-/// The name of the thing, what is known about the instrument, the port picker,
-/// and what to do with a port.
+/// The name of the thing, and the port everything else in the window is on the
+/// other end of.
 ///
 /// One line, and the name is the only thing on it that is not a control. It
 /// carried the project's mark and a subtitle on a case with wooden end cheeks,
@@ -487,8 +487,38 @@ fn fold(words: &str, columns: i32) -> Vec<String> {
 /// application's icon, where an icon belongs.
 ///
 /// What is left is the wordmark, sliced the way the banner slices it, standing
-/// on the panel with the port beside it.
+/// on the panel with the port [bay](port) at the other end of the line.
 fn header(app: &App) -> Element<'_, Message> {
+    row![wordmark(), space().width(Fill), port(app)]
+        .spacing(10)
+        // Against the middle of the line rather than against the baseline the
+        // name sits on. Bottom was right while the port was four loose controls
+        // of four different heights beside a thirty-four point word, because
+        // something had to line them up and the word's own foot was the only
+        // straight edge in the row. They are one plate now, with its own height
+        // and its own edges, and a plate hung off the bottom of a word reads as
+        // a plate that has slipped.
+        .align_y(Center)
+        .into()
+}
+
+/// The port, and everything that is about the port.
+///
+/// Four controls stood loose along the top of the window: a badge, a picker in
+/// the toolkit's own shape, a press to look again and a press to open it. Each
+/// was drawn correctly and none of them said it was one thing, so the corner of
+/// the window that decides what this application is *talking to* read as three
+/// unrelated marks and a drop-down that had wandered in from another program.
+///
+/// So they are a bay: the face plate every other panel of this window's own
+/// furniture sits on, with the four of them on it at one height and one
+/// spacing. It is the same plate the about badge opens its rows on and the same
+/// one a rack of parameters stands on, which is the whole argument — a port is
+/// not a parameter, and it is still chosen on the instrument.
+///
+/// In the order somebody uses them: which port, look again, open it, and what
+/// answered.
+fn port(app: &App) -> Element<'_, Message> {
     let ports = app.ports().to_vec();
     // A socket with a plug in it where one is open, and an empty one where none
     // is: the two presses do the same thing to the same port and the word that
@@ -503,32 +533,46 @@ fn header(app: &App) -> Element<'_, Message> {
             .on_press_maybe(app.chosen().map(|_| Message::Connect))
             .on_hint("Open the chosen port and listen on it.")
     };
-    row![
-        wordmark(),
-        space().width(Fill),
-        // Beside the picker, because everything it says is about whatever that
-        // picker has open.
-        about(app),
-        pick_list(ports, app.chosen().cloned(), Message::Choose)
-            .placeholder("MIDI port")
-            .font(control_ui::printed())
-            .text_size(13)
-            .padding([5, 10])
-            .style(control_ui::selector)
-            .menu_style(control_ui::shortlist)
-            .width(Length::Fixed(220.0)),
-        chrome(control_ui::RESCAN)
-            .on_press(Message::Rescan)
-            .on_hint("Look for MIDI ports again."),
-        connection,
-    ]
-    .spacing(10)
-    // Against the baseline the name sits on rather than against the middle of
-    // the line it stands in: a thirty-four point word beside a twenty-four
-    // point press, centred, is a press floating in the middle of a word.
-    .align_y(iced::alignment::Vertical::Bottom)
+    container(
+        row![
+            pick_list(ports, app.chosen().cloned(), Message::Choose)
+                .placeholder("MIDI port")
+                .font(control_ui::printed())
+                .text_size(13)
+                .padding([6, 10])
+                .style(control_ui::selector)
+                .menu_style(control_ui::shortlist)
+                .width(Length::Fixed(PICKER)),
+            chrome(control_ui::RESCAN)
+                .on_press(Message::Rescan)
+                .on_hint("Look for MIDI ports again."),
+            connection,
+            // Last, because it is the answer rather than the question: what is
+            // on the other end of whatever the rest of this bay has opened.
+            about(app),
+        ]
+        .spacing(6)
+        .align_y(Center),
+    )
+    .padding(INSIDE_BAY)
+    .style(control_ui::bay)
     .into()
 }
+
+/// How wide the port picker stands.
+///
+/// Wide enough for the names a machine gives its MIDI ports, which are the
+/// interface's own name and the port's on top of it. Fixed rather than fitted,
+/// because a picker that changed width when a synthesizer was switched on would
+/// move everything beside it.
+const PICKER: f32 = 220.0;
+
+/// How much plate there is around what stands on the port bay.
+///
+/// Little. The presses on it already carry their own room around their marks,
+/// and a plate with a wide border around a row of controls is a frame rather
+/// than a surface.
+const INSIDE_BAY: f32 = 5.0;
 
 /// What is known about the instrument on the other end of the port, under a
 /// press that opens when the pointer is over it.

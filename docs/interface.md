@@ -515,6 +515,34 @@ host sends the difference, and nothing has heard the instrument play any of it.
 Reading the edit buffer back is what turns the panel green, exactly as after a
 fader is dragged.
 
+**A wall of 128 names is a wall.** Showing all of them at once is what this
+surface is for and it stops being an advantage at the moment somebody is looking
+for one, so there is a field to type into and three ways round to read what is
+left. The field is one field and asks one question of everything a shelf knows
+about a sound without opening it: its name, the slot it names, and the category
+it calls itself. Typing `a12` finds `A12` and `A120` through `A128`; typing
+`pad` finds every pad by name and every program whose category is `Pad`, which
+are two questions with one answer somebody is happy with.
+
+**Neither of them moves anything on the shelf.** A save writes the pack that was
+opened, in its own order, whatever the screen is sorted by or searched for: a
+librarian that wrote out the screen would turn a search into a deletion, and a
+pack written in alphabetical order is a pack that loads into the wrong slots. So
+each row carries the place its program holds on the shelf, and a load names that
+rather than the row it was pressed on.
+
+**The count says both numbers.** `12 of 128 programs · factory.syx` while a
+search is narrowing it, and the plain count when nothing is. A librarian whose
+own count changed as somebody typed would be a librarian that had lost track of
+what it is holding.
+
+**A category is on the card, under the name, in the ink a legend is printed in.**
+It is what the shelf can be sorted and searched by, so it has to be on the card
+the sort moved; it is not what the sound is called, so it is not beside the
+name. The word is the library's own table read for the firmware that answered,
+and a program sitting on a value no table names has no category rather than an
+invented one.
+
 ## Confidence is a fill, not a colour
 
 A claim per parameter, which is more than the library tracks: the library's
@@ -715,21 +743,49 @@ them is: `KYBD` is `VCF Keyboard Tracking`, it takes `0` to `255`, and
 controller 74 drives it. None of that fits over a lane and all of it fits along
 the bottom of a window.
 
+**It is a display.** It was a row of set type in a box: three faces, three inks
+and a sentence that wrapped, along the foot of a window that draws every other
+thing it says in dots. So it is the same glass at the same pitch as the screen
+in the middle of the panel, as wide as the window is, with one line on it. A
+DeepMind answers *what is this control* on its own display, and so does this.
+
+**One line, and it travels rather than wraps.** A sentence that wrapped made the
+footer two lines deep, then three, and moved the whole window up to make room as
+the pointer crossed from a control the library has a sentence for to one it does
+not. A strip along the foot has to be the same height whatever is on it, or it
+is not a strip. So what does not fit travels: the same hold, travel and hold a
+plate's legend gets, at the pace a sentence is read at rather than the pace a
+label is noticed at — thirty dots a second against eight, which is the
+difference between a ticker and a label. Nothing travels that fits, so a short
+answer is a still line.
+
 - **Every word of it is the library's answer.** The name, the section, the
   value's own name, the range and the controller are five questions put to
   `deepmind-midi`. The footer writes down nothing about a parameter.
-- **It opens with a picture.** `ParamId::glyph`, published in 26.5: seven dots
-  by seven before the name, on the same grid as the effects' marks and the
-  modulation sources' cells. A decay as a tail, a mix as wet against dry, a
-  pedal as a treadle. It is first because a picture is read before a word is,
-  and because somebody who points at the same control twice should stop needing
-  the word. 177 of the 242 parameters carry one; the rest are the effect slots,
-  whose picture depends on the algorithm and is on the slot itself, and the
-  seventeen characters of the program's name, which are letters rather than a
+- **It opens with a picture, and the picture does not travel.** `ParamId::glyph`,
+  published in 26.5: seven dots by seven before the name, on the same grid as
+  the effects' marks and the modulation sources' cells — which is also the grid
+  this glass writes a character on, so it stands beside the words rather than
+  among them. A decay as a tail, a mix as wet against dry, a pedal as a treadle.
+  It is first because a picture is read before a word is, and because somebody
+  who points at the same control twice should stop needing the word. It is held
+  in a lead-in of its own while the line travels past it: a picture that scrolled
+  away would leave the head of the line showing a picture of whatever used to be
+  under the pointer. 177 of the 242 parameters carry one; the rest are the effect
+  slots, whose picture depends on the algorithm and is on the slot itself, and
+  the seventeen characters of the program's name, which are letters rather than a
   control.
 - **The claim is in words here, not in a colour.** A footer is a sentence, and a
   sentence that said what backs a value by being a different colour would be
-  saying it only to the readers who see the colour.
+  saying it only to the readers who see the colour. It is the one display in the
+  window printed at full strength whatever it is showing, for the same reason:
+  this glass is not showing a value, it is saying what a control *is*, which is
+  as true of a parameter nobody has read as of one the synthesizer described.
+- **The one thing beside the glass is the routing being mapped.** A display has
+  one colour of light and nothing on it can be pressed, and that press is the
+  window's one saturated colour and the way out of a mode. So it stands on the
+  panel at the left-hand end of the strip, and everything the glass says about
+  the control under the pointer follows it.
 - **The range is in raw bytes**, never the number the synthesizer's display
   shows, because the manual prints the two ends of a range and almost never the
   curve between them. See
@@ -1844,9 +1900,28 @@ application's icon stays drawn, because it is a case with faders in it and it
 has to turn over with the theme; a wordmark is a shape and has no surfaces in it
 to light.
 
-The press and the picker beside it sit on the name's baseline rather than in the
-middle of the line it stands in. A word this size beside a twenty-four point
-press, centred, is a press floating in the middle of a word.
+**The port is a bay, not four loose controls.** A badge, a picker in a toolkit's
+own shape, a press that looks again and a press that opens it stood along the
+top of the window, each drawn correctly and none of them saying it was one
+thing: the corner of the window that decides what this application is *talking
+to* read as three unrelated marks and a drop-down that had wandered in from
+another program. They sit on a face plate now — the same plate a rack of
+parameters stands on and the same one the about badge opens its rows on — at one
+height and one spacing, in the order somebody uses them: which port, look again,
+open it, and what answered.
+
+That is also what settled the alignment. The row used to sit on the name's
+baseline, because four controls of four different heights beside a thirty-four
+point word need something to line them up and the word's own foot was the only
+straight edge in the row. The bay has its own height and its own edges, so it is
+centred on the line the name stands in: a plate hung off the bottom of a word
+reads as a plate that has slipped.
+
+**A picker is cut to the same corner as everything else.** It was rounded a
+point tighter than the presses, the plates, the sheets and the glass, which
+nobody reads as a difference: what it reads as is a control that came from
+somewhere else. Three points, written down once in `style.rs`, on the one
+control in this window a toolkit draws unaided.
 
 ## Movement
 

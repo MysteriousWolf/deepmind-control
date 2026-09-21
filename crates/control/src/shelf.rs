@@ -27,7 +27,9 @@ use core::fmt;
 
 use deepmind_host::Outcome;
 use deepmind_midi::ids::{Bank, DeviceId, Slot};
+use deepmind_midi::param::ParamId;
 use deepmind_midi::program::Program;
+use deepmind_midi::sysex::inquiry::Version;
 use deepmind_midi::syx::{self, File, Writer};
 
 /// The device ID every file this application writes is addressed to.
@@ -56,6 +58,50 @@ impl fmt::Display for Source {
     }
 }
 
+/// The order the programs on a shelf are laid out in.
+///
+/// Slot order is what a bank *is*, and it is where this starts, because a
+/// librarian that reordered a pack would be describing its own list rather than
+/// the instrument's memory. The other two are for the other question somebody
+/// brings to a shelf of 128 sounds: not "what is in B12" but "where did that
+/// pad go".
+///
+/// Nothing here rewrites the shelf. It is which way round the same programs are
+/// drawn, so what a save writes is what was opened whatever this is sitting on
+/// — the order a pack is written in is the order its slots are in, and a pack
+/// written out in alphabetical order would be a pack that loads into the wrong
+/// slots.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Order {
+    /// Where the instrument keeps them, which is how they arrived.
+    #[default]
+    Slot,
+    /// By name, for the sound somebody remembers the name of.
+    Name,
+    /// By the category the program calls itself, and by name inside it.
+    ///
+    /// The instrument's own word for what a sound is, out of the library's
+    /// table for the firmware that answered. A program whose category this
+    /// firmware has no name for sorts last rather than first: a run of
+    /// unnamed things at the head of a list is a list that looks broken.
+    Category,
+}
+
+impl Order {
+    /// What the press that chooses this order is printed with.
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Slot => "Slot",
+            Self::Name => "Name",
+            Self::Category => "Category",
+        }
+    }
+}
+
+/// The three of them, in the order they are offered.
+pub const ORDERS: [Order; 3] = [Order::Slot, Order::Name, Order::Category];
+
 /// One program on the shelf, and where it says it belongs.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Held {
@@ -79,6 +125,43 @@ impl Held {
     #[must_use]
     pub fn name(&self) -> String {
         self.program.name().as_str().trim().to_owned()
+    }
+
+    /// Returns what the program calls itself, where this firmware has a word
+    /// for it.
+    ///
+    /// The library's own table, read for the firmware that answered, which is
+    /// the rule every other name in this window is drawn under. A program
+    /// sitting on a value no table names has no category rather than a made-up
+    /// one, and is drawn as having none.
+    #[must_use]
+    pub fn category(&self, firmware: Version) -> Option<&'static str> {
+        let value = self.program.get(ParamId::ProgramCategory);
+        ParamId::ProgramCategory.label_for(u16::from(value), firmware)
+    }
+
+    /// Returns whether `words` are anywhere in what this program says about
+    /// itself.
+    ///
+    /// Its name, the slot it names and its category, folded to one case, which
+    /// is the whole of what a shelf knows about a sound without opening it.
+    /// Typing `b1` finds `B1` and `B10` through `B12`, and typing `pad` finds
+    /// every pad by name and every program whose category is `Pad`, which are
+    /// two different questions with one answer somebody is happy with.
+    ///
+    /// Empty words match everything: a search box nobody has typed in is not a
+    /// filter.
+    #[must_use]
+    pub fn matches(&self, words: &str, firmware: Version) -> bool {
+        if words.is_empty() {
+            return true;
+        }
+        let words = words.to_lowercase();
+        self.name().to_lowercase().contains(&words)
+            || self.address().to_lowercase().contains(&words)
+            || self
+                .category(firmware)
+                .is_some_and(|category| category.to_lowercase().contains(&words))
     }
 }
 
@@ -129,6 +212,16 @@ pub struct Shelf {
     loaded: Option<usize>,
     /// A bank read in flight.
     transfer: Option<Transfer>,
+    /// What has been typed into the search field.
+    ///
+    /// Browsing state rather than a fact about the sounds: it decides which of
+    /// them are drawn and nothing else. Nothing that leaves this shelf — a save,
+    /// a load, the count of what it holds — reads it, because a librarian that
+    /// wrote out what was on the screen rather than what is on the shelf would
+    /// turn a search into a deletion.
+    query: String,
+    /// Which way round they are drawn.
+    order: Order,
 }
 
 impl Shelf {
@@ -141,6 +234,8 @@ impl Shelf {
             skipped: 0,
             loaded: None,
             transfer: None,
+            query: String::new(),
+            order: Order::Slot,
         }
     }
 
@@ -180,6 +275,67 @@ impl Shelf {
         self.held.is_empty()
     }
 
+    /// Returns what has been typed into the search field.
+    #[must_use]
+    pub fn query(&self) -> &str {
+        &self.query
+    }
+
+    /// Narrows what is drawn to the programs `words` are anywhere in.
+    pub fn search(&mut self, words: String) {
+        self.query = words;
+    }
+
+    /// Returns which way round the shelf is drawn.
+    #[must_use]
+    pub const fn order(&self) -> Order {
+        self.order
+    }
+
+    /// Draws it the other way round.
+    pub fn sort_by(&mut self, order: Order) {
+        self.order = order;
+    }
+
+    /// Returns what a search and an order leave to draw, each with the place it
+    /// holds on the shelf.
+    ///
+    /// The place travels with the program because it is what everything else
+    /// says a program *is*: a load names one by where it sits on the shelf, and
+    /// a list that renumbered its own rows would send the wrong sound to the
+    /// synthesizer the first time somebody sorted it by name.
+    ///
+    /// The shelf itself does not move. This is a view of it, built when it is
+    /// drawn and thrown away after, which is what keeps a save writing slots in
+    /// slot order however the screen is sorted.
+    #[must_use]
+    pub fn showing(&self, firmware: Version) -> Vec<(usize, &Held)> {
+        let mut showing: Vec<(usize, &Held)> = self
+            .held
+            .iter()
+            .enumerate()
+            .filter(|(_, held)| held.matches(&self.query, firmware))
+            .collect();
+        match self.order {
+            // Already in it: a bank arrives in slot order and a file is held in
+            // the order the file gave it, which for a pack is the same thing.
+            Order::Slot => {}
+            Order::Name => showing.sort_by_key(|(_, held)| held.name().to_lowercase()),
+            // A program this firmware has no word for sorts last rather than
+            // first, which is what the tilde is: the last printable character,
+            // so an unnamed category sorts after every named one without a
+            // second comparison written out.
+            Order::Category => showing.sort_by_key(|(_, held)| {
+                (
+                    held.category(firmware)
+                        .map_or_else(|| "\u{7e}".to_owned(), str::to_lowercase),
+                    held.name().to_lowercase(),
+                )
+            }),
+        }
+        showing
+    }
+
     /// Puts the programs a `.syx` file holds on the shelf, under its name.
     ///
     /// Everything the library can read, in the order the file gives them: a pack
@@ -204,6 +360,14 @@ impl Shelf {
             skipped,
             loaded: None,
             transfer: None,
+            // The words were about the pack that was on the shelf, and it is
+            // not on it any more. A filter that survived the file would be a
+            // window that opened a pack of 128 and showed three of them, with
+            // the reason five lines up the page.
+            query: String::new(),
+            // Which way round somebody likes to read a shelf is about them
+            // rather than about what is on it, so it survives.
+            order: self.order,
         };
     }
 
@@ -219,6 +383,8 @@ impl Shelf {
                 received: 0,
                 expected,
             }),
+            query: String::new(),
+            order: self.order,
         };
     }
 

@@ -1,0 +1,148 @@
+# Presets people share
+
+What a repository of shared `DeepMind` patches would be, what this repository
+has already built towards it, and what has to be decided before any of it
+fetches anything.
+
+Nothing here is shipped. `crates/control/src/catalogue.rs` is the part that
+exists: the index format, read leniently, searchable, and refusing to let
+anything in a file somebody else wrote name a path. The rest of this file is the
+design it was written against, so that the next piece of work is a decision
+already taken rather than one taken in passing.
+
+## Why a repository and not a service
+
+A librarian holds what is on one machine. The sounds worth having are on other
+people's machines, and every way of moving them between people is some version
+of a list somebody maintains.
+
+The version this project can actually run is a git repository:
+
+- **It is `git clone`.** No account, no server, no uptime, no bill, no data to
+  lose, and nothing to shut down in four years. A repository somebody forks is a
+  repository that survives this project.
+- **A contribution is a pull request.** Who added what, when, and what a
+  maintainer said about it is the history, in the one tool everybody involved
+  already has. A moderation queue is a review queue.
+- **It is useful without this application.** Somebody who wants the packs and
+  not the editor downloads `.syx` files and loads them with whatever they
+  already use. A format only this window can read would be a worse deal for
+  them than the `.syx` file they already had.
+- **It costs this repository nothing to be wrong about.** If it turns out
+  nobody wants it, a text file and a folder of `.syx` files is what is left
+  behind.
+
+What it is not: a database, a cloud, an account, a rating system, a comment
+thread, or anything that has to be moderated in real time. [The plan](plan.md)
+said *no patch database, no cloud, no sharing*, and two of those three still
+hold — what changed is that a list of files in a git repository turned out not
+to be any of them.
+
+## The shape of it
+
+```
+deepmind-presets/                 a repository of its own, not this one
+  index                           the catalogue: one record per pack
+  README.md                       what it is, and how to contribute
+  packs/
+    aurora-pads/
+      aurora-pads.syx             the pack itself, and nothing else
+      README.md                   optional, for whatever a record cannot hold
+```
+
+**The pack is a `.syx` file.** The only file format is the protocol's, which is
+the rule the librarian is already under: a pack downloaded from a repository
+opens on the same shelf as a bank read off a synthesizer, through the same
+lenient reader, and a pack this application saved can be contributed without
+being converted into anything.
+
+**The index is a text file.** Records separated by blank lines, `key: value`
+inside a record, `#` for a comment:
+
+```
+catalogue: DeepMind presets
+updated: 2026-09-21
+about: Packs people have shared.
+
+pack: aurora-pads
+name: Aurora Pads
+author: somebody
+file: packs/aurora-pads/aurora-pads.syx
+programs: 32
+tags: pad, ambient, slow
+licence: CC0-1.0
+sha256: 9f2b1c...
+about: Eight slow pads, and twenty-four variations on them.
+```
+
+It is that shape because it is written and reviewed by people. Adding a pack
+should be eight readable lines and a `.syx` file, and the diff should be a diff
+anybody can review. A serialised object graph would want a code generator on one
+side and a schema on the other to add a sentence to a description.
+
+`pack`, `name` and `file` are what a record has to have. Everything else about a
+pack is optional, because a repository that refused a contribution for having no
+tags is a repository with fewer packs in it.
+
+## What the reader already does
+
+- **Reads leniently, and counts what it dropped.** A key it does not know is
+  skipped, so a repository can add a field without breaking the editors already
+  installed; a record missing what a pack needs is dropped with the line it
+  started on, so one bad entry in three hundred is one pack nobody can download
+  rather than a catalogue nobody can open. What was dropped is said out loud,
+  the way the shelf says how many frames of a file it could not read.
+- **Trusts nothing in it with a path.** `Entry::file_within` is the only way a
+  name out of an index becomes a path: relative, walking downwards, no `..`
+  anywhere, or nothing at all. A pack's `id` is checked against a charset for
+  the same reason — it is what a cache directory and a link are named after.
+- **Searches the way the shelf does.** One field, one case, everything a pack
+  says about itself: its name, who made it, what it says it is, and its tags.
+  The tag list is read off the packs that carry them rather than declared by
+  the repository, so it cannot disagree with the packs.
+
+## What has to be decided next
+
+Each of these is a decision rather than an implementation, which is why none of
+them has been made yet. In the order they would have to be taken:
+
+1. **A catalogue is a directory, before it is a URL.** Clone the repository,
+   point the application at the folder, browse it, open a pack onto the shelf.
+   It needs a file dialog and a surface and no new dependency, and it is how the
+   fetching version gets tested.
+2. **Fetching is a dependency decision.** There is no HTTP client in this
+   workspace. Adding one is a TLS stack, a proxy story, a timeout policy and an
+   offline story, on three platforms, in an application that currently opens a
+   MIDI port and nothing else. The shape that avoids most of it is fetching raw
+   files over HTTPS from the repository host and caching them on disk, with no
+   API and no authentication.
+3. **Verification is what makes fetching safe to repeat.** `sha256` is carried
+   in the index and nothing hashes anything yet, because a digest is worth
+   having the day a file arrives over a wire rather than the day it is read off
+   a disk somebody already trusts. A fetching reader checks it, refuses what
+   does not match, and says which pack lied.
+4. **Trust is a person, not a signature.** The repository is trusted the way a
+   package index is: because somebody reviewed the pull request. This
+   application should not grow a key store, and should not pretend a hash in an
+   index it fetched from the same place as the file proves anything about who
+   wrote it.
+5. **A patch is not a trademark.** A pack named after a record, a film or
+   another manufacturer's instrument is somebody else's problem arriving in this
+   repository's issue tracker. The contributing guide says what a name may be,
+   and a maintainer enforces it at review, which is the only place it can be
+   enforced.
+6. **Licensing is the contributor's and is carried, not interpreted.** The index
+   has a `licence` field and this application prints it. It is not entitled to
+   decide what somebody may do with somebody else's sounds, and a field it
+   silently dropped would be a field a contributor thought they had filled in.
+
+## What it would look like in the window
+
+The librarian, with a second place to read a shelf from. A catalogue is browsed
+the way a pack is browsed — a search field, a count, cards — and pressing one
+puts its programs on the same shelf every other route already fills, which is
+where loading, saving and reading a bank already work.
+
+It is a desktop-only surface for the reason the rest of the librarian is: a
+preset pack is thirty-five kilobytes of SysEx and a plugin event buffer is sized
+for a few notes.

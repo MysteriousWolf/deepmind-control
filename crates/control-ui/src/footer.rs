@@ -7,6 +7,33 @@
 //! controller 74 drives it. None of that fits over a lane forty-six points
 //! wide, and all of it fits along the bottom of a window.
 //!
+//! # It is a display, because everything else in this window already is
+//!
+//! It was a row of toolkit text in a box: three faces, three inks and a
+//! sentence that wrapped. The window it stands under draws every other thing it
+//! says in dots — the panel's own screen, the strip over each plate, the sheet's
+//! title, the marks on the presses — so a line of set type along the foot was
+//! the one piece of writing on the instrument in a face the instrument does not
+//! have.
+//!
+//! So the foot of the window is a screen: the same glass at the same pitch as
+//! the one in the middle of the panel, as wide as the window is, with one line
+//! on it. A `DeepMind` answers `what is this control` on its own display, and so
+//! does this.
+//!
+//! # One line, and it travels rather than wraps
+//!
+//! A sentence that wrapped made the footer two lines deep, then three, and the
+//! whole window moved up to make room for it as the pointer crossed from a
+//! control the library has a sentence for to one it does not. A strip along the
+//! foot has to be the same height whatever is on it, or it is not a strip.
+//!
+//! So it is one line, it is as deep as one line of the display's own face
+//! whatever is written on it, and what does not fit travels: the same hold,
+//! travel and hold [`Screen::marquee`] gives a plate's legend, at
+//! [the pace a sentence is read at](lcd::PROSE) rather than the pace a label is
+//! noticed at. Nothing travels that fits, so a short answer is a still line.
+//!
 //! # Everything here is the library's answer
 //!
 //! The footer writes down nothing about a parameter. The name, the section, the
@@ -45,6 +72,11 @@
 //! is and because somebody who points at the same control twice should stop
 //! needing the word.
 //!
+//! It is the one thing on this line that does not travel. A picture at the head
+//! of a line that has scrolled away is a picture of whatever used to be under
+//! the pointer, so it is held in a lead-in of its own and the words travel past
+//! it — which is also the seven by seven the glass was already cut for.
+//!
 //! 177 of the 242 carry one. The rest are the effect slots, whose picture
 //! depends on which algorithm the engine is running and is `FxSlot::glyph`
 //! instead, and the seventeen characters of the program's name, which are
@@ -52,17 +84,17 @@
 //! same as one with no sentence.
 
 use deepmind_midi::param::{Controller, Kind, ParamId};
-use deepmind_midi::pixels::Pixels;
+use deepmind_midi::pixels::{Glyph, Pixels};
 use deepmind_midi::sysex::inquiry::Version;
 use iced_core::alignment::Vertical;
-use iced_core::{Background, Border, Font, Length, Theme, border, text::Renderer as TextRenderer};
-use iced_widget::{button, container, row, text};
+use iced_core::{Background, Font, Length, Theme, border, text::Renderer as TextRenderer};
+use iced_widget::{button, row, text};
 
-use crate::lcd::{self, Screen};
+use crate::lcd::{self, Screen, Size};
 use crate::mapping::{Mapping, Reach};
 use crate::matrix;
 use crate::panel::{Message, sits_at};
-use crate::style::{self, materials, printed, reading};
+use crate::style::{self, materials};
 use crate::{Confidence, Element, Patch};
 
 /// Draws what the pointer is over, or what to do with the panel when it is over
@@ -85,7 +117,7 @@ pub fn footer<'a, Renderer>(
 where
     Renderer: TextRenderer<Font = Font> + 'a,
 {
-    let line = match (pointed, hinted) {
+    let mut said = match (pointed, hinted) {
         (Some(parameter), _) => described(parameter, patch, firmware),
         // A press whose whole face is a nine-dot mark says what it does here,
         // because there is nowhere on a nine-dot mark to write it and a word
@@ -93,142 +125,110 @@ where
         // whether or not anybody is asking. It is one sentence and no facts:
         // what the library knows about a parameter is what the rest of this
         // line is for, and a press is not a parameter.
-        (None, Some(said)) => vec![Part::Name(said.to_owned())],
-        (None, None) => vec![Part::Quiet(
-            "Point at a control to read what it is.".to_owned(),
-        )],
+        (None, Some(word)) => vec![word.to_owned()],
+        (None, None) => vec!["Point at a control to read what it is.".to_owned()],
     };
-    let mut across = row![].spacing(10).align_y(Vertical::Center);
+    // And what is already wired to whatever the pointer is over, by name, while
+    // a routing is being pointed at the window. The control itself draws how far
+    // each of them can push it; a band on a fader cannot say *which* routing
+    // drew it, and which one it is is the thing somebody about to add a second
+    // one wants to know.
+    if mapped.is_some()
+        && let Some(already) = pointed.and_then(|at| already(at, patch, firmware))
+    {
+        said.insert(0, already);
+    }
+    let line = said.join(BETWEEN);
+    let glyph = pointed.and_then(ParamId::glyph).map(Glyph::pixels);
+    let mut across = row![].spacing(6).align_y(Vertical::Center);
     // A routing mapped onto the window is a mode, and a mode with nothing on the
     // screen saying it is up is a window that has stopped answering for reasons
     // nobody can see. The footer is where it is said, because the footer is the
     // one thing under every surface and under every sheet, and somebody in this
     // mode is by definition somewhere other than the page they turned it on
-    // from.
+    // from. It stands beside the glass rather than on it: it is the one
+    // saturated colour on the panel and a press as well as a statement, and a
+    // display has one colour of light and nothing that can be pressed.
     if let Some(mapped) = mapped {
         across = across.push(mode(mapped));
-        // And what is already wired to whatever the pointer is over, by name.
-        // The control itself draws how far each of them can push it; a band on
-        // a fader cannot say *which* routing drew it, and which one it is is
-        // the thing somebody about to add a second one wants to know.
-        if let Some(already) = pointed.and_then(|at| already(at, patch, firmware)) {
-            across = across.push(already);
-        }
     }
-    for part in line {
-        across = across.push(part.draw());
-    }
-    container(across)
-        .width(Length::Fill)
-        .padding([5, 10])
-        .style(|theme: &Theme| {
-            let material = materials(theme);
-            container::Style {
-                background: Some(Background::Color(material.plate)),
-                border: Border {
-                    color: material.recess_edge,
-                    width: 1.0,
-                    radius: 3.into(),
-                },
-                ..container::Style::default()
-            }
-        })
+    across
+        .push(lcd::strip(lcd::CELL, PRINTED, move |screen| {
+            write(screen, glyph, &line);
+        }))
+        .height(Length::Fixed(lcd::room(lcd::CELL)))
         .into()
 }
 
-/// One piece of the line, and how loudly it is said.
-enum Part {
-    /// The library's picture of what the control does.
-    Pictured(&'static Pixels),
-    /// The parameter's own name, which is what somebody pointed at it to read.
-    Name(String),
-    /// A reading: what it is sitting on, in the display's own face.
-    Reading(String),
-    /// Everything that is true of the parameter whatever its value is.
-    Quiet(String),
-    /// What the parameter does, in the library's own sentence.
-    Said(String),
+/// How hard the foot of the window is printed.
+///
+/// All the way, whatever is under the pointer. Every other display here is
+/// drawn in the claim of what it is showing, and this one is not showing a
+/// value: it is the window saying what a control *is*, which is the library's
+/// table and is as true of a parameter nobody has read as of one the
+/// synthesizer described. What backs the reading on this line is said in the
+/// line, in words, where a reader who cannot see the copper still gets it.
+const PRINTED: Confidence = Confidence::Confirmed;
+
+/// What stands between two facts on the line.
+///
+/// A dot with a space either side, which is the one mark that separates without
+/// reading as punctuation inside either of the things it separates: a range
+/// already has a dash in it and a sentence already has commas.
+const BETWEEN: &str = " \u{00b7} ";
+
+/// Writes the line onto the glass, with the picture held at the head of it.
+///
+/// The picture does not travel and the words do. A lead-in as wide as the
+/// library's own cell, the picture in it, and the rest of the strip is the
+/// field the line is written into — which is the whole strip when there is no
+/// picture, because a lead-in kept for a picture that is not there is a line
+/// that starts in a different place depending on what the pointer is over.
+fn write(screen: &mut Screen, glyph: Option<&'static Pixels>, line: &str) {
+    let from = match glyph {
+        Some(cell) => {
+            screen.blit(cell, 0, 0);
+            lcd::CELL + BESIDE
+        }
+        None => 0,
+    };
+    screen.marquee_at(
+        from,
+        0,
+        (screen.columns() - from).max(0),
+        line,
+        Size::Small,
+        lcd::PROSE,
+    );
 }
 
-impl Part {
-    /// Draws it in the face and the ink its kind is said in.
-    fn draw<'a, Renderer>(self) -> Element<'a, Renderer>
-    where
-        Renderer: TextRenderer<Font = Font> + 'a,
-    {
-        match self {
-            // Stencilled on the card rather than lit on glass, because it is a
-            // mark beside a word and not a display, which is the call every
-            // other mark in this window goes through. In the ink the name is in,
-            // so
-            // that the picture and the word it stands before read as one thing.
-            Self::Pictured(cell) => {
-                let mut screen = Screen::new(lcd::CELL, lcd::CELL);
-                screen.blit(cell, 0, 0);
-                lcd::stencil(screen, |theme: &Theme| materials(theme).metal_high)
-            }
-            Self::Name(said) => text(said)
-                .size(13)
-                .font(printed())
-                .style(|theme: &Theme| text::Style {
-                    color: Some(materials(theme).metal_high),
-                })
-                .into(),
-            Self::Reading(said) => text(said)
-                .size(13)
-                .font(reading())
-                .style(|theme: &Theme| text::Style {
-                    color: Some(materials(theme).metal),
-                })
-                .into(),
-            Self::Quiet(said) => text(said)
-                .size(12)
-                .font(printed())
-                .style(|theme: &Theme| text::Style {
-                    color: Some(materials(theme).metal_low),
-                })
-                .into(),
-            // Takes the rest of the line and wraps in it, because a sentence
-            // clipped half way through is a sentence that stops being one.
-            Self::Said(said) => text(said)
-                .size(12)
-                .font(printed())
-                .width(Length::Fill)
-                .style(|theme: &Theme| text::Style {
-                    color: Some(materials(theme).metal),
-                })
-                .into(),
-        }
-    }
-}
+/// How many dots there are between the picture and the first word.
+///
+/// Three: one is the gap between two characters and would read as a letter of
+/// the name, and the picture is a drawing rather than a letter.
+const BESIDE: i32 = 3;
 
 /// Everything the library will say about `parameter`, in the order it is read.
 ///
 /// The name first, because that is the question; then what it is sitting on,
 /// because that is the second one; then the facts that are true of it whatever
 /// it is sitting on.
-fn described(parameter: ParamId, patch: &Patch, firmware: Version) -> Vec<Part> {
-    let mut line = Vec::new();
-    // The picture first, where the library has one. A control that is driven by
-    // a standard controller is pictured the way the parameter is, so the two
-    // agree without this asking twice.
-    if let Some(glyph) = parameter.glyph() {
-        line.push(Part::Pictured(glyph.pixels()));
-    }
-    line.push(Part::Name(parameter.name().to_owned()));
-    line.push(Part::Quiet(
+fn described(parameter: ParamId, patch: &Patch, firmware: Version) -> Vec<String> {
+    let mut line = vec![
+        parameter.name().to_owned(),
+        reading_of(parameter, patch, firmware),
         crate::section::name(parameter.group()).to_owned(),
-    ));
-    line.push(Part::Reading(reading_of(parameter, patch, firmware)));
-    line.push(Part::Quiet(range_of(parameter)));
+        range_of(parameter),
+    ];
     if let Some(controller) = Controller::for_parameter(parameter) {
-        line.push(Part::Quiet(format!("CC {}", controller.cc)));
+        line.push(format!("CC {}", controller.cc));
     }
     // And what it does, which is the reason somebody pointed at it. Last,
     // because it is the longest and the other five are what a reader who
-    // already knows the parameter came back for.
+    // already knows the parameter came back for. It is also the part that
+    // travels, for the same reason.
     if let Some(sentence) = parameter.description() {
-        line.push(Part::Said(sentence.to_owned()));
+        line.push(sentence.to_owned());
     }
     line
 }
@@ -298,14 +298,7 @@ fn ends(parameter: ParamId) -> String {
 /// Only while one is being mapped, because it is only then that somebody is
 /// choosing against them. Nothing at all where nothing else lands there, which
 /// is most controls and is the answer rather than a gap.
-fn already<'a, Renderer>(
-    at: ParamId,
-    patch: &Patch,
-    firmware: Version,
-) -> Option<Element<'a, Renderer>>
-where
-    Renderer: TextRenderer<Font = Font> + 'a,
-{
+fn already(at: ParamId, patch: &Patch, firmware: Version) -> Option<String> {
     let names: Vec<&'static str> = matrix::reaching(patch, firmware)
         .into_iter()
         .filter(|reach| reach.at() == at)
@@ -315,14 +308,7 @@ where
         (last, []) => (*last).to_owned(),
         (last, rest) => format!("{} and {last}", rest.join(", ")),
     };
-    Some(
-        text(format!("{said} already \u{2192} here"))
-            .size(11)
-            .style(|_theme: &Theme| text::Style {
-                color: Some(style::modulated()),
-            })
-            .into(),
-    )
+    Some(format!("{said} already \u{2192} here"))
 }
 
 /// Says which routing is mapped onto the window, and how to stop.

@@ -30,6 +30,26 @@ the four it opens. That is a quarter of the answer and it is the quarter about
 the sections a player cannot see the state of anywhere else, so it is the first
 thing to try and it is still not the thing the bar did.
 
+### A catalogue carries a digest nothing checks
+
+`Entry::sha256` is read out of an index and never compared against anything,
+because nothing in this repository fetches a file and nothing in it hashes one.
+That is the right order to build it in — a digest is worth having the day a pack
+arrives over a wire, not the day it is read off a disk somebody already trusts —
+and it leaves a field in a format that says more than the reader does.
+
+What is open is only *when*: the first reader that downloads a pack has to check
+it, refuse what does not match, and say which pack lied, in the same change that
+first opens a socket. Until then, anybody generating an index should fill the
+field, because an index written today is one a verifying reader can check
+tomorrow, and a field that was left blank for a year is a field that never gets
+filled in.
+
+Nothing in the window says any of this, because nothing in the window draws a
+catalogue yet. The day one does, it has to: a pack drawn as verified when it was
+merely read is the same lie as a value drawn as the synthesizer's when it was
+this window's claim. See [presets.md](presets.md).
+
 ## Answered
 
 ### The front panel had presses no program parameter stands behind

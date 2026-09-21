@@ -39,7 +39,16 @@
 //! librarian operations are desktop only; the editing surface is the crate both
 //! builds share.
 //!
-//! There is no third. One of the fourteen sections is what an `EDIT` press
+//! # And a shelf somebody else filled
+//!
+//! [`catalogue`] is the third thing, and it is groundwork rather than a
+//! surface: the index a repository of shared presets would carry, read the way
+//! this application reads everything somebody else wrote — leniently, saying
+//! what it could not read, and trusting nothing in it with a path. Nothing
+//! draws it yet. See [the plan](../../../docs/presets.md) for what it is for and
+//! what has to be decided before any of it fetches anything.
+//!
+//! There is no third surface. One of the fourteen sections is what an `EDIT` press
 //! opens, and it opens *over* the panel rather than instead of it: a sheet with
 //! the instrument still underneath, which is what the hardware does when a
 //! section button is pressed and its own front stays where it is. Which one is
@@ -47,6 +56,7 @@
 //! the window around it all put it away.
 
 mod app;
+pub mod catalogue;
 mod files;
 mod librarian;
 #[cfg(feature = "previews")]
@@ -55,5 +65,5 @@ mod shelf;
 mod window;
 
 pub use app::{App, Message, View};
-pub use shelf::{Held, Shelf, Source, Transfer, patch_to_syx};
+pub use shelf::{Held, ORDERS, Order, Shelf, Source, Transfer, patch_to_syx};
 pub use window::run;

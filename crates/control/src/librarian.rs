@@ -15,12 +15,15 @@
 
 use control_ui::materials;
 use deepmind_midi::ids::{BANK_COUNT, Bank};
+use deepmind_midi::sysex::inquiry::Version;
 use iced::alignment::{Horizontal, Vertical};
-use iced::widget::{button, column, container, progress_bar, row, scrollable, space, text};
+use iced::widget::{
+    button, column, container, progress_bar, row, scrollable, space, text, text_input,
+};
 use iced::{Background, Center, Element, Fill, Length, Padding, Theme, border};
 
 use crate::app::{App, Message};
-use crate::shelf::{Held, Shelf};
+use crate::shelf::{Held, ORDERS, Shelf};
 
 /// Width of one program on the shelf.
 ///
@@ -42,10 +45,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
     column![
         actions(app),
         banks(app.bank(), app.is_connected()),
-        standing(shelf),
+        finding(shelf),
+        standing(shelf, app.firmware()),
     ]
     .extend(progress(shelf))
-    .push(programs(shelf))
+    .push(programs(shelf, app.firmware()))
     .spacing(12)
     .padding([0, 12])
     .into()
@@ -97,17 +101,73 @@ fn banks<'a>(chosen: Bank, open: bool) -> Element<'a, Message> {
         .into()
 }
 
+/// How to find one sound among 128, and which way round they stand.
+///
+/// A bank is 128 programs and the instrument shows eight of them at a time, so
+/// the one thing this surface has that the front panel does not is all of them
+/// at once. That stops being an advantage at the moment somebody is looking for
+/// one: a wall of 128 names is a wall, and the name is what they remember.
+///
+/// So: a field to type into, which narrows the wall to whatever the words are
+/// anywhere in — a name, a slot, or the category a program calls itself — and
+/// three ways round to draw what is left. Neither of them moves anything on the
+/// shelf. What a save writes is the pack that was opened, in its own order,
+/// whatever the screen is sorted by or searched for, because a librarian that
+/// wrote out the screen would turn a search into a deletion.
+///
+/// The field is drawn whether or not there is anything on the shelf, and does
+/// nothing while there is not: a control that appeared when a file was opened
+/// is a control nobody knows is there.
+fn finding(shelf: &Shelf) -> Element<'_, Message> {
+    let orders = ORDERS.map(|order| {
+        let chosen = order == shelf.order();
+        button(text(order.label()).size(12))
+            .padding([4, 10])
+            .style(move |theme: &Theme, _status| pressed_like(theme, chosen))
+            .on_press(Message::SortBy(order))
+            .into()
+    });
+    row![
+        text("Find").size(13),
+        text_input("a name, a slot, or a category", shelf.query())
+            .on_input(Message::Search)
+            .size(13)
+            .padding([5, 10])
+            .style(control_ui::field)
+            .width(Length::Fixed(FIELD)),
+        space().width(Fill),
+        text("Order").size(13),
+    ]
+    .extend(orders)
+    .spacing(6)
+    .align_y(Center)
+    .into()
+}
+
+/// How wide the field somebody types a name into stands.
+///
+/// A program name is sixteen characters and what gets typed into this is three
+/// or four of them, so it is cut for the phrase rather than for the name.
+const FIELD: f32 = 260.0;
+
 /// Where what is on the shelf came from, in words.
 ///
 /// The one thing a librarian must never be vague about. A pack read off a
 /// synthesizer and a pack read off a disk look identical on the screen and are
 /// not the same claim, and which one somebody is about to write over the other
 /// with depends entirely on knowing which is which.
-fn standing(shelf: &Shelf) -> Element<'_, Message> {
+fn standing(shelf: &Shelf, firmware: Version) -> Element<'_, Message> {
     let held = shelf.held().len();
     let sound = if held == 1 { "program" } else { "programs" };
+    // And how many of them the search left, where one is narrowing the shelf.
+    // Said as a count of what is held rather than instead of it: the shelf is
+    // still holding 128 whatever the screen is showing, and a librarian whose
+    // own count changed as somebody typed is a librarian that has lost track of
+    // what it has.
+    let showing = shelf.showing(firmware).len();
     let where_from = match shelf.source() {
-        Some(source) => format!("{held} {sound} \u{00b7} {source}"),
+        Some(source) if showing == held => format!("{held} {sound} \u{00b7} {source}"),
+        Some(source) => format!("{showing} of {held} {sound} \u{00b7} {source}"),
         None => "Nothing on the shelf. Open a `.syx` file, or read a bank off the synthesizer."
             .to_owned(),
     };
@@ -145,25 +205,56 @@ fn progress(shelf: &Shelf) -> Option<Element<'_, Message>> {
     )
 }
 
-/// Everything on the shelf, in the order it is held.
-fn programs(shelf: &Shelf) -> Element<'_, Message> {
-    let cards = shelf
-        .held()
-        .iter()
-        .enumerate()
-        .map(|(index, held)| card(index, held, shelf.loaded() == Some(index)));
+/// Everything a search left, in whichever order the shelf is being read in.
+///
+/// A search that matched nothing says so. A blank surface where the programs
+/// were is a surface that reads as an empty shelf, which is a different and
+/// much worse thing to believe about a librarian holding a pack somebody has
+/// not saved yet.
+fn programs(shelf: &Shelf, firmware: Version) -> Element<'_, Message> {
+    let showing = shelf.showing(firmware);
+    if showing.is_empty() && !shelf.is_empty() {
+        return container(
+            text(format!(
+                "Nothing on this shelf is called {}, sits at it, or is one.",
+                shelf.query()
+            ))
+            .size(13),
+        )
+        .padding([12, 0])
+        .into();
+    }
+    let cards = showing
+        .into_iter()
+        .map(|(index, held)| card(index, held, shelf.loaded() == Some(index), firmware));
     scrollable(container(row(cards).spacing(6).wrap()).padding(Padding::ZERO.right(GUTTER)))
         .height(Fill)
         .into()
 }
 
-/// One program: where it lives, and what it is called.
-fn card(index: usize, held: &Held, loaded: bool) -> Element<'_, Message> {
+/// One program: where it lives, what it is called, and what it calls itself.
+///
+/// The category under the name rather than beside it, in the ink a legend is
+/// printed in. Beside it would be a second column that every short name has a
+/// gap in the middle of, and the category is the thing on this card somebody
+/// reads second: it is what the shelf can be sorted and searched by, so it has
+/// to be on the card the sort moved, and it is not what the sound is called.
+fn card(index: usize, held: &Held, loaded: bool, firmware: Version) -> Element<'_, Message> {
+    let said = column![text(held.name()).size(13)]
+        .extend(held.category(firmware).map(|category| {
+            text(category)
+                .size(11)
+                .style(|theme: &Theme| text::Style {
+                    color: Some(materials(theme).metal_low),
+                })
+                .into()
+        }))
+        .spacing(1);
     let face = row![
         container(text(held.address()).size(12))
             .width(Length::Fixed(38.0))
             .align_x(Horizontal::Right),
-        text(held.name()).size(13),
+        said,
     ]
     .spacing(8)
     .align_y(Vertical::Center);

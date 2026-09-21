@@ -13,7 +13,7 @@ use deepmind_midi::sysex::inquiry::{Identity, Version};
 use deepmind_midi::wire::Channel;
 
 use crate::files;
-use crate::shelf::{self, Shelf};
+use crate::shelf::{self, Order, Shelf};
 
 /// Which of the two things this window is, at the moment somebody looks at it.
 ///
@@ -94,6 +94,10 @@ pub enum Message {
     SavePack,
     /// Make the synthesizer sound like the program in this place on the shelf.
     Load(usize),
+    /// Narrow the shelf to the programs these words are anywhere in.
+    Search(String),
+    /// Draw the shelf the other way round.
+    SortBy(Order),
     /// Something a view asked for.
     Ui(control_ui::Message),
 }
@@ -232,6 +236,18 @@ impl App {
         self.say(format!("Opening {port}\u{2026}"));
         self.chosen = Some(port);
         self.link = Some(link);
+    }
+
+    /// Puts a pack on the shelf, with no file chooser and no disk.
+    ///
+    /// What opening a `.syx` file does, for a caller that already has the
+    /// bytes. The previews do: a picture of the librarian with nothing on the
+    /// shelf is a picture of the two presses that fill one, and what the
+    /// surface is *for* — the grid, the search, the orders and what a program
+    /// calls itself — is only on the screen once something is on it.
+    #[cfg(feature = "previews")]
+    pub fn hold(&mut self, name: &str, bytes: &[u8]) {
+        self.shelve(name, bytes);
     }
 
     /// Returns what the last scan found.
@@ -412,6 +428,11 @@ impl App {
             Message::SavePatch => self.save_patch(),
             Message::SavePack => self.save_pack(),
             Message::Load(index) => self.load(index),
+            // Both of these are about what is on the screen and not about what
+            // is on the shelf, so neither says anything to the synthesizer and
+            // neither touches what a save would write.
+            Message::Search(words) => self.shelf.search(words),
+            Message::SortBy(order) => self.shelf.sort_by(order),
             // A section asked for is a section opened, which is what the
             // instrument's own `EDIT` does: the display becomes that section
             // and the front of the synthesizer does not move. Here the sheet
