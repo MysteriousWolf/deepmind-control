@@ -494,18 +494,32 @@ There were three surfaces once, and the middle one held whichever section was
 open. It is gone with the tab bar: a section is not a third thing this
 application is.
 
-**The librarian has two shelves, and they are one surface.** This machine's, and
+**Where a sound is, is a column.** On the synthesizer, on this machine, or in
 the sounds other people have published —
 [`deepmind-patches`](https://github.com/MysteriousWolf/deepmind-patches), one
-`.syx` and one `.toml` per sound, published as a release on every merge. A
-switch at the top rather than a tab bar: there are two of them, they answer the
-same question (*what sounds can I have*), and a bar of two is a bar that looks
-like it is missing the rest.
+`.syx` and one `.toml` per sound, released on every merge. One list with a
+column, and not a tab or a switch per place.
 
-They are one surface because the second one's answer *becomes* the first one's:
-pressing a shared patch puts it on the shelf every other route already fills,
+It was a switch, and the reason it is not is worth writing down: they were
+lists of the same kind of thing, so somebody looking for a pad looked three
+times, and nothing could tell them that the pad on their shelf and the pad in
+the library were *the same sound*. A column says both at once, and the search
+and the filters run over all of it rather than over whichever third was
+showing.
+
+They are one list because the third place's answer *becomes* the second's:
+`Copy here` puts a shared patch on the shelf every other route already fills,
 where loading, saving and reading a bank already work. A catalogue is a shelf
 somebody else filled, not a third place to be.
+
+**One verb set, offered in two places and decided in one.** Play, edit, copy
+here, store, share, export, update: a toolbar of marks along the top and a menu
+of the same marks with their words beside them, opened by a right-press on a
+row. Both read one rule for whether a verb applies, so a menu that offered what
+the toolbar refused is not something that can be written. `Store…` is drawn
+and greyed, because the protocol call it needs is
+[not published yet](waiting.md) and a verb left off a list reads as one nobody
+thought of.
 
 **The shared shelf draws the library's own pictures.** Every patch carries a 7x7
 one-bit icon and so does every category, drawn once in the repository and
@@ -521,15 +535,19 @@ side — so this application links a reader rather than keeping one. What is lef
 in `catalogue.rs` is where a catalogue is cached, how it is fetched without
 dropping a frame, and what a search field asks of it.
 
-**The shelf is a grid and not a list.** A pack is 128 programs, and the one
-thing this surface can offer that the instrument's two-line display cannot is
-all of them at once: four across at the window's opening width, in slot order,
-with the slot written the way the front panel writes it and the name beside it.
-A column of 128 rows would show a quarter as much.
+**The shelf is a table.** It was a grid of cards, four across, and a card can
+carry a name, a slot and a category and nothing else. What a shared library
+knows about a sound is a maker, a sentence, a vocabulary, a version and a
+drawing, and those are columns: a table can be sorted by any of them and
+narrowed from any of their headings, and a wall of cards can be sorted by
+whichever one somebody wrote the sort for.
 
-**A program is drawn as a chosen thing among unchosen ones**: the one that has
-been pressed is the face plate a rack sits on, lit along its edge, and the rest
-are the panel they are cut into.
+**A program is drawn as a chosen thing among unchosen ones**: the row that has
+been pressed is lit along its edge, and the rest are the panel it is cut into.
+Pressing one chooses it *and* plays it, because playing costs nothing — the
+edit buffer is the sound in front of somebody rather than one of the
+instrument's 1024 — so choosing without hearing would be two presses for the
+one thing everybody came to a list of sounds to do.
 
 **A slot that names nothing is drawn as naming nothing.** A stored dump carries
 its bank and program; an edit buffer dump carries neither, because the edit

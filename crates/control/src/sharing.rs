@@ -1,10 +1,15 @@
 //! Sharing a sound, drawn: the icon grid, the four things to say, and the note.
 //!
-//! The third of the librarian's surfaces, and the only one that makes something
-//! rather than reading something. What it shares is **the sound on the screen**
-//! — whatever the panel is showing, from a program read off the instrument, off
-//! the shelf, or edited by hand — because that is the sound somebody has just
-//! finished making.
+//! **A sheet over the table, on one row.** What it shares is the sound somebody
+//! chose in the list and pressed `Share\u{2026}` on, wherever that sound lives, and
+//! the sheet opens filled in with whatever the library already says about it:
+//! a second version of something published is a file somebody edits rather than
+//! one they retype.
+//!
+//! It was a tab beside the table, sharing whatever the front panel happened to
+//! be showing. Two things were wrong with that and both are the same thing:
+//! there was no way, once you were on it, to tell which sound was being
+//! described, and no way from the list to say *this one*.
 //!
 //! # It asks for four things and works out the rest
 //!
@@ -26,10 +31,10 @@
 //! *that* bass edits from it. Left blank, nothing is written and the patch
 //! falls back to its category's.
 
-use control_ui::{materials, stencil};
+use control_ui::materials;
 use deepmind_patches::{Axis, Category};
 use iced::widget::{button, column, container, row, scrollable, space, text, text_input};
-use iced::{Background, Center, Element, Fill, Length, Theme, border};
+use iced::{Background, Center, Element, Fill, Length, Padding, Theme, border};
 
 use crate::app::{App, Message, Publishing};
 
@@ -47,30 +52,61 @@ const FIELD: f32 = 340.0;
 /// colour. The table's own, so the two agree.
 const INKED: f32 = 0.55;
 
-/// The whole of it.
-pub fn view(app: &App) -> Element<'_, Message> {
+/// The sheet, as it stands over the table.
+///
+/// As wide as it needs and no wider — the grid beside the fields is what
+/// decides it — and as tall as what is on it, up to the window. The same frame
+/// a section's sheet stands in, drawn here rather than borrowed from
+/// `control-ui` because that one names itself after a [`Group`](
+/// deepmind_midi::param::Group) and this is not one of the fourteen.
+pub fn sheet(app: &App) -> Element<'_, Message> {
     let said = app.publishing();
-    let category = app.patch().program().and_then(Category::of);
-    column![standing(app, category)]
-        .push(
-            scrollable(
-                column![
-                    row![grid(app, said, category), fields(said)].spacing(24),
-                    terms(app, said),
-                    writing(app, said, category),
-                ]
-                .spacing(16),
+    let category = app.shared().and_then(|program| Category::of(&program));
+    container(
+        column![heading(app, category)]
+            .push(
+                scrollable(
+                    column![
+                        row![grid(app, said, category), fields(said)].spacing(24),
+                        terms(app, said),
+                        writing(app, said, category),
+                    ]
+                    .spacing(16)
+                    .padding(Padding::ZERO.right(12)),
+                )
+                .height(Length::Shrink),
             )
-            .height(Fill),
-        )
-        .spacing(12)
-        .into()
+            .spacing(12),
+    )
+    .width(Length::Fixed(SHEET))
+    .padding(14)
+    .style(control_ui::lifted)
+    .into()
+}
+
+/// How wide the sheet stands: the grid, the fields, and the gap between them.
+const SHEET: f32 = 7.0 * (DOT + 2.0) + 24.0 + FIELD + 28.0 + 14.0;
+
+/// The bar across the top: what is being shared, and the way out.
+fn heading(app: &App, category: Option<Category>) -> Element<'_, Message> {
+    row![
+        standing(app, category),
+        space().width(Fill),
+        crate::sounds::press(
+            control_ui::SHUT,
+            Some(Message::CloseSharing),
+            "Put this away. What you have typed is kept.",
+        ),
+    ]
+    .spacing(10)
+    .align_y(Center)
+    .into()
 }
 
 /// What is about to be shared, in one line.
 fn standing(app: &App, category: Option<Category>) -> Element<'_, Message> {
-    let said = match app.patch().program() {
-        None => "Nothing is on the screen to share. Read a sound first.".to_owned(),
+    let said = match app.shared() {
+        None => "That sound could not be read.".to_owned(),
         Some(program) => {
             let name = program.name().as_str().trim().to_owned();
             match category {
@@ -289,7 +325,7 @@ fn writing<'a>(
     category: Option<Category>,
 ) -> Element<'a, Message> {
     let missing = said.missing();
-    let ready = missing.is_empty() && category.is_some() && app.patch().program().is_some();
+    let ready = missing.is_empty() && category.is_some() && app.shared().is_some();
     let note = if let Some(where_to) = &said.wrote {
         format!(
             "Written to {where_to}. The note beside it says what to do next: fork, copy the \
@@ -317,12 +353,13 @@ fn writing<'a>(
     .into()
 }
 
-/// The mark on the press that writes: a sound going out of this window.
+/// The mark on the press that writes: the one the verb itself wears.
+///
+/// [`control_ui::SHARE`], and not an arrow going out, because this is the end
+/// of the gesture the toolbar's `Share\u{2026}` began: one mark for one verb,
+/// wherever in the window it turns up.
 fn drawn<'a>() -> Element<'a, Message> {
-    Element::from(stencil(control_ui::UP.screen(), |theme: &Theme| {
-        materials(theme).metal_low
-    }))
-    .map(Message::Ui)
+    crate::sounds::mark(control_ui::SHARE, true)
 }
 
 /// A button that is not a parameter, in the instrument's own materials.

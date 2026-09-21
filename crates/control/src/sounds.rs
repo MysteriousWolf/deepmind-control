@@ -44,7 +44,7 @@ use iced::widget::{
 };
 use iced::{Background, Center, Element, Fill, Length, Padding, Theme, border};
 
-use crate::app::{Action, App, Browsing, By, Chosen, Message, Sorting, Where};
+use crate::app::{Action, App, By, Chosen, Message, Sorting, Where};
 use crate::catalogue::{Catalogue, Held, Looking, State};
 use crate::shelf::Held as OnShelf;
 use deepmind_midi::ids::{BANK_COUNT, Bank};
@@ -570,12 +570,43 @@ fn standing(app: &App) -> Element<'_, Message> {
             }
         }
     };
-    text(said)
-        .size(13)
-        .style(|theme: &Theme| text::Style {
+    row![
+        text(said).size(13).style(|theme: &Theme| text::Style {
             color: Some(materials(theme).metal_low),
-        })
-        .into()
+        }),
+        space().width(Fill),
+        updating(app.stale()),
+    ]
+    .spacing(10)
+    .align_y(Center)
+    .into()
+}
+
+/// The press that takes the newer version of every sound that has one.
+///
+/// Drawn only while something is stale, and saying how many, because a press
+/// that would do nothing is a press somebody has to try to find out about. It
+/// stands on the line that says what is on the table, which is where it
+/// belongs: *forty-four sounds, eleven of them behind* is one fact about the
+/// shelf said twice, and the press is the second half of it.
+///
+/// The lamp, and the same press a filter is, for the reason every colour on
+/// this surface is somebody else's: this window has one way of drawing *look
+/// here* and one way of drawing a press with a colour in it, and a button
+/// invented for this would be a third thing to learn.
+fn updating<'a>(stale: usize) -> Element<'a, Message> {
+    if stale == 0 {
+        return space().into();
+    }
+    hinting(
+        filter(
+            format!("Update all {stale}"),
+            Some(LAMP),
+            true,
+            Message::UpdateEverything,
+        ),
+        "Replace every sound on the shelf that the library has published a newer version of.",
+    )
 }
 
 /// How to find one sound among all of them.
@@ -1095,40 +1126,59 @@ const BANK_DOTS: i32 = 7;
 /// And the number's: three characters, which is `128`.
 const NUMBER_DOTS: i32 = 19;
 
+/// The colour this window spends on attention.
+///
+/// The instrument's own lamp, and the one colour on this surface that is not
+/// the library's: the library names colours for what a sound *is*, and these
+/// two facts — *this one is in the instrument*, *this one has a newer version*
+/// — are not about what a sound is. One colour for both, because they are the
+/// same request: look here.
+const LAMP: [u8; 3] = [0xff, 0xbe, 0x3d];
+
 /// The colour a place is drawn in.
 ///
-/// Not the library's, because the library names colours for what a sound *is*
-/// and not for where it happens to be. These are this window's own three, taken
-/// from what it already spends: the instrument's lamp for what is in the
-/// instrument, and nothing at all for the other two, which are ground rather
-/// than figure.
+/// The lamp for what is in the instrument, and nothing at all for the other
+/// two, which are ground rather than figure.
 const fn place_colour(place: Where) -> Option<[u8; 3]> {
     match place {
-        Where::Instrument => Some([0xff, 0xbe, 0x3d]),
+        Where::Instrument => Some(LAMP),
         Where::Machine | Where::Library => None,
     }
 }
 
-/// Which version it is, in amber where a newer one is published.
+/// Which version it is, and the press that takes the newer one.
+///
+/// A version somebody can do nothing about is printing, and a version they can
+/// is a press: where the library has published something newer, this cell *is*
+/// the update, lit in the lamp, in the same press every filter on this surface
+/// is drawn as. A separate Update column would have been a column that is
+/// blank on every row but the few.
 fn version_cell<'a>(row: &Row<'a>) -> Element<'a, Message> {
     let Some((version, latest)) = row.version() else {
         return dim("\u{2014}".to_owned(), 11.0);
     };
-    let said = if latest {
-        format!("v{version}")
-    } else {
-        format!("v{version} \u{2191}")
+    if latest {
+        return text(format!("v{version}"))
+            .size(11)
+            .style(|theme: &Theme| text::Style {
+                color: Some(materials(theme).metal_low),
+            })
+            .into();
+    }
+    let Row::Held { at, .. } = row else {
+        // A patch in the library is whatever the library says it is, so there
+        // is nothing here to replace it with.
+        return dim(format!("v{version}"), 11.0);
     };
-    text(said)
-        .size(11)
-        .style(move |theme: &Theme| text::Style {
-            color: Some(if latest {
-                materials(theme).metal_low
-            } else {
-                control_ui::WAY_IN
-            }),
-        })
-        .into()
+    hinting(
+        filter(
+            format!("v{version} \u{2192}"),
+            Some(LAMP),
+            true,
+            Message::UpdateSound(*at),
+        ),
+        "Replace this with the newer version the library has published.",
+    )
 }
 
 /// The vocabulary terms a row prints.
@@ -1281,41 +1331,6 @@ fn banded_like(theme: &Theme, banded: bool, lit: bool, status: button::Status) -
             .color(if lit { material.lit } else { material.panel }),
         ..button::Style::default()
     }
-}
-
-/// The two things the librarian does, and which one is showing.
-pub fn switch<'a>(browsing: Browsing) -> Element<'a, Message> {
-    let one = |label: &'static str, which: Browsing| {
-        let pressed = browsing == which;
-        button(text(label).size(12))
-            .padding([4, 12])
-            .style(move |theme: &Theme, _status| {
-                let material = materials(theme);
-                let palette = theme.extended_palette();
-                button::Style {
-                    background: Some(Background::Color(if pressed {
-                        material.plate
-                    } else {
-                        material.panel
-                    })),
-                    text_color: palette.background.base.text,
-                    border: border::rounded(3).width(1.0).color(if pressed {
-                        material.lit
-                    } else {
-                        material.recess_edge
-                    }),
-                    ..button::Style::default()
-                }
-            })
-            .on_press(Message::Browse(which))
-    };
-    row![
-        one("Sounds", Browsing::Sounds),
-        one("Share one", Browsing::Publish),
-    ]
-    .spacing(6)
-    .align_y(Center)
-    .into()
 }
 
 #[cfg(test)]

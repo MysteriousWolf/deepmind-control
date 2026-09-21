@@ -49,23 +49,6 @@ pub enum View {
     Section(Group),
 }
 
-/// What the librarian is doing.
-///
-/// Two, and they are not two lists: one is every sound this window can see and
-/// the other is what it takes to publish one. **Where a sound lives is a
-/// column, not a tab.** A tab per place was three lists of the same kind of
-/// thing, which meant a person looking for a pad had to look three times and
-/// could not see that the pad on their shelf and the pad in the library were
-/// the same sound.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
-pub enum Browsing {
-    /// Every sound, wherever it is.
-    #[default]
-    Sounds,
-    /// What it takes to publish one of your own.
-    Publish,
-}
-
 /// Where a sound is.
 ///
 /// The three places this window can see one, which is a fact about the sound
@@ -358,8 +341,6 @@ pub enum Message {
     Search(String),
     /// Draw the shelf the other way round.
     SortBy(Order),
-    /// Show this machine's shelf, or the shared one.
-    Browse(Browsing),
     /// Fetch the newest release of the shared patches.
     FetchPatches,
     /// Ask for a folder and read a checkout of the shared patches out of it.
@@ -382,10 +363,17 @@ pub enum Message {
     OpenMenu(Chosen),
     /// Put the menu away.
     CloseMenu,
+    /// Put the share sheet away, keeping what was typed into it.
+    CloseSharing,
     /// Remember where the pointer is over the table.
     PointerAt(iced::Point),
     /// Do something to the sound that is chosen.
     Act(Action),
+    /// Replace the program at this place on the shelf with the newest
+    /// published version of it.
+    UpdateSound(usize),
+    /// Replace every one the library has published a newer version of.
+    UpdateEverything,
     /// Put one shared patch, by its id, on the shelf.
     ShelvePatch(String),
     /// Play one shared patch without keeping it anywhere.
@@ -435,8 +423,6 @@ pub struct App {
     patch: Patch,
     /// The sounds other people have published, once any are held.
     catalogue: Catalogue,
-    /// Which of the librarian's two shelves is showing.
-    browsing: Browsing,
     /// What is being asked of the shared shelf.
     looking: Looking,
     /// What is being written about a sound about to be shared.
@@ -445,6 +431,14 @@ pub struct App {
     sorting: Sorting,
     /// The sound a press chose, where one is chosen.
     picked: Option<Chosen>,
+    /// The sound the share sheet is open on, while it is open.
+    ///
+    /// **A sheet over the table rather than a surface beside it.** Sharing is
+    /// something done *to one sound*, so it belongs where that sound is: a tab
+    /// meant leaving the list to describe a row, coming back, and having no way
+    /// to tell which row had been described. What is held here is the row, not
+    /// the program, for the reason [`Chosen`] exists at all.
+    sharing: Option<Chosen>,
     /// Where the menu a right-press opened is standing, while one is open.
     menu: Option<iced::Point>,
     /// Where the pointer last was over the table.
@@ -531,11 +525,11 @@ impl App {
             mapper: Mapper::new(DEFAULT_FIRMWARE),
             shelf: Shelf::new(),
             catalogue: Catalogue::new(),
-            browsing: Browsing::default(),
             looking: Looking::default(),
             publishing: Publishing::default(),
             sorting: Sorting::default(),
             picked: None,
+            sharing: None,
             menu: None,
             pointer: iced::Point::ORIGIN,
             trying: None,
@@ -683,12 +677,6 @@ impl App {
         &self.catalogue
     }
 
-    /// Which of the librarian's two shelves is showing.
-    #[must_use]
-    pub const fn browsing(&self) -> Browsing {
-        self.browsing
-    }
-
     /// What is being asked of the shared shelf.
     #[must_use]
     pub const fn looking(&self) -> &Looking {
@@ -711,6 +699,18 @@ impl App {
     #[must_use]
     pub const fn menu(&self) -> Option<iced::Point> {
         self.menu
+    }
+
+    /// The sound the share sheet is open on, while it is open.
+    #[must_use]
+    pub const fn sharing(&self) -> Option<&Chosen> {
+        self.sharing.as_ref()
+    }
+
+    /// The program the share sheet is open on, while it is open.
+    #[must_use]
+    pub fn shared(&self) -> Option<deepmind_midi::program::Program> {
+        self.program_of(self.sharing.as_ref()?)
     }
 
     /// Whether an action can be done to what is chosen.
@@ -751,15 +751,51 @@ impl App {
     /// the newest.
     #[must_use]
     fn newer(&self) -> Option<deepmind_midi::program::Program> {
-        let held = self.catalogue.held()?;
         let Chosen::Held(at) = self.picked.as_ref()? else {
             return None;
         };
-        let program = &self.shelf.held().get(*at)?.program;
+        self.newer_at(*at)
+    }
+
+    /// The newest published version of what sits at this place on the shelf.
+    ///
+    /// **Matched on the sound rather than on the name.** A fingerprint is the
+    /// identity of what the 242 bytes make, so a program somebody renamed is
+    /// still recognised and a program somebody edited is a different sound and
+    /// is not. `None` where nothing was published, where nothing matched, and
+    /// where what is here is already the newest — three different facts with
+    /// the same answer, because the press they decide is the same press.
+    #[must_use]
+    fn newer_at(&self, at: usize) -> Option<deepmind_midi::program::Program> {
+        let held = self.catalogue.held()?;
+        let program = &self.shelf.held().get(at)?.program;
         let found = held.matching(program)?;
         (!found.latest)
             .then(|| held.program(found.patch).ok())
             .flatten()
+    }
+
+    /// How many sounds on the shelf the library has since published a newer
+    /// version of.
+    ///
+    /// Counted rather than collected, and without decoding any of them: the
+    /// index already says which version each fingerprint is newest at, so this
+    /// is a walk of the shelf against a map and costs nothing to ask every
+    /// frame. What it decides is whether the press that updates all of them is
+    /// drawn at all.
+    #[must_use]
+    pub fn stale(&self) -> usize {
+        let Some(held) = self.catalogue.held() else {
+            return 0;
+        };
+        self.shelf
+            .held()
+            .iter()
+            .filter(|one| {
+                held.matching(&one.program)
+                    .is_some_and(|found| !found.latest)
+            })
+            .count()
     }
 
     /// The shared patch being tried, where one is.
@@ -902,8 +938,7 @@ impl App {
                 };
             }
             Message::ShelveShowing => self.shelve_showing(),
-            Message::Browse(_)
-            | Message::FetchPatches
+            Message::FetchPatches
             | Message::OpenPatches
             | Message::FindPatch(_)
             | Message::PatchCategory(_)
@@ -914,8 +949,11 @@ impl App {
             | Message::ChooseSound(_)
             | Message::OpenMenu(_)
             | Message::CloseMenu
+            | Message::CloseSharing
             | Message::PointerAt(_)
             | Message::Act(_)
+            | Message::UpdateSound(_)
+            | Message::UpdateEverything
             | Message::ShelvePatch(_)
             | Message::AuditionPatch(_) => self.looking_at(message),
             Message::PublishAuthor(_)
@@ -1139,7 +1177,6 @@ impl App {
     /// pressed. None of it touches the sound on the screen.
     fn looking_at(&mut self, message: Message) {
         match message {
-            Message::Browse(browsing) => self.browsing = browsing,
             Message::FetchPatches => self.fetch_patches(),
             Message::OpenPatches => self.open_patches(),
             Message::FindPatch(words) => self.looking.find = words,
@@ -1154,8 +1191,11 @@ impl App {
                 self.menu = Some(self.pointer);
             }
             Message::CloseMenu => self.menu = None,
+            Message::CloseSharing => self.sharing = None,
             Message::PointerAt(at) => self.pointer = at,
             Message::Act(action) => self.act(action),
+            Message::UpdateSound(at) => self.update_at(at),
+            Message::UpdateEverything => self.update_all(),
             Message::ShelvePatch(id) => self.shelve_patch(&id),
             Message::AuditionPatch(id) => self.audition(&id),
             _ => {}
@@ -1228,23 +1268,88 @@ impl App {
     /// bass that looks like a bass but not *that* bass edits from it rather
     /// than from nothing.
     fn publish_icon(&mut self, from_category: bool) {
-        self.publishing.icon = [0; 7];
-        if !from_category {
-            return;
+        self.publishing.icon = match (from_category, self.sharing.clone()) {
+            (true, Some(chosen)) => self.category_icon(&chosen),
+            _ => [0; 7],
+        };
+    }
+
+    /// Opens the share sheet on a sound, filled in with whatever is known.
+    ///
+    /// **Filled in and not blank.** A sound the library has already published
+    /// comes with a maker, a sentence, a licence, a vocabulary and a drawing,
+    /// and a sheet that asked for all five again would be asking somebody to
+    /// retype a file they are about to send a change to. So the sheet opens on
+    /// what the library holds and the person edits it, which is what sharing a
+    /// second version of something actually is.
+    ///
+    /// A sound nothing has published opens on the category's own drawing and
+    /// nothing else, because there is nothing else to know.
+    fn start_sharing(&mut self, chosen: &Chosen) {
+        self.publishing = self.described(chosen);
+        self.sharing = Some(chosen.clone());
+    }
+
+    /// What the library already says about a sound, as a half-written record.
+    fn described(&self, chosen: &Chosen) -> Publishing {
+        let known = self.catalogue.held().and_then(|held| match chosen {
+            Chosen::Patch(id) => held.index().get(id),
+            Chosen::Held(at) => held
+                .matching(&self.shelf.held().get(*at)?.program)
+                .map(|found| found.patch),
+        });
+        let Some(patch) = known else {
+            return Publishing {
+                icon: self.category_icon(chosen),
+                ..Publishing::default()
+            };
+        };
+        let mut terms = Vec::new();
+        for (axis, said) in [
+            ("genre", &patch.genre),
+            ("mood", &patch.mood),
+            ("timbre", &patch.timbre),
+            ("role", &patch.role),
+        ] {
+            terms.extend(said.iter().map(|term| (axis.to_owned(), term.clone())));
         }
+        Publishing {
+            author: patch.author.clone(),
+            about: patch.about.clone(),
+            licence: patch.licence.clone(),
+            collection: patch.collection.clone().unwrap_or_default(),
+            // The patch's own drawing where it has one, and its category's
+            // where the index filled that in for it: writing a category's icon
+            // back out as the patch's would be claiming a picture nobody drew.
+            icon: if patch.own_icon {
+                *patch.icon.rows()
+            } else {
+                [0; 7]
+            },
+            terms,
+            wrote: None,
+        }
+    }
+
+    /// The drawing a sound's category is published under, where there is one.
+    fn category_icon(&self, chosen: &Chosen) -> [u8; 7] {
+        let blank = [0; 7];
         let Some(held) = self.catalogue.held() else {
-            return;
+            return blank;
         };
-        let Some(category) = self
-            .patch
-            .program()
-            .and_then(deepmind_patches::Category::of)
-        else {
-            return;
+        let program = match chosen {
+            Chosen::Held(at) => match self.shelf.held().get(*at) {
+                Some(one) => one.program.clone(),
+                None => return blank,
+            },
+            Chosen::Patch(id) => match held.index().get(id).map(|patch| held.program(patch)) {
+                Some(Ok(program)) => program,
+                _ => return blank,
+            },
         };
-        if let Some(icon) = held.category_icon(category) {
-            self.publishing.icon = *icon.rows();
-        }
+        deepmind_patches::Category::of(&program)
+            .and_then(|category| held.category_icon(category))
+            .map_or(blank, |icon| *icon.rows())
     }
 
     /// Writes the `.syx` and `.toml` pair into a folder somebody chooses.
@@ -1256,11 +1361,15 @@ impl App {
     /// have to go and read a contributing guide to find out what the next four
     /// steps are.
     fn publish_write(&mut self) {
-        let Some(program) = self.patch.program() else {
-            self.say("There is no sound on the screen to share.".to_owned());
+        let Some(program) = self
+            .sharing
+            .as_ref()
+            .and_then(|chosen| self.program_of(chosen))
+        else {
+            self.say("There is no sound to share.".to_owned());
             return;
         };
-        let Some(category) = deepmind_patches::Category::of(program) else {
+        let Some(category) = deepmind_patches::Category::of(&program) else {
             self.say(
                 "Set a category on the instrument first: the folder a patch goes in is the one \
                  it calls itself."
@@ -1276,7 +1385,7 @@ impl App {
         let Some(root) = files::folder() else {
             return;
         };
-        match crate::publish::write(&root, program, category, &self.publishing) {
+        match crate::publish::write(&root, &program, category, &self.publishing) {
             Ok(where_to) => {
                 self.publishing.wrote = Some(where_to.clone());
                 self.say(format!("Written to {where_to}."));
@@ -1333,12 +1442,13 @@ impl App {
                  publish yet: deepmind-midi#49. See docs/waiting.md."
                     .to_owned(),
             ),
-            Action::Share => {
-                self.browsing = Browsing::Publish;
-                self.say("Describe the sound on the screen, then write the files.".to_owned());
-            }
+            Action::Share => self.start_sharing(&chosen),
             Action::Export => self.export_one(),
-            Action::Update => self.update_one(),
+            Action::Update => {
+                if let Chosen::Held(at) = chosen {
+                    self.update_at(at);
+                }
+            }
         }
     }
 
@@ -1358,16 +1468,17 @@ impl App {
         }
     }
 
-    /// Replaces the chosen program with the newest published version of it.
+    /// Replaces one program with the newest published version of it.
     ///
     /// Only what is on the shelf, and only in place: the slot it sits in is the
     /// slot it keeps, because a librarian that moved a program while updating
     /// it would be a librarian rearranging a bank nobody asked it to.
-    fn update_one(&mut self) {
-        let Some(newest) = self.newer() else {
-            return;
-        };
-        let Some(Chosen::Held(at)) = self.picked.clone() else {
+    ///
+    /// **Nothing reaches the instrument.** What changes is the shelf, which is
+    /// this machine's copy; the synthesizer keeps what it is holding until
+    /// somebody plays the row or stores it.
+    fn update_at(&mut self, at: usize) {
+        let Some(newest) = self.newer_at(at) else {
             return;
         };
         let name = newest.name().as_str().trim().to_owned();
@@ -1376,9 +1487,41 @@ impl App {
         }
     }
 
+    /// Replaces every one the library has published a newer version of.
+    ///
+    /// Read first and written after, all of it, rather than one at a time:
+    /// what is newest is worked out against the shelf as it stands, so a run
+    /// that replaced one program and then asked about the next would be asking
+    /// about a shelf it had already changed.
+    ///
+    /// One sentence at the end and not one per sound. Somebody who pressed this
+    /// asked about the shelf, not about each of the eleven.
+    fn update_all(&mut self) {
+        let newest: Vec<(usize, deepmind_midi::program::Program)> = (0..self.shelf.held().len())
+            .filter_map(|at| self.newer_at(at).map(|program| (at, program)))
+            .collect();
+        if newest.is_empty() {
+            self.say("Everything on the shelf is the published version already.".to_owned());
+            return;
+        }
+        let mut done = 0_usize;
+        for (at, program) in newest {
+            if self.shelf.replace(at, program) {
+                done = done.saturating_add(1);
+            }
+        }
+        let sound = if done == 1 { "sound is" } else { "sounds are" };
+        self.say(format!("{done} {sound} the published version now."));
+    }
+
     /// The program the chosen sound holds, wherever it is.
     fn chosen_program(&self) -> Option<deepmind_midi::program::Program> {
-        match self.picked.as_ref()? {
+        self.program_of(self.picked.as_ref()?)
+    }
+
+    /// The program one row holds, wherever it is.
+    fn program_of(&self, chosen: &Chosen) -> Option<deepmind_midi::program::Program> {
+        match chosen {
             Chosen::Held(at) => self.shelf.held().get(*at).map(|held| held.program.clone()),
             Chosen::Patch(id) => {
                 let held = self.catalogue.held()?;

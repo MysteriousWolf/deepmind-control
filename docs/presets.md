@@ -204,11 +204,15 @@ without being stored does not have to displace one of the 1024 to be tried, so
 the library on the machine is playable memory rather than an archive. The press
 at the end of the row is what keeps one.
 
-**Share one** is the other direction, and the only surface here that makes
-something. It is the one thing that is still a switch of its own, because it is
-not a place a sound is — it is what somebody does about one. It takes the sound on the screen and writes the pair a pull request
-is made of, laid out the way the repository is, with a note beside it saying
-what the next four steps are. It asks for a maker, a sentence, a licence and at
+**Sharing is a sheet over the table, on one row.** `Share…` is one of the
+seven verbs, so it acts on the sound somebody chose, wherever that sound lives,
+and the sheet opens filled in with whatever the library already says about it:
+a second version of something published is a file somebody edits rather than
+one they retype. It was a tab beside the table, describing whatever the front
+panel happened to be showing, and there was no way from the tab to tell which
+sound was being described nor any way from the list to say *this one*. It
+writes the pair a pull request is made of, laid out the way the repository is,
+with a note beside it saying what the next four steps are. It asks for a maker, a sentence, a licence and at
 least one vocabulary term — and nothing else, because everything else is
 derived from the 242 program bytes by the same CI that builds the index. The
 icon editor is forty-nine presses, seeded from the category's own drawing,
@@ -227,8 +231,21 @@ already draws twelve good ones.
 - **A checkout has no version to report.** `index.toml` is written at release
   time, so a working copy falls back to `0.0.0`, which reads like a fault
   rather than like *this is a folder somebody cloned*.
-- **Nothing offers to replace a stale program.** A row says a newer version is
-  published; putting it in that program's place is still two presses.
-- **The table does not sort.** It is shelf order and then index order, which is
-  nearest-first and is right until somebody wants every sound by one maker
-  together. The columns are the obvious thing to sort by.
+- **Nothing is written into the instrument.** `Store…` is drawn on the
+  toolbar and in the menu and refuses: `Device` publishes no call that sends a
+  program dump *to* a unit, which is
+  [deepmind-midi#49](https://github.com/MysteriousWolf/deepmind-midi/issues/49).
+  Everything else the press needs — the slot, the conflict, the bytes — is
+  here and waits on that one call. See [waiting.md](waiting.md).
+
+## What was on this list and is not
+
+- **Acting on a row.** Seven verbs — play, edit, copy here, store, share,
+  export, update — on a toolbar along the top and in the menu a right-press
+  opens, greyed by one rule that both read.
+- **Replacing a stale program.** The version cell *is* the press where the
+  library has published something newer, and the line that says what is on the
+  table carries `Update all n` while any are.
+- **Sorting and narrowing.** Every column heading lays the table out by itself
+  and turns round when pressed again; where, bank and category narrow from
+  their own headings.

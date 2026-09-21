@@ -18,29 +18,31 @@ use deepmind_midi::sysex::inquiry::Version;
 use iced::widget::{column, progress_bar, row, space, text};
 use iced::{Center, Element, Fill, Length};
 
-use crate::app::{App, Browsing, Message};
+use crate::app::{App, Message};
 use crate::shelf::Shelf;
 
-/// The whole librarian: every sound, or what it takes to publish one.
+/// The whole librarian: every sound, and the sheet that describes one of them.
 ///
-/// Two things and not two lists. **Where a sound lives is a column**, not a
-/// surface of its own — see [`crate::sounds`] — so the only switch here is
-/// between reading and contributing.
+/// **One list.** Where a sound lives is a column — see [`crate::sounds`] — and
+/// describing one to share it is a sheet over that list rather than a second
+/// list beside it: sharing is done *to one sound*, so it belongs where the
+/// sound is. It was a tab, and a tab meant leaving the table to describe a row
+/// and having no way, once there, to tell which row was being described.
 pub fn view(app: &App) -> Element<'_, Message> {
-    column![chrome(app)]
-        .push(match app.browsing() {
-            Browsing::Sounds => sounds(app),
-            Browsing::Publish => crate::sharing::view(app),
-        })
+    let under = column![chrome(app)]
+        .push(sounds(app))
         .spacing(12)
-        .padding([0, 12])
-        .into()
+        .padding([0, 12]);
+    if app.sharing().is_none() {
+        return under.into();
+    }
+    control_ui::modal(under, crate::sharing::sheet(app), Message::CloseSharing)
 }
 
-/// The one line above both surfaces: which of the two, and the four presses
-/// that are about files.
+/// The line above the table: what is on the shelf, and the four presses that
+/// are about files.
 ///
-/// **Left is where you are, right is what you do to the disk**, which is the
+/// **Left is what you have, right is what you do to the disk**, which is the
 /// arrangement the whole librarian is laid out under: the seven verbs in
 /// [`crate::sounds`] sit under this on the same principle, with what is about
 /// the chosen sound on the left of their row and what is about the library on
@@ -52,7 +54,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
 /// the footer while the pointer is on it.
 fn chrome(app: &App) -> Element<'_, Message> {
     row![
-        crate::sounds::switch(app.browsing()),
+        standing(app.shelf(), app.firmware()),
         space().width(Fill),
         files(app),
     ]
@@ -69,14 +71,11 @@ fn chrome(app: &App) -> Element<'_, Message> {
 /// every sound wherever it is.
 fn sounds(app: &App) -> Element<'_, Message> {
     let shelf = app.shelf();
-    column![
-        banks(app.bank(), app.is_connected()),
-        standing(shelf, app.firmware()),
-    ]
-    .extend(progress(shelf))
-    .push(crate::sounds::view(app))
-    .spacing(10)
-    .into()
+    column![banks(app.bank(), app.is_connected())]
+        .extend(progress(shelf))
+        .push(crate::sounds::view(app))
+        .spacing(10)
+        .into()
 }
 
 /// The four presses that are about files rather than about any one sound.

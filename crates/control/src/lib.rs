@@ -47,7 +47,8 @@
 //! release on every merge. It is reached either by `git clone` and a folder
 //! dialog or by fetching the newest release on a thread, and pressing anything
 //! on it puts that sound on the same [`Shelf`] every other route already fills.
-//! Which of the two shelves is showing is [`Browsing`].
+//! Describing one to share it is a sheet over the table, on the row somebody
+//! chose, rather than a second list beside it.
 //!
 //! Almost none of the format is read here. The library publishes the
 //! `deepmind-patches` crate, which is the same split `deepmind-midi` is on the
@@ -75,6 +76,6 @@ mod shelf;
 mod sounds;
 mod window;
 
-pub use app::{App, Browsing, Message, Publishing, View};
+pub use app::{App, Message, Publishing, View};
 pub use shelf::{Held, ORDERS, Order, Shelf, Source, Transfer, patch_to_syx};
 pub use window::run;
