@@ -63,6 +63,78 @@ pub enum Browsing {
     Shelf,
     /// The sounds other people have published.
     Shared,
+    /// What it takes to publish one of your own.
+    Publish,
+}
+
+/// What a person is writing about a sound they are about to share.
+///
+/// Everything the repository's `.toml` asks for that this application cannot
+/// work out from the program bytes. What it *can* work out is not here and is
+/// never typed: the name, the category, the effects, the arpeggiator and the
+/// rest all come off the 242 bytes when the pair is written, which is the same
+/// rule the index is built under.
+#[derive(Debug, Clone, Default)]
+pub struct Publishing {
+    /// A person or a handle. Not an email address.
+    pub author: String,
+    /// What it sounds like and how to play it.
+    pub about: String,
+    /// An SPDX identifier, or `All rights reserved`.
+    pub licence: String,
+    /// The collection folder it belongs in, where it belongs in one.
+    pub collection: String,
+    /// The 7x7 picture, packed a row to a byte with bit 0 leftmost.
+    pub icon: [u8; 7],
+    /// The vocabulary terms chosen, as the axis they came from and the term.
+    pub terms: Vec<(String, String)>,
+    /// Where the pair was last written, once it has been.
+    pub wrote: Option<String>,
+}
+
+impl Publishing {
+    /// Whether a dot of the icon is inked.
+    #[must_use]
+    pub fn inked(&self, across: usize, down: usize) -> bool {
+        across < 7
+            && self
+                .icon
+                .get(down)
+                .is_some_and(|row| row & (1 << across) != 0)
+    }
+
+    /// Whether a term has been chosen.
+    #[must_use]
+    pub fn carries(&self, axis: &str, term: &str) -> bool {
+        self.terms
+            .iter()
+            .any(|(held, said)| held == axis && said == term)
+    }
+
+    /// Everything the repository insists on, or what is missing.
+    ///
+    /// `name` and the category come off the program, so what a person can
+    /// leave out is the rest: a maker, a sentence, a licence, and at least one
+    /// term from one of the four vocabularies. The same five the repository's
+    /// own validator asks for, checked here so that somebody finds out before
+    /// they open a pull request rather than after.
+    #[must_use]
+    pub fn missing(&self) -> Vec<&'static str> {
+        let mut wanted = Vec::new();
+        if self.author.trim().is_empty() {
+            wanted.push("a maker");
+        }
+        if self.about.trim().is_empty() {
+            wanted.push("a sentence about it");
+        }
+        if self.licence.trim().is_empty() {
+            wanted.push("a licence");
+        }
+        if self.terms.is_empty() {
+            wanted.push("at least one term");
+        }
+        wanted
+    }
 }
 
 /// Everything that happens to the window.
@@ -127,6 +199,24 @@ pub enum Message {
     PatchCategory(Option<deepmind_patches::Category>),
     /// Put one shared patch, by its id, on the shelf.
     ShelvePatch(String),
+    /// Play one shared patch without keeping it anywhere.
+    AuditionPatch(String),
+    /// Say who made the sound about to be shared.
+    PublishAuthor(String),
+    /// Say what it sounds like.
+    PublishAbout(String),
+    /// Say what it is licensed under.
+    PublishLicence(String),
+    /// Say which collection it belongs to.
+    PublishCollection(String),
+    /// Turn one vocabulary term on or off.
+    PublishTerm(String, String),
+    /// Turn one dot of the icon on or off.
+    PublishDot(usize, usize),
+    /// Start the icon again, from nothing or from the category's own.
+    PublishIcon(bool),
+    /// Write the pair out into a folder somebody chooses.
+    PublishWrite,
     /// Put every shared patch the search left on the shelf.
     ShelveShowing,
     /// Something a view asked for.
@@ -160,6 +250,16 @@ pub struct App {
     browsing: Browsing,
     /// What is being asked of the shared shelf.
     looking: Looking,
+    /// What is being written about a sound about to be shared.
+    publishing: Publishing,
+    /// The shared patch being tried, where one is.
+    ///
+    /// Not part of the sound and never written anywhere. A patch being
+    /// auditioned is in the instrument's edit buffer and nowhere else — not on
+    /// the shelf, not in its memory — so this is the only record that it is
+    /// what is sounding, and it is forgotten the moment anything else is
+    /// loaded or read.
+    trying: Option<String>,
     /// The section open over the window, where one is.
     editing: Option<Group>,
     /// The control the pointer is over, which the footer describes.
@@ -233,6 +333,8 @@ impl App {
             catalogue: Catalogue::new(),
             browsing: Browsing::default(),
             looking: Looking::default(),
+            publishing: Publishing::default(),
+            trying: None,
             bank: Bank::A,
             view: View::Panel,
             negative: false,
@@ -372,6 +474,18 @@ impl App {
     #[must_use]
     pub const fn looking(&self) -> &Looking {
         &self.looking
+    }
+
+    /// The shared patch being tried, where one is.
+    #[must_use]
+    pub fn trying(&self) -> Option<&str> {
+        self.trying.as_deref()
+    }
+
+    /// What is being written about a sound about to be shared.
+    #[must_use]
+    pub const fn publishing(&self) -> &Publishing {
+        &self.publishing
     }
 
     /// Returns the channel edits go out on, once one is settled.
@@ -598,6 +712,15 @@ impl App {
             Message::FindPatch(words) => self.looking.find = words,
             Message::PatchCategory(category) => self.looking.category = category,
             Message::ShelvePatch(id) => self.shelve_patch(&id),
+            Message::AuditionPatch(id) => self.audition(&id),
+            Message::PublishAuthor(said) => self.publishing.author = said,
+            Message::PublishAbout(said) => self.publishing.about = said,
+            Message::PublishLicence(said) => self.publishing.licence = said,
+            Message::PublishCollection(said) => self.publishing.collection = said,
+            Message::PublishTerm(axis, term) => self.publish_term(&axis, &term),
+            Message::PublishDot(across, down) => self.publish_dot(across, down),
+            Message::PublishIcon(from_category) => self.publish_icon(from_category),
+            Message::PublishWrite => self.publish_write(),
             Message::ShelveShowing => self.shelve_showing(),
             Message::Ui(control_ui::Message::Rename(name)) => self.rename(name),
             Message::Ui(control_ui::Message::Pointed(parameter)) => self.pointed = parameter,
@@ -700,6 +823,140 @@ impl App {
                 ));
             }
             Err(trouble) => self.say(format!("That folder is not a patch library: {trouble}")),
+        }
+    }
+
+    /// Turns one vocabulary term on or off.
+    fn publish_term(&mut self, axis: &str, term: &str) {
+        if let Some(at) = self
+            .publishing
+            .terms
+            .iter()
+            .position(|(held, said)| held == axis && said == term)
+        {
+            drop(self.publishing.terms.remove(at));
+        } else {
+            self.publishing
+                .terms
+                .push((axis.to_owned(), term.to_owned()));
+        }
+    }
+
+    /// Turns one dot of the icon on or off.
+    fn publish_dot(&mut self, across: usize, down: usize) {
+        if across >= 7 {
+            return;
+        }
+        if let Some(row) = self.publishing.icon.get_mut(down) {
+            *row ^= 1 << across;
+        }
+    }
+
+    /// Starts the icon again: blank, or from the category's own drawing.
+    ///
+    /// The category's, because a blank grid is a bad place to start a picture
+    /// and the repository already draws twelve good ones. Somebody who wants a
+    /// bass that looks like a bass but not *that* bass edits from it rather
+    /// than from nothing.
+    fn publish_icon(&mut self, from_category: bool) {
+        self.publishing.icon = [0; 7];
+        if !from_category {
+            return;
+        }
+        let Some(held) = self.catalogue.held() else {
+            return;
+        };
+        let Some(category) = self
+            .patch
+            .program()
+            .and_then(deepmind_patches::Category::of)
+        else {
+            return;
+        };
+        if let Some(icon) = held.category_icon(category) {
+            self.publishing.icon = *icon.rows();
+        }
+    }
+
+    /// Writes the `.syx` and `.toml` pair into a folder somebody chooses.
+    ///
+    /// Laid out the way the repository wants it — `presets/<Category>/` — so
+    /// that the folder this writes can be copied straight over a checkout and
+    /// the result is a pull request. Beside them goes a short note saying
+    /// exactly that, because a person who has just drawn an icon should not
+    /// have to go and read a contributing guide to find out what the next four
+    /// steps are.
+    fn publish_write(&mut self) {
+        let Some(program) = self.patch.program() else {
+            self.say("There is no sound on the screen to share.".to_owned());
+            return;
+        };
+        let Some(category) = deepmind_patches::Category::of(program) else {
+            self.say(
+                "Set a category on the instrument first: the folder a patch goes in is the one \
+                 it calls itself."
+                    .to_owned(),
+            );
+            return;
+        };
+        let missing = self.publishing.missing();
+        if !missing.is_empty() {
+            self.say(format!("Still wanted: {}.", missing.join(", ")));
+            return;
+        }
+        let Some(root) = files::folder() else {
+            return;
+        };
+        match crate::publish::write(&root, program, category, &self.publishing) {
+            Ok(where_to) => {
+                self.publishing.wrote = Some(where_to.clone());
+                self.say(format!("Written to {where_to}."));
+            }
+            Err(trouble) => self.say(format!("That would not be written: {trouble}")),
+        }
+    }
+
+    /// Plays one shared patch without keeping it anywhere.
+    ///
+    /// **The instrument already makes this safe.** `LoadProgram` writes the
+    /// edit buffer, which is the sound in front of somebody rather than any of
+    /// the 1024 stored programs, so nothing is overwritten and nothing has to
+    /// be put back: turning the instrument's own program knob is what undoes
+    /// it. So auditioning is not a mode with a way out of it, it is simply
+    /// loading without keeping.
+    ///
+    /// Which is the whole of what makes a computer worth having plugged in
+    /// here. An instrument holds 1024 sounds and a disk holds as many as
+    /// somebody has; a patch that can be heard without being stored is a patch
+    /// that does not have to displace one of the 1024 to be tried, so the
+    /// library on the machine is playable memory rather than an archive.
+    fn audition(&mut self, id: &str) {
+        let Some(held) = self.catalogue.held() else {
+            return;
+        };
+        let Some(patch) = held.index().get(id) else {
+            return;
+        };
+        match held.program(patch) {
+            Ok(program) => {
+                self.trying = Some(id.to_owned());
+                let name = program.name().as_str().trim().to_owned();
+                let maker = patch.author.clone();
+                self.patch.assume(program.clone());
+                // The shelf is deliberately untouched, and so is its `loaded`:
+                // what is sounding did not come off it, and a librarian that
+                // lit a row nobody had loaded would be lying about where this
+                // sound is.
+                if self.link.is_some() {
+                    self.ask(Command::LoadProgram(Box::new(program)));
+                    self.say(format!("Trying {name} by {maker}. Nothing is kept."));
+                } else {
+                    self.say(format!(
+                        "{name} by {maker} is on the screen. Nothing is open to send it to."
+                    ));
+                }
+            }
+            Err(trouble) => self.say(format!("{} would not open: {trouble}", patch.name)),
         }
     }
 
@@ -827,6 +1084,8 @@ impl App {
         let Some(program) = self.shelf.load(index) else {
             return;
         };
+        // Whatever was being tried is not what is sounding any more.
+        self.trying = None;
         let name = program.name().as_str().trim().to_owned();
         self.patch.assume(program.clone());
         if self.link.is_some() {

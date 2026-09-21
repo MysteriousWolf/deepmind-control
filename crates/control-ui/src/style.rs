@@ -101,7 +101,7 @@ const PALETTE: Palette = Palette {
 /// The colours of the light coming through the instrument's buttons.
 ///
 /// A `DeepMind`'s front panel is dark, and two things on it are not: the
-/// [banners](BANNER) its section names are printed on, and the lamps behind its
+/// banners its section names are printed on, and the lamps behind its
 /// buttons. These are the lamps — amber on every `EDIT` and on the presses that
 /// change what the display is showing, cyan on `MOD`, `CHORD` and `CURVES`,
 /// white on a plain switch. This window takes the hardware's own three rather

@@ -218,9 +218,9 @@ pub use panel::{Message, group};
 pub use patch::Patch;
 pub use section::{name as section_name, sections};
 pub use style::{
-    Materials, READABLE, bay, chrome, contrast, deepmind, field, ground, ink_on, is_negative,
-    legible, lifted, marked, materials, mix, negative, printed, reading, selector, shortlist, tint,
-    unlit, written,
+    MODULATION, Materials, PLAIN, READABLE, WAY_IN, bay, chrome, contrast, deepmind, field, ground,
+    ink_on, is_negative, legible, lifted, marked, materials, mix, negative, printed, reading,
+    selector, shortlist, tint, unlit, written,
 };
 
 /// A piece of interface, produced by the views in this crate.

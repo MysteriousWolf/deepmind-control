@@ -37,14 +37,6 @@ use iced::{Background, Center, Element, Fill, Length, Padding, Theme, border};
 use crate::app::{App, Browsing, Message};
 use crate::catalogue::{Catalogue, Held, State};
 
-/// Width of one patch on the shared shelf.
-///
-/// Wider than a program on the librarian's own shelf, because a card here
-/// carries a picture, a name, who made it and what it is, where one there
-/// carries a slot and a name. Still narrow enough that a window at its opening
-/// width shows three across.
-const CARD: f32 = 232.0;
-
 /// Room kept clear down the right for the scroll bar, as the shelf keeps it.
 const GUTTER: f32 = 16.0;
 
@@ -175,7 +167,15 @@ fn field(app: &App) -> Element<'_, Message> {
         .into()
 }
 
-/// Everything a search left.
+/// Everything a search left, as a table.
+///
+/// A grid of cards was the wrong shape for this. A card is right for the
+/// librarian's own shelf, where every entry is a slot and a name and the
+/// question is *which of these 128*; a shared patch carries a maker, a
+/// category, four vocabularies and a sentence, and a grid of those is a grid of
+/// paragraphs. A table puts one fact per column, so the eye runs down the
+/// column it cares about — every author, or every mood — rather than reading
+/// each card to find the one field it wanted.
 ///
 /// A search that matched nothing says so, for the reason the shelf's does: a
 /// blank surface where the sounds were reads as an empty catalogue, which is a
@@ -193,59 +193,273 @@ fn patches(app: &App) -> Element<'_, Message> {
         .into();
     }
     let loadable = held.loadable();
-    let cards = showing
+    let trying = app.trying();
+    let rows = showing
         .into_iter()
-        .map(|patch| card(patch, held.icon(patch), loadable));
-    scrollable(container(row(cards).spacing(6).wrap()).padding(Padding::ZERO.right(GUTTER)))
-        .height(Fill)
+        .enumerate()
+        .map(|(at, patch)| line(held, patch, at, loadable, trying == Some(patch.id.as_str())));
+    column![heading()]
+        .push(
+            scrollable(container(column(rows).spacing(1)).padding(Padding::ZERO.right(GUTTER)))
+                .height(Fill),
+        )
+        .spacing(4)
         .into()
 }
 
-/// One patch: its picture, what it is called, who made it and what it is.
+/// What each column holds, printed once above them.
 ///
-/// The author under the name rather than beside it, in the ink a legend is
-/// printed in, which is where the shelf's own cards put a category. Somebody
-/// reads the name first and the maker second, and a second column would put a
-/// gap in the middle of every short name.
-fn card(patch: &IndexPatch, icon: Icon, loadable: bool) -> Element<'_, Message> {
-    let said = column![
-        text(patch.name.as_str()).size(13),
-        text(format!(
-            "{} \u{b7} {}",
-            patch.author,
-            patch.category.label()
-        ))
-        .size(11)
-        .style(|theme: &Theme| text::Style {
+/// In the ink a legend is printed in, which is what every other label on this
+/// panel is set in: a header that competed with the rows would be a header
+/// somebody reads twice.
+fn heading<'a>() -> Element<'a, Message> {
+    let label = |said: &'static str, width: f32| {
+        container(text(said).size(10).style(|theme: &Theme| text::Style {
             color: Some(materials(theme).metal_low),
-        }),
-    ]
-    .spacing(1);
+        }))
+        .width(Length::Fixed(width))
+    };
+    container(
+        row![
+            container(space()).width(Length::Fixed(ICON_COLUMN)),
+            label("SOUND", NAME),
+            label("MAKER", MAKER),
+            label("CATEGORY", CATEGORY),
+            label("IS", TERMS),
+            text("ABOUT").size(10).style(|theme: &Theme| text::Style {
+                color: Some(materials(theme).metal_low),
+            }),
+        ]
+        .spacing(COLUMN_GAP)
+        .align_y(Vertical::Center),
+    )
+    .padding(Padding::from([0.0, 8.0]).right(GUTTER + 8.0))
+    .into()
+}
+
+/// One patch, as a row of the table.
+///
+/// Banded, faintly: a row of six columns read across is a row somebody loses
+/// their place in, and a plate that alternates is what a printed table has
+/// always done about it.
+fn line<'a>(
+    held: &'a Held,
+    patch: &'a IndexPatch,
+    at: usize,
+    loadable: bool,
+    trying: bool,
+) -> Element<'a, Message> {
+    let banded = at % 2 == 1;
+    let terms = row(chips(held, patch)
+        .into_iter()
+        .map(|(said, colour)| chip(said, colour)))
+    .spacing(4);
     let face = row![
-        container(drawn(icon))
-            .width(Length::Fixed(20.0))
-            .align_x(Horizontal::Center),
-        said,
+        container(drawn(
+            held.icon(patch),
+            held.category_colour(patch.category)
+        ))
+        .width(Length::Fixed(ICON_COLUMN))
+        .align_x(Horizontal::Center),
+        container(text(patch.name.as_str()).size(13)).width(Length::Fixed(NAME)),
+        container(
+            text(patch.author.as_str())
+                .size(12)
+                .style(|theme: &Theme| text::Style {
+                    color: Some(materials(theme).metal_low),
+                })
+        )
+        .width(Length::Fixed(MAKER)),
+        container(chip(
+            patch.category.label().to_owned(),
+            held.category_colour(patch.category),
+        ))
+        .width(Length::Fixed(CATEGORY)),
+        container(terms).width(Length::Fixed(TERMS)),
+        // One line, cut where the column ends. A table whose rows are three
+        // lines tall because one of six columns wraps is a list of paragraphs
+        // with a table drawn round it, and the thing somebody is running their
+        // eye down is the column to the left of it.
+        //
+        // Clipped as well as unwrapped: a line that does not wrap still draws
+        // its whole length, which is a sentence running out under the press at
+        // the end of the row.
+        container(
+            text(patch.about.as_str())
+                .size(12)
+                .wrapping(iced::widget::text::Wrapping::None)
+                .style(|theme: &Theme| text::Style {
+                    color: Some(materials(theme).metal_low),
+                }),
+        )
+        .width(Fill)
+        .clip(true),
     ]
-    .spacing(8)
+    .spacing(COLUMN_GAP)
     .align_y(Vertical::Center);
-    button(face)
-        .width(Length::Fixed(CARD))
-        .padding([6, 8])
-        .style(move |theme: &Theme, _status| pressed_like(theme, false))
-        .on_press_maybe(loadable.then(|| Message::ShelvePatch(patch.id.clone())))
+    // The row plays it and the press at the end keeps it. That way round
+    // because hearing a sound is what somebody came here to do and putting it
+    // on a shelf is what they do about the one they liked, and because playing
+    // it costs nothing: the edit buffer is the sound in front of them, not one
+    // of the instrument's 1024.
+    let played = button(face)
+        .width(Length::Fill)
+        .padding([5, 8])
+        .style(move |theme: &Theme, status| banded_like(theme, banded, trying, status))
+        .on_press_maybe(loadable.then(|| Message::AuditionPatch(patch.id.clone())));
+    row![played, keep(patch, loadable)]
+        .spacing(2)
+        .align_y(Vertical::Center)
         .into()
 }
 
-/// A patch's icon, on the instrument's own dots.
-fn drawn<'a>(icon: Icon) -> Element<'a, Message> {
+/// The press at the end of a row that puts that one sound on the shelf.
+///
+/// A mark rather than a word, like every other press in this window that is not
+/// a way in: the band already spends its words on the columns, and `Keep` in a
+/// column of twelve `Keep`s is a column of one word repeated.
+fn keep(patch: &IndexPatch, loadable: bool) -> Element<'_, Message> {
+    button(
+        Element::from(stencil(control_ui::DOWN.screen(), |theme: &Theme| {
+            materials(theme).metal_low
+        }))
+        .map(Message::Ui),
+    )
+    .padding([5, 8])
+    .style(control_ui::chrome)
+    .on_press_maybe(loadable.then(|| Message::ShelvePatch(patch.id.clone())))
+    .into()
+}
+
+/// The terms a row prints, with the colour of the axis each came from.
+///
+/// All four vocabularies, in the order somebody reads them — what it is like
+/// first, then what it does and what it is for — and capped, because a patch
+/// that carries nine terms is a patch whose row would be nothing but chips.
+/// What is dropped is still searched: the field reads every term a patch has,
+/// whether or not the column had room to print it.
+///
+/// Every axis rather than a chosen two, because a patch is free to fill any
+/// of them and a column that could be empty for a patch that said plenty about
+/// itself is a column that looks broken.
+fn chips(held: &Held, patch: &IndexPatch) -> Vec<(String, Option<[u8; 3]>)> {
+    let mut said = Vec::new();
+    for (axis, terms) in [
+        (deepmind_patches::Axis::Mood, &patch.mood),
+        (deepmind_patches::Axis::Timbre, &patch.timbre),
+        (deepmind_patches::Axis::Role, &patch.role),
+        (deepmind_patches::Axis::Genre, &patch.genre),
+    ] {
+        let colour = held.axis_colour(axis);
+        said.extend(terms.iter().map(|term| (term.clone(), colour)));
+    }
+    said.truncate(CHIPS);
+    said
+}
+
+/// How many vocabulary terms one row prints.
+const CHIPS: usize = 4;
+
+/// One word on a tinted ground.
+///
+/// The colour is the library's and the tint is this window's. A chip filled
+/// with `#E4572E` at full strength on a dark panel is a chip that is the
+/// loudest thing on the surface; carried most of the way back to the panel it
+/// is a ground that says *these two belong together* without shouting, and the
+/// word on it stays in the metal a legend is printed in.
+fn chip<'a>(said: String, colour: Option<[u8; 3]>) -> Element<'a, Message> {
+    container(text(said).size(11).style(move |theme: &Theme| text::Style {
+        color: Some(match colour {
+            Some(rgb) => control_ui::legible(of(rgb), ground(theme, colour), theme),
+            None => materials(theme).metal_low,
+        }),
+    }))
+    .padding([1, 6])
+    .style(move |theme: &Theme| container::Style {
+        background: Some(Background::Color(ground(theme, colour))),
+        border: border::rounded(3),
+        ..container::Style::default()
+    })
+    .into()
+}
+
+/// The ground a chip's word is printed on.
+fn ground(theme: &Theme, colour: Option<[u8; 3]>) -> iced::Color {
+    let material = materials(theme);
+    match colour {
+        Some(rgb) => control_ui::mix(material.recess, of(rgb), CHIP),
+        None => material.recess,
+    }
+}
+
+/// How far a chip's ground is carried from the recess towards the library's
+/// own colour.
+const CHIP: f32 = 0.28;
+
+/// A colour the library named, as one this window can draw.
+fn of(rgb: [u8; 3]) -> iced::Color {
+    let [red, green, blue] = rgb;
+    iced::Color::from_rgb8(red, green, blue)
+}
+
+/// The room the icon column takes.
+const ICON_COLUMN: f32 = 22.0;
+/// The room a sound's name takes.
+const NAME: f32 = 170.0;
+/// The room a maker's name takes.
+const MAKER: f32 = 110.0;
+/// The room a category chip takes.
+const CATEGORY: f32 = 92.0;
+/// The room the vocabulary chips take.
+const TERMS: f32 = 210.0;
+/// The gap between two columns.
+const COLUMN_GAP: f32 = 10.0;
+
+/// A patch's icon, on the instrument's own dots, in its category's colour.
+fn drawn<'a>(icon: Icon, colour: Option<[u8; 3]>) -> Element<'a, Message> {
     let mut screen = Screen::new(ICON, ICON);
     screen.blit(&icon.pixels(), 0, 0);
     // Through the view layer's own message and back, the way every other mark
     // this window borrows from `control_ui` is drawn: the stencil carries no
     // press, so the mapping is a formality that keeps one drawing in one crate.
-    Element::from(stencil(screen, |theme: &Theme| materials(theme).metal)).map(Message::Ui)
+    Element::from(stencil(screen, move |theme: &Theme| match colour {
+        // Lifted off the library's own colour rather than set to it: a seven-dot
+        // picture in `#5DB56A` on a dark panel is a smudge, and what a category
+        // colour is for is telling two of them apart at a glance.
+        Some(rgb) => control_ui::mix(materials(theme).metal, of(rgb), MARK),
+        None => materials(theme).metal,
+    }))
+    .map(Message::Ui)
 }
+
+/// How far an icon is carried from the metal towards its category's colour.
+const MARK: f32 = 0.55;
+
+/// The ground one row of the table stands on.
+fn banded_like(theme: &Theme, banded: bool, trying: bool, status: button::Status) -> button::Style {
+    let material = materials(theme);
+    let palette = theme.extended_palette();
+    let ground = match status {
+        button::Status::Hovered | button::Status::Pressed => material.plate,
+        _ if trying => material.plate,
+        _ if banded => control_ui::mix(material.panel, material.plate, BAND),
+        _ => material.panel,
+    };
+    button::Style {
+        background: Some(Background::Color(ground)),
+        text_color: palette.background.base.text,
+        // The one being tried carries the lit edge every chosen thing in this
+        // window carries, because that is what it is: the sound this instrument
+        // is making, out of a list of sounds it could be making.
+        border: border::rounded(2)
+            .width(if trying { 1.0 } else { 0.0 })
+            .color(if trying { material.lit } else { material.panel }),
+        ..button::Style::default()
+    }
+}
+
+/// How far a banded row is carried from the panel towards a plate.
+const BAND: f32 = 0.45;
 
 /// The two shelves, and which one is showing.
 ///
@@ -262,6 +476,7 @@ pub fn switch<'a>(browsing: Browsing) -> Element<'a, Message> {
     row![
         one("This machine", Browsing::Shelf),
         one("Shared", Browsing::Shared),
+        one("Share one", Browsing::Publish),
     ]
     .spacing(6)
     .align_y(Center)
@@ -292,10 +507,8 @@ fn pressed_like(theme: &Theme, pressed: bool) -> button::Style {
 mod tests {
     use deepmind_patches::Category;
 
-    use super::CARD;
-
     #[test]
-    fn a_card_is_wide_enough_for_the_longest_thing_printed_under_a_name() {
+    fn the_category_column_is_wide_enough_for_every_category() {
         // The line under a patch's name is `author · Category`, and the twelve
         // category labels are the part this window cannot shorten. A card that
         // clipped one would be a card that lies about what a sound is.
@@ -304,14 +517,14 @@ mod tests {
             .map(|category| category.label().len())
             .max()
             .unwrap_or_default();
-        // Eleven-point type, the icon and the padding, at roughly six points a
-        // character: the check is that the card has room for a label plus a
-        // maker's name beside it, not that it is any exact width.
-        let room = (CARD - 20.0 - 16.0) / 6.0;
+        // Eleven-point type at roughly six points a character, plus the chip's
+        // own padding either side. A column that clipped a chip would be a
+        // column that lies about what a sound is, and the twelve labels are the
+        // part this window cannot shorten.
         let needed = u16::try_from(longest).unwrap_or(u16::MAX);
         assert!(
-            room > f32::from(needed) + 8.0,
-            "a {longest}-character category leaves no room for a maker"
+            super::CATEGORY > f32::from(needed).mul_add(6.0, 12.0),
+            "a {longest}-character category does not fit the category column"
         );
     }
 }

@@ -196,6 +196,39 @@ impl Held {
         self.index.icons.category(category).copied()
     }
 
+    /// A colour the library named, as three components.
+    ///
+    /// `resources/palette.toml` carries twelve category colours, one per
+    /// vocabulary axis, and the instrument's own display triple, and they ride
+    /// in the index so a reader needs no second file. Hex is parsed here rather
+    /// than in the drawing, so that a malformed colour is nothing rather than a
+    /// panic in a frame.
+    ///
+    /// **The library names them and this window decides what to do with them**,
+    /// which is what the palette's own note says. A category's colour is worth
+    /// having because every host that draws one should draw the same one; how
+    /// dark the chip under it is, is this window's business.
+    #[must_use]
+    pub fn colour(&self, group: &str, key: &str) -> Option<[u8; 3]> {
+        let hex = self.index.palette.get(group)?.get(key)?;
+        rgb(hex)
+    }
+
+    /// The colour of a category, where the catalogue names one.
+    #[must_use]
+    pub fn category_colour(&self, category: Category) -> Option<[u8; 3]> {
+        // Keyed by the instrument's own short label, which is what
+        // `palette.toml` writes: `SFX` and `Pad`, not `Sound Effects` and
+        // `Pads`. The folder is the other one.
+        self.colour("category", category.label())
+    }
+
+    /// The colour of a vocabulary axis, where the catalogue names one.
+    #[must_use]
+    pub fn axis_colour(&self, axis: deepmind_patches::Axis) -> Option<[u8; 3]> {
+        self.colour("axis", axis_key(axis))
+    }
+
     /// The icon a vocabulary term is drawn by, where the catalogue carries one.
     #[must_use]
     pub fn term_icon(&self, axis: deepmind_patches::Axis, term: &str) -> Option<Icon> {
@@ -310,6 +343,36 @@ fn said_about(patch: &IndexPatch) -> Vec<String> {
     said.extend(patch.tags.iter().cloned());
     said.extend(patch.effects.iter().cloned());
     said
+}
+
+/// What the palette calls an axis.
+///
+/// Lowercase, which is how `taxonomy.toml` and `palette.toml` both spell it.
+#[must_use]
+pub const fn axis_key(axis: deepmind_patches::Axis) -> &'static str {
+    match axis {
+        deepmind_patches::Axis::Genre => "genre",
+        deepmind_patches::Axis::Mood => "mood",
+        deepmind_patches::Axis::Timbre => "timbre",
+        deepmind_patches::Axis::Role => "role",
+    }
+}
+
+/// Parses `#rrggbb`, or nothing at all.
+///
+/// Lenient in the one direction that matters: a colour this window cannot read
+/// is a colour it does not draw, and the thing it was going to tint is drawn in
+/// the metal everything else is. A catalogue is somebody else's file.
+#[must_use]
+fn rgb(hex: &str) -> Option<[u8; 3]> {
+    let digits = hex.strip_prefix('#').unwrap_or(hex);
+    if digits.len() != 6 || !digits.is_ascii() {
+        return None;
+    }
+    let pair = |at: usize| -> Option<u8> {
+        u8::from_str_radix(digits.get(at..at.checked_add(2)?)?, 16).ok()
+    };
+    Some([pair(0)?, pair(2)?, pair(4)?])
 }
 
 /// One axis of a patch's vocabulary terms.

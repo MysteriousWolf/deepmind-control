@@ -165,12 +165,49 @@ It is a desktop-only surface for the reason the rest of the librarian is: a
 preset pack is thirty-five kilobytes of SysEx and a plugin event buffer is sized
 for a few notes.
 
+## The three surfaces
+
+The librarian is one surface with three shelves, switched at the top, because
+they are three answers to one question — *what sounds can I have*.
+
+**This machine** is the shelf every route already fills. A program on it that
+the library has ever published says so, at the version it matched, and where
+that is not the newest one it says that too. **The fingerprint is what makes
+this work**: it is identity of a *sound*, taken over the bytes that decide what
+is heard with the name, the slot and the file left out, so a program somebody
+renamed still matches and one they edited does not. A bank read off an
+instrument becomes legible: this row is `Acid Growl` by `nyx`, and this one is
+something nobody has ever shared.
+
+**Shared** is the catalogue, as a table rather than a grid of cards. A card is
+right for a slot and a name; a shared patch carries a maker, a category, four
+vocabularies and a sentence, and a grid of those is a grid of paragraphs. One
+fact per column, so the eye runs down the column it cares about. Colour comes
+from the library's own `palette.toml` — twelve category colours and one per
+vocabulary axis — carried in the index so a reader needs no second file, and
+tinted most of the way back to the panel here, because a chip at full strength
+on a dark panel is the loudest thing on the surface.
+
+**Pressing a row plays it and nothing is kept.** The edit buffer is the sound in
+front of somebody rather than one of the instrument's 1024, so auditioning costs
+nothing and needs no way out of it — turning the program knob is the undo. That
+is what makes a computer worth having plugged in: a patch that can be heard
+without being stored does not have to displace one of the 1024 to be tried, so
+the library on the machine is playable memory rather than an archive. The press
+at the end of the row is what keeps one.
+
+**Share one** is the other direction, and the only surface here that makes
+something. It takes the sound on the screen and writes the pair a pull request
+is made of, laid out the way the repository is, with a note beside it saying
+what the next four steps are. It asks for a maker, a sentence, a licence and at
+least one vocabulary term — and nothing else, because everything else is
+derived from the 242 program bytes by the same CI that builds the index. The
+icon editor is forty-nine presses, seeded from the category's own drawing,
+because a blank grid is a bad place to begin a picture and the repository
+already draws twelve good ones.
+
 ## What is left
 
-- **The fingerprint is read but not yet drawn.** `Held::matching` answers which
-  patch and which version a program on the shelf is, which is the question
-  somebody holding a bank off an instrument actually has. Nothing puts it on a
-  card yet.
 - **Demos are not played.** The release carries `demos.tar.gz` and the index
   names each patch's clips; this fetches neither. An audio output is a
   dependency decision of its own and has not been taken.
@@ -178,3 +215,9 @@ for a few notes.
   platform keeps a cache, and nothing reads it back on the next start, so the
   first press of `Fetch the newest` downloads again. Cheap to fix and not
   interesting until there is more than one release.
+- **A checkout has no version to report.** `index.toml` is written at release
+  time, so a working copy falls back to `0.0.0`, which reads like a fault
+  rather than like *this is a folder somebody cloned*.
+- **Nothing offers to replace a stale program.** The shelf says which of its
+  programs have a newer version published; putting the new one in its place is
+  still two presses on the other shelf.

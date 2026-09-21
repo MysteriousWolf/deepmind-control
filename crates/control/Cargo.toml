@@ -20,6 +20,9 @@ control-ui = { path = "../control-ui" }
 deepmind-host = { path = "../deepmind-host" }
 deepmind-midi = { workspace = true }
 deepmind-patches = { workspace = true }
+# Writing a shared patch's .toml. Already in the tree through deepmind-patches,
+# whose own PatchMeta is what is serialised, so this costs no new crate.
+toml = { workspace = true }
 iced = { workspace = true, features = [
     # The project's own name is a file rather than a drawing: `docs/wordmark.svg`
     # carries the outlined letters and the five slices that are the mark, so

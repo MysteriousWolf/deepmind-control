@@ -562,6 +562,7 @@ dependencies = [
  "iced",
  "png",
  "rfd",
+ "toml",
 ]
 
 [[package]]

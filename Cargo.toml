@@ -43,6 +43,7 @@ midir = "0.10"
 # all three desktops, with no system TLS to find and no async runtime. Desktop
 # only, like the rest of the librarian.
 deepmind-patches = { version = "26.1", features = ["fetch"] }
+toml = "1"
 
 # The view layer is pinned to what the baseview adapter supports rather than to
 # the newest release, because the desktop build and the plugin share a view

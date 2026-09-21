@@ -50,6 +50,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .push(match app.browsing() {
             Browsing::Shelf => shelf(app),
             Browsing::Shared => crate::shared::view(app),
+            Browsing::Publish => crate::sharing::view(app),
         })
         .spacing(12)
         .padding([0, 12])
@@ -66,7 +67,7 @@ fn shelf(app: &App) -> Element<'_, Message> {
         standing(shelf, app.firmware()),
     ]
     .extend(progress(shelf))
-    .push(programs(shelf, app.firmware()))
+    .push(programs(shelf, app.firmware(), app.catalogue().held()))
     .spacing(12)
     .into()
 }
@@ -227,7 +228,11 @@ fn progress(shelf: &Shelf) -> Option<Element<'_, Message>> {
 /// were is a surface that reads as an empty shelf, which is a different and
 /// much worse thing to believe about a librarian holding a pack somebody has
 /// not saved yet.
-fn programs(shelf: &Shelf, firmware: Version) -> Element<'_, Message> {
+fn programs<'a>(
+    shelf: &'a Shelf,
+    firmware: Version,
+    known: Option<&'a crate::catalogue::Held>,
+) -> Element<'a, Message> {
     let showing = shelf.showing(firmware);
     if showing.is_empty() && !shelf.is_empty() {
         return container(
@@ -242,7 +247,7 @@ fn programs(shelf: &Shelf, firmware: Version) -> Element<'_, Message> {
     }
     let cards = showing
         .into_iter()
-        .map(|(index, held)| card(index, held, shelf.loaded() == Some(index), firmware));
+        .map(|(index, held)| card(index, held, shelf.loaded() == Some(index), firmware, known));
     scrollable(container(row(cards).spacing(6).wrap()).padding(Padding::ZERO.right(GUTTER)))
         .height(Fill)
         .into()
@@ -255,7 +260,13 @@ fn programs(shelf: &Shelf, firmware: Version) -> Element<'_, Message> {
 /// gap in the middle of, and the category is the thing on this card somebody
 /// reads second: it is what the shelf can be sorted and searched by, so it has
 /// to be on the card the sort moved, and it is not what the sound is called.
-fn card(index: usize, held: &Held, loaded: bool, firmware: Version) -> Element<'_, Message> {
+fn card<'a>(
+    index: usize,
+    held: &'a Held,
+    loaded: bool,
+    firmware: Version,
+    known: Option<&'a crate::catalogue::Held>,
+) -> Element<'a, Message> {
     let said = column![text(held.name()).size(13)]
         .extend(held.category(firmware).map(|category| {
             text(category)
@@ -265,6 +276,7 @@ fn card(index: usize, held: &Held, loaded: bool, firmware: Version) -> Element<'
                 })
                 .into()
         }))
+        .extend(published(held, known))
         .spacing(1);
     let face = row![
         container(text(held.address()).size(12))
@@ -280,6 +292,54 @@ fn card(index: usize, held: &Held, loaded: bool, firmware: Version) -> Element<'
         .style(move |theme: &Theme, _status| pressed_like(theme, loaded))
         .on_press(Message::Load(index))
         .into()
+}
+
+/// What the shared library knows about a program on this shelf.
+///
+/// **The fingerprint is identity of a sound**, which is the interesting part:
+/// `deepmind_patches::Fingerprint` is taken over the bytes that decide what is
+/// heard, with the name, the slot and the file left out. So a program somebody
+/// renamed after loading still matches the patch it came from, and one they
+/// edited does not — which is the honest answer, because it is not that sound
+/// any more.
+///
+/// That makes a bank read off an instrument legible in a way it was not: this
+/// row is `Acid Growl` by `nyx`, at the version it was published as, and this
+/// one is something the library has never seen. And where the version it
+/// matched is not the newest one, it says so, which is the whole of what an
+/// update offer is — no digest to compare and nothing to poll, because the
+/// index already carries every version each patch has ever had.
+///
+/// Nothing at all where the catalogue is not open, which is the common case.
+fn published<'a>(
+    held: &Held,
+    known: Option<&crate::catalogue::Held>,
+) -> Option<Element<'a, Message>> {
+    let found = known?.matching(&held.program)?;
+    let said = if found.latest {
+        format!("{} · {}", found.patch.author, found.patch.name)
+    } else {
+        format!(
+            "{} · {} v{} · v{} published",
+            found.patch.author, found.patch.name, found.version, found.patch.version
+        )
+    };
+    let stale = !found.latest;
+    Some(
+        text(said)
+            .size(10)
+            .style(move |theme: &Theme| text::Style {
+                // An out-of-date sound is worth noticing and is not a fault, so
+                // it is lit in the colour this window already spends on *there
+                // is something here* rather than in one it would have to invent.
+                color: Some(if stale {
+                    control_ui::WAY_IN
+                } else {
+                    materials(theme).metal_low
+                }),
+            })
+            .into(),
+    )
 }
 
 /// The style a chosen thing is drawn in, which is the surface switch's.

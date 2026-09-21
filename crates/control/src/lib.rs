@@ -69,10 +69,12 @@ mod files;
 mod librarian;
 #[cfg(feature = "previews")]
 pub mod preview;
+mod publish;
 mod shared;
+mod sharing;
 mod shelf;
 mod window;
 
-pub use app::{App, Browsing, Message, View};
+pub use app::{App, Browsing, Message, Publishing, View};
 pub use shelf::{Held, ORDERS, Order, Shelf, Source, Transfer, patch_to_syx};
 pub use window::run;
