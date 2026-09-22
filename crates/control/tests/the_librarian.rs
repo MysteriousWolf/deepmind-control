@@ -193,7 +193,7 @@ fn one_bad_frame_costs_one_program_and_not_the_file() {
 fn a_bank_arrives_in_slot_order_however_it_arrives() {
     let mut shelf = Shelf::new();
     let b = Bank::from_letter('B').expect("bank B");
-    shelf.begin(b, 3);
+    shelf.begin(b, 3, "09:12".to_owned());
     for number in [2_u8, 0, 1] {
         let slot = Slot::new(
             b,
@@ -214,7 +214,7 @@ fn a_bank_arrives_in_slot_order_however_it_arrives() {
 fn a_slot_that_arrives_twice_keeps_the_second_one() {
     let slot = Slot::new(Bank::A, ProgramNumber::FIRST);
     let mut shelf = Shelf::new();
-    shelf.begin(Bank::A, 1);
+    shelf.begin(Bank::A, 1, "09:12".to_owned());
     shelf.arrived(slot, sound("First", 10));
     shelf.arrived(slot, sound("Second", 20));
 
@@ -407,10 +407,13 @@ fn a_bank_read_is_a_progress_bar_and_not_a_freeze() {
         app.identity().is_some() && app.patch().confidence().is_confirmed()
     });
 
-    app.update(Message::ReadBank);
+    app.update(Message::ReadAll);
     let transfer = app.shelf().transfer().expect("a transfer in flight");
-    assert_eq!(transfer.bank, Bank::A);
-    assert_eq!(transfer.expected, 128, "a whole bank was asked for");
+    assert_eq!(transfer.bank, Bank::A, "starting from the first bank");
+    assert_eq!(
+        transfer.expected, 1024,
+        "every bank was asked for, not one: eight of a hundred and twenty-eight"
+    );
     assert_eq!(transfer.received, 0, "and none of it has arrived yet");
 
     // The unit this is reading has nothing stored, which is the silence a
@@ -420,7 +423,7 @@ fn a_bank_read_is_a_progress_bar_and_not_a_freeze() {
         app.shelf().transfer().is_none()
     });
     assert!(
-        app.status().contains("0 of 128"),
+        app.status().contains("0 programs"),
         "and says how far it got: {}",
         app.status()
     );
@@ -439,7 +442,7 @@ fn a_bank_read_can_be_called_off() {
         app.identity().is_some() && app.patch().confidence().is_confirmed()
     });
 
-    app.update(Message::ReadBank);
+    app.update(Message::ReadAll);
     assert!(app.shelf().transfer().is_some(), "a transfer in flight");
 
     app.update(Message::Cancel);

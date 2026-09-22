@@ -1,10 +1,27 @@
-//! Sharing a sound, drawn: the icon grid, the four things to say, and the note.
+//! Exporting a sound, drawn: the icon grid, the four things to say, and the
+//! note beside the files.
 //!
-//! **A sheet over the table, on one row.** What it shares is the sound somebody
-//! chose in the list and pressed `Share\u{2026}` on, wherever that sound lives, and
-//! the sheet opens filled in with whatever the library already says about it:
-//! a second version of something published is a file somebody edits rather than
-//! one they retype.
+//! **A sheet over the table, on one row.** What it writes is the sound somebody
+//! chose in the list and pressed `Export\u{2026}` on, wherever that sound lives,
+//! and the sheet opens filled in with whatever the library already says about
+//! it: a second version of something published is a file somebody edits rather
+//! than one they retype.
+//!
+//! # One verb, with a checkbox, where there were two
+//!
+//! `Share\u{2026}` wrote the `.syx` and the `.toml` a pull request is made of and
+//! `Export\u{2026}` wrote the `.syx` alone. Those are not two verbs: both put this
+//! sound on the disk, and they differ by whether its notes go with it. So they
+//! are one, and **Include notes** decides — ticked, because a `.syx` on its own
+//! is 291 bytes that say nothing about who made the sound.
+//!
+//! Untick it and everything below the checkbox goes away, because none of it is
+//! wanted: a bare file needs no maker and no licence, and asking for them would
+//! be refusing to write a file that has everything it needs.
+//!
+//! The checkbox is here rather than in the save dialog because `rfd` hands back
+//! a path and never says which of its filters was chosen, so a dialog offering
+//! the two would be a dialog whose answer this window cannot read.
 //!
 //! It was a tab beside the table, sharing whatever the front panel happened to
 //! be showing. Two things were wrong with that and both are the same thing:
@@ -33,7 +50,7 @@
 
 use control_ui::materials;
 use deepmind_patches::{Axis, Category};
-use iced::widget::{button, column, container, row, scrollable, space, text, text_input};
+use iced::widget::{button, checkbox, column, container, row, scrollable, space, text, text_input};
 use iced::{Background, Center, Element, Fill, Length, Padding, Theme, border};
 
 use crate::app::{App, Message, Publishing};
@@ -62,17 +79,26 @@ const INKED: f32 = 0.55;
 pub fn sheet(app: &App) -> Element<'_, Message> {
     let said = app.publishing();
     let category = app.shared().and_then(|program| Category::of(&program));
+    // Everything that describes the sound belongs to the notes, so it is drawn
+    // only while the notes are wanted. A sheet that asked for a licence while
+    // writing a bare `.syx` would be asking for something it is not going to
+    // use.
+    let described = said.notes.then(|| {
+        column![
+            row![grid(app, said, category), fields(said)].spacing(24),
+            terms(app, said),
+        ]
+        .spacing(16)
+    });
     container(
-        column![heading(app, category)]
+        column![heading(app, category), including(said.notes)]
             .push(
                 scrollable(
-                    column![
-                        row![grid(app, said, category), fields(said)].spacing(24),
-                        terms(app, said),
-                        writing(app, said, category),
-                    ]
-                    .spacing(16)
-                    .padding(Padding::ZERO.right(12)),
+                    column([])
+                        .extend(described.map(Element::from))
+                        .push(writing(app, said, category))
+                        .spacing(16)
+                        .padding(Padding::ZERO.right(12)),
                 )
                 .height(Length::Shrink),
             )
@@ -87,7 +113,22 @@ pub fn sheet(app: &App) -> Element<'_, Message> {
 /// How wide the sheet stands: the grid, the fields, and the gap between them.
 const SHEET: f32 = 7.0 * (DOT + 2.0) + 24.0 + FIELD + 28.0 + 14.0;
 
-/// The bar across the top: what is being shared, and the way out.
+/// The one choice this sheet is really about: do the notes go too?
+///
+/// Ticked, because a `.syx` on its own is 291 bytes that say nothing about who
+/// made the sound or what it is for, and the pair is what the library is made
+/// of. Unticked, everything below it goes away and the press writes one file.
+fn including<'a>(notes: bool) -> Element<'a, Message> {
+    row![
+        checkbox(notes).on_toggle(Message::PublishNotes).size(14),
+        text("Include notes (.toml)").size(13),
+    ]
+    .spacing(8)
+    .align_y(Center)
+    .into()
+}
+
+/// The bar across the top: what is being written, and the way out.
 fn heading(app: &App, category: Option<Category>) -> Element<'_, Message> {
     row![
         standing(app, category),
@@ -112,12 +153,12 @@ fn standing(app: &App, category: Option<Category>) -> Element<'_, Message> {
             let name = program.name().as_str().trim().to_owned();
             match category {
                 Some(category) => format!(
-                    "Sharing {name} \u{b7} {} \u{b7} the category is the one stored in the sound",
+                    "Exporting {name} \u{b7} {} \u{b7} the category is the one stored in the sound",
                     category.label()
                 ),
                 None => format!(
-                    "Sharing {name} \u{b7} it has no category yet, and the folder it goes in is \
-                     the one it calls itself. Set one on the instrument."
+                    "Exporting {name} \u{b7} it has no category yet, and the folder a patch goes \
+                     in is the one it calls itself. Set one on the instrument."
                 ),
             }
         }
@@ -326,12 +367,18 @@ fn writing<'a>(
     category: Option<Category>,
 ) -> Element<'a, Message> {
     let missing = said.missing();
-    let ready = missing.is_empty() && category.is_some() && app.shared().is_some();
+    // A bare `.syx` needs no category: the folder a patch goes in is the one it
+    // calls itself, and a file somebody chose the name of goes wherever they
+    // put it.
+    let ready = missing.is_empty() && app.shared().is_some() && (!said.notes || category.is_some());
     let note = if let Some(where_to) = &said.wrote {
         format!(
             "Written to {where_to}. The note beside it says what to do next: fork, copy the \
              folder over a clone, commit, open a pull request."
         )
+    } else if !said.notes {
+        "One `.syx` file, wherever you put it. Nothing but the 242 program bytes goes in it."
+            .to_owned()
     } else if missing.is_empty() {
         "Choose a folder. What is written into it is laid out the way the repository is, so it \
          copies straight over a clone."
@@ -341,7 +388,12 @@ fn writing<'a>(
     };
     column![
         row![
-            press("Write the files\u{2026}").on_press_maybe(ready.then_some(Message::PublishWrite)),
+            press(if said.notes {
+                "Choose a folder\u{2026}"
+            } else {
+                "Choose where\u{2026}"
+            })
+            .on_press_maybe(ready.then_some(Message::PublishWrite)),
             container(drawn()).width(Length::Fixed(28.0)),
         ]
         .spacing(10)

@@ -13,9 +13,8 @@
 //! why its instrument stopped answering. Editing is the same in both builds
 //! because it is the same crate; this is the part that is not.
 
-use deepmind_midi::ids::{BANK_COUNT, Bank};
 use deepmind_midi::sysex::inquiry::Version;
-use iced::widget::{column, pick_list, progress_bar, row, space, text};
+use iced::widget::{column, progress_bar, row, space, text};
 use iced::{Center, Element, Fill, Length};
 
 use crate::app::{App, Message};
@@ -55,7 +54,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
 fn chrome(app: &App) -> Element<'_, Message> {
     row![
         standing(app.shelf(), app.firmware()),
-        reading(app.bank(), app.is_connected()),
+        reading(app.is_connected()),
         space().width(Fill),
         files(app),
     ]
@@ -124,43 +123,26 @@ fn files(app: &App) -> Element<'_, Message> {
     .into()
 }
 
-/// Reading a bank off the instrument: one press, and which bank it reads.
+/// Reading the instrument onto the shelf: one press, every bank.
 ///
-/// **It was eight chips and it read as a second filter.** They were drawn with
-/// [`crate::sounds::filter`], which is the press the table's own `BANK` column
-/// heading narrows with, so the surface showed two bank choosers that looked
-/// identical and did different things — one asked the synthesizer for a bank,
-/// the other hid rows. A person cannot be expected to tell those apart by
-/// where they sit.
-///
-/// So the eight are a picker on the press that uses them, and the press says
-/// what it does. There is exactly one bank filter on this surface now, and it
-/// is in the column called `BANK`.
-fn reading<'a>(chosen: Bank, open: bool) -> Element<'a, Message> {
-    let banks: Vec<Bank> = (0..BANK_COUNT)
-        .filter_map(|index| Bank::new(index).ok())
-        .collect();
-    row![
-        crate::sounds::press(
-            control_ui::READ,
-            "Read bank",
-            open.then_some(Message::ReadBank),
-            "Read that bank off the synthesizer onto this machine's shelf.",
-        ),
-        pick_list(banks, Some(chosen), Message::ChooseBank)
-            .text_size(12)
-            .padding([3, 7])
-            .width(Length::Fixed(BANK_PICKER))
-            .style(control_ui::selector)
-            .menu_style(control_ui::shortlist),
-    ]
-    .spacing(4)
-    .align_y(Center)
-    .into()
+/// **It was eight chips, then a picker, and now it is neither.** The chips
+/// were drawn with the same press the `BANK` column narrows with, so the
+/// surface showed two bank choosers that looked identical and did different
+/// things. Folding them into a picker on this press fixed that and left a
+/// worse question behind: *which bank?* is a question with no good answer.
+/// Somebody reading their synthesizer onto a computer wants their
+/// synthesizer, and somebody after one bank narrows the `BANK` column once it
+/// is here. What the picker really did was make a person press this eight
+/// times.
+fn reading<'a>(open: bool) -> Element<'a, Message> {
+    crate::sounds::press(
+        control_ui::READ,
+        "Read",
+        open.then_some(Message::ReadAll),
+        "Read every bank off the synthesizer onto this machine's shelf. About a \
+         minute and a half.",
+    )
 }
-
-/// How wide the bank picker stands: one letter and the mark that opens it.
-const BANK_PICKER: f32 = 56.0;
 
 /// Where what is on the shelf came from, in words.
 ///

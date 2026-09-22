@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use control_ui::{Livery, Mapper, Patch, Way};
 use deepmind_host::{Command, Event, Link, Outcome, PortRef, open, ports};
 use deepmind_midi::device::Event as DeviceEvent;
-use deepmind_midi::ids::{Bank, PROGRAMS_PER_BANK, ProgramNumber};
+use deepmind_midi::ids::{BANK_COUNT, Bank, PROGRAMS_PER_BANK, ProgramNumber};
 use deepmind_midi::param::DEFAULT_FIRMWARE;
 use deepmind_midi::param::{Group, ParamId};
 use deepmind_midi::program::ProgramName;
@@ -83,18 +83,28 @@ pub enum Chosen {
 /// the same thing two things would be a window somebody has to learn twice.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Action {
-    /// Hear it now. Nothing is kept: the edit buffer is the sound in front of
-    /// somebody rather than one of the instrument's 1024.
-    Play,
-    /// Hear it and go to the panel, which is where it is changed.
+    /// Into the instrument's edit buffer: heard now, and nothing stored.
+    ///
+    /// **What a synthesist calls loading a patch.** The edit buffer is the one
+    /// sound the instrument is making — the one its panel is showing — rather
+    /// than any of the 1024 it keeps, so this is heard immediately, overwrites
+    /// nothing, and is undone by turning the program knob.
+    ///
+    /// It was called `Play`, which said what you get and not what happens.
+    Load,
+    /// Load it, and go to the front panel, which is where it is changed.
     Edit,
-    /// Onto this machine's shelf.
-    Shelve,
+    /// Onto this machine's shelf, which is the working set a file is made from.
+    Copy,
     /// Into the instrument's memory, at a slot somebody chooses.
-    Store,
-    /// Describe it and write the files a pull request is made of.
-    Share,
-    /// Write it out as a `.syx` on its own.
+    Write,
+    /// Write it out as files: the sound, and its notes where they are wanted.
+    ///
+    /// **One verb, where there were two.** `Share\u{2026}` wrote the `.syx` and
+    /// the `.toml` a pull request is made of and `Export\u{2026}` wrote the
+    /// `.syx` alone, which is one operation with a checkbox rather than two
+    /// verbs: both put this sound on the disk and they differ by whether the
+    /// notes go with it.
     Export,
     /// Replace it with the newer version the library has published.
     Update,
@@ -106,12 +116,11 @@ impl Action {
     /// Hearing it first, because that is what somebody came to the list to do;
     /// then the two that move it somewhere; then the two that send it out; then
     /// the one that only sometimes applies.
-    pub const ALL: [Self; 7] = [
-        Self::Play,
+    pub const ALL: [Self; 6] = [
+        Self::Load,
         Self::Edit,
-        Self::Shelve,
-        Self::Store,
-        Self::Share,
+        Self::Copy,
+        Self::Write,
         Self::Export,
         Self::Update,
     ];
@@ -126,17 +135,16 @@ impl Action {
     /// press on the row itself does (`Play`).
     ///
     /// A toolbar of everything is a toolbar nobody reads.
-    pub const TOOLBAR: [Self; 3] = [Self::Edit, Self::Shelve, Self::Store];
+    pub const TOOLBAR: [Self; 3] = [Self::Load, Self::Copy, Self::Write];
 
     /// What it is called, everywhere it is offered.
     #[must_use]
     pub const fn label(self) -> &'static str {
         match self {
-            Self::Play => "Play",
+            Self::Load => "Load",
             Self::Edit => "Edit",
-            Self::Shelve => "Shelve",
-            Self::Store => "Store\u{2026}",
-            Self::Share => "Share\u{2026}",
+            Self::Copy => "Copy",
+            Self::Write => "Write\u{2026}",
             Self::Export => "Export\u{2026}",
             Self::Update => "Update",
         }
@@ -146,12 +154,16 @@ impl Action {
     #[must_use]
     pub const fn about(self) -> &'static str {
         match self {
-            Self::Play => "Send it to the edit buffer. Nothing is stored and nothing is kept.",
-            Self::Edit => "Send it to the edit buffer and go to the front panel.",
-            Self::Shelve => "Put it on this machine's shelf, where a file or a bank read puts one.",
-            Self::Store => "Write it into the instrument's memory, at a slot you choose.",
-            Self::Share => "Describe it and write the files a pull request is made of.",
-            Self::Export => "Write it out as a `.syx` file of its own.",
+            Self::Load => {
+                "Make the synthesizer sound like this. It goes to the edit buffer, so nothing \
+                 stored is touched."
+            }
+            Self::Edit => "Load it, and go to the front panel to change it.",
+            Self::Copy => {
+                "Put it on this machine's shelf, alongside whatever a file or a read put there."
+            }
+            Self::Write => "Write it into the instrument's memory, at a slot you choose.",
+            Self::Export => "Write it out as files, with or without its notes.",
             Self::Update => "Replace it with the newer version the library has published.",
         }
     }
@@ -292,7 +304,7 @@ impl Where {
 /// never typed: the name, the category, the effects, the arpeggiator and the
 /// rest all come off the 242 bytes when the pair is written, which is the same
 /// rule the index is built under.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Publishing {
     /// A person or a handle. Not an email address.
     pub author: String,
@@ -304,10 +316,38 @@ pub struct Publishing {
     pub collection: String,
     /// The 7x7 picture, packed a row to a byte with bit 0 leftmost.
     pub icon: [u8; 7],
+    /// Whether the `.toml` goes out beside the `.syx`.
+    ///
+    /// **On, because the notes are the point.** A `.syx` on its own is 291
+    /// bytes that say nothing about who made the sound or what it is for, and
+    /// the pair is what a pull request to the library is made of. Somebody who
+    /// wants the bare file — to drop into another librarian, or onto a unit —
+    /// unticks it.
+    ///
+    /// It is a checkbox here rather than a format in the save dialog because
+    /// `rfd` hands back a path and never says which of its filters was chosen,
+    /// so a dialog offering the two would be a dialog whose answer this window
+    /// cannot read.
+    pub notes: bool,
     /// The vocabulary terms chosen, as the axis they came from and the term.
     pub terms: Vec<(String, String)>,
     /// Where the pair was last written, once it has been.
     pub wrote: Option<String>,
+}
+
+impl Default for Publishing {
+    fn default() -> Self {
+        Self {
+            author: String::new(),
+            about: String::new(),
+            licence: String::new(),
+            collection: String::new(),
+            icon: [0; 7],
+            notes: true,
+            terms: Vec::new(),
+            wrote: None,
+        }
+    }
 }
 
 impl Publishing {
@@ -331,6 +371,10 @@ impl Publishing {
 
     /// Everything the repository insists on, or what is missing.
     ///
+    /// Nothing at all while the notes are switched off: a bare `.syx` needs no
+    /// maker and no licence, so asking for them would be refusing to write a
+    /// file that has everything it needs.
+    ///
     /// `name` and the category come off the program, so what a person can
     /// leave out is the rest: a maker, a sentence, a licence, and at least one
     /// term from one of the four vocabularies. The same five the repository's
@@ -339,6 +383,9 @@ impl Publishing {
     #[must_use]
     pub fn missing(&self) -> Vec<&'static str> {
         let mut wanted = Vec::new();
+        if !self.notes {
+            return wanted;
+        }
         if self.author.trim().is_empty() {
             wanted.push("a maker");
         }
@@ -383,10 +430,8 @@ pub enum Message {
     /// knocks them out of filled banners. Both are the instrument; this is
     /// which of the two the window is drawn as.
     Wear,
-    /// Sit the bank picker on a bank, without reading it.
-    ChooseBank(Bank),
-    /// Read the chosen bank onto the shelf, one dump at a time.
-    ReadBank,
+    /// Read every bank off the instrument onto the shelf.
+    ReadAll,
     /// Stop what is in flight.
     Cancel,
     /// Ask for a `.syx` file and put what it holds on the shelf.
@@ -454,6 +499,8 @@ pub enum Message {
     PublishTerm(String, String),
     /// Turn one dot of the icon on or off.
     PublishDot(usize, usize),
+    /// Send the notes out beside the sound, or do not.
+    PublishNotes(bool),
     /// Start the icon again, from nothing or from the category's own.
     PublishIcon(bool),
     /// Write the pair out into a folder somebody chooses.
@@ -543,8 +590,12 @@ pub struct App {
     mapper: Mapper,
     /// The sounds that are kept rather than played.
     shelf: Shelf,
-    /// The bank the picker is sitting on, which is the one a read would read.
-    bank: Bank,
+    /// How many banks of a whole-instrument read have yet to finish.
+    ///
+    /// The device thread reports each bank's end separately, and eight endings
+    /// are not eight reads: the progress bar comes down when the last one
+    /// lands, not the first.
+    reading: usize,
     /// Which of the two surfaces is showing.
     view: View,
     /// Whether the displays are drawn the other way up.
@@ -597,7 +648,7 @@ impl App {
             menu: None,
             pointer: iced::Point::ORIGIN,
             trying: None,
-            bank: Bank::A,
+            reading: 0,
             view: View::Panel,
             negative: false,
             livery: Livery::default(),
@@ -790,9 +841,9 @@ impl App {
         match action {
             // Anything can be heard, put on the panel, written out or
             // described, wherever it is.
-            Action::Play | Action::Edit | Action::Export | Action::Share => true,
+            Action::Load | Action::Edit | Action::Export => true,
             // Only something that is not already here.
-            Action::Shelve => matches!(picked, Chosen::Patch(_)) && self.catalogue.held().is_some(),
+            Action::Copy => matches!(picked, Chosen::Patch(_)) && self.catalogue.held().is_some(),
             // **Not yet, and not because of this window.** The protocol writes
             // a stored program by sending a program dump *to* the instrument —
             // the library's own note says a preset pack is exactly that — but
@@ -802,7 +853,7 @@ impl App {
             // does meanwhile: the verb is drawn and refused, with the reason
             // said out loud, rather than left off the list as though nobody
             // had thought of it.
-            Action::Store => false,
+            Action::Write => false,
             // Only where the library has published a newer version than the one
             // this is.
             Action::Update => self.newer().is_some(),
@@ -949,12 +1000,6 @@ impl App {
         &self.shelf
     }
 
-    /// Returns the bank a read would read.
-    #[must_use]
-    pub const fn bank(&self) -> Bank {
-        self.bank
-    }
-
     /// Returns which of the two surfaces is showing.
     #[must_use]
     pub const fn view(&self) -> View {
@@ -979,8 +1024,7 @@ impl App {
             Message::Read => self.ask(Command::ReadEditBuffer),
             Message::Tick => {}
             Message::Show(view) => self.view = view,
-            Message::ChooseBank(bank) => self.bank = bank,
-            Message::ReadBank => self.read_bank(),
+            Message::ReadAll => self.read_all(),
             Message::Cancel => self.ask(Command::Cancel),
             Message::Open => self.open_file(),
             Message::OpenNamed(path) => self.open_named(&path),
@@ -1022,6 +1066,7 @@ impl App {
             | Message::PublishCollection(_)
             | Message::PublishTerm(..)
             | Message::PublishDot(..)
+            | Message::PublishNotes(_)
             | Message::PublishIcon(_)
             | Message::PublishWrite => self.writing(message),
             Message::Ui(asked) => self.asked(asked),
@@ -1057,25 +1102,43 @@ impl App {
         }
     }
 
-    /// Reads the chosen bank onto the shelf.
+    /// Reads the whole instrument onto the shelf: every bank, in order.
     ///
-    /// One request and 128 answers, which is about twelve seconds of a MIDI
-    /// cable. The shelf is cleared first: a bank read is a picture of one bank,
-    /// and half of the last one left underneath it would be a picture of
-    /// nothing.
-    fn read_bank(&mut self) {
+    /// **All eight, because a bank is not a thing anybody wants a copy of.**
+    /// It used to ask which one, with a picker beside the press, and that was
+    /// a question with no good answer: somebody reading their synthesizer onto
+    /// a computer wants their synthesizer, and somebody after one bank can
+    /// narrow the `BANK` column once it is here. What the picker really did
+    /// was make a person press the same button eight times.
+    ///
+    /// Eight requests and 1024 answers, which is about a minute and a half of
+    /// a MIDI cable. They queue in the device thread and arrive in order; the
+    /// shelf is cleared once, at the start, and fills from there.
+    fn read_all(&mut self) {
         if self.link.is_none() {
-            self.say("Nothing is open to read a bank from.");
+            self.say("Nothing is open to read from.");
             return;
         }
-        let bank = self.bank;
-        self.shelf.begin(bank, u16::from(PROGRAMS_PER_BANK));
-        self.ask(Command::ReadBank {
-            bank,
-            first: ProgramNumber::FIRST,
-            last: ProgramNumber::LAST,
-        });
-        self.say(format!("Reading bank {bank}\u{2026}"));
+        let banks: Vec<Bank> = (0..BANK_COUNT)
+            .filter_map(|at| Bank::new(at).ok())
+            .collect();
+        let Some(first) = banks.first().copied() else {
+            return;
+        };
+        let expected =
+            u16::from(PROGRAMS_PER_BANK).saturating_mul(u16::try_from(banks.len()).unwrap_or(1));
+        self.shelf.begin(first, expected, now());
+        self.reading = banks.len();
+        for bank in banks {
+            self.ask(Command::ReadBank {
+                bank,
+                first: ProgramNumber::FIRST,
+                last: ProgramNumber::LAST,
+            });
+        }
+        self.say(format!(
+            "Reading every bank: {expected} programs, about a minute and a half\u{2026}"
+        ));
     }
 
     /// Asks for a `.syx` file and puts what it holds on the shelf.
@@ -1273,6 +1336,7 @@ impl App {
             Message::PublishCollection(said) => self.publishing.collection = said,
             Message::PublishTerm(axis, term) => self.publish_term(&axis, &term),
             Message::PublishDot(across, down) => self.publish_dot(across, down),
+            Message::PublishNotes(wanted) => self.publishing.notes = wanted,
             Message::PublishIcon(from_category) => self.publish_icon(from_category),
             Message::PublishWrite => self.publish_write(),
             _ => {}
@@ -1346,8 +1410,12 @@ impl App {
     ///
     /// A sound nothing has published opens on the category's own drawing and
     /// nothing else, because there is nothing else to know.
-    fn start_sharing(&mut self, chosen: &Chosen) {
-        self.publishing = self.described(chosen);
+    fn start_exporting(&mut self, chosen: &Chosen) {
+        let notes = self.publishing.notes;
+        self.publishing = Publishing {
+            notes,
+            ..self.described(chosen)
+        };
         self.sharing = Some(chosen.clone());
     }
 
@@ -1388,6 +1456,7 @@ impl App {
                 [0; 7]
             },
             terms,
+            notes: true,
             wrote: None,
         }
     }
@@ -1427,9 +1496,17 @@ impl App {
             .as_ref()
             .and_then(|chosen| self.program_of(chosen))
         else {
-            self.say("There is no sound to share.".to_owned());
+            self.say("There is no sound to export.".to_owned());
             return;
         };
+        // The sound on its own goes where any file goes: one save dialog, one
+        // `.syx`, no folder and no note beside it. Everything below this is
+        // about the pair.
+        if !self.publishing.notes {
+            self.sharing = None;
+            self.export_one_named(&program);
+            return;
+        }
         let Some(category) = deepmind_patches::Category::of(&program) else {
             self.say(
                 "Set a category on the instrument first: the folder a patch goes in is the one \
@@ -1487,24 +1564,23 @@ impl App {
             return;
         };
         match action {
-            Action::Play => self.choose_sound(chosen),
+            Action::Load => self.choose_sound(chosen),
             Action::Edit => {
                 self.choose_sound(chosen);
                 self.view = View::Panel;
                 self.editing = None;
             }
-            Action::Shelve => {
+            Action::Copy => {
                 if let Chosen::Patch(id) = chosen {
                     self.shelve_patch(&id);
                 }
             }
-            Action::Store => self.say(
+            Action::Write => self.say(
                 "Writing into the instrument's memory needs a call deepmind-midi does not \
                  publish yet: deepmind-midi#49. See docs/waiting.md."
                     .to_owned(),
             ),
-            Action::Share => self.start_sharing(&chosen),
-            Action::Export => self.export_one(),
+            Action::Export => self.start_exporting(&chosen),
             Action::Update => {
                 if let Chosen::Held(at) = chosen {
                     self.update_at(at);
@@ -1513,14 +1589,11 @@ impl App {
         }
     }
 
-    /// Writes the chosen sound out as a `.syx` of its own.
-    fn export_one(&mut self) {
-        let Some(program) = self.chosen_program() else {
-            return;
-        };
+    /// Writes one sound out as a `.syx` of its own.
+    fn export_one_named(&mut self, program: &deepmind_midi::program::Program) {
         let name = program.name().as_str().trim().to_owned();
-        match crate::shelf::patch_to_syx(&program) {
-            Ok(bytes) => match files::save(&name, &bytes) {
+        match crate::shelf::patch_to_syx(program) {
+            Ok(bytes) => match files::save(&format!("{name}.syx"), &bytes) {
                 Some(Ok(where_to)) => self.say(format!("Written to {where_to}.")),
                 Some(Err(trouble)) => self.say(format!("That would not be written: {trouble}")),
                 None => {}
@@ -1573,11 +1646,6 @@ impl App {
         }
         let sound = if done == 1 { "sound is" } else { "sounds are" };
         self.say(format!("{done} {sound} the published version now."));
-    }
-
-    /// The program the chosen sound holds, wherever it is.
-    fn chosen_program(&self) -> Option<deepmind_midi::program::Program> {
-        self.program_of(self.picked.as_ref()?)
     }
 
     /// The program one row holds, wherever it is.
@@ -1924,16 +1992,26 @@ impl App {
                 self.shelf.arrived(slot, program);
             }
             Event::Progress {
-                received, expected, ..
-            } => self.shelf.advance(received, expected),
-            Event::Finished {
                 bank,
                 received,
                 expected,
-                outcome,
             } => {
-                self.shelf.finish(outcome);
-                self.say(format!("Bank {bank}: {received} of {expected}, {outcome}."));
+                self.shelf.reading(bank);
+                self.shelf.advance(received, expected);
+            }
+            Event::Finished { outcome, .. } => {
+                // Eight banks report eight endings and they are one read, so
+                // the progress bar comes down when the last one lands rather
+                // than when the first does. A run somebody cancelled or that
+                // failed ends there and then, because what is left of it is
+                // not coming.
+                self.reading = self.reading.saturating_sub(1);
+                if self.reading == 0 || outcome != Outcome::Complete {
+                    self.reading = 0;
+                    self.shelf.finish(outcome);
+                    let held = self.shelf.held().len();
+                    self.say(format!("{held} programs off the synthesizer, {outcome}."));
+                }
             }
             Event::Refused { command, reason } => {
                 self.say(format!("{command} refused: {reason}"));
@@ -1946,6 +2024,22 @@ impl App {
             _ => {}
         }
     }
+}
+
+/// The time of day, for saying when a shelf was read.
+///
+/// Hours and minutes off the wall clock, worked out from the seconds since the
+/// epoch rather than through a calendar crate: a shelf says *read 09:12* and
+/// nothing here needs a date, a zone or a leap second. UTC, because a time
+/// with no zone printed beside it is a time somebody reads as their own and
+/// this one is only ever compared with *now*.
+fn now() -> String {
+    let seconds = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |since| since.as_secs());
+    let minutes = seconds / 60 % 60;
+    let hours = seconds / 3600 % 24;
+    format!("{hours:02}:{minutes:02}")
 }
 
 /// Returns what to call the file a sound would be saved as.

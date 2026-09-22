@@ -45,15 +45,22 @@ const FOR_ANY_UNIT: DeviceId = DeviceId::Broadcast;
 pub enum Source {
     /// A `.syx` file, under the name it has on this machine.
     File(String),
-    /// A bank read off the synthesizer.
-    Bank(Bank),
+    /// Every bank, read off the synthesizer.
+    ///
+    /// **A snapshot and not a mirror.** The protocol has no way to say that a
+    /// stored program has changed — there is a message for *which* program is
+    /// selected and none for what is in one — so a shelf filled from the
+    /// instrument is what it held at the moment it was read, and it stays that
+    /// until somebody reads it again. Saying `read at 09:12` is the honest way
+    /// to draw that, and pretending it is live would be the dishonest one.
+    Instrument(String),
 }
 
 impl fmt::Display for Source {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::File(name) => f.write_str(name),
-            Self::Bank(bank) => write!(f, "bank {bank}, off the synthesizer"),
+            Self::Instrument(when) => write!(f, "off the synthesizer, read {when}"),
         }
     }
 }
@@ -172,7 +179,7 @@ impl Held {
 /// which is what makes this a progress bar rather than a freeze.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Transfer {
-    /// Bank being read.
+    /// The bank the answers arriving now belong to.
     pub bank: Bank,
     /// Dumps that have arrived.
     pub received: u16,
@@ -371,21 +378,33 @@ impl Shelf {
         };
     }
 
-    /// Clears the shelf and starts a bank read onto it.
-    pub fn begin(&mut self, bank: Bank, expected: u16) {
+    /// Clears the shelf and starts a read of every bank onto it.
+    ///
+    /// `expected` is the whole run rather than one bank's worth, because eight
+    /// banks arriving one after another are one thing somebody is waiting for.
+    /// A progress bar that filled and reset eight times would be eight answers
+    /// to *how long is left*.
+    pub fn begin(&mut self, from: Bank, expected: u16, when: String) {
         *self = Self {
-            source: Some(Source::Bank(bank)),
+            source: Some(Source::Instrument(when)),
             held: Vec::new(),
             skipped: 0,
             loaded: None,
             transfer: Some(Transfer {
-                bank,
+                bank: from,
                 received: 0,
                 expected,
             }),
             query: String::new(),
             order: self.order,
         };
+    }
+
+    /// Says which bank the answers arriving now belong to.
+    pub fn reading(&mut self, bank: Bank) {
+        if let Some(transfer) = self.transfer.as_mut() {
+            transfer.bank = bank;
+        }
     }
 
     /// Takes one stored program dump, wherever it arrived from.
@@ -418,10 +437,13 @@ impl Shelf {
     ///
     /// Ignored when nothing is in flight: a progress report for a run that has
     /// already ended is a late message and not a new transfer.
-    pub fn advance(&mut self, received: u16, expected: u16) {
+    pub fn advance(&mut self, _received: u16, _expected: u16) {
+        // Counted off the shelf rather than taken from the report, because the
+        // report is one bank's progress and the run is eight of them. What has
+        // arrived is what is here.
+        let held = u16::try_from(self.held.len()).unwrap_or(u16::MAX);
         if let Some(transfer) = self.transfer.as_mut() {
-            transfer.received = received;
-            transfer.expected = expected;
+            transfer.received = held;
         }
     }
 
@@ -491,7 +513,7 @@ impl Shelf {
     pub fn file_name(&self) -> String {
         match self.source.as_ref() {
             Some(Source::File(name)) => name.clone(),
-            Some(Source::Bank(bank)) => format!("bank-{}.syx", bank.letter().to_lowercase()),
+            Some(Source::Instrument(_)) => "synthesizer.syx".to_owned(),
             None => "pack.syx".to_owned(),
         }
     }

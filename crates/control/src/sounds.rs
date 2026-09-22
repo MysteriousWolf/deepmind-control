@@ -564,13 +564,12 @@ const MENU_TALL: f32 = 7.0 * 31.0 + 6.0 * 1.0 + 8.0;
 /// menu where the words are, and reads them thereafter along the top.
 const fn action_badge(action: Action) -> control_ui::Badge {
     match action {
-        Action::Play => control_ui::PLAY,
+        Action::Load => control_ui::PLAY,
         // The front panel itself, because that is where the press goes: `Edit`
         // hears the sound and puts somebody in front of the instrument.
         Action::Edit => control_ui::PANEL,
-        Action::Shelve => control_ui::SHELVE,
-        Action::Store => control_ui::STORE,
-        Action::Share => control_ui::SHARE,
+        Action::Copy => control_ui::SHELVE,
+        Action::Write => control_ui::STORE,
         Action::Export => control_ui::EXPORT,
         Action::Update => control_ui::UPDATE,
     }
@@ -773,7 +772,7 @@ pub fn filter<'a>(
 fn rows(app: &App) -> Vec<Row<'_>> {
     let shelf = app.shelf();
     let place = match shelf.source() {
-        Some(crate::shelf::Source::Bank(_)) => Where::Instrument,
+        Some(crate::shelf::Source::Instrument(_)) => Where::Instrument,
         _ => Where::Machine,
     };
     let known = app.catalogue().held();
@@ -1381,7 +1380,7 @@ fn keep<'a>(id: Option<String>) -> Element<'a, Message> {
             .padding([4, 6])
             .style(control_ui::marked)
             .on_press(Message::ShelvePatch(id)),
-        Action::Shelve.about(),
+        Action::Copy.about(),
     ))
     .width(Length::Fixed(KEEP))
     .align_x(Horizontal::Center)
