@@ -513,13 +513,29 @@ where loading, saving and reading a bank already work. A catalogue is a shelf
 somebody else filled, not a third place to be.
 
 **One verb set, offered in two places and decided in one.** Play, edit, copy
-here, store, share, export, update: a toolbar of marks along the top and a menu
-of the same marks with their words beside them, opened by a right-press on a
-row. Both read one rule for whether a verb applies, so a menu that offered what
-the toolbar refused is not something that can be written. `Store…` is drawn
-and greyed, because the protocol call it needs is
+here, store, share, export, update: a toolbar along the top and a menu opened
+by a right-press on a row. Both read one rule for whether a verb applies, so a
+menu that offered what the toolbar refused is not something that can be
+written. `Store…` is drawn and greyed, because the protocol call it needs is
 [not published yet](waiting.md) and a verb left off a list reads as one nobody
 thought of.
+
+**Every mark carries its word.** They were marks alone, with the word left to
+the footer, and that was wrong for a reason worth writing down: a nine-dot
+drawing nobody has been introduced to is a drawing nobody can read. An arrow
+onto a shelf and an arrow into a memory are the same arrow until somebody has
+been told which is which. A mark earns its place at the *second* glance, and
+the word is how there is a first one. The footer's sentence is still there and
+is the longer answer: the toolbar says `Copy here`, the footer says what that
+means.
+
+Which also settled what the marks have to draw. Once the word says the
+destination, the drawing only has to say the direction, so the pair that moves
+a sound became a plain triangle and a line — down onto a shelf, up off one —
+instead of an arrow with a box around it. Several were redrawn twice over: at
+nine dots an outlined rectangle is a dashed rectangle, a hairline diagonal is
+a row of specks, and a full-width arrowhead crossing a shaft is a plus sign.
+Everything that has to read at this size is filled.
 
 **The shared shelf draws the library's own pictures.** Every patch carries a 7x7
 one-bit icon and so does every category, drawn once in the repository and
@@ -534,6 +550,23 @@ invented here, which is the same rule the panel is under.
 side — so this application links a reader rather than keeping one. What is left
 in `catalogue.rs` is where a catalogue is cached, how it is fetched without
 dropping a frame, and what a search field asks of it.
+
+**A slot is printed, not displayed.** A bank letter and a program number are
+what the instrument's own screen shows, so they are written in its characters
+— the display's five-by-seven cell, at the pitch every other drawing here
+shares. They are stencilled on the panel rather than lit on glass, which they
+were at first: a display is a thing that *shows* something changing, and a slot
+in a list is a thing that is written, like the number on the case of a rack
+unit. Sixty lit rectangles down a list is sixty backgrounds competing with the
+rows they are in.
+
+**There is one bank filter, and it is in the column called `BANK`.** Reading a
+bank off the instrument used to be a row of eight lettered chips above the
+table, drawn with the same press the `BANK` column's own filter is. Two bank
+choosers that looked identical and did different things — one asks the
+synthesizer for a bank, the other hides rows — is not something anybody can be
+expected to tell apart by where it sits. The eight are a picker on the press
+that uses them now, and the press says `Read bank`.
 
 **The shelf is a table.** It was a grid of cards, four across, and a card can
 carry a name, a slot and a category and nothing else. What a shared library

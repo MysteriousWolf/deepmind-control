@@ -94,6 +94,7 @@ fn heading(app: &App, category: Option<Category>) -> Element<'_, Message> {
         space().width(Fill),
         crate::sounds::press(
             control_ui::SHUT,
+            "Close",
             Some(Message::CloseSharing),
             "Put this away. What you have typed is kept.",
         ),

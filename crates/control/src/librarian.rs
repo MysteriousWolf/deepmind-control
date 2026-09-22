@@ -15,7 +15,7 @@
 
 use deepmind_midi::ids::{BANK_COUNT, Bank};
 use deepmind_midi::sysex::inquiry::Version;
-use iced::widget::{column, progress_bar, row, space, text};
+use iced::widget::{column, pick_list, progress_bar, row, space, text};
 use iced::{Center, Element, Fill, Length};
 
 use crate::app::{App, Message};
@@ -39,8 +39,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
     control_ui::modal(under, crate::sharing::sheet(app), Message::CloseSharing)
 }
 
-/// The line above the table: what is on the shelf, and the four presses that
-/// are about files.
+/// The line above the table: what is on the shelf, how to put another bank on
+/// it, and the four presses that are about files.
 ///
 /// **Left is what you have, right is what you do to the disk**, which is the
 /// arrangement the whole librarian is laid out under: the seven verbs in
@@ -55,6 +55,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
 fn chrome(app: &App) -> Element<'_, Message> {
     row![
         standing(app.shelf(), app.firmware()),
+        reading(app.bank(), app.is_connected()),
         space().width(Fill),
         files(app),
     ]
@@ -71,7 +72,7 @@ fn chrome(app: &App) -> Element<'_, Message> {
 /// every sound wherever it is.
 fn sounds(app: &App) -> Element<'_, Message> {
     let shelf = app.shelf();
-    column![banks(app.bank(), app.is_connected())]
+    column([])
         .extend(progress(shelf))
         .push(crate::sounds::view(app))
         .spacing(10)
@@ -89,55 +90,71 @@ fn files(app: &App) -> Element<'_, Message> {
     row![
         crate::sounds::press(
             control_ui::OPEN,
+            "Open\u{2026}",
             Some(Message::Open),
             "Open a `.syx` file and put what it holds on the shelf.",
         ),
         crate::sounds::press(
             control_ui::EXPORT,
+            "Save sound\u{2026}",
             app.patch().is_known().then_some(Message::SavePatch),
             "Write the sound on the screen out as one `.syx` file.",
         ),
         crate::sounds::press(
             control_ui::PACK,
+            "Save shelf\u{2026}",
             (!shelf.is_empty()).then_some(Message::SavePack),
             "Write the whole shelf out as one `.syx` pack.",
         ),
         crate::sounds::press(
             control_ui::SHUT,
+            "Stop",
             shelf.transfer().is_some().then_some(Message::Cancel),
             "Stop the bank read that is going out now.",
         ),
     ]
-    .spacing(2)
+    .spacing(1)
     .align_y(Center)
     .into()
 }
 
-/// The eight banks, and the one a read would read.
-fn banks<'a>(chosen: Bank, open: bool) -> Element<'a, Message> {
-    let letters = (0..BANK_COUNT).filter_map(|index| Bank::new(index).ok());
-    // The same press the table's own filters are, because that is what the
-    // bank row is: a chooser among eight, above a list. One window, one idea of
-    // what "this one" looks like.
-    let tabs = letters.map(|bank| {
-        crate::sounds::filter(
-            bank.letter().to_string(),
-            None,
-            bank == chosen,
-            Message::ChooseBank(bank),
-        )
-    });
-    row![text("Bank").size(13)]
-        .extend(tabs)
-        .push(crate::sounds::press(
+/// Reading a bank off the instrument: one press, and which bank it reads.
+///
+/// **It was eight chips and it read as a second filter.** They were drawn with
+/// [`crate::sounds::filter`], which is the press the table's own `BANK` column
+/// heading narrows with, so the surface showed two bank choosers that looked
+/// identical and did different things — one asked the synthesizer for a bank,
+/// the other hid rows. A person cannot be expected to tell those apart by
+/// where they sit.
+///
+/// So the eight are a picker on the press that uses them, and the press says
+/// what it does. There is exactly one bank filter on this surface now, and it
+/// is in the column called `BANK`.
+fn reading<'a>(chosen: Bank, open: bool) -> Element<'a, Message> {
+    let banks: Vec<Bank> = (0..BANK_COUNT)
+        .filter_map(|index| Bank::new(index).ok())
+        .collect();
+    row![
+        crate::sounds::press(
             control_ui::READ,
+            "Read bank",
             open.then_some(Message::ReadBank),
-            "Read the chosen bank off the synthesizer onto this machine's shelf.",
-        ))
-        .spacing(6)
-        .align_y(Center)
-        .into()
+            "Read that bank off the synthesizer onto this machine's shelf.",
+        ),
+        pick_list(banks, Some(chosen), Message::ChooseBank)
+            .text_size(12)
+            .padding([3, 7])
+            .width(Length::Fixed(BANK_PICKER))
+            .style(control_ui::selector)
+            .menu_style(control_ui::shortlist),
+    ]
+    .spacing(4)
+    .align_y(Center)
+    .into()
 }
+
+/// How wide the bank picker stands: one letter and the mark that opens it.
+const BANK_PICKER: f32 = 56.0;
 
 /// Where what is on the shelf came from, in words.
 ///

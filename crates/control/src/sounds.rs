@@ -160,6 +160,21 @@ impl Row<'_> {
         }
     }
 
+    /// The newest version of this sound the library has published.
+    ///
+    /// Its own number rather than the one this copy is, so the press that takes
+    /// it can say what it is about to become: `v2 \u{2192} v4` is a press
+    /// somebody can weigh, and an arrow on its own is one they have to try.
+    const fn newest(&self) -> u32 {
+        match self {
+            Self::Held { known, .. } => match known {
+                Some(found) => found.patch.version,
+                None => 0,
+            },
+            Self::Patch(patch) => patch.version,
+        }
+    }
+
     /// Whether a newer version of this sound has been published.
     const fn stale(&self) -> bool {
         match self.version() {
@@ -288,7 +303,7 @@ fn surface(app: &App, room: iced::Size) -> Element<'_, Message> {
     // coordinates start at the row: a menu placed from those would open at the
     // top of the table every time.
     let laid = mouse_area(
-        column![actions(app), standing(app), finding(app)]
+        column![actions(app), finding(app)]
             .push(table(app))
             .spacing(10),
     )
@@ -322,29 +337,51 @@ fn actions(app: &App) -> Element<'_, Message> {
 /// both. A toolbar that offered what its own menu refused would be a window
 /// that disagrees with itself.
 ///
-/// Marks and no words, because the words are long (`Copy here`, `Store\u{2026}`)
-/// and seven of them is a sentence across the top of the table. What each one
-/// does is said in the footer while the pointer is on it, which is where this
-/// window already says what is under the pointer, and it is said in full: the
-/// menu is where the words stand beside the marks, and somebody who wants to
-/// read rather than recognise opens it.
+/// **Each one carries its word.** They were marks alone, with the word left to
+/// the footer, and a nine-dot drawing nobody has been introduced to is a
+/// drawing nobody can read: an arrow onto a shelf and an arrow into a memory
+/// are the same arrow until somebody has been told which is which. The mark
+/// earns its place by being the thing recognised at the second glance, and the
+/// word is how there is a first one.
+///
+/// The sentence in the footer is still there, and it is the longer answer: the
+/// toolbar says `Copy here` and the footer says what that means.
 fn toolbar(app: &App) -> Element<'_, Message> {
     row(Action::ALL.map(|action| tool(app, action)))
-        .spacing(2)
+        .spacing(1)
         .align_y(Center)
         .into()
 }
 
-/// One verb, as a mark on the panel.
+/// One verb: the mark, and the word beside it.
 fn tool(app: &App, action: Action) -> Element<'_, Message> {
     let usable = app.can(action);
     hinting(
-        button(mark(action_badge(action), usable))
-            .padding([5, 7])
+        button(beside(action_badge(action), action.label(), usable))
+            .padding([4, 7])
             .style(control_ui::marked)
             .on_press_maybe(usable.then_some(Message::Act(action))),
         action.about(),
     )
+}
+
+/// A mark with its word beside it, dimmed together while the press is refused.
+fn beside(badge: control_ui::Badge, label: &str, usable: bool) -> Element<'_, Message> {
+    row![
+        mark(badge, usable),
+        text(label)
+            .size(12)
+            .style(move |theme: &Theme| text::Style {
+                color: Some(if usable {
+                    theme.extended_palette().background.base.text
+                } else {
+                    materials(theme).metal_low
+                }),
+            }),
+    ]
+    .spacing(6)
+    .align_y(Center)
+    .into()
 }
 
 /// What is done to the library itself, up in the corner.
@@ -360,21 +397,24 @@ fn library(catalogue: &Catalogue) -> Element<'_, Message> {
     row![
         press(
             control_ui::FETCH,
+            "Fetch",
             (!working).then_some(Message::FetchPatches),
             "Fetch the newest published library over the network.",
         ),
         press(
             control_ui::FOLDER,
+            "Checkout\u{2026}",
             (!working).then_some(Message::OpenPatches),
             "Read a checkout of the shared patches off a folder on this machine.",
         ),
         press(
             control_ui::SHELVE,
+            "Shelve these",
             loadable.then_some(Message::ShelveShowing),
             "Put every sound the filters left standing onto this machine's shelf.",
         ),
     ]
-    .spacing(2)
+    .spacing(1)
     .align_y(Center)
     .into()
 }
@@ -386,13 +426,14 @@ fn library(catalogue: &Catalogue) -> Element<'_, Message> {
 /// refused, with its sentence in the footer under the pointer.
 pub fn press<'a>(
     badge: control_ui::Badge,
+    label: &'a str,
     said: Option<Message>,
     about: &'static str,
 ) -> Element<'a, Message> {
     let usable = said.is_some();
     hinting(
-        button(mark(badge, usable))
-            .padding([5, 7])
+        button(beside(badge, label, usable))
+            .padding([4, 7])
             .style(control_ui::marked)
             .on_press_maybe(said),
         about,
@@ -549,7 +590,12 @@ fn floating(app: &App, at: iced::Point, room: iced::Size) -> Element<'_, Message
         .into()
 }
 
-/// What is on the table, in one line.
+/// What is on the table, in a few words.
+///
+/// It stood on a line of its own and now it shares one with the search field,
+/// which is where it belongs: *how many there are* and *how you narrow them*
+/// are one thought, and the count is what tells somebody their search did
+/// anything.
 fn standing(app: &App) -> Element<'_, Message> {
     let catalogue = app.catalogue();
     let said = match catalogue.state() {
@@ -570,16 +616,12 @@ fn standing(app: &App) -> Element<'_, Message> {
             }
         }
     };
-    row![
-        text(said).size(13).style(|theme: &Theme| text::Style {
+    text(said)
+        .size(13)
+        .style(|theme: &Theme| text::Style {
             color: Some(materials(theme).metal_low),
-        }),
-        space().width(Fill),
-        updating(app.stale()),
-    ]
-    .spacing(10)
-    .align_y(Center)
-    .into()
+        })
+        .into()
 }
 
 /// The press that takes the newer version of every sound that has one.
@@ -624,8 +666,10 @@ fn finding(app: &App) -> Element<'_, Message> {
             .size(13)
             .padding([5, 8])
             .width(Length::Fixed(300.0)),
-        space().width(Fill),
         clearing(looking),
+        space().width(Fill),
+        standing(app),
+        updating(app.stale()),
     ]
     .spacing(8)
     .align_y(Center)
@@ -1090,13 +1134,19 @@ fn place_cell<'a>(of_row: &Row<'a>) -> Element<'a, Message> {
     chip(place.label().to_owned(), place_colour(place))
 }
 
-/// The bank a sound sits in, on the instrument's own glass.
+/// The bank a sound sits in, in the instrument's own lettering.
 ///
 /// A bank letter and a program number are what the front panel's display shows
-/// and nothing else in this window writes, so they are written the way it
-/// writes them: dark dots on a lit field, at the pitch every other display here
-/// is drawn at. Sixty of them down a table reads as a rack of little screens,
-/// which is what a list of slots in a synthesizer is.
+/// and nothing else in this window writes, so they are written in its
+/// characters: the display's own five-by-seven cell, at the pitch every other
+/// drawing here shares.
+///
+/// **Printed on the panel and not lit on glass.** They were glass — a lit field
+/// with dark dots on it, the way the screen in the middle of the panel is — and
+/// sixty lit rectangles down a list is sixty backgrounds competing with the
+/// rows they are in. A display is a thing that *shows* something changing; a
+/// slot in a list is a thing that is *written*, like the number stencilled on
+/// the case of a rack unit, so it is stencilled.
 fn glass<'a>(said: Option<String>, width: f32, dots: i32) -> Element<'a, Message> {
     let Some(said) = said else {
         return container(dim("\u{2014}".to_owned(), 11.0))
@@ -1105,13 +1155,13 @@ fn glass<'a>(said: Option<String>, width: f32, dots: i32) -> Element<'a, Message
             .into();
     };
     // Sized to the column rather than to the word, so every cell down the
-    // column is the same display rather than a row of screens that grow and
-    // shrink with what is on them. A `B` and a `128` are the same slot written
+    // column is the same width rather than a row of labels that grow and shrink
+    // with what is on them. A `B` and a `128` are the same slot written
     // shorter, not a smaller instrument.
     let mut screen = Screen::new(dots, LINE);
     screen.centre(0, &said, control_ui::Size::Small);
     container(
-        Element::from(control_ui::lcd(screen, control_ui::Confidence::Confirmed)).map(Message::Ui),
+        Element::from(stencil(screen, |theme: &Theme| materials(theme).metal)).map(Message::Ui),
     )
     .width(Length::Fixed(width))
     .align_x(Horizontal::Center)
@@ -1172,7 +1222,7 @@ fn version_cell<'a>(row: &Row<'a>) -> Element<'a, Message> {
     };
     hinting(
         filter(
-            format!("v{version} \u{2192}"),
+            format!("v{version} \u{2192} v{}", row.newest()),
             Some(LAMP),
             true,
             Message::UpdateSound(*at),

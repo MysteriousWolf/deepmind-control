@@ -980,14 +980,18 @@ pub const PLAY: Badge = Badge::new(
     SIDE,
 );
 
-/// Put it on this machine: an arrow coming down onto a shelf.
+/// Put it on this machine: an arrow, going down.
 ///
-/// The shelf is two solid rows, which is a *shelf* rather than [`READ`]'s
-/// single-row tray, and the arrow is a solid head on a two-dot shaft. Both
-/// were outlines once — a three-sided box and a hairline arrow — and at nine
-/// dots on this window's pitch an outline is a dotted line: the box read as a
-/// dashed rectangle and the head read as a plus sign. Everything in this mark
-/// is filled for that reason.
+/// **The mark says the direction and the word beside it says the
+/// destination.** It held both for a while — an arrow *and* the shelf it lands
+/// on, drawn as a box and then as two solid rows — and at nine dots a shape
+/// with a stem, a head and a bar under it is a plus sign with something
+/// underneath. Once every press in this window carries its word, the drawing
+/// has one job: `Copy here` is written next to it, so all it has to be is
+/// unmistakably **down**.
+///
+/// Which it now is: a three-dot shaft the full height of the grid and a head
+/// the full width of it.
 ///
 /// It is drawn as the exact reflection of [`STORE`], because the pair is the
 /// whole gesture: a sound comes off the instrument onto the machine, or goes
@@ -995,40 +999,43 @@ pub const PLAY: Badge = Badge::new(
 /// two ends. A test holds them to it.
 pub const SHELVE: Badge = Badge::new(
     &[
-        0b0_0001_0000,
-        0b0_0001_0000,
+        0b1_1111_1111,
         0b0_1111_1110,
         0b0_0111_1100,
         0b0_0011_1000,
         0b0_0001_0000,
         0b0_0000_0000,
+        0b0_0000_0000,
         0b1_1111_1111,
-        0b1_1111_1111,
+        0b0_0000_0000,
     ],
     SIDE,
 );
 
-/// Write it into the instrument's memory: the same arrow, going the other way.
+/// Write it into the instrument's memory: the same arrow, going up.
 ///
-/// Up, into a shelf drawn above it rather than below, which is the whole of
-/// what tells the two apart: what is at the point of the arrow is where the
-/// sound ends up.
+/// The pair to [`SHELVE`] and nothing more: one direction each, with `Store` and
+/// `Copy here` written beside them to say which end is which.
 ///
 /// Drawn out rather than flipped in code, the same as [`UP`] and [`DOWN`], and
 /// held to the reflection by a test: a pair that is visibly one mark reflected
 /// is a pair, and a pair that differs by one row is a mistake nobody can see
 /// and everybody can feel.
+///
+/// It is not [`UP`]. That one is a bare triangle seven dots across, drawn to
+/// stand in a matrix row beside a numeral; this is nine across with a shaft,
+/// drawn to stand beside a word.
 pub const STORE: Badge = Badge::new(
     &[
+        0b0_0000_0000,
         0b1_1111_1111,
-        0b1_1111_1111,
+        0b0_0000_0000,
         0b0_0000_0000,
         0b0_0001_0000,
         0b0_0011_1000,
         0b0_0111_1100,
         0b0_1111_1110,
-        0b0_0001_0000,
-        0b0_0001_0000,
+        0b1_1111_1111,
     ],
     SIDE,
 );
@@ -1074,13 +1081,13 @@ pub const SHARE: Badge = Badge::new(
 pub const EXPORT: Badge = Badge::new(
     &[
         0b0_0000_0000,
-        0b1_1111_0000,
-        0b1_0001_0100,
-        0b1_0001_0010,
-        0b1_0000_1111,
-        0b1_0001_0010,
-        0b1_0001_0100,
-        0b1_1111_0000,
+        0b1_1110_0000,
+        0b1_1110_0100,
+        0b1_1110_0010,
+        0b1_1110_1111,
+        0b1_1110_0010,
+        0b1_1110_0100,
+        0b1_1110_0000,
         0b0_0000_0000,
     ],
     SIDE,
@@ -1096,44 +1103,48 @@ pub const EXPORT: Badge = Badge::new(
 /// there: three quarters of a ring with a stub on it, at nine dots, is a broken
 /// circle with specks round it.
 ///
-/// Each chevron is two dots thick. A one-dot diagonal is the one stroke this
-/// grid cannot draw — [`SHUT`]'s cross gets away with it because two of them
-/// meet in the middle — and a pair of them read as a scatter of specks rather
-/// than as a pair of arrowheads.
+/// Each one is a **solid triangle**, not a chevron. A chevron was tried at one
+/// dot and then at two, and both read as a scatter of specks: a one-dot
+/// diagonal is the stroke this grid cannot draw — [`SHUT`]'s cross gets away
+/// with it only because its two strokes meet in the middle — and two hollow
+/// chevrons stacked are eight short diagonals with nothing holding them
+/// together. Filled, they are two arrowheads and read at a glance, which is
+/// what the mark is for.
 pub const UPDATE: Badge = Badge::new(
     &[
-        0b0_0011_1000,
+        0b0_0001_0000,
         0b0_0111_1100,
-        0b0_1110_1110,
-        0b1_1000_0011,
-        0b0_0011_1000,
-        0b0_0111_1100,
-        0b0_1110_1110,
-        0b1_1000_0011,
+        0b0_1111_1110,
+        0b1_1111_1111,
         0b0_0000_0000,
+        0b0_0001_0000,
+        0b0_0111_1100,
+        0b0_1111_1110,
+        0b1_1111_1111,
     ],
     SIDE,
 );
 
 /// Go and get the newest published library: sounds arriving on the shelf.
 ///
-/// The band's own `SHELF` spines with [`SHELVE`]'s own arrow coming down onto
-/// them, because that is literally what the press does: the repository's
-/// newest release is fetched and the shelf it fills is the one already drawn
-/// in this module. A mark for *download* would have been a cloud, and nothing
+/// The band's own `SHELF` spines with an arrow coming down onto them, because
+/// that is literally what the press does: the repository's newest release is
+/// fetched and the shelf it fills is the one already drawn in this module.
+/// This is the one mark that keeps its shelf, because the shelf is what tells
+/// it from [`SHELVE`] — the arrow alone would be the same drawing twice. A mark for *download* would have been a cloud, and nothing
 /// here talks to a cloud — it talks to a tagged release of a git repository,
 /// which is a shelf somebody published.
 pub const FETCH: Badge = Badge::new(
     &[
-        0b0_0001_0000,
+        0b1_1111_1111,
         0b0_1111_1110,
         0b0_0111_1100,
         0b0_0011_1000,
         0b0_0001_0000,
+        0b0_0000_0000,
         0b0_1010_1010,
         0b0_1010_1010,
         0b0_1111_1110,
-        0b0_0000_0000,
     ],
     SIDE,
 );
@@ -1145,15 +1156,19 @@ pub const FETCH: Badge = Badge::new(
 /// where it sits. A folder is the one shape that has meant *a place on a disk*
 /// since before any of this, and the tab along its top is the whole of what
 /// tells it from the `PROGRAM` card the band wears.
+///
+/// Filled, for [`EXPORT`]'s reason: an outlined rectangle at nine dots is a
+/// dashed rectangle. A folder is a solid thing anyway — it is the one drawing
+/// here that loses nothing by having no inside.
 pub const FOLDER: Badge = Badge::new(
     &[
         0b0_0000_0000,
         0b1_1110_0000,
         0b1_1111_1111,
-        0b1_0000_0001,
-        0b1_0000_0001,
-        0b1_0000_0001,
-        0b1_0000_0001,
+        0b1_1111_1111,
+        0b1_1111_1111,
+        0b1_1111_1111,
+        0b1_1111_1111,
         0b1_1111_1111,
         0b0_0000_0000,
     ],
@@ -1170,15 +1185,16 @@ pub const FOLDER: Badge = Badge::new(
 ///
 /// It was an open folder for a while — a lip wider than the back, with its
 /// sides leaning out — and at nine dots an open folder is a blob. What reads is
-/// the thing coming out: a solid arrowhead rising clear of a closed box.
+/// the thing coming out: a solid arrowhead rising through a gap in the top of
+/// a closed box. The gap is what makes it *out of* rather than *above*.
 pub const OPEN: Badge = Badge::new(
     &[
         0b0_0001_0000,
         0b0_0011_1000,
         0b0_0111_1100,
-        0b0_0001_0000,
-        0b0_0000_0000,
         0b0_1111_1110,
+        0b1_1111_1111,
+        0b0_0000_0000,
         0b0_1000_0010,
         0b0_1000_0010,
         0b0_1111_1110,
