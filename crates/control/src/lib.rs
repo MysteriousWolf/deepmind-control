@@ -65,6 +65,7 @@
 //! the window around it all put it away.
 
 mod app;
+mod audio;
 pub mod catalogue;
 mod files;
 mod librarian;

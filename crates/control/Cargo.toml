@@ -42,6 +42,11 @@ rfd = { version = "0.17", default-features = false, features = [
     "xdg-portal",
     "wayland",
 ] }
+# The one noise this application makes that does not come out of the
+# synthesizer: a demo the shared library published. See `src/audio.rs` for why
+# it costs a Linux build nothing it did not already cost.
+rodio = { workspace = true }
+
 # What a preview is written out as. Already in the tree, because `iced`'s `svg`
 # feature brings it in to draw the wordmark, so the release tool costs no new
 # crate.

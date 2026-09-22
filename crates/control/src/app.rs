@@ -192,6 +192,8 @@ pub enum By {
     Category,
     /// The vocabulary terms it carries.
     Tags,
+    /// The recordings of it the library published, as presses that play one.
+    Demos,
     /// Which version it is, and whether a newer one is published.
     Version,
     /// What it sounds like, in the maker's words.
@@ -204,7 +206,7 @@ impl By {
     /// **All of them sort and all of them narrow.** There is no column that is
     /// only printing: a table where three headings did something and five did
     /// nothing was a table somebody had to learn the exceptions to.
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 10] = [
         Self::Where,
         Self::Bank,
         Self::Number,
@@ -212,6 +214,7 @@ impl By {
         Self::Maker,
         Self::Category,
         Self::Tags,
+        Self::Demos,
         Self::Version,
         Self::About,
     ];
@@ -227,6 +230,7 @@ impl By {
             Self::Maker => "MAKER",
             Self::Category => "CATEGORY",
             Self::Tags => "TAGS",
+            Self::Demos => "HEAR",
             Self::Version => "VERSION",
             Self::About => "ABOUT",
         }
@@ -476,6 +480,11 @@ pub enum Message {
     CloseSharing,
     /// Remember where the pointer is over the table.
     PointerAt(iced::Point),
+    /// Say this in the footer while the pointer is on something, or stop.
+    ///
+    /// The twin of the view layer's own `Hinted` for a sentence nothing here
+    /// wrote: a demo's note, out of the `.toml` somebody published it with.
+    Saying(Option<String>),
     /// Do something to the sound that is chosen.
     Act(Action),
     /// Replace the program at this place on the shelf with the newest
@@ -487,6 +496,8 @@ pub enum Message {
     ShelvePatch(String),
     /// Play one shared patch without keeping it anywhere.
     AuditionPatch(String),
+    /// Start one of a patch's recordings, or stop it if it is the one playing.
+    Hear(String),
     /// Say who made the sound about to be shared.
     PublishAuthor(String),
     /// Say what it sounds like.
@@ -580,7 +591,11 @@ pub struct App {
     /// and the two presses that move a routing up and down the matrix. A mark
     /// nine dots square has nowhere to carry a word, so the word is here while
     /// somebody is asking for it and nowhere at all while nobody is.
-    hinted: Option<&'static str>,
+    /// An owned string, because not every sentence is written here: a demo's
+    /// own note comes out of somebody else's `.toml` and is not known until
+    /// the index is read. The view layer's own presses still send a
+    /// `&'static str` and it is copied in.
+    hinted: Option<String>,
     /// What the modulation matrix is asking the window for.
     ///
     /// Not part of the sound and never sent anywhere. Two things: the routing
@@ -614,6 +629,12 @@ pub struct App {
     livery: Livery,
     /// The last thing worth saying, in words.
     status: String,
+    /// The output a demo is heard through, once one has been asked for.
+    ///
+    /// Nothing is opened until the first press of a play button: opening a
+    /// device takes a moment and claims a handle, and most of what this window
+    /// does never makes a sound of its own. See [`crate::audio`].
+    audio: crate::audio::Audio,
 }
 
 impl Default for App {
@@ -653,6 +674,7 @@ impl App {
             negative: false,
             livery: Livery::default(),
             status: "Choose a port.".to_owned(),
+            audio: crate::audio::Audio::new(),
         }
     }
 
@@ -758,8 +780,8 @@ impl App {
 
     /// Returns what the press under the pointer says about itself.
     #[must_use]
-    pub const fn hinted(&self) -> Option<&'static str> {
-        self.hinted
+    pub fn hinted(&self) -> Option<&str> {
+        self.hinted.as_deref()
     }
 
     /// Returns what the modulation matrix is asking the window for.
@@ -782,8 +804,11 @@ impl App {
         let firmware = self.firmware();
         self.mapper.reading(firmware);
         // The download says what it has done on the same tick the device thread
-        // does, and for the same reason: neither of them is waited on.
+        // does, and for the same reason: neither of them is waited on. A clip
+        // that has run out is forgotten here for the third version of that
+        // reason: nothing is polled, a finished sink simply says so.
         self.catalogue.settle();
+        self.audio.settle();
     }
 
     /// The sounds other people have published.
@@ -1055,11 +1080,13 @@ impl App {
             | Message::CloseMenu
             | Message::CloseSharing
             | Message::PointerAt(_)
+            | Message::Saying(_)
             | Message::Act(_)
             | Message::UpdateSound(_)
             | Message::UpdateEverything
             | Message::ShelvePatch(_)
-            | Message::AuditionPatch(_) => self.looking_at(message),
+            | Message::AuditionPatch(_)
+            | Message::Hear(_) => self.looking_at(message),
             Message::PublishAuthor(_)
             | Message::PublishAbout(_)
             | Message::PublishLicence(_)
@@ -1289,7 +1316,9 @@ impl App {
             control_ui::Message::Mapper(at) => self.mapper.map(at),
             control_ui::Message::Rename(name) => self.rename(name),
             control_ui::Message::Pointed(parameter) => self.pointed = parameter,
-            control_ui::Message::Hinted(said) => self.hinted = said,
+            control_ui::Message::Hinted(said) => {
+                self.hinted = said.map(str::to_owned);
+            }
         }
     }
 
@@ -1314,11 +1343,13 @@ impl App {
             Message::CloseMenu => self.menu = None,
             Message::CloseSharing => self.sharing = None,
             Message::PointerAt(at) => self.pointer = at,
+            Message::Saying(said) => self.hinted = said,
             Message::Act(action) => self.act(action),
             Message::UpdateSound(at) => self.update_at(at),
             Message::UpdateEverything => self.update_all(),
             Message::ShelvePatch(id) => self.shelve_patch(&id),
             Message::AuditionPatch(id) => self.audition(&id),
+            Message::Hear(file) => self.hear(&file),
             _ => {}
         }
     }
@@ -1701,6 +1732,37 @@ impl App {
             }
             Err(trouble) => self.say(format!("{} would not open: {trouble}", patch.name)),
         }
+    }
+
+    /// Which recording is playing, while one is.
+    #[must_use]
+    pub fn hearing(&self) -> Option<&str> {
+        self.audio.playing()
+    }
+
+    /// Plays one of a patch's recordings, or stops it if it is already playing.
+    ///
+    /// **Nothing goes to the synthesizer.** A demo is what somebody else's
+    /// instrument sounded like, recorded; the sound in front of this one is
+    /// whatever was last loaded, and hearing a recording does not change it.
+    fn hear(&mut self, file: &str) {
+        let Some(path) = self.demo_path(file) else {
+            self.say("That recording is not on this machine yet.".to_owned());
+            return;
+        };
+        if let Err(trouble) = self.audio.play(file, &path) {
+            self.say(trouble);
+        }
+    }
+
+    /// Where a recording named in the index sits on this machine.
+    fn demo_path(&self, file: &str) -> Option<PathBuf> {
+        let held = self.catalogue.held()?;
+        held.patches()
+            .iter()
+            .flat_map(|patch| patch.demos.iter())
+            .find(|demo| demo.file == file)
+            .and_then(|demo| held.demo(demo))
     }
 
     /// Puts one shared patch on the shelf.

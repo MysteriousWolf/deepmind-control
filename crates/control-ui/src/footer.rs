@@ -101,7 +101,10 @@ use crate::{Confidence, Element, Patch};
 /// nothing.
 ///
 /// `hinted` is what a press under the pointer says about itself, for the
-/// presses that are a mark rather than a word.
+/// presses that are a mark rather than a word. Borrowed rather than
+/// `&'static`, because not every one of those sentences is written in this
+/// repository: a host may be drawing a press out of a file somebody else
+/// published, and the sentence beside it is that file's.
 ///
 /// The empty state is not a blank strip. A footer that vanishes is a footer
 /// nobody learns is there, and the row it stands in would jump every time the
@@ -112,7 +115,7 @@ pub fn footer<'a, Renderer>(
     patch: &Patch,
     firmware: Version,
     mapped: Option<Mapping>,
-    hinted: Option<&'static str>,
+    hinted: Option<&str>,
 ) -> Element<'a, Renderer>
 where
     Renderer: TextRenderer<Font = Font> + 'a,

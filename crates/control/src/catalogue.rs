@@ -169,6 +169,17 @@ impl Held {
             .lookup(&deepmind_patches::Fingerprint::of(program))
     }
 
+    /// Where one of a patch's recordings sits on this machine.
+    ///
+    /// `None` until the demos are unpacked beside the sounds, and `None` for a
+    /// name this window will not open — the same rule every other path out of
+    /// an index is under. See [`within`].
+    #[must_use]
+    pub fn demo(&self, demo: &deepmind_patches::index::IndexDemo) -> Option<PathBuf> {
+        let path = within(self.root.as_ref()?, &demo.file)?;
+        path.is_file().then_some(path)
+    }
+
     /// Reads the program one patch holds.
     ///
     /// # Errors
@@ -378,6 +389,10 @@ fn said_in(patch: &IndexPatch, column: By) -> String {
         By::Name => patch.name.clone(),
         By::Maker => patch.author.clone(),
         By::Category => patch.category.label().to_owned(),
+        By::Demos => match patch.demos.len() {
+            0 => String::new(),
+            many => many.to_string(),
+        },
         By::Tags => [&patch.mood, &patch.timbre, &patch.role, &patch.genre]
             .into_iter()
             .flatten()

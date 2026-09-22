@@ -45,6 +45,21 @@ midir = "0.10"
 deepmind-patches = { version = "26.1", features = ["fetch"] }
 toml = "1"
 
+# Hearing a demo, which is the one noise this application makes that does not
+# come out of the synthesizer. `rodio` brings `cpal` for the device and
+# `symphonia` for the MP3 the library publishes, and on Linux `cpal` talks to
+# ALSA — which this repository already needs, because `midir` does too and CI
+# has installed `libasound2-dev` since the first commit that opened a port. So
+# it costs nothing a build did not already cost.
+#
+# Default features off and `mp3` on: the defaults drag in Vorbis, FLAC and WAV
+# decoders for formats the patch library does not publish, and `symphonia`'s MP3
+# is the one it does.
+rodio = { version = "0.22", default-features = false, features = [
+    "playback",
+    "symphonia-mp3",
+] }
+
 # The view layer is pinned to what the baseview adapter supports rather than to
 # the newest release, because the desktop build and the plugin share a view
 # layer only for as long as they share an iced. `iced_baseview` 0.5 is on 0.14,

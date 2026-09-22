@@ -221,9 +221,13 @@ already draws twelve good ones.
 
 ## What is left
 
-- **Demos are not played.** The release carries `demos.tar.gz` and the index
-  names each patch's clips; this fetches neither. An audio output is a
-  dependency decision of its own and has not been taken.
+- **Demos are played, and there are none to play.** The `HEAR` column carries a
+  press per recording a patch declares — `▶` for the take with no name and
+  three letters for each variant, with the whole label in the footer — and
+  `rodio` decodes the MP3. The repository publishes no demos yet, so the column
+  is empty for every patch in it; the path is proven against a checkout with
+  them dropped in by hand. `demos.tar.gz` is still not fetched: a checkout has
+  them beside the sounds and a release download would need the third asset.
 - **A fetched catalogue is not reused between runs.** It is cached where the
   platform keeps a cache, and nothing reads it back on the next start, so the
   first press of `Fetch the newest` downloads again. Cheap to fix and not

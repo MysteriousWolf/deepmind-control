@@ -273,6 +273,13 @@ impl Row<'_> {
                 .unwrap_or_default()
                 .to_owned(),
             By::Tags => self.tags().join(" "),
+            // How many there are, so the column sorts *most demos first* when
+            // it is turned round and narrows to `1` or `2`. The cell itself is
+            // presses and has no text to read.
+            By::Demos => match self.demos().len() {
+                0 => String::new(),
+                many => many.to_string(),
+            },
             By::Version => match self.version() {
                 Some((version, true)) => format!("v{version} current"),
                 Some((version, false)) => format!("v{version} behind"),
@@ -280,6 +287,16 @@ impl Row<'_> {
             },
             By::About => self.about().to_owned(),
         }
+    }
+
+    /// Every recording of this sound the library published.
+    ///
+    /// Only a library row has any: a program off a shelf is 242 bytes and a
+    /// recording is a file somebody uploaded beside a patch. Where a shelf
+    /// program matched a published patch by its fingerprint it borrows that
+    /// patch's, the same as it borrows the maker and the description.
+    fn demos(&self) -> &[deepmind_patches::index::IndexDemo] {
+        self.patch().map_or(&[], |patch| patch.demos.as_slice())
     }
 
     /// Every vocabulary term this row carries, in the order they are drawn.
@@ -588,6 +605,20 @@ pub fn mark<'a>(badge: control_ui::Badge, usable: bool) -> Element<'a, Message> 
     .map(Message::Ui)
 }
 
+/// Says something the library wrote in the footer while the pointer is on it.
+///
+/// The twin of [`hinting`] for a sentence that is not known until the index is
+/// read: a demo's own note, or the variant it was played with. It goes through
+/// this window's own `Saying` rather than the view layer's `Hinted`, which
+/// takes a `&'static str` — right for every press this window draws itself and
+/// wrong for one drawn out of somebody else's file.
+fn hinted<'a>(what: impl Into<Element<'a, Message>>, said: String) -> Element<'a, Message> {
+    mouse_area(what.into())
+        .on_enter(Message::Saying(Some(said)))
+        .on_exit(Message::Saying(None))
+        .into()
+}
+
 /// Says what a press does in the footer while the pointer is on it.
 ///
 /// The same arrangement the window's own chrome is under: a press whose face is
@@ -839,10 +870,11 @@ fn table(app: &App) -> Element<'_, Message> {
     }
     let known = app.catalogue().held();
     let picked = app.picked();
+    let playing = app.hearing();
     let lines = standing
         .into_iter()
         .enumerate()
-        .map(|(at, row)| line(&row, at, known, app.trying(), picked));
+        .map(|(at, row)| line(&row, at, known, app.trying(), picked, playing));
     column![heading(app)]
         .push(
             scrollable(container(column(lines).spacing(1)).padding(Padding::ZERO.right(GUTTER)))
@@ -890,6 +922,7 @@ const fn width_of(by: By) -> f32 {
         By::Maker => MAKER,
         By::Category => CATEGORY,
         By::Tags => TERMS,
+        By::Demos => DEMOS,
         By::Version => VERSION,
         By::About => ABOUT,
     }
@@ -1054,6 +1087,7 @@ fn line<'a>(
     known: Option<&'a Held>,
     trying: Option<&str>,
     picked: Option<&Chosen>,
+    playing: Option<&str>,
 ) -> Element<'a, Message> {
     let banded = at % 2 == 1;
     let chosen = row.chosen();
@@ -1092,6 +1126,7 @@ fn line<'a>(
         })
         .width(Length::Fixed(CATEGORY)),
         container(terms(row, known)).width(Length::Fixed(TERMS)),
+        container(hearing(row, playing)).width(Length::Fixed(DEMOS)),
         container(version_cell(row)).width(Length::Fixed(VERSION)),
         container(
             text(row.about().to_owned())
@@ -1231,6 +1266,45 @@ fn version_cell<'a>(row: &Row<'a>) -> Element<'a, Message> {
     )
 }
 
+/// The recordings of this sound, one press each.
+///
+/// **A press per take, not one press for the sound.** The library lets a maker
+/// upload up to four — the patch played four ways, twenty seconds each — and
+/// which one you are about to hear is the thing the column has to say. So the
+/// default take is `\u{25b6}` and the rest carry their variant's first letters,
+/// with the whole label in the footer while the pointer is on it.
+///
+/// The one that is playing is lit and stops when pressed again, which is what
+/// a play button in a list has always done.
+fn hearing<'a>(of_row: &Row<'a>, playing: Option<&str>) -> Element<'a, Message> {
+    let demos = of_row.demos();
+    if demos.is_empty() {
+        return space().into();
+    }
+    row(demos.iter().map(|demo| {
+        let going = playing == Some(demo.file.as_str());
+        let said = match &demo.variant {
+            None => "\u{25b6}".to_owned(),
+            Some(variant) => variant.chars().take(VARIANT).collect(),
+        };
+        hinted(
+            filter(
+                said,
+                going.then_some(LAMP),
+                going,
+                Message::Hear(demo.file.clone()),
+            ),
+            match (&demo.variant, &demo.about) {
+                (_, Some(about)) => about.clone(),
+                (Some(variant), None) => format!("Hear it played {variant}."),
+                (None, None) => "Hear it.".to_owned(),
+            },
+        )
+    }))
+    .spacing(3)
+    .into()
+}
+
 /// The vocabulary terms a row prints.
 fn terms<'a>(of_row: &Row<'a>, known: Option<&'a Held>) -> Element<'a, Message> {
     let Some(patch) = of_row.patch() else {
@@ -1255,6 +1329,21 @@ fn terms<'a>(of_row: &Row<'a>, known: Option<&'a Held>) -> Element<'a, Message> 
         .spacing(4)
         .into()
 }
+
+/// The room the recordings take.
+///
+/// Four presses, which is the library's own limit: one `\u{25b6}` for the take
+/// with no name and three labelled ones. Narrower than that and the last press
+/// is clipped, which is a control somebody can see and cannot read.
+const DEMOS: f32 = 112.0;
+
+/// How much of a variant's name one press carries.
+///
+/// Three characters, because four presses have to fit a column and `mod-wheel`
+/// is not going to. The whole of it is in the footer while the pointer is on
+/// the press, which is where this window says what anything under the pointer
+/// is.
+const VARIANT: usize = 3;
 
 /// How many vocabulary terms one row prints.
 const CHIPS: usize = 3;
