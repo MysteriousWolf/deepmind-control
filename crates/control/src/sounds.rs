@@ -344,103 +344,49 @@ fn surface(app: &App, room: iced::Size) -> Element<'_, Message> {
     // The pointer is tracked here rather than on the rows, because a row's own
     // coordinates start at the row: a menu placed from those would open at the
     // top of the table every time.
-    let laid = mouse_area(
-        column![actions(app), finding(app)]
-            .push(table(app))
-            .spacing(10),
-    )
-    .on_move(Message::PointerAt);
+    let laid =
+        mouse_area(column![finding(app)].push(table(app)).spacing(10)).on_move(Message::PointerAt);
     let Some(at) = app.menu() else {
         return laid.into();
     };
     stack![laid, shade(), floating(app, at, room)].into()
 }
 
-/// What can be done to the sound that is chosen, and what can be done to the
-/// library.
+/// **Words, and no marks at all.** They were marks alone with the word left to
+/// the footer, then marks with the word beside them, then marks with the word
+/// under them, and each round was an attempt to rescue a drawing that was not
+/// carrying anything: every verb here moves a sound from one place to another,
+/// so every mark came out a direction arrow, and `Copy` and `Fetch` were the
+/// same triangle pointing the same way. A mark that has to be read off its own
+/// caption is a mark doing no work, and three of them in a row is a puzzle
+/// across the top of a window. The words say it, and the footer says it longer.
 ///
-/// **Two groups and a gap between them**, which is the whole of the layout: on
-/// the left the seven verbs, every one of them about the one row somebody
-/// pressed; on the right the three presses that are about the library itself
-/// rather than about any sound in it. A row where *export this patch* stood
-/// beside *fetch the newest release* would be a row somebody has to read
-/// before using.
-fn actions(app: &App) -> Element<'_, Message> {
-    row![toolbar(app), space().width(Fill), library(app.catalogue())]
-        .spacing(14)
-        .align_y(Center)
-        .into()
-}
-
-/// The seven verbs, along the top.
-///
-/// The same seven the menu a right-press opens carries, in the same order, with
-/// the same marks and greyed out by the same rule — [`App::can`] decides for
-/// both. A toolbar that offered what its own menu refused would be a window
-/// that disagrees with itself.
-///
-/// **Each one carries its word.** They were marks alone, with the word left to
-/// the footer, and a nine-dot drawing nobody has been introduced to is a
-/// drawing nobody can read: an arrow onto a shelf and an arrow into a memory
-/// are the same arrow until somebody has been told which is which. The mark
-/// earns its place by being the thing recognised at the second glance, and the
-/// word is how there is a first one.
-///
-/// The sentence in the footer is still there, and it is the longer answer: the
-/// toolbar says `Copy here` and the footer says what that means.
-fn toolbar(app: &App) -> Element<'_, Message> {
+/// The last press is not one of [`Action`]'s verbs and stands slightly apart
+/// for it. The other three act on the row somebody chose; this one writes what
+/// is on the screen, which is that row plus whatever has been turned since it
+/// was loaded, and those are the same sound right up until they are not.
+pub fn toolbar(app: &App) -> Element<'_, Message> {
     row(Action::TOOLBAR.map(|action| tool(app, action)))
+        .push(press(
+            "Save file\u{2026}",
+            app.patch().is_known().then_some(Message::SavePatch),
+            "Write the sound on the screen out as one `.syx` file, with the edits made \
+             to it since it was loaded.",
+        ))
         .spacing(2)
         .align_y(Center)
         .into()
 }
 
-/// One verb: the mark, and the word under it.
-///
-/// **Under and not beside.** A word beside a mark makes a press as wide as the
-/// word is long, so a row of them is a ragged line of different-sized boxes and
-/// the long ones (`Save shelf\u{2026}`) crowd out the short. Stacked, every press
-/// is the same narrow column, the words line up along one baseline, and a word
-/// too long for the column wraps onto a second line instead of widening it.
+/// One verb, as its word.
 fn tool(app: &App, action: Action) -> Element<'_, Message> {
     let usable = app.can(action);
-    hinting(
-        button(stacked(action_badge(action), action.label(), usable))
-            .padding([3, 4])
-            .style(control_ui::marked)
-            .on_press_maybe(usable.then_some(Message::Act(action))),
+    press(
+        action.label(),
+        usable.then_some(Message::Act(action)),
         action.about(),
     )
 }
-
-/// A mark with its word under it, dimmed together while the press is refused.
-fn stacked(badge: control_ui::Badge, label: &str, usable: bool) -> Element<'_, Message> {
-    column![
-        mark(badge, usable),
-        text(label)
-            .size(10)
-            .center()
-            .wrapping(iced::widget::text::Wrapping::Word)
-            .style(move |theme: &Theme| text::Style {
-                color: Some(if usable {
-                    theme.extended_palette().background.base.text
-                } else {
-                    materials(theme).metal_low
-                }),
-            }),
-    ]
-    .spacing(3)
-    .width(Length::Fixed(STACKED))
-    .align_x(Horizontal::Center)
-    .into()
-}
-
-/// How wide a press with its word under it stands.
-///
-/// Enough for `Checkout` on one line and for `Shelve these` on two. A column
-/// this narrow is what makes the words wrap rather than the presses widen,
-/// which is the whole point of stacking them.
-const STACKED: f32 = 62.0;
 
 /// What is done to the library itself, up in the corner.
 ///
@@ -449,27 +395,24 @@ const STACKED: f32 = 62.0;
 /// this machine at once. Top right because that is where a window's own
 /// housekeeping goes and because the left of this row belongs to the sound
 /// somebody has in hand.
-fn library(catalogue: &Catalogue) -> Element<'_, Message> {
+pub fn library(catalogue: &Catalogue) -> Element<'_, Message> {
     let working = catalogue.working();
     let loadable = catalogue.held().is_some_and(Held::loadable);
     row![
         press(
-            control_ui::FETCH,
-            "Fetch",
+            "Fetch newest",
             (!working).then_some(Message::FetchPatches),
             "Fetch the newest published library over the network.",
         ),
         press(
-            control_ui::FOLDER,
-            "Checkout\u{2026}",
+            "Open folder\u{2026}",
             (!working).then_some(Message::OpenPatches),
             "Read a checkout of the shared patches off a folder on this machine.",
         ),
         press(
-            control_ui::SHELVE,
-            "Shelve these",
+            "Copy all",
             loadable.then_some(Message::ShelveShowing),
-            "Put every sound the filters left standing onto this machine's shelf.",
+            "Copy every sound the filters left standing onto this machine's shelf.",
         ),
     ]
     .spacing(2)
@@ -477,34 +420,53 @@ fn library(catalogue: &Catalogue) -> Element<'_, Message> {
     .into()
 }
 
-/// One press whose whole face is a mark, and what it says about itself.
+/// One press of the librarian's chrome: a word on the bare panel.
 ///
-/// The one press the whole librarian is built from, here and in
-/// [`crate::librarian`]: a nine-dot mark on the bare panel, greyed while it is
-/// refused, with its sentence in the footer under the pointer.
+/// **A word and no mark.** Every one of these carried a nine-dot drawing with
+/// its word under it, and the drawings were dropped for a reason worth writing
+/// down: there are three things this window moves a sound between, and a
+/// direction between two of them is an arrow. So `Copy` and `Fetch` were both a
+/// triangle pointing down, `Write\u{2026}` and `Open file\u{2026}` were both one
+/// pointing up, and the word underneath was doing every bit of the telling
+/// apart.
+///
+/// A mark that needs its word to be read is not a mark, it is decoration with a
+/// caption. The marks that stayed are the ones that stand alone and say
+/// something a word would say worse: the sort caret on a heading, the `\u{25b6}`
+/// on a recording, the fourteen the front panel is drawn from.
+///
+/// What the row gained instead is grouping — see [`crate::librarian`] — which
+/// is what actually answers *which of these does what to which*.
 pub fn press<'a>(
-    badge: control_ui::Badge,
     label: &'a str,
     said: Option<Message>,
     about: &'static str,
 ) -> Element<'a, Message> {
     let usable = said.is_some();
     hinting(
-        button(stacked(badge, label, usable))
-            .padding([3, 4])
-            .style(control_ui::marked)
-            .on_press_maybe(said),
+        button(
+            text(label)
+                .size(12)
+                .style(move |theme: &Theme| text::Style {
+                    color: Some(if usable {
+                        theme.extended_palette().background.base.text
+                    } else {
+                        materials(theme).metal_low
+                    }),
+                }),
+        )
+        .padding([4, 8])
+        .style(control_ui::marked)
+        .on_press_maybe(said),
         about,
     )
 }
 
 /// The menu a right-press opens, standing where the press was.
 ///
-/// The same seven verbs the toolbar carries, and here they carry their words as
-/// well: a menu is what somebody opens when the mark alone was not enough, so a
-/// menu of marks would be a menu that answers nothing. The mark stays beside
-/// the word so that the two are learnt together, which is the only reason the
-/// toolbar can be marks alone.
+/// Every verb, where the toolbar carries three. The three on the bar are the
+/// ones that move a sound; the rest are here because they are rare, or already
+/// a press somewhere else, or already what pressing the row does.
 fn menu(app: &App) -> Element<'_, Message> {
     container(column(Action::ALL.map(|action| entry(app, action))).spacing(1))
         .width(Length::Fixed(MENU_WIDE))
@@ -525,27 +487,20 @@ fn menu(app: &App) -> Element<'_, Message> {
         .into()
 }
 
-/// One line of the menu: the mark, and the word beside it.
+/// One line of the menu: the word, and nothing else.
 fn entry(app: &App, action: Action) -> Element<'_, Message> {
     let usable = app.can(action);
     hinting(
         button(
-            row![
-                container(mark(action_badge(action), usable))
-                    .width(Length::Fixed(MENU_MARK))
-                    .align_x(Horizontal::Center),
-                text(action.label())
-                    .size(12)
-                    .style(move |theme: &Theme| text::Style {
-                        color: Some(if usable {
-                            theme.extended_palette().background.base.text
-                        } else {
-                            materials(theme).metal_low
-                        }),
+            text(action.label())
+                .size(12)
+                .style(move |theme: &Theme| text::Style {
+                    color: Some(if usable {
+                        theme.extended_palette().background.base.text
+                    } else {
+                        materials(theme).metal_low
                     }),
-            ]
-            .spacing(8)
-            .align_y(Center),
+                }),
         )
         .width(Fill)
         .padding([4, 6])
@@ -564,46 +519,8 @@ fn entry(app: &App, action: Action) -> Element<'_, Message> {
 /// much room the thing takes.
 const MENU_WIDE: f32 = 190.0;
 
-/// The column the marks down the menu stand in.
-///
-/// Wide enough for a nine-dot mark at the pitch every drawing in this window
-/// shares, which is what decides it: a column narrower than the mark is a
-/// column the mark sits on top of the word in.
-const MENU_MARK: f32 = 24.0;
-
 /// How tall the menu stands: seven lines, their gaps, and the rim.
 const MENU_TALL: f32 = 7.0 * 31.0 + 6.0 * 1.0 + 8.0;
-
-/// The mark a verb wears, everywhere it is offered.
-///
-/// One mark per verb and the same one in both places, which is what makes a
-/// toolbar of marks readable at all: somebody learns the seven once, in the
-/// menu where the words are, and reads them thereafter along the top.
-const fn action_badge(action: Action) -> control_ui::Badge {
-    match action {
-        Action::Load => control_ui::PLAY,
-        // The front panel itself, because that is where the press goes: `Edit`
-        // hears the sound and puts somebody in front of the instrument.
-        Action::Edit => control_ui::PANEL,
-        Action::Copy => control_ui::SHELVE,
-        Action::Write => control_ui::STORE,
-        Action::Export => control_ui::EXPORT,
-        Action::Update => control_ui::UPDATE,
-    }
-}
-
-/// A mark, stencilled on the panel, dim while the press it is on is refused.
-pub fn mark<'a>(badge: control_ui::Badge, usable: bool) -> Element<'a, Message> {
-    Element::from(stencil(badge.screen(), move |theme: &Theme| {
-        let material = materials(theme);
-        if usable {
-            material.metal
-        } else {
-            material.metal_low
-        }
-    }))
-    .map(Message::Ui)
-}
 
 /// Says something the library wrote in the footer while the pointer is on it.
 ///
@@ -661,12 +578,15 @@ fn floating(app: &App, at: iced::Point, room: iced::Size) -> Element<'_, Message
         .into()
 }
 
-/// What is on the table, in a few words.
+/// What is on the table, in one line.
 ///
-/// It stood on a line of its own and now it shares one with the search field,
-/// which is where it belongs: *how many there are* and *how you narrow them*
-/// are one thought, and the count is what tells somebody their search did
-/// anything.
+/// **Everything that is true of the list, and nothing that is a control.** How
+/// many there are, where the shelf's half of them came from, and whether the
+/// shared library is open — three facts that were on three different lines,
+/// one of them above a row of presses that had nothing to do with it. They
+/// share the line the search field is on, because *how many there are* and
+/// *how you narrow them* are one thought and the count is what tells somebody
+/// their search did anything.
 fn standing(app: &App) -> Element<'_, Message> {
     let catalogue = app.catalogue();
     let said = match catalogue.state() {
@@ -680,11 +600,20 @@ fn standing(app: &App) -> Element<'_, Message> {
             } else {
                 format!("{all} sounds")
             };
-            match catalogue.held() {
-                None => format!("{count} \u{b7} no shared library open yet"),
-                Some(held) if held.loadable() => count,
-                Some(_) => format!("{count} \u{b7} the shared sounds are still coming"),
+            // And where the shelf's half of them came from, which is the one
+            // thing a librarian must never be vague about: a pack read off a
+            // synthesizer and a pack read off a disk look identical on the
+            // screen and are not the same claim.
+            let mut said = vec![count];
+            if let Some(source) = app.shelf().source() {
+                said.push(source.to_string());
             }
+            match catalogue.held() {
+                None => said.push("no shared library open yet".to_owned()),
+                Some(held) if held.loadable() => {}
+                Some(_) => said.push("the shared sounds are still coming".to_owned()),
+            }
+            said.join(" \u{b7} ")
         }
     };
     text(said)
@@ -905,7 +834,7 @@ fn heading(app: &App) -> Element<'_, Message> {
         .spacing(COLUMN_GAP)
         .align_y(Vertical::Center);
     container(column![names, filters].spacing(3))
-        .padding(Padding::from([0.0, 8.0]).right(GUTTER + 8.0 + KEEP))
+        .padding(Padding::from([0.0, 8.0]).right(GUTTER + 8.0))
         .into()
 }
 
@@ -1153,14 +1082,7 @@ fn line<'a>(
             .on_press(Message::ChooseSound(chosen.clone())),
     )
     .on_right_press(Message::OpenMenu(chosen));
-    let keeps = match row {
-        Row::Patch(patch) if known.is_some_and(Held::loadable) => Some(patch.id.clone()),
-        _ => None,
-    };
-    row![played, keep(keeps)]
-        .spacing(2)
-        .align_y(Vertical::Center)
-        .into()
+    played.into()
 }
 
 /// Where the sound is.
@@ -1454,30 +1376,6 @@ fn drawn<'a>(icon: Option<Icon>, colour: Option<[u8; 3]>) -> Element<'a, Message
     })
     .into()
 }
-
-/// The press at the end of a row that puts that one sound on the shelf.
-fn keep<'a>(id: Option<String>) -> Element<'a, Message> {
-    // Nothing at all where there is nothing to keep, rather than a press that
-    // does not go down: a column of empty bordered boxes down the side of a
-    // shelf is a column of controls that look broken. The room is held, so the
-    // rows still line up.
-    let Some(id) = id else {
-        return space().width(Length::Fixed(KEEP)).into();
-    };
-    container(hinting(
-        button(mark(control_ui::SHELVE, true))
-            .padding([4, 6])
-            .style(control_ui::marked)
-            .on_press(Message::ShelvePatch(id)),
-        Action::Copy.about(),
-    ))
-    .width(Length::Fixed(KEEP))
-    .align_x(Horizontal::Center)
-    .into()
-}
-
-/// The room the press that keeps a sound takes.
-const KEEP: f32 = 30.0;
 
 /// The ground one row of the table stands on.
 fn banded_like(theme: &Theme, banded: bool, lit: bool, status: button::Status) -> button::Style {

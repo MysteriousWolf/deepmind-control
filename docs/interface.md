@@ -520,36 +520,49 @@ written. `Store…` is drawn and greyed, because the protocol call it needs is
 [not published yet](waiting.md) and a verb left off a list reads as one nobody
 thought of.
 
-**Every mark carries its word, under it.** They were marks alone, with the word
-left to the footer, and that was wrong for a reason worth writing down: a
-nine-dot drawing nobody has been introduced to is a drawing nobody can read. An
-arrow onto a shelf and an arrow into a memory are the same arrow until somebody
-has been told which is which. A mark earns its place at the *second* glance,
-and the word is how there is a first one. The footer's sentence is still there
-and is the longer answer: the toolbar says `Shelve`, the footer says what that
-means.
+**The chrome is three named groups, and it carries no marks.** Three things
+this window moves a sound between — the sound in hand, this machine's shelf,
+the shared library — and every press belongs to one of them, under its name:
 
-Under and not beside, because a word beside a mark makes a press as wide as
-the word is long, and a row of them is a ragged line of different-sized boxes
-where the long labels crowd out the short. Stacked, every press is the same
-narrow column, the words line up along one baseline, and a word too long for
-the column wraps rather than widening it.
+| `THIS SOUND` | `Load` · `Copy` · `Write…` · `Save file…` |
+| --- | --- |
+| `SHELF` | `Read synth` · `Open file…` · `Save shelf…` |
+| `LIBRARY` | `Fetch newest` · `Open folder…` · `Copy all` |
 
-**Three verbs on the toolbar, seven in the menu.** Only the ones that move a
-sound stand along the top — `Edit`, `Shelve`, `Store…` — because the other
-four are rare (`Share…`, `Export…`), already a press somewhere else
-(`Update` *is* the version cell), or already what pressing the row does
-(`Play`). A toolbar of everything is a toolbar nobody reads: seven marks cost
-the width of two columns and four of them were one press a session. The
-right-press menu carries all seven, always.
+It was two rows pushed to the far edges of the window with the width of two
+columns of nothing across the middle, and the gap was a symptom: nothing said
+what belonged with what, so the only arrangement available was *left* and
+*right*. Naming the three both fills the row and answers the question the gap
+was hiding — which of these does what to which.
 
-Which also settled what the marks have to draw. Once the word says the
-destination, the drawing only has to say the direction, so the pair that moves
-a sound became a plain triangle and a line — down onto a shelf, up off one —
-instead of an arrow with a box around it. Several were redrawn twice over: at
-nine dots an outlined rectangle is a dashed rectangle, a hairline diagonal is
-a row of specks, and a full-width arrowhead crossing a shaft is a plus sign.
-Everything that has to read at this size is filled.
+**The marks came off, and that is a retraction.** Every one of these presses
+carried a nine-dot drawing. They were tried three ways: mark alone with the
+word in the footer, mark with the word beside it, mark with the word under it.
+The third read well enough to ship and was still wrong, for a reason the first
+two hid.
+
+There are three places a sound can go, so a direction between two of them is an
+arrow — and once every mark was an arrow, `Copy` and `Fetch newest` were both a
+triangle pointing down, `Write…` and `Open file…` were both one pointing up.
+The words underneath were doing every bit of the telling apart. A mark that
+needs its word to be read is not a mark; it is decoration with a caption, and
+it costs the height of a second line and the width of a column.
+
+What replaced it is the grouping above, which is what the marks were failing to
+do. The marks that stayed are the ones that stand alone and say something a
+word would say worse: the sort caret on a heading, the `▶` on a recording,
+the fourteen the front panel is drawn from, and the four along the window's own
+header.
+
+**Three verbs on the bar, six in the menu.** Only the ones that move a sound
+earn the width along the top — `Load`, `Copy`, `Write…` — because the rest
+are rare (`Export…`), already a press somewhere else (`Update` *is* the
+version cell), or nearly what pressing the row does already (`Edit` is `Load`
+and then the front panel). The right-press menu carries all six, always.
+
+`Save file…` stands with them and is not one of them. The six act on the row
+somebody chose; that one writes what is on the *screen*, edits and all, which
+is the same sound as the chosen row right up until a knob is turned.
 
 **The shared shelf draws the library's own pictures.** Every patch carries a 7x7
 one-bit icon and so does every category, drawn once in the repository and

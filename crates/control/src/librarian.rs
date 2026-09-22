@@ -13,9 +13,9 @@
 //! why its instrument stopped answering. Editing is the same in both builds
 //! because it is the same crate; this is the part that is not.
 
-use deepmind_midi::sysex::inquiry::Version;
+use control_ui::materials;
 use iced::widget::{column, progress_bar, row, space, text};
-use iced::{Center, Element, Fill, Length};
+use iced::{Center, Element, Fill, Length, Theme};
 
 use crate::app::{App, Message};
 use crate::shelf::Shelf;
@@ -29,7 +29,12 @@ use crate::shelf::Shelf;
 /// and having no way, once there, to tell which row was being described.
 pub fn view(app: &App) -> Element<'_, Message> {
     let under = column![chrome(app)]
-        .push(sounds(app))
+        .push(
+            column([])
+                .extend(progress(app.shelf()))
+                .push(crate::sounds::view(app))
+                .spacing(10),
+        )
         .spacing(12)
         .padding([0, 12]);
     if app.sharing().is_none() {
@@ -38,145 +43,90 @@ pub fn view(app: &App) -> Element<'_, Message> {
     control_ui::modal(under, crate::sharing::sheet(app), Message::CloseSharing)
 }
 
-/// The line above the table: what is on the shelf, how to put another bank on
-/// it, and the four presses that are about files.
+/// The one line above the table: three groups of presses, spread across it.
 ///
-/// **Left is what you have, right is what you do to the disk**, which is the
-/// arrangement the whole librarian is laid out under: the seven verbs in
-/// [`crate::sounds`] sit under this on the same principle, with what is about
-/// the chosen sound on the left of their row and what is about the library on
-/// the right of it.
+/// **Grouped by what they act on, and the group says so.** They were two rows
+/// pushed to the far edges with a gap between — the width of two columns of
+/// nothing across the middle of the window — and the reason was that nothing
+/// said what belonged with what, so the only arrangement available was *left*
+/// and *right*. Naming the three things this window deals with, and putting
+/// each group's presses under its name, both fills the row and answers the
+/// question the gap was hiding: which of these does what to which.
 ///
-/// The four are marks and not words for the reason every mark in this window
-/// is: `Save the shelf\u{2026}` beside `Save the sound\u{2026}` beside `Open\u{2026}` is a
-/// sentence along the top of a list, and what each one does is said in full in
-/// the footer while the pointer is on it.
+/// The three are the whole of it. A sound is the row somebody chose; the shelf
+/// is what this machine is holding; the library is what other people have
+/// published. Every press here moves something between two of them.
 fn chrome(app: &App) -> Element<'_, Message> {
     row![
-        standing(app.shelf(), app.firmware()),
-        reading(app.is_connected()),
+        group("THIS SOUND", crate::sounds::toolbar(app)),
         space().width(Fill),
-        files(app),
+        group("SHELF", shelf_presses(app)),
+        space().width(Fill),
+        group("LIBRARY", crate::sounds::library(app.catalogue())),
     ]
-    .spacing(14)
+    .spacing(12)
     .align_y(Center)
     .into()
 }
 
-/// Every sound, and what fills the shelf they are drawn from.
+/// A named group of presses.
 ///
-/// The bank row stays here — which of the eight a read would read, and the
-/// press that reads it — because it is about this instrument rather than about
-/// the list. Everything below it is [`crate::sounds`], which is one table of
-/// every sound wherever it is.
-fn sounds(app: &App) -> Element<'_, Message> {
-    let shelf = app.shelf();
-    column([])
-        .extend(progress(shelf))
-        .push(crate::sounds::view(app))
-        .spacing(10)
-        .into()
+/// The name is printed in the ink a legend is, small and upright, so it reads
+/// as the label on a panel rather than as another press. It stands to the left
+/// of what it names rather than above it, because above would make this line
+/// two lines tall and the line is what the gap was spent on.
+fn group<'a>(name: &'a str, presses: Element<'a, Message>) -> Element<'a, Message> {
+    row![
+        text(name).size(9).style(|theme: &Theme| text::Style {
+            color: Some(materials(theme).metal_low),
+        }),
+        presses,
+    ]
+    .spacing(8)
+    .align_y(Center)
+    .into()
 }
 
-/// The four presses that are about files rather than about any one sound.
+/// What fills this machine's shelf, and what empties it.
 ///
-/// A `.syx` in and a `.syx` out, the whole shelf out as a pack, and the one
-/// that calls off a transfer already going. None of them is a verb from
-/// [`crate::app::Action`]: those act on the row somebody chose, and these act
-/// on the shelf and the disk, which is why they stand in a different corner.
-fn files(app: &App) -> Element<'_, Message> {
+/// Three, and each one names the other end: a shelf is filled from the
+/// synthesizer or from a file and emptied into a file, so `Read synth`,
+/// `Open file\u{2026}` and `Save shelf\u{2026}` say the whole of what they do
+/// without the group's name having to be read twice.
+fn shelf_presses(app: &App) -> Element<'_, Message> {
     let shelf = app.shelf();
     let reading = shelf.transfer().is_some();
     row![
         crate::sounds::press(
-            control_ui::OPEN,
-            "Open\u{2026}",
+            "Read synth",
+            app.is_connected().then_some(Message::ReadAll),
+            "Read every bank off the synthesizer onto this machine's shelf. About a \
+             minute and a half.",
+        ),
+        crate::sounds::press(
+            "Open file\u{2026}",
             Some(Message::Open),
             "Open a `.syx` file and put what it holds on the shelf.",
         ),
         crate::sounds::press(
-            control_ui::EXPORT,
-            "Save one\u{2026}",
-            app.patch().is_known().then_some(Message::SavePatch),
-            "Write the sound on the screen out as one `.syx` file.",
-        ),
-        crate::sounds::press(
-            control_ui::PACK,
-            "Save all\u{2026}",
+            "Save shelf\u{2026}",
             (!shelf.is_empty()).then_some(Message::SavePack),
             "Write the whole shelf out as one `.syx` pack.",
         ),
     ]
     // Nothing to stop until something is going. A press that spends every
-    // moment but twelve seconds greyed out is a press that teaches somebody
-    // the toolbar is mostly dead, and this one has a transfer to belong to.
+    // moment but ninety seconds greyed out is a press that teaches somebody
+    // this line is mostly dead, and this one has a transfer to belong to.
     .extend(reading.then(|| {
         crate::sounds::press(
-            control_ui::SHUT,
             "Stop",
             Some(Message::Cancel),
-            "Stop the bank read that is going out now.",
+            "Stop the read that is going out now.",
         )
     }))
-    .spacing(1)
+    .spacing(2)
     .align_y(Center)
     .into()
-}
-
-/// Reading the instrument onto the shelf: one press, every bank.
-///
-/// **It was eight chips, then a picker, and now it is neither.** The chips
-/// were drawn with the same press the `BANK` column narrows with, so the
-/// surface showed two bank choosers that looked identical and did different
-/// things. Folding them into a picker on this press fixed that and left a
-/// worse question behind: *which bank?* is a question with no good answer.
-/// Somebody reading their synthesizer onto a computer wants their
-/// synthesizer, and somebody after one bank narrows the `BANK` column once it
-/// is here. What the picker really did was make a person press this eight
-/// times.
-fn reading<'a>(open: bool) -> Element<'a, Message> {
-    crate::sounds::press(
-        control_ui::READ,
-        "Read",
-        open.then_some(Message::ReadAll),
-        "Read every bank off the synthesizer onto this machine's shelf. About a \
-         minute and a half.",
-    )
-}
-
-/// Where what is on the shelf came from, in words.
-///
-/// The one thing a librarian must never be vague about. A pack read off a
-/// synthesizer and a pack read off a disk look identical on the screen and are
-/// not the same claim, and which one somebody is about to write over the other
-/// with depends entirely on knowing which is which.
-fn standing(shelf: &Shelf, firmware: Version) -> Element<'_, Message> {
-    let held = shelf.held().len();
-    let sound = if held == 1 { "program" } else { "programs" };
-    // And how many of them the search left, where one is narrowing the shelf.
-    // Said as a count of what is held rather than instead of it: the shelf is
-    // still holding 128 whatever the screen is showing, and a librarian whose
-    // own count changed as somebody typed is a librarian that has lost track of
-    // what it has.
-    let showing = shelf.showing(firmware).len();
-    let where_from = match shelf.source() {
-        Some(source) if showing == held => format!("{held} {sound} \u{00b7} {source}"),
-        Some(source) => format!("{showing} of {held} {sound} \u{00b7} {source}"),
-        None => "Nothing on the shelf. Open a `.syx` file, or read a bank off the synthesizer."
-            .to_owned(),
-    };
-    let unreadable = (shelf.skipped() > 0).then(|| {
-        text(format!(
-            "{} frame(s) in that file could not be read, and were skipped rather than losing the \
-             rest.",
-            shelf.skipped()
-        ))
-        .size(12)
-    });
-    column![text(where_from).size(13)]
-        .extend(unreadable.map(Element::from))
-        .spacing(4)
-        .into()
 }
 
 /// How far a bank read has got, while one is going.

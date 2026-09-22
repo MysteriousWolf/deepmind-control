@@ -134,7 +134,6 @@ fn heading(app: &App, category: Option<Category>) -> Element<'_, Message> {
         standing(app, category),
         space().width(Fill),
         crate::sounds::press(
-            control_ui::SHUT,
             "Close",
             Some(Message::CloseSharing),
             "Put this away. What you have typed is kept.",
@@ -394,7 +393,6 @@ fn writing<'a>(
                 "Choose where\u{2026}"
             })
             .on_press_maybe(ready.then_some(Message::PublishWrite)),
-            container(drawn()).width(Length::Fixed(28.0)),
         ]
         .spacing(10)
         .align_y(Center),
@@ -404,15 +402,6 @@ fn writing<'a>(
     ]
     .spacing(8)
     .into()
-}
-
-/// The mark on the press that writes: the one the verb itself wears.
-///
-/// [`control_ui::SHARE`], and not an arrow going out, because this is the end
-/// of the gesture the toolbar's `Share\u{2026}` began: one mark for one verb,
-/// wherever in the window it turns up.
-fn drawn<'a>() -> Element<'a, Message> {
-    crate::sounds::mark(control_ui::SHARE, true)
 }
 
 /// A button that is not a parameter, in the instrument's own materials.
