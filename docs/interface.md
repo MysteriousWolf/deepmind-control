@@ -520,14 +520,28 @@ written. `Store…` is drawn and greyed, because the protocol call it needs is
 [not published yet](waiting.md) and a verb left off a list reads as one nobody
 thought of.
 
-**Every mark carries its word.** They were marks alone, with the word left to
-the footer, and that was wrong for a reason worth writing down: a nine-dot
-drawing nobody has been introduced to is a drawing nobody can read. An arrow
-onto a shelf and an arrow into a memory are the same arrow until somebody has
-been told which is which. A mark earns its place at the *second* glance, and
-the word is how there is a first one. The footer's sentence is still there and
-is the longer answer: the toolbar says `Copy here`, the footer says what that
+**Every mark carries its word, under it.** They were marks alone, with the word
+left to the footer, and that was wrong for a reason worth writing down: a
+nine-dot drawing nobody has been introduced to is a drawing nobody can read. An
+arrow onto a shelf and an arrow into a memory are the same arrow until somebody
+has been told which is which. A mark earns its place at the *second* glance,
+and the word is how there is a first one. The footer's sentence is still there
+and is the longer answer: the toolbar says `Shelve`, the footer says what that
 means.
+
+Under and not beside, because a word beside a mark makes a press as wide as
+the word is long, and a row of them is a ragged line of different-sized boxes
+where the long labels crowd out the short. Stacked, every press is the same
+narrow column, the words line up along one baseline, and a word too long for
+the column wraps rather than widening it.
+
+**Three verbs on the toolbar, seven in the menu.** Only the ones that move a
+sound stand along the top — `Edit`, `Shelve`, `Store…` — because the other
+four are rare (`Share…`, `Export…`), already a press somewhere else
+(`Update` *is* the version cell), or already what pressing the row does
+(`Play`). A toolbar of everything is a toolbar nobody reads: seven marks cost
+the width of two columns and four of them were one press a session. The
+right-press menu carries all seven, always.
 
 Which also settled what the marks have to draw. Once the word says the
 destination, the drawing only has to say the direction, so the pair that moves
@@ -551,6 +565,16 @@ side — so this application links a reader rather than keeping one. What is lef
 in `catalogue.rs` is where a catalogue is cached, how it is fetched without
 dropping a frame, and what a search field asks of it.
 
+**A patch's icon is a tile, not bare dots.** The library draws every patch and
+every category a seven-by-seven one-bit picture, which at this window's pitch
+is seventeen points: drawn as dots on the panel, lifted a little off the metal,
+forty-nine of them down a list read as specks. So each one stands on a tile
+tinted in its category's colour, at the chip's own weight, with the dots inked
+in whatever is legible *against that tint* rather than against the panel. It is
+the ground that makes a seven-dot drawing a picture. It also does what the icon
+was for: two rows of the same category share a colour somebody sees before
+reading either name.
+
 **A slot is printed, not displayed.** A bank letter and a program number are
 what the instrument's own screen shows, so they are written in its characters
 — the display's five-by-seven cell, at the pitch every other drawing here
@@ -567,6 +591,29 @@ choosers that looked identical and did different things — one asks the
 synthesizer for a bank, the other hides rows — is not something anybody can be
 expected to tell apart by where it sits. The eight are a picker on the press
 that uses them now, and the press says `Read bank`.
+
+**The heading is two rows: one that sorts, one that narrows.** It was a single
+row of choosers standing in for the headings, and three things were wrong with
+it at once — a column's name vanished the moment somebody filtered it, three
+columns could be narrowed and five could not, and nothing told you which was
+which until you tried. Two rows is what a table with filters has always looked
+like. The names stay names and are the presses that sort, with the caret inked
+only on the column the table is under; under each name is what narrows that
+column.
+
+**Every column sorts and every column narrows.** A column whose values are a
+known set — where, bank, category, whether a version is behind — gets a
+chooser; a column whose values are open — a name, a maker, a term, a sentence
+— gets a field to type in, because a picker listing every maker in a library
+is a list nobody can use. Both write the same thing, the text a cell has to
+carry, so the table answers one question however it was asked, and each column
+sorts by the same answer it narrows by rather than by a second one that can
+disagree with it.
+
+Which replaced five fields of five types with one map from column to text. The
+old `Looking` had an `Option<Category>`, an `Option<Bank>`, an `Option<Where>`
+and a `Vec` of vocabulary terms, each with its own message, its own arm and its
+own way of being cleared — and a column added later needed a sixth of each.
 
 **The shelf is a table.** It was a grid of cards, four across, and a card can
 carry a name, a slot and a category and nothing else. What a shared library

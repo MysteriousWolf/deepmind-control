@@ -59,7 +59,7 @@
 //! [the specification](../../../docs/patches-repo.md) for what the repository
 //! is.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, TryRecvError};
@@ -68,6 +68,8 @@ use std::thread;
 use deepmind_midi::program::Program;
 use deepmind_patches::index::{IndexPatch, Match};
 use deepmind_patches::{Category, Icon, Index, Library, fetch};
+
+use crate::app::By;
 
 /// The repository this window fetches from when nothing else is named.
 pub use deepmind_patches::fetch::DEFAULT_REPO;
@@ -282,50 +284,72 @@ impl Held {
 }
 
 /// What a person is looking for in a catalogue.
+///
+/// **One field asks every column and every column asks itself.** The search
+/// field at the top matches anything a sound says about itself; each column's
+/// own filter matches only that column. They are the same kind of question
+/// asked at two widths, so they are answered the same way — by whether the
+/// text is *in* what was said — and a column narrowed to `Pad` and a search for
+/// `pad` give the answers a person expects from each.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Looking {
     /// The search field, matched case-insensitively against everything a patch
     /// says about itself.
     pub find: String,
-    /// One category, where one is chosen.
-    pub category: Option<Category>,
-    /// Vocabulary terms, each of which a patch has to carry.
-    pub terms: Vec<(deepmind_patches::Axis, String)>,
-    /// One bank, where one is chosen. Only the two nearby places have banks.
-    pub bank: Option<deepmind_midi::ids::Bank>,
-    /// One of the three places a sound can be, where one is chosen.
+    /// What each column has been narrowed to, as the text its cell must carry.
     ///
-    /// The column's own filter. Here rather than beside the table because it
-    /// narrows the same list everything else narrows, and a place that lived
-    /// somewhere else would be the tab this replaced wearing a filter's
-    /// clothes.
-    pub place: Option<crate::app::Where>,
+    /// **One map rather than a field per column.** It was five fields of five
+    /// types — an `Option<Category>`, an `Option<Bank>`, a `Vec` of terms —
+    /// each with its own message, its own arm and its own way of being cleared,
+    /// and a column added later needed a sixth of each. A column is narrowed by
+    /// text because that is what a chooser and a field both produce.
+    narrow: BTreeMap<By, String>,
 }
 
 impl Looking {
-    /// Whether nothing is being asked, which is what a count says `32 patches`
+    /// Whether nothing is being asked, which is what a count says `32 sounds`
     /// rather than `12 of 32` for.
     #[must_use]
     pub fn asking(&self) -> bool {
-        !self.find.trim().is_empty()
-            || self.category.is_some()
-            || !self.terms.is_empty()
-            || self.place.is_some()
-            || self.bank.is_some()
+        !self.find.trim().is_empty() || !self.narrow.is_empty()
     }
 
-    /// Whether one patch survives it.
+    /// Narrows one column to the rows whose cell carries this text, or, given
+    /// nothing, stops narrowing it.
+    pub fn narrow(&mut self, column: By, text: String) {
+        if text.trim().is_empty() {
+            drop(self.narrow.remove(&column));
+        } else {
+            drop(self.narrow.insert(column, text));
+        }
+    }
+
+    /// What a column has been narrowed to, where it has been.
+    #[must_use]
+    pub fn narrowed(&self, column: By) -> Option<&str> {
+        self.narrow.get(&column).map(String::as_str)
+    }
+
+    /// Whether the column filters leave a row standing.
+    ///
+    /// `said` is asked for a column's text and answers what that column says
+    /// about this row — which is not always what the column *prints*: the
+    /// version column prints `v2 \u{2192} v4` and says `behind`, because
+    /// *behind* is the thing anybody would narrow that column to.
+    #[must_use]
+    pub fn narrows(&self, said: impl Fn(By) -> String) -> bool {
+        self.narrow.iter().all(|(column, wanted)| {
+            said(*column)
+                .to_lowercase()
+                .contains(&wanted.trim().to_lowercase())
+        })
+    }
+
+    /// Whether one patch survives all of it, columns and search alike.
     #[must_use]
     pub fn keeps(&self, patch: &IndexPatch) -> bool {
-        if let Some(wanted) = self.category
-            && patch.category != wanted
-        {
+        if !self.narrows(|column| said_in(patch, column)) {
             return false;
-        }
-        for (axis, term) in &self.terms {
-            if !terms_of(patch, *axis).iter().any(|held| held == term) {
-                return false;
-            }
         }
         let find = self.find.trim().to_lowercase();
         if find.is_empty() {
@@ -334,6 +358,36 @@ impl Looking {
         said_about(patch)
             .into_iter()
             .any(|said| said.to_lowercase().contains(&find))
+    }
+}
+
+/// What one column of a shared patch's row says, as a filter reads it.
+///
+/// The rows of the table are not all patches — half of them are programs off a
+/// shelf — so this is the patch's half of the same question
+/// [`crate::sounds`] asks of a row. The two have to agree, because
+/// `Shelve these` uses this one and the table uses that one, and a person who
+/// narrowed a column and pressed it would otherwise get a different set than
+/// the one in front of them.
+fn said_in(patch: &IndexPatch, column: By) -> String {
+    match column {
+        By::Where => crate::app::Where::Library.label().to_owned(),
+        // A shared patch has no slot: it is stored at bank A program 1 because
+        // the repository stores everything there, which says nothing about it.
+        By::Bank | By::Number => String::new(),
+        By::Name => patch.name.clone(),
+        By::Maker => patch.author.clone(),
+        By::Category => patch.category.label().to_owned(),
+        By::Tags => [&patch.mood, &patch.timbre, &patch.role, &patch.genre]
+            .into_iter()
+            .flatten()
+            .cloned()
+            .collect::<Vec<String>>()
+            .join(" "),
+        // Newest by definition: the index holds one entry per sound and it is
+        // the newest version of it.
+        By::Version => format!("v{} current", patch.version),
+        By::About => patch.about.clone(),
     }
 }
 

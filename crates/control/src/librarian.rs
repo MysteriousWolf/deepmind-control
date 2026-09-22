@@ -87,6 +87,7 @@ fn sounds(app: &App) -> Element<'_, Message> {
 /// on the shelf and the disk, which is why they stand in a different corner.
 fn files(app: &App) -> Element<'_, Message> {
     let shelf = app.shelf();
+    let reading = shelf.transfer().is_some();
     row![
         crate::sounds::press(
             control_ui::OPEN,
@@ -96,23 +97,28 @@ fn files(app: &App) -> Element<'_, Message> {
         ),
         crate::sounds::press(
             control_ui::EXPORT,
-            "Save sound\u{2026}",
+            "Save one\u{2026}",
             app.patch().is_known().then_some(Message::SavePatch),
             "Write the sound on the screen out as one `.syx` file.",
         ),
         crate::sounds::press(
             control_ui::PACK,
-            "Save shelf\u{2026}",
+            "Save all\u{2026}",
             (!shelf.is_empty()).then_some(Message::SavePack),
             "Write the whole shelf out as one `.syx` pack.",
         ),
+    ]
+    // Nothing to stop until something is going. A press that spends every
+    // moment but twelve seconds greyed out is a press that teaches somebody
+    // the toolbar is mostly dead, and this one has a transfer to belong to.
+    .extend(reading.then(|| {
         crate::sounds::press(
             control_ui::SHUT,
             "Stop",
-            shelf.transfer().is_some().then_some(Message::Cancel),
+            Some(Message::Cancel),
             "Stop the bank read that is going out now.",
-        ),
-    ]
+        )
+    }))
     .spacing(1)
     .align_y(Center)
     .into()

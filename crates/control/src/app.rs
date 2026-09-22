@@ -89,7 +89,7 @@ pub enum Action {
     /// Hear it and go to the panel, which is where it is changed.
     Edit,
     /// Onto this machine's shelf.
-    CopyHere,
+    Shelve,
     /// Into the instrument's memory, at a slot somebody chooses.
     Store,
     /// Describe it and write the files a pull request is made of.
@@ -109,12 +109,24 @@ impl Action {
     pub const ALL: [Self; 7] = [
         Self::Play,
         Self::Edit,
-        Self::CopyHere,
+        Self::Shelve,
         Self::Store,
         Self::Share,
         Self::Export,
         Self::Update,
     ];
+
+    /// The three that stand on the toolbar.
+    ///
+    /// **The ones that move a sound, and nothing else.** All seven are in the
+    /// menu a right-press opens; only these three earn the width along the
+    /// top, because the other four are either rare (`Share\u{2026}`,
+    /// `Export\u{2026}`), already a press somewhere else (`Update` is the
+    /// version cell, and `Update all n` beside the count), or already what a
+    /// press on the row itself does (`Play`).
+    ///
+    /// A toolbar of everything is a toolbar nobody reads.
+    pub const TOOLBAR: [Self; 3] = [Self::Edit, Self::Shelve, Self::Store];
 
     /// What it is called, everywhere it is offered.
     #[must_use]
@@ -122,7 +134,7 @@ impl Action {
         match self {
             Self::Play => "Play",
             Self::Edit => "Edit",
-            Self::CopyHere => "Copy here",
+            Self::Shelve => "Shelve",
             Self::Store => "Store\u{2026}",
             Self::Share => "Share\u{2026}",
             Self::Export => "Export\u{2026}",
@@ -136,7 +148,7 @@ impl Action {
         match self {
             Self::Play => "Send it to the edit buffer. Nothing is stored and nothing is kept.",
             Self::Edit => "Send it to the edit buffer and go to the front panel.",
-            Self::CopyHere => "Put it on this machine's shelf.",
+            Self::Shelve => "Put it on this machine's shelf, where a file or a bank read puts one.",
             Self::Store => "Write it into the instrument's memory, at a slot you choose.",
             Self::Share => "Describe it and write the files a pull request is made of.",
             Self::Export => "Write it out as a `.syx` file of its own.",
@@ -150,7 +162,7 @@ impl Action {
 /// Named after the column heading it belongs to, because that is where
 /// somebody presses to choose it and a name that did not match the heading
 /// would be a name only this file knows.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
 pub enum By {
     /// Nearest first: what is in the instrument, then the machine, then the
     /// library. The order the table opens in.
@@ -161,25 +173,35 @@ pub enum By {
     /// The number within that bank.
     Number,
     /// What it is called.
-    Sound,
+    Name,
     /// Who made it.
     Maker,
     /// What it calls itself.
     Category,
+    /// The vocabulary terms it carries.
+    Tags,
     /// Which version it is, and whether a newer one is published.
     Version,
+    /// What it sounds like, in the maker's words.
+    About,
 }
 
 impl By {
-    /// Every column that can be laid out by, in the order they are drawn.
-    pub const ALL: [Self; 7] = [
+    /// Every column, in the order they are drawn.
+    ///
+    /// **All of them sort and all of them narrow.** There is no column that is
+    /// only printing: a table where three headings did something and five did
+    /// nothing was a table somebody had to learn the exceptions to.
+    pub const ALL: [Self; 9] = [
         Self::Where,
         Self::Bank,
         Self::Number,
-        Self::Sound,
+        Self::Name,
         Self::Maker,
         Self::Category,
+        Self::Tags,
         Self::Version,
+        Self::About,
     ];
 
     /// What the column is headed.
@@ -189,11 +211,38 @@ impl By {
             Self::Where => "WHERE",
             Self::Bank => "BANK",
             Self::Number => "No.",
-            Self::Sound => "SOUND",
+            Self::Name => "NAME",
             Self::Maker => "MAKER",
             Self::Category => "CATEGORY",
+            Self::Tags => "TAGS",
             Self::Version => "VERSION",
+            Self::About => "ABOUT",
         }
+    }
+
+    /// Whether this column's values are a set somebody can be offered.
+    ///
+    /// Four are: where a sound is, which bank, what it calls itself, and
+    /// whether it is behind. Those get a picker. The rest are open — a name, a
+    /// maker, a term, a sentence — and a picker of every maker in a library is
+    /// a list nobody can use, so those get a field to type in.
+    #[must_use]
+    pub const fn picks(self) -> bool {
+        matches!(
+            self,
+            Self::Where | Self::Bank | Self::Category | Self::Version
+        )
+    }
+
+    /// Whether the largest value belongs at the top when this column is first
+    /// pressed.
+    ///
+    /// Only the version column, because the question somebody sorts it to ask
+    /// is *what needs updating*, and that is the exception rather than the
+    /// rule.
+    #[must_use]
+    pub const fn newest_first(self) -> bool {
+        matches!(self, Self::Version)
     }
 }
 
@@ -217,6 +266,21 @@ impl Where {
             Self::Machine => "Machine",
             Self::Instrument => "Synth",
             Self::Library => "Library",
+        }
+    }
+
+    /// How near to hand a sound in this place is.
+    ///
+    /// What the `WHERE` column sorts by, because *nearness* is what somebody
+    /// means when they sort it: in the instrument, then on this machine, then
+    /// published. Sorting the printed word would give `Library`, `Machine`,
+    /// `Synth`, which is alphabetical order and an answer to nothing.
+    #[must_use]
+    pub const fn nearness(self) -> u8 {
+        match self {
+            Self::Instrument => 0,
+            Self::Machine => 1,
+            Self::Library => 2,
         }
     }
 }
@@ -347,12 +411,12 @@ pub enum Message {
     OpenPatches,
     /// Narrow the shared patches to the ones these words are anywhere in.
     FindPatch(String),
-    /// Narrow the shared patches to one category, or to all of them.
-    PatchCategory(Option<deepmind_patches::Category>),
-    /// Narrow the list to sounds in one place, or to all of them.
-    PatchPlace(Option<Where>),
-    /// Narrow the list to one bank, or to all of them.
-    PatchBank(Option<Bank>),
+    /// Narrow one column to the rows whose cell carries this text.
+    ///
+    /// One message for every column, and an empty string clears it. A message
+    /// per column was five messages that did one thing five ways, and a column
+    /// added later would have needed a sixth.
+    Narrow(By, String),
     /// Lay the table out by this column, or turn it round if it already is.
     SortSounds(By),
     /// Put every column's chooser back to showing everything.
@@ -728,9 +792,7 @@ impl App {
             // described, wherever it is.
             Action::Play | Action::Edit | Action::Export | Action::Share => true,
             // Only something that is not already here.
-            Action::CopyHere => {
-                matches!(picked, Chosen::Patch(_)) && self.catalogue.held().is_some()
-            }
+            Action::Shelve => matches!(picked, Chosen::Patch(_)) && self.catalogue.held().is_some(),
             // **Not yet, and not because of this window.** The protocol writes
             // a stored program by sending a program dump *to* the instrument —
             // the library's own note says a preset pack is exactly that — but
@@ -941,9 +1003,7 @@ impl App {
             Message::FetchPatches
             | Message::OpenPatches
             | Message::FindPatch(_)
-            | Message::PatchCategory(_)
-            | Message::PatchPlace(_)
-            | Message::PatchBank(_)
+            | Message::Narrow(..)
             | Message::SortSounds(_)
             | Message::ShowEverything
             | Message::ChooseSound(_)
@@ -1180,9 +1240,7 @@ impl App {
             Message::FetchPatches => self.fetch_patches(),
             Message::OpenPatches => self.open_patches(),
             Message::FindPatch(words) => self.looking.find = words,
-            Message::PatchCategory(category) => self.looking.category = category,
-            Message::PatchPlace(place) => self.looking.place = place,
-            Message::PatchBank(bank) => self.looking.bank = bank,
+            Message::Narrow(column, text) => self.looking.narrow(column, text),
             Message::SortSounds(by) => self.sort_sounds(by),
             Message::ShowEverything => self.looking = Looking::default(),
             Message::ChooseSound(chosen) => self.choose_sound(chosen),
@@ -1225,13 +1283,16 @@ impl App {
     ///
     /// Pressing the heading somebody is already under means *the other way*,
     /// which is what every table anybody has used does, and going back to a
-    /// column always starts at the top again rather than remembering which way
-    /// round it was left.
+    /// column always starts from whichever end that column is usually read
+    /// from rather than remembering which way round it was left.
     fn sort_sounds(&mut self, by: By) {
         if self.sorting.by == by {
             self.sorting.down = !self.sorting.down;
         } else {
-            self.sorting = Sorting { by, down: false };
+            self.sorting = Sorting {
+                by,
+                down: by.newest_first(),
+            };
         }
     }
 
@@ -1432,7 +1493,7 @@ impl App {
                 self.view = View::Panel;
                 self.editing = None;
             }
-            Action::CopyHere => {
+            Action::Shelve => {
                 if let Chosen::Patch(id) = chosen {
                     self.shelve_patch(&id);
                 }
@@ -1623,8 +1684,8 @@ impl App {
             self.say("None of those could be read.".to_owned());
             return;
         }
-        let name = match self.looking.category {
-            Some(category) => category.label().to_owned(),
+        let name = match self.looking.narrowed(By::Category) {
+            Some(category) => category.to_owned(),
             None => "Shared patches".to_owned(),
         };
         self.shelve(&name, &bytes);

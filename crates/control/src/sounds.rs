@@ -44,10 +44,10 @@ use iced::widget::{
 };
 use iced::{Background, Center, Element, Fill, Length, Padding, Theme, border};
 
-use crate::app::{Action, App, By, Chosen, Message, Sorting, Where};
+use crate::app::{Action, App, By, Chosen, Message, Where};
 use crate::catalogue::{Catalogue, Held, Looking, State};
 use crate::shelf::Held as OnShelf;
-use deepmind_midi::ids::{BANK_COUNT, Bank};
+use deepmind_midi::ids::Bank;
 
 /// Room kept clear down the right for the scroll bar.
 const GUTTER: f32 = 16.0;
@@ -80,8 +80,6 @@ const CHIP: f32 = 0.28;
 /// How far a chosen filter is carried towards it, which is further: a filter
 /// that is on has to be legible across the row of ones that are not.
 const CHOSEN: f32 = 0.5;
-/// How far an icon is carried from the metal towards its category's colour.
-const MARK: f32 = 0.55;
 /// How far a banded row is carried from the panel towards a plate.
 const BAND: f32 = 0.45;
 
@@ -175,14 +173,6 @@ impl Row<'_> {
         }
     }
 
-    /// Whether a newer version of this sound has been published.
-    const fn stale(&self) -> bool {
-        match self.version() {
-            Some((_, latest)) => !latest,
-            None => false,
-        }
-    }
-
     /// What it sounds like, where anybody has said.
     fn about(&self) -> &str {
         self.patch().map_or("", |patch| patch.about.as_str())
@@ -253,30 +243,65 @@ impl Row<'_> {
         said
     }
 
+    /// What one column says about this row, as a filter reads it.
+    ///
+    /// **Not always what the column prints.** The version column prints
+    /// `v2 \u{2192} v4` and says `v2 behind`, because *behind* is the thing
+    /// anybody would narrow that column to and an arrow is not a word. Every
+    /// other column says what it shows.
+    ///
+    /// This is also what the column is sorted by, so a column sorts and
+    /// narrows on one answer rather than two that can disagree.
+    fn said_in(&self, by: By) -> String {
+        match by {
+            By::Where => self.place().label().to_owned(),
+            By::Bank => self
+                .bank()
+                .map(|bank| bank.letter().to_string())
+                .unwrap_or_default(),
+            // Padded, so that sorting the text sorts the numbers: `9` after
+            // `10` is what a table that compares `"9"` with `"10"` shows.
+            By::Number => self
+                .number()
+                .map(|number| format!("{:03}", number.saturating_add(1)))
+                .unwrap_or_default(),
+            By::Name => self.name(),
+            By::Maker => self.maker().unwrap_or_default().to_owned(),
+            By::Category => self
+                .category()
+                .map(Category::label)
+                .unwrap_or_default()
+                .to_owned(),
+            By::Tags => self.tags().join(" "),
+            By::Version => match self.version() {
+                Some((version, true)) => format!("v{version} current"),
+                Some((version, false)) => format!("v{version} behind"),
+                None => String::new(),
+            },
+            By::About => self.about().to_owned(),
+        }
+    }
+
+    /// Every vocabulary term this row carries, in the order they are drawn.
+    fn tags(&self) -> Vec<String> {
+        let Some(patch) = self.patch() else {
+            return Vec::new();
+        };
+        [
+            deepmind_patches::Axis::Mood,
+            deepmind_patches::Axis::Timbre,
+            deepmind_patches::Axis::Role,
+            deepmind_patches::Axis::Genre,
+        ]
+        .into_iter()
+        .flat_map(|axis| terms_of(patch, axis).iter().cloned())
+        .collect()
+    }
+
     /// Whether the filters leave it standing.
     fn kept(&self, looking: &Looking, firmware: Version) -> bool {
-        if let Some(wanted) = looking.place
-            && self.place() != wanted
-        {
+        if !looking.narrows(|by| self.said_in(by)) {
             return false;
-        }
-        if let Some(wanted) = looking.bank
-            && self.bank() != Some(wanted)
-        {
-            return false;
-        }
-        if let Some(wanted) = looking.category
-            && self.category() != Some(wanted)
-        {
-            return false;
-        }
-        for (axis, term) in &looking.terms {
-            let carried = self
-                .patch()
-                .is_some_and(|patch| terms_of(patch, *axis).iter().any(|held| held == term));
-            if !carried {
-                return false;
-            }
         }
         let find = looking.find.trim().to_lowercase();
         find.is_empty()
@@ -347,30 +372,38 @@ fn actions(app: &App) -> Element<'_, Message> {
 /// The sentence in the footer is still there, and it is the longer answer: the
 /// toolbar says `Copy here` and the footer says what that means.
 fn toolbar(app: &App) -> Element<'_, Message> {
-    row(Action::ALL.map(|action| tool(app, action)))
-        .spacing(1)
+    row(Action::TOOLBAR.map(|action| tool(app, action)))
+        .spacing(2)
         .align_y(Center)
         .into()
 }
 
-/// One verb: the mark, and the word beside it.
+/// One verb: the mark, and the word under it.
+///
+/// **Under and not beside.** A word beside a mark makes a press as wide as the
+/// word is long, so a row of them is a ragged line of different-sized boxes and
+/// the long ones (`Save shelf\u{2026}`) crowd out the short. Stacked, every press
+/// is the same narrow column, the words line up along one baseline, and a word
+/// too long for the column wraps onto a second line instead of widening it.
 fn tool(app: &App, action: Action) -> Element<'_, Message> {
     let usable = app.can(action);
     hinting(
-        button(beside(action_badge(action), action.label(), usable))
-            .padding([4, 7])
+        button(stacked(action_badge(action), action.label(), usable))
+            .padding([3, 4])
             .style(control_ui::marked)
             .on_press_maybe(usable.then_some(Message::Act(action))),
         action.about(),
     )
 }
 
-/// A mark with its word beside it, dimmed together while the press is refused.
-fn beside(badge: control_ui::Badge, label: &str, usable: bool) -> Element<'_, Message> {
-    row![
+/// A mark with its word under it, dimmed together while the press is refused.
+fn stacked(badge: control_ui::Badge, label: &str, usable: bool) -> Element<'_, Message> {
+    column![
         mark(badge, usable),
         text(label)
-            .size(12)
+            .size(10)
+            .center()
+            .wrapping(iced::widget::text::Wrapping::Word)
             .style(move |theme: &Theme| text::Style {
                 color: Some(if usable {
                     theme.extended_palette().background.base.text
@@ -379,10 +412,18 @@ fn beside(badge: control_ui::Badge, label: &str, usable: bool) -> Element<'_, Me
                 }),
             }),
     ]
-    .spacing(6)
-    .align_y(Center)
+    .spacing(3)
+    .width(Length::Fixed(STACKED))
+    .align_x(Horizontal::Center)
     .into()
 }
+
+/// How wide a press with its word under it stands.
+///
+/// Enough for `Checkout` on one line and for `Shelve these` on two. A column
+/// this narrow is what makes the words wrap rather than the presses widen,
+/// which is the whole point of stacking them.
+const STACKED: f32 = 62.0;
 
 /// What is done to the library itself, up in the corner.
 ///
@@ -414,7 +455,7 @@ fn library(catalogue: &Catalogue) -> Element<'_, Message> {
             "Put every sound the filters left standing onto this machine's shelf.",
         ),
     ]
-    .spacing(1)
+    .spacing(2)
     .align_y(Center)
     .into()
 }
@@ -432,8 +473,8 @@ pub fn press<'a>(
 ) -> Element<'a, Message> {
     let usable = said.is_some();
     hinting(
-        button(beside(badge, label, usable))
-            .padding([4, 7])
+        button(stacked(badge, label, usable))
+            .padding([3, 4])
             .style(control_ui::marked)
             .on_press_maybe(said),
         about,
@@ -527,7 +568,7 @@ const fn action_badge(action: Action) -> control_ui::Badge {
         // The front panel itself, because that is where the press goes: `Edit`
         // hears the sound and puts somebody in front of the instrument.
         Action::Edit => control_ui::PANEL,
-        Action::CopyHere => control_ui::SHELVE,
+        Action::Shelve => control_ui::SHELVE,
         Action::Store => control_ui::STORE,
         Action::Share => control_ui::SHARE,
         Action::Export => control_ui::EXPORT,
@@ -724,16 +765,6 @@ pub fn filter<'a>(
         .into()
 }
 
-/// Every category anything on the table is filed under, in the instrument's
-/// own order.
-fn seen(app: &App) -> Vec<Category> {
-    let rows = rows(app);
-    Category::ALL
-        .into_iter()
-        .filter(|category| rows.iter().any(|row| row.category() == Some(*category)))
-        .collect()
-}
-
 /// Every sound, wherever it is.
 ///
 /// The shelf first and the library after it, because the nearer a sound is the
@@ -777,24 +808,18 @@ fn showing(app: &App) -> Vec<Row<'_>> {
         .collect();
     let sorting = app.sorting();
     standing.sort_by(|one, other| {
+        // Laid out by the same answer the column is narrowed by, so a column
+        // cannot sort on one thing and filter on another. `Where` is the
+        // exception and is not really one: it sorts by *nearness* rather than
+        // by the word, so what is in the instrument stands above what is only
+        // published, which is not what `Instrument` before `Library`
+        // alphabetically would give.
         let order = match sorting.by {
-            // Nearest first, which is the order `rows` already builds and the
-            // order the table opens in.
-            By::Where => std::cmp::Ordering::Equal,
-            By::Bank => one.bank().cmp(&other.bank()),
-            By::Number => one.number().cmp(&other.number()),
-            By::Sound => one.name().to_lowercase().cmp(&other.name().to_lowercase()),
-            By::Maker => one
-                .maker()
-                .map(str::to_lowercase)
-                .cmp(&other.maker().map(str::to_lowercase)),
-            By::Category => one
-                .category()
-                .map(Category::label)
-                .cmp(&other.category().map(Category::label)),
-            // Stale first when it is turned round, because *what needs
-            // updating* is the question somebody sorts this column to ask.
-            By::Version => one.stale().cmp(&other.stale()),
+            By::Where => one.place().nearness().cmp(&other.place().nearness()),
+            by => one
+                .said_in(by)
+                .to_lowercase()
+                .cmp(&other.said_in(by).to_lowercase()),
         };
         if sorting.down { order.reverse() } else { order }
     });
@@ -828,220 +853,196 @@ fn table(app: &App) -> Element<'_, Message> {
         .into()
 }
 
-/// The heading, which is where the table is both sorted and narrowed.
+/// The heading: a row that sorts, and a row that narrows.
 ///
-/// One press per column lays the table out by it, and pressing the one it is
-/// already under turns it round. Three of them narrow as well — where, bank and
-/// category — because those are the columns with a small, known set of values,
-/// and a filter belongs on the column it filters rather than in a row of chips
-/// somebody has to match up by eye.
+/// **Every column does both, and neither row is a surprise.** It was one row
+/// of choosers standing in for the headings — a column's name vanished the
+/// moment somebody filtered it, three columns could be narrowed and five could
+/// not, and there was no way to tell which from looking. Two rows is what a
+/// table with filters has always looked like: the names stay names, and under
+/// each one is the control that narrows that column.
 ///
-/// The rest are sort-only. A maker's name is not a set anybody can be offered,
-/// and the search field already reads it.
+/// The name is a press. It lays the table out by its column and turns it round
+/// when pressed again, with the caret inked only on the column it is under.
 fn heading(app: &App) -> Element<'_, Message> {
-    let sorting = app.sorting();
-    let looking = app.looking();
-
-    let banks: Vec<Bank> = (0..BANK_COUNT)
-        .filter_map(|at| Bank::new(at).ok())
-        .collect();
-    container(
-        row![
-            container(space()).width(Length::Fixed(ICON_COLUMN)),
-            narrowed(
-                By::Where,
-                sorting,
-                PLACE,
-                Where::ALL
-                    .map(|place| (place.label().to_owned(), Some(place)))
-                    .to_vec(),
-                looking.place,
-                Message::PatchPlace,
-            ),
-            narrowed(
-                By::Bank,
-                sorting,
-                BANK,
-                banks
-                    .iter()
-                    .map(|bank| (bank.letter().to_string(), Some(*bank)))
-                    .collect(),
-                looking.bank,
-                Message::PatchBank,
-            ),
-            sorted(By::Number, sorting, NUMBER),
-            sorted(By::Sound, sorting, NAME),
-            sorted(By::Maker, sorting, MAKER),
-            narrowed(
-                By::Category,
-                sorting,
-                CATEGORY,
-                seen(app)
-                    .into_iter()
-                    .map(|category| (category.label().to_owned(), Some(category)))
-                    .collect(),
-                looking.category,
-                Message::PatchCategory,
-            ),
-            plain("IS", TERMS),
-            sorted(By::Version, sorting, VERSION),
-            plain("ABOUT", ABOUT),
-        ]
+    let names = row![container(space()).width(Length::Fixed(ICON_COLUMN))]
+        .extend(By::ALL.map(|by| sorter(app, by, width_of(by))))
         .spacing(COLUMN_GAP)
-        .align_y(Vertical::Center),
-    )
-    .padding(Padding::from([0.0, 8.0]).right(GUTTER + 8.0 + KEEP))
-    .into()
-}
-
-/// A column heading that only sorts.
-fn sorted<'a>(by: By, sorting: Sorting, width: f32) -> Element<'a, Message> {
-    container(caret(by, sorting))
-        .width(Length::Fixed(width))
+        .align_y(Vertical::Center);
+    let filters = row![container(space()).width(Length::Fixed(ICON_COLUMN))]
+        .extend(By::ALL.map(|by| narrowing(app, by, width_of(by))))
+        .spacing(COLUMN_GAP)
+        .align_y(Vertical::Center);
+    container(column![names, filters].spacing(3))
+        .padding(Padding::from([0.0, 8.0]).right(GUTTER + 8.0 + KEEP))
         .into()
 }
 
-/// A column heading that sorts and narrows.
+/// How much room a column takes.
 ///
-/// The chooser carries the heading when nothing is chosen and the value when
-/// something is, so the column says what it is showing without a second line.
-fn narrowed<'a, T>(
-    by: By,
-    sorting: Sorting,
-    width: f32,
-    values: Vec<(String, Option<T>)>,
-    chosen: Option<T>,
-    said: impl Fn(Option<T>) -> Message + 'a,
-) -> Element<'a, Message>
-where
-    T: Clone + PartialEq + 'a,
-{
-    let mut options: Vec<Narrowing<T>> = vec![Narrowing {
-        said: by.heading().to_owned(),
-        value: None,
-    }];
-    options.extend(
-        values
-            .into_iter()
-            .map(|(said, value)| Narrowing { said, value }),
-    );
-    // Always something chosen, never `None`: a column showing everything is
-    // showing its own heading, and `None` would draw an empty box that says the
-    // column has lost its name rather than that it is not narrowed.
-    let now = Some(match chosen {
-        Some(value) => Narrowing {
-            said: options
-                .iter()
-                .find(|one| one.value.as_ref() == Some(&value))
-                .map_or_else(String::new, |one| one.said.clone()),
-            value: Some(value),
-        },
-        None => Narrowing {
-            said: by.heading().to_owned(),
-            value: None,
-        },
-    });
-    // The chooser *is* the heading. It carries the column's name while nothing
-    // is chosen and the chosen value afterwards, so the strip says what each
-    // column holds and what it is showing in one line rather than two saying
-    // the same word twice.
-    row![
-        pick_list(options, now, move |one| said(one.value))
-            .text_size(10)
-            .padding([2, 5])
-            .width(Length::Fixed(width - ARROW))
-            .style(control_ui::selector)
-            .menu_style(control_ui::shortlist),
-        arrow(by, sorting),
-    ]
-    .spacing(0)
-    .align_y(Vertical::Center)
-    .width(Length::Fixed(width))
-    .into()
-}
-
-/// How much room the sort mark takes beside a chooser.
-const ARROW: f32 = 16.0;
-
-/// The mark beside a chooser that lays the table out by its column.
-///
-/// A caret and nothing else, because the chooser has already said the name. It
-/// is drawn dim until the table is under that column, which is how somebody
-/// tells at a glance which of the columns it is laid out by.
-fn arrow<'a>(by: By, sorting: Sorting) -> Element<'a, Message> {
-    let under = sorting.by == by;
-    let said = if under && sorting.down {
-        "\u{25be}"
-    } else {
-        "\u{25b4}"
-    };
-    button(text(said).size(9).style(move |theme: &Theme| text::Style {
-        color: Some(if under {
-            materials(theme).metal
-        } else {
-            materials(theme).recess_edge
-        }),
-    }))
-    .padding([2, 3])
-    .style(|_theme: &Theme, _status| button::Style::default())
-    .on_press(Message::SortSounds(by))
-    .into()
-}
-
-/// One option of a column's chooser.
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct Narrowing<T> {
-    /// What it is called.
-    said: String,
-    /// What it narrows to, or nothing for the heading itself.
-    value: Option<T>,
-}
-
-impl<T> std::fmt::Display for Narrowing<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.said)
+/// One place, asked by both heading rows and by every cell, so a column cannot
+/// be laid out three widths by three functions.
+const fn width_of(by: By) -> f32 {
+    match by {
+        By::Where => PLACE,
+        By::Bank => BANK,
+        By::Number => NUMBER,
+        By::Name => NAME,
+        By::Maker => MAKER,
+        By::Category => CATEGORY,
+        By::Tags => TERMS,
+        By::Version => VERSION,
+        By::About => ABOUT,
     }
 }
 
-/// The heading as a press, with the mark that says which way round it is.
-fn caret<'a>(by: By, sorting: Sorting) -> Element<'a, Message> {
+/// One column's name, as the press that lays the table out by it.
+fn sorter(app: &App, by: By, width: f32) -> Element<'_, Message> {
+    let sorting = app.sorting();
     let under = sorting.by == by;
-    let said = if under {
-        // The arrow points the way the column runs, which is what an arrow in a
-        // table heading has always meant.
-        format!(
-            "{} {}",
-            by.heading(),
-            if sorting.down { "\u{2193}" } else { "\u{2191}" }
-        )
-    } else {
-        by.heading().to_owned()
-    };
-    button(text(said).size(10).style(move |theme: &Theme| text::Style {
-        color: Some(if under {
-            materials(theme).metal
-        } else {
-            materials(theme).metal_low
-        }),
-    }))
+    button(
+        row![
+            text(by.heading())
+                .size(10)
+                .style(move |theme: &Theme| text::Style {
+                    color: Some(if under {
+                        materials(theme).metal
+                    } else {
+                        materials(theme).metal_low
+                    }),
+                }),
+            caret(under, sorting.down),
+        ]
+        .spacing(3)
+        .align_y(Vertical::Center),
+    )
+    .width(Length::Fixed(width))
     .padding([1, 2])
-    .style(|_theme: &Theme, _status| button::Style::default())
+    .style(control_ui::marked)
     .on_press(Message::SortSounds(by))
     .into()
 }
 
-/// A heading that is neither sorted nor narrowed.
+/// Which way round the table is laid out, on the one column it is laid out by.
 ///
-/// Two columns are: what a sound *is*, which is a handful of chips rather than
-/// one value to sort by, and what it sounds like, which is a sentence. Both are
-/// still read by the search field.
-fn plain<'a>(said: &'static str, width: f32) -> Element<'a, Message> {
-    container(text(said).size(10).style(|theme: &Theme| text::Style {
-        color: Some(materials(theme).metal_low),
-    }))
-    .padding([1, 2])
-    .width(Length::Fixed(width))
+/// Nothing at all on the others. A caret drawn dim on all nine would be nine
+/// marks saying *this column could be sorted*, which is a thing somebody works
+/// out by pressing one rather than a thing worth eight marks of ink.
+fn caret<'a>(under: bool, down: bool) -> Element<'a, Message> {
+    if !under {
+        return space().width(Length::Fixed(CARET)).into();
+    }
+    container(
+        Element::from(stencil(
+            if down {
+                control_ui::DOWN.screen()
+            } else {
+                control_ui::UP.screen()
+            },
+            |theme: &Theme| materials(theme).metal,
+        ))
+        .map(Message::Ui),
+    )
+    .width(Length::Fixed(CARET))
     .into()
+}
+
+/// How much room the sort mark takes beside a heading.
+const CARET: f32 = 12.0;
+
+/// What narrows one column: a chooser where its values are a set, a field
+/// where they are not.
+///
+/// Both write the same thing — the text a cell has to carry — so the table
+/// answers one question however it was asked. A chooser writes a whole word
+/// and a field writes whatever somebody typed, and `Pa` finding `Pad` and
+/// `Pads` is what anybody expects from a box they typed two letters into.
+fn narrowing(app: &App, by: By, width: f32) -> Element<'_, Message> {
+    let now = app.looking().narrowed(by).unwrap_or_default().to_owned();
+    if !by.picks() {
+        return text_input("", &now)
+            .on_input(move |said| Message::Narrow(by, said))
+            .size(10)
+            .padding([1, 4])
+            .width(Length::Fixed(width))
+            .into();
+    }
+    let mut options = vec![Narrowing::everything()];
+    options.extend(offered(app, by).into_iter().map(Narrowing));
+    let chosen = if now.is_empty() {
+        Narrowing::everything()
+    } else {
+        Narrowing(now)
+    };
+    pick_list(options, Some(chosen), move |one| {
+        Message::Narrow(by, one.wanted())
+    })
+    .text_size(10)
+    .padding([1, 4])
+    .width(Length::Fixed(width))
+    .style(control_ui::selector)
+    .menu_style(control_ui::shortlist)
+    .into()
+}
+
+/// The values one column can be narrowed to, for the four that are a set.
+///
+/// Read off what is actually on the table rather than written down, so a
+/// category nothing is filed under is not offered and a bank nothing sits in
+/// is not either. A chooser with an option that empties the table is a chooser
+/// that wastes a press.
+fn offered(app: &App, by: By) -> Vec<String> {
+    if by == By::Version {
+        return vec!["behind".to_owned(), "current".to_owned()];
+    }
+    let mut seen: Vec<String> = rows(app)
+        .iter()
+        .map(|row| row.said_in(by))
+        .filter(|said| !said.is_empty())
+        .collect();
+    seen.sort_unstable();
+    seen.dedup();
+    if by == By::Where {
+        // Nearest first, which is the order the column sorts in and the order
+        // the three are named in everywhere else.
+        seen.sort_by_key(|said| {
+            Where::ALL
+                .iter()
+                .position(|place| place.label() == said)
+                .unwrap_or(usize::MAX)
+        });
+    }
+    seen
+}
+
+/// One option in a column's chooser.
+///
+/// A named type rather than a bare `String`, because a picker needs something
+/// to print and what *everything* prints is a word rather than the empty
+/// string a cleared filter actually is.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Narrowing(String);
+
+impl Narrowing {
+    /// The option that stops narrowing the column.
+    fn everything() -> Self {
+        Self(String::new())
+    }
+
+    /// The text this option narrows to, which is nothing at all for `All`.
+    fn wanted(&self) -> String {
+        self.0.clone()
+    }
+}
+
+impl std::fmt::Display for Narrowing {
+    fn fmt(&self, into: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.0.is_empty() {
+            into.write_str("All")
+        } else {
+            into.write_str(&self.0)
+        }
+    }
 }
 
 /// The room what a sound is like takes, which is what is left.
@@ -1323,20 +1324,47 @@ pub const fn of(rgb: [u8; 3]) -> iced::Color {
     iced::Color::from_rgb8(red, green, blue)
 }
 
-/// A patch's icon, on the instrument's own dots, in its category's colour.
+/// A patch's icon, on a tile of its category's colour.
+///
+/// **The ground is what makes it legible.** A patch's picture is seven dots
+/// square and one bit deep, which is all the library has to draw with, and at
+/// this window's pitch that is seventeen points: drawn as bare dots on the
+/// panel, at a colour lifted a little off the metal, forty-nine of them down a
+/// list read as specks.
+///
+/// So it is a tile. The same tint the category chip beside it stands on, the
+/// same corner as everything else in this window, and the dots inked in the
+/// colour that is legible *against that tint* rather than against the panel —
+/// which is the one change that makes a seven-dot drawing a picture rather
+/// than a smudge. It is also what the icon is for: two rows of the same
+/// category now share a colour somebody sees before they read either name.
+///
+/// The tint is the chip's own weight, because the tile and the chip stand in
+/// the same row and mean the same thing. Two shades of one category would be
+/// two things to read where there is one fact.
 fn drawn<'a>(icon: Option<Icon>, colour: Option<[u8; 3]>) -> Element<'a, Message> {
+    // Nothing at all where there is nothing to draw and no category to draw it
+    // in. An empty tile is a box that says a picture failed to load, and a row
+    // whose sound nobody has published simply has no picture.
+    let Some(icon) = icon else {
+        return space().width(Length::Fixed(ICON_COLUMN)).into();
+    };
     let mut screen = Screen::new(ICON, ICON);
-    if let Some(icon) = icon {
-        screen.blit(&icon.pixels(), 0, 0);
-    }
-    Element::from(stencil(screen, move |theme: &Theme| match colour {
-        // Lifted off the library's own colour rather than set to it: a
-        // seven-dot picture in `#5DB56A` on a dark panel is a smudge, and what
-        // a category colour is for is telling two of them apart at a glance.
-        Some(rgb) => control_ui::mix(materials(theme).metal, of(rgb), MARK),
-        None => materials(theme).metal,
-    }))
-    .map(Message::Ui)
+    screen.blit(&icon.pixels(), 0, 0);
+    container(
+        Element::from(stencil(screen, move |theme: &Theme| match colour {
+            Some(rgb) => control_ui::legible(of(rgb), tinted(theme, colour, CHIP), theme),
+            None => materials(theme).metal_low,
+        }))
+        .map(Message::Ui),
+    )
+    .padding(2)
+    .style(move |theme: &Theme| container::Style {
+        background: Some(Background::Color(tinted(theme, colour, CHIP))),
+        border: border::rounded(3),
+        ..container::Style::default()
+    })
+    .into()
 }
 
 /// The press at the end of a row that puts that one sound on the shelf.
@@ -1353,7 +1381,7 @@ fn keep<'a>(id: Option<String>) -> Element<'a, Message> {
             .padding([4, 6])
             .style(control_ui::marked)
             .on_press(Message::ShelvePatch(id)),
-        Action::CopyHere.about(),
+        Action::Shelve.about(),
     ))
     .width(Length::Fixed(KEEP))
     .align_x(Horizontal::Center)
