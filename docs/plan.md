@@ -185,6 +185,30 @@ loses nothing on the way out, which is what a librarian is for.
 Reading is lenient and writing is not byte-identical to every file in the wild.
 The library documents both, and the user needs to hear about neither.
 
+## Presets people share are a repository, not a service
+
+The librarian holds what is on one machine, and the sounds worth having are on
+other people's. Every way of moving them between people is a list somebody
+maintains, and the version this project can run is a git repository: `.syx`
+files, one text index listing them, contributions as pull requests, and nothing
+to keep running.
+
+That reverses one word of ["not planned"](#not-planned) below and none of the
+rest. No database, no cloud, no accounts, no ratings, no comments, no service to
+pay for or shut down. A folder of `.syx` files with a text file beside them is
+useful to somebody who does not want this editor at all, which is the test a
+sharing format has to pass before it is worth writing.
+
+`crates/control/src/catalogue.rs` is the part that exists, and it is
+deliberately the part with the decisions in it rather than the part with the
+network in it: the index format, read the way this application reads everything
+somebody else wrote — leniently, counting and saying what it could not read —
+and refusing to let anything in it name a path. Nothing draws it and nothing
+fetches anything. [presets.md](presets.md) is the design, what is already built,
+and the six decisions that have to be taken in order before any of it downloads
+a file: a directory before a URL, an HTTP dependency, verification, trust,
+names, and licensing.
+
 ## The librarian is a second surface, not a second window
 
 An editor and a librarian are one application looking at two things: the sound
@@ -800,7 +824,7 @@ needed.
 | 1 | `deepmind-host` | **Done.** Port enumeration, `Port` over midir, `Clock`, the device thread, commands in and events out, the simulator as a selectable port. Tested against `sim` with no hardware. |
 | 2 | First light | **Done.** Desktop window, port picker, identity, read the edit buffer, VCF editable end to end with assumed and confirmed drawn differently. |
 | 3 | Every parameter | **Done.** All fourteen groups from `Group::parameters`, one at a time behind the `EDIT` that opens it, because a complete ugly editor beats a beautiful partial one. Every panel that is not a rack is laid out: the program's name, the three envelopes, the modulation matrix and the control sequencer. |
-| 4 | The librarian | **Done.** Read and write `.syx`, read a bank with progress and cancel, browse a pack on a surface of its own, and load a program into the edit buffer as a difference. |
+| 4 | The librarian | **Done.** Read and write `.syx`, read a bank with progress and cancel, browse a pack on a surface of its own, search it by name, slot or category, read it in three orders, and load a program into the edit buffer as a difference. |
 | 5 | The effects | **Done.** Four engines and 35 algorithms from the tables 26.2 published ([#18](https://github.com/MysteriousWolf/deepmind-midi/issues/18)), laid out on the FX page's own grid with the shape each algorithm's figure draws, opening on a picture of the chain, both published in 26.3 ([#22](https://github.com/MysteriousWolf/deepmind-midi/issues/22), [#23](https://github.com/MysteriousWolf/deepmind-midi/issues/23)). 26.4 finished it: the mark of each algorithm's family, the three engines that can be switched out of circuit saying so, and a screen on the two whose response is published ([#30](https://github.com/MysteriousWolf/deepmind-midi/issues/30), [#31](https://github.com/MysteriousWolf/deepmind-midi/issues/31), [#33](https://github.com/MysteriousWolf/deepmind-midi/issues/33)). |
 | 6 | The plugin | Simple mode, then state, then advanced mode in the same window. The CLAP comes out first, having nothing to settle; then the AU, once the bundle signs and `auval` passes; then the VST3, once Steinberg's terms are accepted. |
 | 7 | Hardware | The questions below, answered with a cable. Findings go to the library. |
@@ -849,8 +873,10 @@ stay unedited. The manual gives their dumps a length and never says what is at
 which offset, so there is nothing to draw. `Event::Unhandled` is reported and
 dropped. If hardware ever names those bytes, they are a library change first.
 
-No command-line tool. No patch database, no cloud, no sharing. No audio: this
-application never sees a sample.
+No command-line tool. No patch database, no cloud, no accounts, no ratings and
+no service of any kind. Sharing was on this list and is not any more, because
+the form it takes here is [a git repository of `.syx` files](presets.md), which
+is none of those things. No audio: this application never sees a sample.
 
 ## Questions a cable answers
 

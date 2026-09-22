@@ -101,7 +101,7 @@ const PALETTE: Palette = Palette {
 /// The colours of the light coming through the instrument's buttons.
 ///
 /// A `DeepMind`'s front panel is dark, and two things on it are not: the
-/// [banners](BANNER) its section names are printed on, and the lamps behind its
+/// banners its section names are printed on, and the lamps behind its
 /// buttons. These are the lamps — amber on every `EDIT` and on the presses that
 /// change what the display is showing, cyan on `MOD`, `CHORD` and `CURVES`,
 /// white on a plain switch. This window takes the hardware's own three rather
@@ -687,25 +687,45 @@ const PRINTED: f32 = 0.2;
 /// chosen in this window already is: the track of a fader, the field a name is
 /// typed in, the list a modulation destination is picked from. A port is not a
 /// parameter, and it is still chosen on the same panel.
+///
+/// Cut to the same corner as everything else it stands beside. It was rounded a
+/// point tighter than the presses, the plates and the sheets, which is not a
+/// difference anybody reads as a difference: it is a picker that looks like it
+/// came from somewhere else, on the one control in this window that a toolkit
+/// draws unaided.
+///
+/// The handle is the dim metal a legend is printed in rather than the bright
+/// metal of a cap, and lights with the rim under the pointer. A mark that is
+/// only there to say a list opens is not the loudest thing in its own control.
 #[must_use]
 pub fn selector(theme: &Theme, status: pick_list::Status) -> pick_list::Style {
     let material = materials(theme);
-    let rim = match status {
-        pick_list::Status::Hovered | pick_list::Status::Opened { .. } => material.metal_low,
-        pick_list::Status::Active => material.recess_edge,
+    let (rim, handle) = match status {
+        pick_list::Status::Hovered | pick_list::Status::Opened { .. } => {
+            (material.metal_low, material.metal_high)
+        }
+        pick_list::Status::Active => (material.recess_edge, material.metal_low),
     };
     pick_list::Style {
         text_color: material.metal_high,
         placeholder_color: material.metal_low,
-        handle_color: material.metal,
+        handle_color: handle,
         background: Background::Color(material.recess),
         border: Border {
             color: rim,
             width: 1.0,
-            radius: 2.into(),
+            radius: CORNER.into(),
         },
     }
 }
+
+/// How far the corners of this window's own furniture are rounded.
+///
+/// Three points, everywhere: a press, a plate, a picker, the list it opens and
+/// the glass along the foot. It is written down once because a window whose
+/// corners disagree by a point in three places is a window that was assembled
+/// rather than drawn.
+const CORNER: u8 = 3;
 
 /// What the list a [`selector`] opens is drawn as.
 ///
@@ -721,7 +741,7 @@ pub fn shortlist(theme: &Theme) -> menu::Style {
         border: Border {
             color: material.recess_edge,
             width: 1.0,
-            radius: 2.into(),
+            radius: CORNER.into(),
         },
         text_color: material.metal,
         selected_text_color: material.metal_high,

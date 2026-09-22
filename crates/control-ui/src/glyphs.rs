@@ -37,10 +37,37 @@ const MISSING: [u8; 7] = [
     0b11111, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b11111,
 ];
 
+/// The handful of characters this window writes that the table has no cell for.
+///
+/// The table is the printable ASCII range and nothing else, because that is
+/// what a five by seven cell is for and what an instrument's display holds. But
+/// the window writes a few marks that are not in it — the dot between two facts
+/// along the foot, the dash between the two ends of a range, and the arrow a
+/// routing is drawn with — and a name printed with a hollow box where its dash
+/// should be is a name that says the display is broken.
+///
+/// So they are drawn rather than substituted. Three cells, in the same grid at
+/// the same pitch, which is cheaper than the sentence explaining why a range
+/// reads `0 ? 255`.
+const fn extra(character: char) -> Option<[u8; 7]> {
+    Some(match character {
+        // The middle dot, which is what separates two facts on one line.
+        '\u{00b7}' => [0, 0, 0, 0b00100, 0, 0, 0],
+        // The en and em dashes, which are one rule on a grid this size.
+        '\u{2013}' | '\u{2014}' => [0, 0, 0, 0b11111, 0, 0, 0],
+        // The arrow, which is what a routing does to a destination.
+        '\u{2192}' => [0, 0b00100, 0b00010, 0b11111, 0b00010, 0b00100, 0],
+        _ => return None,
+    })
+}
+
 /// Returns the dots `character` is drawn as, a row at a time from the top.
 ///
 /// Each row is five bits, the leftmost dot in the highest of them.
 pub(crate) fn of(character: char) -> [u8; 7] {
+    if let Some(drawn) = extra(character) {
+        return drawn;
+    }
     let Some(index) = (character as u32).checked_sub(FIRST as u32) else {
         return MISSING;
     };
@@ -174,8 +201,28 @@ mod tests {
     fn anything_else_is_drawn_as_the_box_that_says_so() {
         // A name with a letter the display cannot draw should say that a letter
         // is missing rather than quietly close up around it.
-        for character in ['\u{00e8}', '\u{2014}', '\u{0007}', '\u{7f}'] {
+        for character in ['\u{00e8}', '\u{2026}', '\u{0007}', '\u{7f}'] {
             assert_eq!(of(character), MISSING);
+        }
+    }
+
+    #[test]
+    fn the_marks_this_window_writes_are_drawn_rather_than_substituted() {
+        // Three characters outside the table, because three things this window
+        // writes are outside it: the dot between two facts along the foot, the
+        // dash between the two ends of a range, and the arrow a routing is
+        // drawn with. A range that read `0 [] 255` would say the display is
+        // broken rather than that a dash is missing.
+        for character in ['\u{00b7}', '\u{2013}', '\u{2014}', '\u{2192}'] {
+            assert_ne!(
+                of(character),
+                MISSING,
+                "{character} is written by this window and is drawn as the missing box"
+            );
+            assert!(
+                of(character).iter().any(|row| *row != 0),
+                "{character} is drawn as nothing at all"
+            );
         }
     }
 

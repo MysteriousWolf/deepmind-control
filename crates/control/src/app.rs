@@ -5,15 +5,16 @@ use std::path::{Path, PathBuf};
 use control_ui::{Livery, Mapper, Patch, Way};
 use deepmind_host::{Command, Event, Link, Outcome, PortRef, open, ports};
 use deepmind_midi::device::Event as DeviceEvent;
-use deepmind_midi::ids::{Bank, PROGRAMS_PER_BANK, ProgramNumber};
+use deepmind_midi::ids::{BANK_COUNT, Bank, PROGRAMS_PER_BANK, ProgramNumber};
 use deepmind_midi::param::DEFAULT_FIRMWARE;
 use deepmind_midi::param::{Group, ParamId};
 use deepmind_midi::program::ProgramName;
 use deepmind_midi::sysex::inquiry::{Identity, Version};
 use deepmind_midi::wire::Channel;
 
+use crate::catalogue::{Catalogue, Looking};
 use crate::files;
-use crate::shelf::{self, Shelf};
+use crate::shelf::{self, Order, Shelf};
 
 /// Which of the two things this window is, at the moment somebody looks at it.
 ///
@@ -48,6 +49,363 @@ pub enum View {
     Section(Group),
 }
 
+/// Where a sound is.
+///
+/// The three places this window can see one, which is a fact about the sound
+/// and so belongs in a column beside it rather than in a tab above it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Where {
+    /// On this machine: opened from a `.syx` file.
+    Machine,
+    /// On the synthesizer: read out of one of its banks.
+    Instrument,
+    /// In the shared library, published by somebody.
+    Library,
+}
+
+/// The sound a row names, as something that outlives the drawing.
+///
+/// A table row is rebuilt every frame, so what is chosen cannot be a reference
+/// to one. A place on the shelf or a patch's id are both stable across a
+/// redraw and across a sort, which is what a selection has to survive.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Chosen {
+    /// The program at this place on the shelf.
+    Held(usize),
+    /// The shared patch with this id.
+    Patch(String),
+}
+
+/// Everything that can be done to a sound.
+///
+/// **One verb set, used in three places**: the toolbar along the top, the menu
+/// a right-press opens, and this file. A window whose menu and toolbar called
+/// the same thing two things would be a window somebody has to learn twice.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Action {
+    /// Into the instrument's edit buffer: heard now, and nothing stored.
+    ///
+    /// **What a synthesist calls loading a patch.** The edit buffer is the one
+    /// sound the instrument is making — the one its panel is showing — rather
+    /// than any of the 1024 it keeps, so this is heard immediately, overwrites
+    /// nothing, and is undone by turning the program knob.
+    ///
+    /// It was called `Play`, which said what you get and not what happens.
+    Load,
+    /// Load it, and go to the front panel, which is where it is changed.
+    Edit,
+    /// Onto this machine's shelf, which is the working set a file is made from.
+    Copy,
+    /// Into the instrument's memory, at a slot somebody chooses.
+    Write,
+    /// Write it out as files: the sound, and its notes where they are wanted.
+    ///
+    /// **One verb, where there were two.** `Share\u{2026}` wrote the `.syx` and
+    /// the `.toml` a pull request is made of and `Export\u{2026}` wrote the
+    /// `.syx` alone, which is one operation with a checkbox rather than two
+    /// verbs: both put this sound on the disk and they differ by whether the
+    /// notes go with it.
+    Export,
+    /// Replace it with the newer version the library has published.
+    Update,
+}
+
+impl Action {
+    /// Every one, in the order they are offered.
+    ///
+    /// Hearing it first, because that is what somebody came to the list to do;
+    /// then the two that move it somewhere; then the two that send it out; then
+    /// the one that only sometimes applies.
+    pub const ALL: [Self; 6] = [
+        Self::Load,
+        Self::Edit,
+        Self::Copy,
+        Self::Write,
+        Self::Export,
+        Self::Update,
+    ];
+
+    /// The three that stand on the toolbar.
+    ///
+    /// **The ones that move a sound, and nothing else.** All seven are in the
+    /// menu a right-press opens; only these three earn the width along the
+    /// top, because the other four are either rare (`Share\u{2026}`,
+    /// `Export\u{2026}`), already a press somewhere else (`Update` is the
+    /// version cell, and `Update all n` beside the count), or already what a
+    /// press on the row itself does (`Play`).
+    ///
+    /// A toolbar of everything is a toolbar nobody reads.
+    pub const TOOLBAR: [Self; 3] = [Self::Load, Self::Copy, Self::Write];
+
+    /// What it is called, everywhere it is offered.
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Load => "Load",
+            Self::Edit => "Edit",
+            Self::Copy => "Copy",
+            Self::Write => "Write\u{2026}",
+            Self::Export => "Export\u{2026}",
+            Self::Update => "Update",
+        }
+    }
+
+    /// What it does, for the footer while the pointer is on it.
+    #[must_use]
+    pub const fn about(self) -> &'static str {
+        match self {
+            Self::Load => {
+                "Make the synthesizer sound like this. It goes to the edit buffer, so nothing \
+                 stored is touched."
+            }
+            Self::Edit => "Load it, and go to the front panel to change it.",
+            Self::Copy => {
+                "Put it on this machine's shelf, alongside whatever a file or a read put there."
+            }
+            Self::Write => "Write it into the instrument's memory, at a slot you choose.",
+            Self::Export => "Write it out as files, with or without its notes.",
+            Self::Update => "Replace it with the newer version the library has published.",
+        }
+    }
+}
+
+/// Which column the table is laid out by.
+///
+/// Named after the column heading it belongs to, because that is where
+/// somebody presses to choose it and a name that did not match the heading
+/// would be a name only this file knows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub enum By {
+    /// Nearest first: what is in the instrument, then the machine, then the
+    /// library. The order the table opens in.
+    #[default]
+    Where,
+    /// The bank a sound sits in, for the two places that have banks.
+    Bank,
+    /// The number within that bank.
+    Number,
+    /// What it is called.
+    Name,
+    /// Who made it.
+    Maker,
+    /// What it calls itself.
+    Category,
+    /// The vocabulary terms it carries.
+    Tags,
+    /// The recordings of it the library published, as presses that play one.
+    Demos,
+    /// Which version it is, and whether a newer one is published.
+    Version,
+    /// What it sounds like, in the maker's words.
+    About,
+}
+
+impl By {
+    /// Every column, in the order they are drawn.
+    ///
+    /// **All of them sort and all of them narrow.** There is no column that is
+    /// only printing: a table where three headings did something and five did
+    /// nothing was a table somebody had to learn the exceptions to.
+    pub const ALL: [Self; 10] = [
+        Self::Where,
+        Self::Bank,
+        Self::Number,
+        Self::Name,
+        Self::Maker,
+        Self::Category,
+        Self::Tags,
+        Self::Demos,
+        Self::Version,
+        Self::About,
+    ];
+
+    /// What the column is headed.
+    #[must_use]
+    pub const fn heading(self) -> &'static str {
+        match self {
+            Self::Where => "WHERE",
+            Self::Bank => "BANK",
+            Self::Number => "No.",
+            Self::Name => "NAME",
+            Self::Maker => "MAKER",
+            Self::Category => "CATEGORY",
+            Self::Tags => "TAGS",
+            Self::Demos => "HEAR",
+            Self::Version => "VERSION",
+            Self::About => "ABOUT",
+        }
+    }
+
+    /// Whether this column's values are a set somebody can be offered.
+    ///
+    /// Four are: where a sound is, which bank, what it calls itself, and
+    /// whether it is behind. Those get a picker. The rest are open — a name, a
+    /// maker, a term, a sentence — and a picker of every maker in a library is
+    /// a list nobody can use, so those get a field to type in.
+    #[must_use]
+    pub const fn picks(self) -> bool {
+        matches!(
+            self,
+            Self::Where | Self::Bank | Self::Category | Self::Version
+        )
+    }
+
+    /// Whether the largest value belongs at the top when this column is first
+    /// pressed.
+    ///
+    /// Only the version column, because the question somebody sorts it to ask
+    /// is *what needs updating*, and that is the exception rather than the
+    /// rule.
+    #[must_use]
+    pub const fn newest_first(self) -> bool {
+        matches!(self, Self::Version)
+    }
+}
+
+/// Which way round the table is laid out.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Sorting {
+    /// The column it is laid out by.
+    pub by: By,
+    /// Whether the largest is at the top.
+    pub down: bool,
+}
+
+impl Where {
+    /// The three, in the order somebody reads them: nearest first.
+    pub const ALL: [Self; 3] = [Self::Instrument, Self::Machine, Self::Library];
+
+    /// What the column prints.
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Machine => "Machine",
+            Self::Instrument => "Synth",
+            Self::Library => "Library",
+        }
+    }
+
+    /// How near to hand a sound in this place is.
+    ///
+    /// What the `WHERE` column sorts by, because *nearness* is what somebody
+    /// means when they sort it: in the instrument, then on this machine, then
+    /// published. Sorting the printed word would give `Library`, `Machine`,
+    /// `Synth`, which is alphabetical order and an answer to nothing.
+    #[must_use]
+    pub const fn nearness(self) -> u8 {
+        match self {
+            Self::Instrument => 0,
+            Self::Machine => 1,
+            Self::Library => 2,
+        }
+    }
+}
+
+/// What a person is writing about a sound they are about to share.
+///
+/// Everything the repository's `.toml` asks for that this application cannot
+/// work out from the program bytes. What it *can* work out is not here and is
+/// never typed: the name, the category, the effects, the arpeggiator and the
+/// rest all come off the 242 bytes when the pair is written, which is the same
+/// rule the index is built under.
+#[derive(Debug, Clone)]
+pub struct Publishing {
+    /// A person or a handle. Not an email address.
+    pub author: String,
+    /// What it sounds like and how to play it.
+    pub about: String,
+    /// An SPDX identifier, or `All rights reserved`.
+    pub licence: String,
+    /// The collection folder it belongs in, where it belongs in one.
+    pub collection: String,
+    /// The 7x7 picture, packed a row to a byte with bit 0 leftmost.
+    pub icon: [u8; 7],
+    /// Whether the `.toml` goes out beside the `.syx`.
+    ///
+    /// **On, because the notes are the point.** A `.syx` on its own is 291
+    /// bytes that say nothing about who made the sound or what it is for, and
+    /// the pair is what a pull request to the library is made of. Somebody who
+    /// wants the bare file — to drop into another librarian, or onto a unit —
+    /// unticks it.
+    ///
+    /// It is a checkbox here rather than a format in the save dialog because
+    /// `rfd` hands back a path and never says which of its filters was chosen,
+    /// so a dialog offering the two would be a dialog whose answer this window
+    /// cannot read.
+    pub notes: bool,
+    /// The vocabulary terms chosen, as the axis they came from and the term.
+    pub terms: Vec<(String, String)>,
+    /// Where the pair was last written, once it has been.
+    pub wrote: Option<String>,
+}
+
+impl Default for Publishing {
+    fn default() -> Self {
+        Self {
+            author: String::new(),
+            about: String::new(),
+            licence: String::new(),
+            collection: String::new(),
+            icon: [0; 7],
+            notes: true,
+            terms: Vec::new(),
+            wrote: None,
+        }
+    }
+}
+
+impl Publishing {
+    /// Whether a dot of the icon is inked.
+    #[must_use]
+    pub fn inked(&self, across: usize, down: usize) -> bool {
+        across < 7
+            && self
+                .icon
+                .get(down)
+                .is_some_and(|row| row & (1 << across) != 0)
+    }
+
+    /// Whether a term has been chosen.
+    #[must_use]
+    pub fn carries(&self, axis: &str, term: &str) -> bool {
+        self.terms
+            .iter()
+            .any(|(held, said)| held == axis && said == term)
+    }
+
+    /// Everything the repository insists on, or what is missing.
+    ///
+    /// Nothing at all while the notes are switched off: a bare `.syx` needs no
+    /// maker and no licence, so asking for them would be refusing to write a
+    /// file that has everything it needs.
+    ///
+    /// `name` and the category come off the program, so what a person can
+    /// leave out is the rest: a maker, a sentence, a licence, and at least one
+    /// term from one of the four vocabularies. The same five the repository's
+    /// own validator asks for, checked here so that somebody finds out before
+    /// they open a pull request rather than after.
+    #[must_use]
+    pub fn missing(&self) -> Vec<&'static str> {
+        let mut wanted = Vec::new();
+        if !self.notes {
+            return wanted;
+        }
+        if self.author.trim().is_empty() {
+            wanted.push("a maker");
+        }
+        if self.about.trim().is_empty() {
+            wanted.push("a sentence about it");
+        }
+        if self.licence.trim().is_empty() {
+            wanted.push("a licence");
+        }
+        if self.terms.is_empty() {
+            wanted.push("at least one term");
+        }
+        wanted
+    }
+}
+
 /// Everything that happens to the window.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
@@ -76,10 +434,8 @@ pub enum Message {
     /// knocks them out of filled banners. Both are the instrument; this is
     /// which of the two the window is drawn as.
     Wear,
-    /// Sit the bank picker on a bank, without reading it.
-    ChooseBank(Bank),
-    /// Read the chosen bank onto the shelf, one dump at a time.
-    ReadBank,
+    /// Read every bank off the instrument onto the shelf.
+    ReadAll,
     /// Stop what is in flight.
     Cancel,
     /// Ask for a `.syx` file and put what it holds on the shelf.
@@ -94,6 +450,74 @@ pub enum Message {
     SavePack,
     /// Make the synthesizer sound like the program in this place on the shelf.
     Load(usize),
+    /// Narrow the shelf to the programs these words are anywhere in.
+    Search(String),
+    /// Draw the shelf the other way round.
+    SortBy(Order),
+    /// Fetch the newest release of the shared patches.
+    FetchPatches,
+    /// Ask for a folder and read a checkout of the shared patches out of it.
+    OpenPatches,
+    /// Narrow the shared patches to the ones these words are anywhere in.
+    FindPatch(String),
+    /// Narrow one column to the rows whose cell carries this text.
+    ///
+    /// One message for every column, and an empty string clears it. A message
+    /// per column was five messages that did one thing five ways, and a column
+    /// added later would have needed a sixth.
+    Narrow(By, String),
+    /// Lay the table out by this column, or turn it round if it already is.
+    SortSounds(By),
+    /// Put every column's chooser back to showing everything.
+    ShowEverything,
+    /// Choose a sound, and play it.
+    ChooseSound(Chosen),
+    /// Choose a sound and open the menu on it.
+    OpenMenu(Chosen),
+    /// Put the menu away.
+    CloseMenu,
+    /// Put the share sheet away, keeping what was typed into it.
+    CloseSharing,
+    /// Remember where the pointer is over the table.
+    PointerAt(iced::Point),
+    /// Say this in the footer while the pointer is on something, or stop.
+    ///
+    /// The twin of the view layer's own `Hinted` for a sentence nothing here
+    /// wrote: a demo's note, out of the `.toml` somebody published it with.
+    Saying(Option<String>),
+    /// Do something to the sound that is chosen.
+    Act(Action),
+    /// Replace the program at this place on the shelf with the newest
+    /// published version of it.
+    UpdateSound(usize),
+    /// Replace every one the library has published a newer version of.
+    UpdateEverything,
+    /// Put one shared patch, by its id, on the shelf.
+    ShelvePatch(String),
+    /// Play one shared patch without keeping it anywhere.
+    AuditionPatch(String),
+    /// Start one of a patch's recordings, or stop it if it is the one playing.
+    Hear(String),
+    /// Say who made the sound about to be shared.
+    PublishAuthor(String),
+    /// Say what it sounds like.
+    PublishAbout(String),
+    /// Say what it is licensed under.
+    PublishLicence(String),
+    /// Say which collection it belongs to.
+    PublishCollection(String),
+    /// Turn one vocabulary term on or off.
+    PublishTerm(String, String),
+    /// Turn one dot of the icon on or off.
+    PublishDot(usize, usize),
+    /// Send the notes out beside the sound, or do not.
+    PublishNotes(bool),
+    /// Start the icon again, from nothing or from the category's own.
+    PublishIcon(bool),
+    /// Write the pair out into a folder somebody chooses.
+    PublishWrite,
+    /// Put every shared patch the search left on the shelf.
+    ShelveShowing,
     /// Something a view asked for.
     Ui(control_ui::Message),
 }
@@ -119,6 +543,39 @@ pub struct App {
     channel: Option<Channel>,
     /// The sound, as far as this window knows it.
     patch: Patch,
+    /// The sounds other people have published, once any are held.
+    catalogue: Catalogue,
+    /// What is being asked of the shared shelf.
+    looking: Looking,
+    /// What is being written about a sound about to be shared.
+    publishing: Publishing,
+    /// Which way round the table is laid out.
+    sorting: Sorting,
+    /// The sound a press chose, where one is chosen.
+    picked: Option<Chosen>,
+    /// The sound the share sheet is open on, while it is open.
+    ///
+    /// **A sheet over the table rather than a surface beside it.** Sharing is
+    /// something done *to one sound*, so it belongs where that sound is: a tab
+    /// meant leaving the list to describe a row, coming back, and having no way
+    /// to tell which row had been described. What is held here is the row, not
+    /// the program, for the reason [`Chosen`] exists at all.
+    sharing: Option<Chosen>,
+    /// Where the menu a right-press opened is standing, while one is open.
+    menu: Option<iced::Point>,
+    /// Where the pointer last was over the table.
+    ///
+    /// Tracked only so that a menu opens where the press was. Not part of the
+    /// sound and never sent anywhere.
+    pointer: iced::Point,
+    /// The shared patch being tried, where one is.
+    ///
+    /// Not part of the sound and never written anywhere. A patch being
+    /// auditioned is in the instrument's edit buffer and nowhere else — not on
+    /// the shelf, not in its memory — so this is the only record that it is
+    /// what is sounding, and it is forgotten the moment anything else is
+    /// loaded or read.
+    trying: Option<String>,
     /// The section open over the window, where one is.
     editing: Option<Group>,
     /// The control the pointer is over, which the footer describes.
@@ -134,7 +591,11 @@ pub struct App {
     /// and the two presses that move a routing up and down the matrix. A mark
     /// nine dots square has nowhere to carry a word, so the word is here while
     /// somebody is asking for it and nowhere at all while nobody is.
-    hinted: Option<&'static str>,
+    /// An owned string, because not every sentence is written here: a demo's
+    /// own note comes out of somebody else's `.toml` and is not known until
+    /// the index is read. The view layer's own presses still send a
+    /// `&'static str` and it is copied in.
+    hinted: Option<String>,
     /// What the modulation matrix is asking the window for.
     ///
     /// Not part of the sound and never sent anywhere. Two things: the routing
@@ -144,8 +605,12 @@ pub struct App {
     mapper: Mapper,
     /// The sounds that are kept rather than played.
     shelf: Shelf,
-    /// The bank the picker is sitting on, which is the one a read would read.
-    bank: Bank,
+    /// How many banks of a whole-instrument read have yet to finish.
+    ///
+    /// The device thread reports each bank's end separately, and eight endings
+    /// are not eight reads: the progress bar comes down when the last one
+    /// lands, not the first.
+    reading: usize,
     /// Which of the two surfaces is showing.
     view: View,
     /// Whether the displays are drawn the other way up.
@@ -164,6 +629,12 @@ pub struct App {
     livery: Livery,
     /// The last thing worth saying, in words.
     status: String,
+    /// The output a demo is heard through, once one has been asked for.
+    ///
+    /// Nothing is opened until the first press of a play button: opening a
+    /// device takes a moment and claims a handle, and most of what this window
+    /// does never makes a sound of its own. See [`crate::audio`].
+    audio: crate::audio::Audio,
 }
 
 impl Default for App {
@@ -189,11 +660,21 @@ impl App {
             hinted: None,
             mapper: Mapper::new(DEFAULT_FIRMWARE),
             shelf: Shelf::new(),
-            bank: Bank::A,
+            catalogue: Catalogue::new(),
+            looking: Looking::default(),
+            publishing: Publishing::default(),
+            sorting: Sorting::default(),
+            picked: None,
+            sharing: None,
+            menu: None,
+            pointer: iced::Point::ORIGIN,
+            trying: None,
+            reading: 0,
             view: View::Panel,
             negative: false,
             livery: Livery::default(),
             status: "Choose a port.".to_owned(),
+            audio: crate::audio::Audio::new(),
         }
     }
 
@@ -234,6 +715,33 @@ impl App {
         self.link = Some(link);
     }
 
+    /// Puts a pack on the shelf, with no file chooser and no disk.
+    ///
+    /// What opening a `.syx` file does, for a caller that already has the
+    /// bytes. The previews do: a picture of the librarian with nothing on the
+    /// shelf is a picture of the two presses that fill one, and what the
+    /// surface is *for* — the grid, the search, the orders and what a program
+    /// calls itself — is only on the screen once something is on it.
+    #[cfg(feature = "previews")]
+    pub fn hold(&mut self, name: &str, bytes: &[u8]) {
+        self.shelve(name, bytes);
+    }
+
+    /// Reads a checkout of the shared patches, with no folder chooser.
+    ///
+    /// What [`Message::OpenPatches`] does, for a caller that already knows
+    /// where the checkout is. The previews do: the table's whole subject is
+    /// every sound *wherever it is*, and a picture taken with nothing but a
+    /// shelf in it is a picture of a third of the columns.
+    ///
+    /// # Errors
+    ///
+    /// Whatever the folder was not a patch library for.
+    #[cfg(feature = "previews")]
+    pub fn read_patches(&mut self, root: &Path) -> Result<(), String> {
+        self.catalogue.open(root)
+    }
+
     /// Returns what the last scan found.
     #[must_use]
     pub fn ports(&self) -> &[PortRef] {
@@ -272,8 +780,8 @@ impl App {
 
     /// Returns what the press under the pointer says about itself.
     #[must_use]
-    pub const fn hinted(&self) -> Option<&'static str> {
-        self.hinted
+    pub fn hinted(&self) -> Option<&str> {
+        self.hinted.as_deref()
     }
 
     /// Returns what the modulation matrix is asking the window for.
@@ -295,6 +803,149 @@ impl App {
     fn settle(&mut self) {
         let firmware = self.firmware();
         self.mapper.reading(firmware);
+        // The download says what it has done on the same tick the device thread
+        // does, and for the same reason: neither of them is waited on. A clip
+        // that has run out is forgotten here for the third version of that
+        // reason: nothing is polled, a finished sink simply says so.
+        self.catalogue.settle();
+        self.audio.settle();
+    }
+
+    /// The sounds other people have published.
+    #[must_use]
+    pub const fn catalogue(&self) -> &Catalogue {
+        &self.catalogue
+    }
+
+    /// What is being asked of the shared shelf.
+    #[must_use]
+    pub const fn looking(&self) -> &Looking {
+        &self.looking
+    }
+
+    /// Which way round the table is laid out.
+    #[must_use]
+    pub const fn sorting(&self) -> Sorting {
+        self.sorting
+    }
+
+    /// The sound a press chose, where one is chosen.
+    #[must_use]
+    pub const fn picked(&self) -> Option<&Chosen> {
+        self.picked.as_ref()
+    }
+
+    /// Where the menu is standing, while one is open.
+    #[must_use]
+    pub const fn menu(&self) -> Option<iced::Point> {
+        self.menu
+    }
+
+    /// The sound the share sheet is open on, while it is open.
+    #[must_use]
+    pub const fn sharing(&self) -> Option<&Chosen> {
+        self.sharing.as_ref()
+    }
+
+    /// The program the share sheet is open on, while it is open.
+    #[must_use]
+    pub fn shared(&self) -> Option<deepmind_midi::program::Program> {
+        self.program_of(self.sharing.as_ref()?)
+    }
+
+    /// Whether an action can be done to what is chosen.
+    ///
+    /// **The one place that decides**, so the toolbar and the menu grey out the
+    /// same presses: a window where a menu offered what its toolbar refused
+    /// would be a window that disagrees with itself.
+    #[must_use]
+    pub fn can(&self, action: Action) -> bool {
+        let Some(picked) = &self.picked else {
+            return false;
+        };
+        match action {
+            // Anything can be heard, put on the panel, written out or
+            // described, wherever it is.
+            Action::Load | Action::Edit | Action::Export => true,
+            // Only something that is not already here.
+            Action::Copy => matches!(picked, Chosen::Patch(_)) && self.catalogue.held().is_some(),
+            // **Not yet, and not because of this window.** The protocol writes
+            // a stored program by sending a program dump *to* the instrument —
+            // the library's own note says a preset pack is exactly that — but
+            // `Device` publishes no call for it: every `request_*` asks for
+            // something and `edit` moves one parameter. That is
+            // `deepmind-midi#49`, and `docs/waiting.md` says what this window
+            // does meanwhile: the verb is drawn and refused, with the reason
+            // said out loud, rather than left off the list as though nobody
+            // had thought of it.
+            Action::Write => false,
+            // Only where the library has published a newer version than the one
+            // this is.
+            Action::Update => self.newer().is_some(),
+        }
+    }
+
+    /// The newest published version of what is chosen, when it is not already
+    /// the newest.
+    #[must_use]
+    fn newer(&self) -> Option<deepmind_midi::program::Program> {
+        let Chosen::Held(at) = self.picked.as_ref()? else {
+            return None;
+        };
+        self.newer_at(*at)
+    }
+
+    /// The newest published version of what sits at this place on the shelf.
+    ///
+    /// **Matched on the sound rather than on the name.** A fingerprint is the
+    /// identity of what the 242 bytes make, so a program somebody renamed is
+    /// still recognised and a program somebody edited is a different sound and
+    /// is not. `None` where nothing was published, where nothing matched, and
+    /// where what is here is already the newest — three different facts with
+    /// the same answer, because the press they decide is the same press.
+    #[must_use]
+    fn newer_at(&self, at: usize) -> Option<deepmind_midi::program::Program> {
+        let held = self.catalogue.held()?;
+        let program = &self.shelf.held().get(at)?.program;
+        let found = held.matching(program)?;
+        (!found.latest)
+            .then(|| held.program(found.patch).ok())
+            .flatten()
+    }
+
+    /// How many sounds on the shelf the library has since published a newer
+    /// version of.
+    ///
+    /// Counted rather than collected, and without decoding any of them: the
+    /// index already says which version each fingerprint is newest at, so this
+    /// is a walk of the shelf against a map and costs nothing to ask every
+    /// frame. What it decides is whether the press that updates all of them is
+    /// drawn at all.
+    #[must_use]
+    pub fn stale(&self) -> usize {
+        let Some(held) = self.catalogue.held() else {
+            return 0;
+        };
+        self.shelf
+            .held()
+            .iter()
+            .filter(|one| {
+                held.matching(&one.program)
+                    .is_some_and(|found| !found.latest)
+            })
+            .count()
+    }
+
+    /// The shared patch being tried, where one is.
+    #[must_use]
+    pub fn trying(&self) -> Option<&str> {
+        self.trying.as_deref()
+    }
+
+    /// What is being written about a sound about to be shared.
+    #[must_use]
+    pub const fn publishing(&self) -> &Publishing {
+        &self.publishing
     }
 
     /// Returns the channel edits go out on, once one is settled.
@@ -374,12 +1025,6 @@ impl App {
         &self.shelf
     }
 
-    /// Returns the bank a read would read.
-    #[must_use]
-    pub const fn bank(&self) -> Bank {
-        self.bank
-    }
-
     /// Returns which of the two surfaces is showing.
     #[must_use]
     pub const fn view(&self) -> View {
@@ -404,105 +1049,18 @@ impl App {
             Message::Read => self.ask(Command::ReadEditBuffer),
             Message::Tick => {}
             Message::Show(view) => self.view = view,
-            Message::ChooseBank(bank) => self.bank = bank,
-            Message::ReadBank => self.read_bank(),
+            Message::ReadAll => self.read_all(),
             Message::Cancel => self.ask(Command::Cancel),
             Message::Open => self.open_file(),
             Message::OpenNamed(path) => self.open_named(&path),
             Message::SavePatch => self.save_patch(),
             Message::SavePack => self.save_pack(),
             Message::Load(index) => self.load(index),
-            // A section asked for is a section opened, which is what the
-            // instrument's own `EDIT` does: the display becomes that section
-            // and the front of the synthesizer does not move. Here the sheet
-            // comes up over the panel the press is on.
-            //
-            // One at a time. A second sheet over the first would be a window
-            // nobody can find the bottom of, so asking for a section while one
-            // is open is the same press the hardware's second `EDIT` is: the
-            // sheet becomes the other section.
-            // A plate's `EDIT`: the section as a sheet over the front panel,
-            // which is what the press does on the instrument. Asking for one
-            // from anywhere else brings the panel back under it, because that
-            // is what the sheet is laid over.
-            Message::Ui(control_ui::Message::Show(section)) => {
-                self.view = View::Panel;
-                self.editing = Some(section);
-            }
-            // A cap of the band: the section as the surface itself. Whatever
-            // sheet was over the panel comes down with it, the way it does for
-            // the shelf, because a sheet belongs to the surface it was opened
-            // from.
-            Message::Ui(control_ui::Message::Open(section)) => {
-                self.view = View::Section(section);
-                self.editing = None;
-            }
-            // The shelf, which is the one cap of the band that is a surface
-            // rather than a section. Whatever sheet was over the panel comes
-            // down with it: a sound's filter is not open while somebody is
-            // looking at a list of sounds.
-            Message::Ui(control_ui::Message::Shelf) => {
-                self.view = View::Library;
-                self.editing = None;
-            }
-            // The way back out from under a sheet: the mark on its own bar, a
-            // press on the panel around it, or the escape key. It says nothing
-            // about which surface is underneath, because it is not a place to
-            // go — escape from the shelf leaves somebody on the shelf.
-            Message::Ui(control_ui::Message::Close) => self.editing = None,
-            // The first cap of the band, which *is* a place to go: the front of
-            // the instrument, with nothing over it, from wherever somebody was.
-            Message::Ui(control_ui::Message::Front) => {
-                self.view = View::Panel;
-                self.editing = None;
-            }
-            Message::Ui(control_ui::Message::Edit { parameter, value }) => {
-                self.moved(parameter, value);
-                // A routing pointed at the window is asking where it goes, and
-                // this is the answer arriving. Whichever of the two ways said
-                // it, a name chosen from the searchable list or a control taken
-                // hold of somewhere else in the window, the question has been
-                // answered and the mode comes down.
-                if self
-                    .mapper
-                    .mapped()
-                    .is_some_and(|mapped| mapped.destination() == parameter)
-                {
-                    self.mapper.map(None);
-                }
-            }
-            // The two halves of one gesture: a drag on a lit control while a
-            // routing is pointed at the window says where the routing goes and
-            // how much of it arrives. Both bytes were worked out by the view
-            // that knows which control the drag is on; this is where they go
-            // out, and the mode stays up until the hand lets go.
-            Message::Ui(control_ui::Message::Reach {
-                destination,
-                at,
-                depth,
-                by,
-            }) => {
-                self.moved(destination, at);
-                self.moved(depth, by);
-            }
-            Message::Ui(control_ui::Message::Swap { one, other }) => {
-                // Read both sides before either moves, or the second pair is
-                // written from a parameter the first pair has already changed.
-                let held: Vec<(ParamId, Option<u8>, ParamId, Option<u8>)> = one
-                    .into_iter()
-                    .zip(other)
-                    .map(|(one, other)| {
-                        (one, self.patch.value(one), other, self.patch.value(other))
-                    })
-                    .collect();
-                for (one, was, other, is) in held {
-                    if let (Some(was), Some(is)) = (was, is) {
-                        self.moved(one, is);
-                        self.moved(other, was);
-                    }
-                }
-            }
-            Message::Ui(control_ui::Message::Mapper(at)) => self.mapper.map(at),
+            // Both of these are about what is on the screen and not about what
+            // is on the shelf, so neither says anything to the synthesizer and
+            // neither touches what a save would write.
+            Message::Search(words) => self.shelf.search(words),
+            Message::SortBy(order) => self.shelf.sort_by(order),
             Message::Invert => self.negative = !self.negative,
             Message::Wear => {
                 self.livery = match self.livery {
@@ -510,9 +1068,35 @@ impl App {
                     Livery::Banners => Livery::Plain,
                 };
             }
-            Message::Ui(control_ui::Message::Rename(name)) => self.rename(name),
-            Message::Ui(control_ui::Message::Pointed(parameter)) => self.pointed = parameter,
-            Message::Ui(control_ui::Message::Hinted(said)) => self.hinted = said,
+            Message::ShelveShowing => self.shelve_showing(),
+            Message::FetchPatches
+            | Message::OpenPatches
+            | Message::FindPatch(_)
+            | Message::Narrow(..)
+            | Message::SortSounds(_)
+            | Message::ShowEverything
+            | Message::ChooseSound(_)
+            | Message::OpenMenu(_)
+            | Message::CloseMenu
+            | Message::CloseSharing
+            | Message::PointerAt(_)
+            | Message::Saying(_)
+            | Message::Act(_)
+            | Message::UpdateSound(_)
+            | Message::UpdateEverything
+            | Message::ShelvePatch(_)
+            | Message::AuditionPatch(_)
+            | Message::Hear(_) => self.looking_at(message),
+            Message::PublishAuthor(_)
+            | Message::PublishAbout(_)
+            | Message::PublishLicence(_)
+            | Message::PublishCollection(_)
+            | Message::PublishTerm(..)
+            | Message::PublishDot(..)
+            | Message::PublishNotes(_)
+            | Message::PublishIcon(_)
+            | Message::PublishWrite => self.writing(message),
+            Message::Ui(asked) => self.asked(asked),
         }
         self.drain();
         // After the drain, because the drain is what an inquiry's answer
@@ -545,25 +1129,43 @@ impl App {
         }
     }
 
-    /// Reads the chosen bank onto the shelf.
+    /// Reads the whole instrument onto the shelf: every bank, in order.
     ///
-    /// One request and 128 answers, which is about twelve seconds of a MIDI
-    /// cable. The shelf is cleared first: a bank read is a picture of one bank,
-    /// and half of the last one left underneath it would be a picture of
-    /// nothing.
-    fn read_bank(&mut self) {
+    /// **All eight, because a bank is not a thing anybody wants a copy of.**
+    /// It used to ask which one, with a picker beside the press, and that was
+    /// a question with no good answer: somebody reading their synthesizer onto
+    /// a computer wants their synthesizer, and somebody after one bank can
+    /// narrow the `BANK` column once it is here. What the picker really did
+    /// was make a person press the same button eight times.
+    ///
+    /// Eight requests and 1024 answers, which is about a minute and a half of
+    /// a MIDI cable. They queue in the device thread and arrive in order; the
+    /// shelf is cleared once, at the start, and fills from there.
+    fn read_all(&mut self) {
         if self.link.is_none() {
-            self.say("Nothing is open to read a bank from.");
+            self.say("Nothing is open to read from.");
             return;
         }
-        let bank = self.bank;
-        self.shelf.begin(bank, u16::from(PROGRAMS_PER_BANK));
-        self.ask(Command::ReadBank {
-            bank,
-            first: ProgramNumber::FIRST,
-            last: ProgramNumber::LAST,
-        });
-        self.say(format!("Reading bank {bank}\u{2026}"));
+        let banks: Vec<Bank> = (0..BANK_COUNT)
+            .filter_map(|at| Bank::new(at).ok())
+            .collect();
+        let Some(first) = banks.first().copied() else {
+            return;
+        };
+        let expected =
+            u16::from(PROGRAMS_PER_BANK).saturating_mul(u16::try_from(banks.len()).unwrap_or(1));
+        self.shelf.begin(first, expected, now());
+        self.reading = banks.len();
+        for bank in banks {
+            self.ask(Command::ReadBank {
+                bank,
+                first: ProgramNumber::FIRST,
+                last: ProgramNumber::LAST,
+            });
+        }
+        self.say(format!(
+            "Reading every bank: {expected} programs, about a minute and a half\u{2026}"
+        ));
     }
 
     /// Asks for a `.syx` file and puts what it holds on the shelf.
@@ -583,6 +1185,642 @@ impl App {
         match files::read(path) {
             Ok((name, bytes)) => self.shelve(&name, &bytes),
             Err(trouble) => self.say(format!("{} would not open: {trouble}", path.display())),
+        }
+    }
+
+    /// Starts fetching the newest release of the shared patches.
+    fn fetch_patches(&mut self) {
+        let Some(into) = crate::catalogue::cache() else {
+            self.say("This machine has nowhere to keep a downloaded catalogue.".to_owned());
+            return;
+        };
+        self.catalogue.fetch(into);
+    }
+
+    /// Reads a checkout of the shared patches out of a folder somebody chose.
+    fn open_patches(&mut self) {
+        let Some(root) = files::folder() else {
+            return;
+        };
+        match self.catalogue.open(&root) {
+            Ok(()) => {
+                let held = self.catalogue.held().map_or(0, |held| held.patches().len());
+                self.say(format!(
+                    "{held} shared patches, read off {}.",
+                    root.display()
+                ));
+            }
+            Err(trouble) => self.say(format!("That folder is not a patch library: {trouble}")),
+        }
+    }
+
+    /// Everything the drawing asked for.
+    ///
+    /// The view layer speaks one message type and this window speaks another,
+    /// so every press on a fader, a cap or a sheet's own bar arrives here.
+    /// Gathered into one place because they are one boundary: what crosses it
+    /// is the view saying *somebody did this*, and what happens about it is
+    /// always this file's business rather than the drawing's.
+    fn asked(&mut self, message: control_ui::Message) {
+        match message {
+            // A section asked for is a section opened, which is what the
+            // instrument's own `EDIT` does: the display becomes that section
+            // and the front of the synthesizer does not move. Here the sheet
+            // comes up over the panel the press is on.
+            //
+            // One at a time. A second sheet over the first would be a window
+            // nobody can find the bottom of, so asking for a section while one
+            // is open is the same press the hardware's second `EDIT` is: the
+            // sheet becomes the other section.
+            // A plate's `EDIT`: the section as a sheet over the front panel,
+            // which is what the press does on the instrument. Asking for one
+            // from anywhere else brings the panel back under it, because that
+            // is what the sheet is laid over.
+            control_ui::Message::Show(section) => {
+                self.view = View::Panel;
+                self.editing = Some(section);
+            }
+            // A cap of the band: the section as the surface itself. Whatever
+            // sheet was over the panel comes down with it, the way it does for
+            // the shelf, because a sheet belongs to the surface it was opened
+            // from.
+            control_ui::Message::Open(section) => {
+                self.view = View::Section(section);
+                self.editing = None;
+            }
+            // The shelf, which is the one cap of the band that is a surface
+            // rather than a section. Whatever sheet was over the panel comes
+            // down with it: a sound's filter is not open while somebody is
+            // looking at a list of sounds.
+            control_ui::Message::Shelf => {
+                self.view = View::Library;
+                self.editing = None;
+            }
+            // The way back out from under a sheet: the mark on its own bar, a
+            // press on the panel around it, or the escape key. It says nothing
+            // about which surface is underneath, because it is not a place to
+            // go — escape from the shelf leaves somebody on the shelf.
+            control_ui::Message::Close => self.editing = None,
+            // The first cap of the band, which *is* a place to go: the front of
+            // the instrument, with nothing over it, from wherever somebody was.
+            control_ui::Message::Front => {
+                self.view = View::Panel;
+                self.editing = None;
+            }
+            control_ui::Message::Edit { parameter, value } => {
+                self.moved(parameter, value);
+                // A routing pointed at the window is asking where it goes, and
+                // this is the answer arriving. Whichever of the two ways said
+                // it, a name chosen from the searchable list or a control taken
+                // hold of somewhere else in the window, the question has been
+                // answered and the mode comes down.
+                if self
+                    .mapper
+                    .mapped()
+                    .is_some_and(|mapped| mapped.destination() == parameter)
+                {
+                    self.mapper.map(None);
+                }
+            }
+            // The two halves of one gesture: a drag on a lit control while a
+            // routing is pointed at the window says where the routing goes and
+            // how much of it arrives. Both bytes were worked out by the view
+            // that knows which control the drag is on; this is where they go
+            // out, and the mode stays up until the hand lets go.
+            control_ui::Message::Reach {
+                destination,
+                at,
+                depth,
+                by,
+            } => {
+                self.moved(destination, at);
+                self.moved(depth, by);
+            }
+            control_ui::Message::Swap { one, other } => {
+                // Read both sides before either moves, or the second pair is
+                // written from a parameter the first pair has already changed.
+                let held: Vec<(ParamId, Option<u8>, ParamId, Option<u8>)> = one
+                    .into_iter()
+                    .zip(other)
+                    .map(|(one, other)| {
+                        (one, self.patch.value(one), other, self.patch.value(other))
+                    })
+                    .collect();
+                for (one, was, other, is) in held {
+                    if let (Some(was), Some(is)) = (was, is) {
+                        self.moved(one, is);
+                        self.moved(other, was);
+                    }
+                }
+            }
+            control_ui::Message::Mapper(at) => self.mapper.map(at),
+            control_ui::Message::Rename(name) => self.rename(name),
+            control_ui::Message::Pointed(parameter) => self.pointed = parameter,
+            control_ui::Message::Hinted(said) => {
+                self.hinted = said.map(str::to_owned);
+            }
+        }
+    }
+
+    /// Everything somebody does to the list of sounds.
+    ///
+    /// One conversation, like [`writing`](Self::writing): what is being looked
+    /// for, where it is being looked for, and what happens to the one that was
+    /// pressed. None of it touches the sound on the screen.
+    fn looking_at(&mut self, message: Message) {
+        match message {
+            Message::FetchPatches => self.fetch_patches(),
+            Message::OpenPatches => self.open_patches(),
+            Message::FindPatch(words) => self.looking.find = words,
+            Message::Narrow(column, text) => self.looking.narrow(column, text),
+            Message::SortSounds(by) => self.sort_sounds(by),
+            Message::ShowEverything => self.looking = Looking::default(),
+            Message::ChooseSound(chosen) => self.choose_sound(chosen),
+            Message::OpenMenu(chosen) => {
+                self.choose_sound(chosen);
+                self.menu = Some(self.pointer);
+            }
+            Message::CloseMenu => self.menu = None,
+            Message::CloseSharing => self.sharing = None,
+            Message::PointerAt(at) => self.pointer = at,
+            Message::Saying(said) => self.hinted = said,
+            Message::Act(action) => self.act(action),
+            Message::UpdateSound(at) => self.update_at(at),
+            Message::UpdateEverything => self.update_all(),
+            Message::ShelvePatch(id) => self.shelve_patch(&id),
+            Message::AuditionPatch(id) => self.audition(&id),
+            Message::Hear(file) => self.hear(&file),
+            _ => {}
+        }
+    }
+
+    /// Everything somebody is writing about a sound they are about to share.
+    ///
+    /// Gathered into one arm because they are one conversation: eight messages
+    /// that all move the same half-written record and none of which the rest of
+    /// this window has any opinion about.
+    fn writing(&mut self, message: Message) {
+        match message {
+            Message::PublishAuthor(said) => self.publishing.author = said,
+            Message::PublishAbout(said) => self.publishing.about = said,
+            Message::PublishLicence(said) => self.publishing.licence = said,
+            Message::PublishCollection(said) => self.publishing.collection = said,
+            Message::PublishTerm(axis, term) => self.publish_term(&axis, &term),
+            Message::PublishDot(across, down) => self.publish_dot(across, down),
+            Message::PublishNotes(wanted) => self.publishing.notes = wanted,
+            Message::PublishIcon(from_category) => self.publish_icon(from_category),
+            Message::PublishWrite => self.publish_write(),
+            _ => {}
+        }
+    }
+
+    /// Lays the table out by a column, or turns it round if it already is.
+    ///
+    /// Pressing the heading somebody is already under means *the other way*,
+    /// which is what every table anybody has used does, and going back to a
+    /// column always starts from whichever end that column is usually read
+    /// from rather than remembering which way round it was left.
+    fn sort_sounds(&mut self, by: By) {
+        if self.sorting.by == by {
+            self.sorting.down = !self.sorting.down;
+        } else {
+            self.sorting = Sorting {
+                by,
+                down: by.newest_first(),
+            };
+        }
+    }
+
+    /// Turns one vocabulary term on or off.
+    fn publish_term(&mut self, axis: &str, term: &str) {
+        if let Some(at) = self
+            .publishing
+            .terms
+            .iter()
+            .position(|(held, said)| held == axis && said == term)
+        {
+            drop(self.publishing.terms.remove(at));
+        } else {
+            self.publishing
+                .terms
+                .push((axis.to_owned(), term.to_owned()));
+        }
+    }
+
+    /// Turns one dot of the icon on or off.
+    fn publish_dot(&mut self, across: usize, down: usize) {
+        if across >= 7 {
+            return;
+        }
+        if let Some(row) = self.publishing.icon.get_mut(down) {
+            *row ^= 1 << across;
+        }
+    }
+
+    /// Starts the icon again: blank, or from the category's own drawing.
+    ///
+    /// The category's, because a blank grid is a bad place to start a picture
+    /// and the repository already draws twelve good ones. Somebody who wants a
+    /// bass that looks like a bass but not *that* bass edits from it rather
+    /// than from nothing.
+    fn publish_icon(&mut self, from_category: bool) {
+        self.publishing.icon = match (from_category, self.sharing.clone()) {
+            (true, Some(chosen)) => self.category_icon(&chosen),
+            _ => [0; 7],
+        };
+    }
+
+    /// Opens the share sheet on a sound, filled in with whatever is known.
+    ///
+    /// **Filled in and not blank.** A sound the library has already published
+    /// comes with a maker, a sentence, a licence, a vocabulary and a drawing,
+    /// and a sheet that asked for all five again would be asking somebody to
+    /// retype a file they are about to send a change to. So the sheet opens on
+    /// what the library holds and the person edits it, which is what sharing a
+    /// second version of something actually is.
+    ///
+    /// A sound nothing has published opens on the category's own drawing and
+    /// nothing else, because there is nothing else to know.
+    fn start_exporting(&mut self, chosen: &Chosen) {
+        let notes = self.publishing.notes;
+        self.publishing = Publishing {
+            notes,
+            ..self.described(chosen)
+        };
+        self.sharing = Some(chosen.clone());
+    }
+
+    /// What the library already says about a sound, as a half-written record.
+    fn described(&self, chosen: &Chosen) -> Publishing {
+        let known = self.catalogue.held().and_then(|held| match chosen {
+            Chosen::Patch(id) => held.index().get(id),
+            Chosen::Held(at) => held
+                .matching(&self.shelf.held().get(*at)?.program)
+                .map(|found| found.patch),
+        });
+        let Some(patch) = known else {
+            return Publishing {
+                icon: self.category_icon(chosen),
+                ..Publishing::default()
+            };
+        };
+        let mut terms = Vec::new();
+        for (axis, said) in [
+            ("genre", &patch.genre),
+            ("mood", &patch.mood),
+            ("timbre", &patch.timbre),
+            ("role", &patch.role),
+        ] {
+            terms.extend(said.iter().map(|term| (axis.to_owned(), term.clone())));
+        }
+        Publishing {
+            author: patch.author.clone(),
+            about: patch.about.clone(),
+            licence: patch.licence.clone(),
+            collection: patch.collection.clone().unwrap_or_default(),
+            // The patch's own drawing where it has one, and its category's
+            // where the index filled that in for it: writing a category's icon
+            // back out as the patch's would be claiming a picture nobody drew.
+            icon: if patch.own_icon {
+                *patch.icon.rows()
+            } else {
+                [0; 7]
+            },
+            terms,
+            notes: true,
+            wrote: None,
+        }
+    }
+
+    /// The drawing a sound's category is published under, where there is one.
+    fn category_icon(&self, chosen: &Chosen) -> [u8; 7] {
+        let blank = [0; 7];
+        let Some(held) = self.catalogue.held() else {
+            return blank;
+        };
+        let program = match chosen {
+            Chosen::Held(at) => match self.shelf.held().get(*at) {
+                Some(one) => one.program.clone(),
+                None => return blank,
+            },
+            Chosen::Patch(id) => match held.index().get(id).map(|patch| held.program(patch)) {
+                Some(Ok(program)) => program,
+                _ => return blank,
+            },
+        };
+        deepmind_patches::Category::of(&program)
+            .and_then(|category| held.category_icon(category))
+            .map_or(blank, |icon| *icon.rows())
+    }
+
+    /// Writes the `.syx` and `.toml` pair into a folder somebody chooses.
+    ///
+    /// Laid out the way the repository wants it — `presets/<Category>/` — so
+    /// that the folder this writes can be copied straight over a checkout and
+    /// the result is a pull request. Beside them goes a short note saying
+    /// exactly that, because a person who has just drawn an icon should not
+    /// have to go and read a contributing guide to find out what the next four
+    /// steps are.
+    fn publish_write(&mut self) {
+        let Some(program) = self
+            .sharing
+            .as_ref()
+            .and_then(|chosen| self.program_of(chosen))
+        else {
+            self.say("There is no sound to export.".to_owned());
+            return;
+        };
+        // The sound on its own goes where any file goes: one save dialog, one
+        // `.syx`, no folder and no note beside it. Everything below this is
+        // about the pair.
+        if !self.publishing.notes {
+            self.sharing = None;
+            self.export_one_named(&program);
+            return;
+        }
+        let Some(category) = deepmind_patches::Category::of(&program) else {
+            self.say(
+                "Set a category on the instrument first: the folder a patch goes in is the one \
+                 it calls itself."
+                    .to_owned(),
+            );
+            return;
+        };
+        let missing = self.publishing.missing();
+        if !missing.is_empty() {
+            self.say(format!("Still wanted: {}.", missing.join(", ")));
+            return;
+        }
+        let Some(root) = files::folder() else {
+            return;
+        };
+        match crate::publish::write(&root, &program, category, &self.publishing) {
+            Ok(where_to) => {
+                self.publishing.wrote = Some(where_to.clone());
+                self.say(format!("Written to {where_to}."));
+            }
+            Err(trouble) => self.say(format!("That would not be written: {trouble}")),
+        }
+    }
+
+    /// Chooses a sound, and plays it.
+    ///
+    /// Both at once, because playing costs nothing: the edit buffer is the
+    /// sound in front of somebody rather than one of the instrument's 1024, so
+    /// a press that both selects and sounds is a press with no downside.
+    /// Selecting without hearing would mean two presses to do the one thing
+    /// everybody came here for.
+    fn choose_sound(&mut self, chosen: Chosen) {
+        self.picked = Some(chosen.clone());
+        self.menu = None;
+        match chosen {
+            Chosen::Held(at) => self.load(at),
+            Chosen::Patch(id) => self.audition(&id),
+        }
+    }
+
+    /// Does one thing to the sound that is chosen.
+    ///
+    /// The single place every verb is carried out, whichever of the three
+    /// surfaces asked for it. Nothing happens for an action
+    /// [`can`](Self::can) refuses, so a press that slipped through a disabled
+    /// button is a press that does nothing rather than one that does something
+    /// surprising.
+    fn act(&mut self, action: Action) {
+        self.menu = None;
+        if !self.can(action) {
+            return;
+        }
+        let Some(chosen) = self.picked.clone() else {
+            return;
+        };
+        match action {
+            Action::Load => self.choose_sound(chosen),
+            Action::Edit => {
+                self.choose_sound(chosen);
+                self.view = View::Panel;
+                self.editing = None;
+            }
+            Action::Copy => {
+                if let Chosen::Patch(id) = chosen {
+                    self.shelve_patch(&id);
+                }
+            }
+            Action::Write => self.say(
+                "Writing into the instrument's memory needs a call deepmind-midi does not \
+                 publish yet: deepmind-midi#49. See docs/waiting.md."
+                    .to_owned(),
+            ),
+            Action::Export => self.start_exporting(&chosen),
+            Action::Update => {
+                if let Chosen::Held(at) = chosen {
+                    self.update_at(at);
+                }
+            }
+        }
+    }
+
+    /// Writes one sound out as a `.syx` of its own.
+    fn export_one_named(&mut self, program: &deepmind_midi::program::Program) {
+        let name = program.name().as_str().trim().to_owned();
+        match crate::shelf::patch_to_syx(program) {
+            Ok(bytes) => match files::save(&format!("{name}.syx"), &bytes) {
+                Some(Ok(where_to)) => self.say(format!("Written to {where_to}.")),
+                Some(Err(trouble)) => self.say(format!("That would not be written: {trouble}")),
+                None => {}
+            },
+            Err(trouble) => self.say(format!("{name} would not be packed: {trouble}")),
+        }
+    }
+
+    /// Replaces one program with the newest published version of it.
+    ///
+    /// Only what is on the shelf, and only in place: the slot it sits in is the
+    /// slot it keeps, because a librarian that moved a program while updating
+    /// it would be a librarian rearranging a bank nobody asked it to.
+    ///
+    /// **Nothing reaches the instrument.** What changes is the shelf, which is
+    /// this machine's copy; the synthesizer keeps what it is holding until
+    /// somebody plays the row or stores it.
+    fn update_at(&mut self, at: usize) {
+        let Some(newest) = self.newer_at(at) else {
+            return;
+        };
+        let name = newest.name().as_str().trim().to_owned();
+        if self.shelf.replace(at, newest) {
+            self.say(format!("{name} is the published version now."));
+        }
+    }
+
+    /// Replaces every one the library has published a newer version of.
+    ///
+    /// Read first and written after, all of it, rather than one at a time:
+    /// what is newest is worked out against the shelf as it stands, so a run
+    /// that replaced one program and then asked about the next would be asking
+    /// about a shelf it had already changed.
+    ///
+    /// One sentence at the end and not one per sound. Somebody who pressed this
+    /// asked about the shelf, not about each of the eleven.
+    fn update_all(&mut self) {
+        let newest: Vec<(usize, deepmind_midi::program::Program)> = (0..self.shelf.held().len())
+            .filter_map(|at| self.newer_at(at).map(|program| (at, program)))
+            .collect();
+        if newest.is_empty() {
+            self.say("Everything on the shelf is the published version already.".to_owned());
+            return;
+        }
+        let mut done = 0_usize;
+        for (at, program) in newest {
+            if self.shelf.replace(at, program) {
+                done = done.saturating_add(1);
+            }
+        }
+        let sound = if done == 1 { "sound is" } else { "sounds are" };
+        self.say(format!("{done} {sound} the published version now."));
+    }
+
+    /// The program one row holds, wherever it is.
+    fn program_of(&self, chosen: &Chosen) -> Option<deepmind_midi::program::Program> {
+        match chosen {
+            Chosen::Held(at) => self.shelf.held().get(*at).map(|held| held.program.clone()),
+            Chosen::Patch(id) => {
+                let held = self.catalogue.held()?;
+                held.program(held.index().get(id)?).ok()
+            }
+        }
+    }
+
+    /// Plays one shared patch without keeping it anywhere.
+    ///
+    /// **The instrument already makes this safe.** `LoadProgram` writes the
+    /// edit buffer, which is the sound in front of somebody rather than any of
+    /// the 1024 stored programs, so nothing is overwritten and nothing has to
+    /// be put back: turning the instrument's own program knob is what undoes
+    /// it. So auditioning is not a mode with a way out of it, it is simply
+    /// loading without keeping.
+    ///
+    /// Which is the whole of what makes a computer worth having plugged in
+    /// here. An instrument holds 1024 sounds and a disk holds as many as
+    /// somebody has; a patch that can be heard without being stored is a patch
+    /// that does not have to displace one of the 1024 to be tried, so the
+    /// library on the machine is playable memory rather than an archive.
+    fn audition(&mut self, id: &str) {
+        let Some(held) = self.catalogue.held() else {
+            return;
+        };
+        let Some(patch) = held.index().get(id) else {
+            return;
+        };
+        match held.program(patch) {
+            Ok(program) => {
+                self.trying = Some(id.to_owned());
+                let name = program.name().as_str().trim().to_owned();
+                let maker = patch.author.clone();
+                self.patch.assume(program.clone());
+                // The shelf is deliberately untouched, and so is its `loaded`:
+                // what is sounding did not come off it, and a librarian that
+                // lit a row nobody had loaded would be lying about where this
+                // sound is.
+                if self.link.is_some() {
+                    self.ask(Command::LoadProgram(Box::new(program)));
+                    self.say(format!("Trying {name} by {maker}. Nothing is kept."));
+                } else {
+                    self.say(format!(
+                        "{name} by {maker} is on the screen. Nothing is open to send it to."
+                    ));
+                }
+            }
+            Err(trouble) => self.say(format!("{} would not open: {trouble}", patch.name)),
+        }
+    }
+
+    /// Which recording is playing, while one is.
+    #[must_use]
+    pub fn hearing(&self) -> Option<&str> {
+        self.audio.playing()
+    }
+
+    /// Plays one of a patch's recordings, or stops it if it is already playing.
+    ///
+    /// **Nothing goes to the synthesizer.** A demo is what somebody else's
+    /// instrument sounded like, recorded; the sound in front of this one is
+    /// whatever was last loaded, and hearing a recording does not change it.
+    fn hear(&mut self, file: &str) {
+        let Some(path) = self.demo_path(file) else {
+            self.say("That recording is not on this machine yet.".to_owned());
+            return;
+        };
+        if let Err(trouble) = self.audio.play(file, &path) {
+            self.say(trouble);
+        }
+    }
+
+    /// Where a recording named in the index sits on this machine.
+    fn demo_path(&self, file: &str) -> Option<PathBuf> {
+        let held = self.catalogue.held()?;
+        held.patches()
+            .iter()
+            .flat_map(|patch| patch.demos.iter())
+            .find(|demo| demo.file == file)
+            .and_then(|demo| held.demo(demo))
+    }
+
+    /// Puts one shared patch on the shelf.
+    fn shelve_patch(&mut self, id: &str) {
+        let Some(held) = self.catalogue.held() else {
+            return;
+        };
+        let Some(patch) = held.index().get(id) else {
+            return;
+        };
+        match held.program(patch) {
+            Ok(program) => {
+                let name = format!("{} - {}", patch.name, patch.author);
+                match crate::shelf::patch_to_syx(&program) {
+                    Ok(bytes) => self.shelve(&name, &bytes),
+                    Err(trouble) => self.say(format!("{name} would not be written: {trouble}")),
+                }
+            }
+            Err(trouble) => self.say(format!("{} would not open: {trouble}", patch.name)),
+        }
+    }
+
+    /// Puts every shared patch the search left on the shelf, in index order.
+    ///
+    /// A filtered catalogue becomes a pack, which is the one thing a `.syx`
+    /// file is for: the twelve pads somebody searched for go onto the shelf as
+    /// twelve programs and out of the librarian as one file, in the order the
+    /// catalogue holds them.
+    fn shelve_showing(&mut self) {
+        let Some(held) = self.catalogue.held() else {
+            return;
+        };
+        let showing = held.showing(&self.looking);
+        if showing.is_empty() {
+            self.say("Nothing to put on the shelf.".to_owned());
+            return;
+        }
+        let mut bytes = Vec::new();
+        let mut missed = 0_usize;
+        for patch in &showing {
+            match held.program(patch).and_then(|program| {
+                crate::shelf::patch_to_syx(&program).map_err(|error| error.to_string())
+            }) {
+                Ok(one) => bytes.extend_from_slice(&one),
+                Err(_) => missed = missed.saturating_add(1),
+            }
+        }
+        if bytes.is_empty() {
+            self.say("None of those could be read.".to_owned());
+            return;
+        }
+        let name = match self.looking.narrowed(By::Category) {
+            Some(category) => category.to_owned(),
+            None => "Shared patches".to_owned(),
+        };
+        self.shelve(&name, &bytes);
+        if missed > 0 {
+            self.say(format!("{missed} of those could not be read."));
         }
     }
 
@@ -651,6 +1889,8 @@ impl App {
         let Some(program) = self.shelf.load(index) else {
             return;
         };
+        // Whatever was being tried is not what is sounding any more.
+        self.trying = None;
         let name = program.name().as_str().trim().to_owned();
         self.patch.assume(program.clone());
         if self.link.is_some() {
@@ -814,16 +2054,26 @@ impl App {
                 self.shelf.arrived(slot, program);
             }
             Event::Progress {
-                received, expected, ..
-            } => self.shelf.advance(received, expected),
-            Event::Finished {
                 bank,
                 received,
                 expected,
-                outcome,
             } => {
-                self.shelf.finish(outcome);
-                self.say(format!("Bank {bank}: {received} of {expected}, {outcome}."));
+                self.shelf.reading(bank);
+                self.shelf.advance(received, expected);
+            }
+            Event::Finished { outcome, .. } => {
+                // Eight banks report eight endings and they are one read, so
+                // the progress bar comes down when the last one lands rather
+                // than when the first does. A run somebody cancelled or that
+                // failed ends there and then, because what is left of it is
+                // not coming.
+                self.reading = self.reading.saturating_sub(1);
+                if self.reading == 0 || outcome != Outcome::Complete {
+                    self.reading = 0;
+                    self.shelf.finish(outcome);
+                    let held = self.shelf.held().len();
+                    self.say(format!("{held} programs off the synthesizer, {outcome}."));
+                }
             }
             Event::Refused { command, reason } => {
                 self.say(format!("{command} refused: {reason}"));
@@ -836,6 +2086,22 @@ impl App {
             _ => {}
         }
     }
+}
+
+/// The time of day, for saying when a shelf was read.
+///
+/// Hours and minutes off the wall clock, worked out from the seconds since the
+/// epoch rather than through a calendar crate: a shelf says *read 09:12* and
+/// nothing here needs a date, a zone or a leap second. UTC, because a time
+/// with no zone printed beside it is a time somebody reads as their own and
+/// this one is only ever compared with *now*.
+fn now() -> String {
+    let seconds = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |since| since.as_secs());
+    let minutes = seconds / 60 % 60;
+    let hours = seconds / 3600 % 24;
+    format!("{hours:02}:{minutes:02}")
 }
 
 /// Returns what to call the file a sound would be saved as.

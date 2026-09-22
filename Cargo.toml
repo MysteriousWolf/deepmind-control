@@ -31,6 +31,35 @@ deepmind-midi = { version = "26.5.2", default-features = false, features = [
 ] }
 midir = "0.10"
 
+# The shared patch library, as code. `deepmind-patches` is the other half of
+# what `deepmind-midi` is: the protocol says what a program *is*, and this says
+# what the library of them holds, checks it, and matches a program dumped from
+# an instrument back to the patch and version it came from. The editor links it
+# rather than reimplementing the layout, so a repository that grows a field does
+# not need a reader written here to notice.
+#
+# `fetch` is the release download, and it is the HTTP dependency `docs/presets.md`
+# listed as a decision: `ureq` 3 on `rustls`, so it is Rust the whole way down on
+# all three desktops, with no system TLS to find and no async runtime. Desktop
+# only, like the rest of the librarian.
+deepmind-patches = { version = "26.1", features = ["fetch"] }
+toml = "1"
+
+# Hearing a demo, which is the one noise this application makes that does not
+# come out of the synthesizer. `rodio` brings `cpal` for the device and
+# `symphonia` for the MP3 the library publishes, and on Linux `cpal` talks to
+# ALSA — which this repository already needs, because `midir` does too and CI
+# has installed `libasound2-dev` since the first commit that opened a port. So
+# it costs nothing a build did not already cost.
+#
+# Default features off and `mp3` on: the defaults drag in Vorbis, FLAC and WAV
+# decoders for formats the patch library does not publish, and `symphonia`'s MP3
+# is the one it does.
+rodio = { version = "0.22", default-features = false, features = [
+    "playback",
+    "symphonia-mp3",
+] }
+
 # The view layer is pinned to what the baseview adapter supports rather than to
 # the newest release, because the desktop build and the plugin share a view
 # layer only for as long as they share an iced. `iced_baseview` 0.5 is on 0.14,

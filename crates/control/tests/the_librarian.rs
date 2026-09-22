@@ -23,11 +23,11 @@ use std::path::PathBuf;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use control::{App, Message, Shelf, Source, View};
+use control::{App, Message, Order, Shelf, Source, View};
 use control_ui::Confidence;
 use deepmind_host::PortRef;
 use deepmind_midi::ids::{Bank, DeviceId, ProgramNumber, ProtocolVersion, Slot};
-use deepmind_midi::param::ParamId;
+use deepmind_midi::param::{DEFAULT_FIRMWARE, ParamId};
 use deepmind_midi::program::{Program, ProgramName};
 use deepmind_midi::syx::bank_to_vec;
 
@@ -193,7 +193,7 @@ fn one_bad_frame_costs_one_program_and_not_the_file() {
 fn a_bank_arrives_in_slot_order_however_it_arrives() {
     let mut shelf = Shelf::new();
     let b = Bank::from_letter('B').expect("bank B");
-    shelf.begin(b, 3);
+    shelf.begin(b, 3, "09:12".to_owned());
     for number in [2_u8, 0, 1] {
         let slot = Slot::new(
             b,
@@ -214,7 +214,7 @@ fn a_bank_arrives_in_slot_order_however_it_arrives() {
 fn a_slot_that_arrives_twice_keeps_the_second_one() {
     let slot = Slot::new(Bank::A, ProgramNumber::FIRST);
     let mut shelf = Shelf::new();
-    shelf.begin(Bank::A, 1);
+    shelf.begin(Bank::A, 1, "09:12".to_owned());
     shelf.arrived(slot, sound("First", 10));
     shelf.arrived(slot, sound("Second", 20));
 
@@ -252,6 +252,141 @@ fn a_program_taken_off_the_shelf_is_assumed_and_not_confirmed() {
 }
 
 #[test]
+fn a_search_narrows_what_is_drawn_and_never_what_is_held() {
+    // The property the whole thing turns on. A shelf is what a save writes out,
+    // so a filter that reached the shelf would be a filter that deleted 125
+    // programs the first time somebody looked for one of the other three.
+    let mut shelf = Shelf::new();
+    shelf.open("factory.syx".to_owned(), &pack(16));
+    let whole = shelf.to_syx().expect("a shelf the library can pack");
+
+    shelf.search("patch 1".to_owned());
+
+    assert_eq!(shelf.held().len(), 16, "the shelf still holds all of them");
+    assert_eq!(
+        shelf.showing(DEFAULT_FIRMWARE).len(),
+        7,
+        "and draws `Patch 1` and `Patch 10` through `Patch 15`"
+    );
+    assert_eq!(
+        shelf.to_syx().expect("a shelf the library can pack"),
+        whole,
+        "and writes out the pack that was opened rather than the screen"
+    );
+}
+
+#[test]
+fn a_search_finds_the_slot_as_well_as_the_name() {
+    // Two questions with one field, because they are the same question asked by
+    // somebody who remembers a different thing about the same sound.
+    let mut shelf = Shelf::new();
+    shelf.open("factory.syx".to_owned(), &pack(128));
+
+    shelf.search("b".to_owned());
+    assert!(
+        shelf.showing(DEFAULT_FIRMWARE).is_empty(),
+        "nothing in bank A is in bank B, and nothing is called it"
+    );
+
+    shelf.search("a12".to_owned());
+    let found: Vec<String> = shelf
+        .showing(DEFAULT_FIRMWARE)
+        .into_iter()
+        .map(|(_, held)| held.address())
+        .collect();
+    assert_eq!(
+        found,
+        [
+            "A12", "A120", "A121", "A122", "A123", "A124", "A125", "A126", "A127", "A128"
+        ],
+        "the slot typed, and every slot it is the beginning of"
+    );
+}
+
+#[test]
+fn a_shelf_sorted_by_name_still_loads_the_sound_that_was_pressed() {
+    // What the place beside each program on a sorted list is for. The row is in
+    // one order and the shelf is in another, and a load names where the sound
+    // sits on the shelf: a list that numbered its own rows would send the wrong
+    // sound the first time anybody sorted one.
+    let mut app = browsing("sort-me.syx", 16);
+    app.update(Message::SortBy(Order::Name));
+
+    let showing = app.shelf().showing(app.firmware());
+    let (index, held) = showing.get(2).copied().expect("a third row");
+    assert_eq!(
+        held.name(),
+        "Patch 10",
+        "`Patch 0`, `Patch 1` and then `Patch 10`, which is what sorting by name is"
+    );
+    assert_eq!(index, 10, "and it is the eleventh program on the shelf");
+
+    app.update(Message::Load(index));
+    assert_eq!(
+        app.patch()
+            .name()
+            .map(|name| name.as_str().trim().to_owned()),
+        Some("Patch 10".to_owned()),
+        "and that is the sound the synthesizer was given"
+    );
+}
+
+#[test]
+fn a_new_pack_arrives_without_the_last_one_s_search_on_it() {
+    // A filter is about what is on the shelf, and what is on the shelf has just
+    // been replaced. Keeping it would open a pack of 128 showing three, with
+    // the reason for it in a field somebody typed in five minutes ago.
+    let mut shelf = Shelf::new();
+    shelf.open("first.syx".to_owned(), &pack(8));
+    shelf.search("patch 3".to_owned());
+    shelf.sort_by(Order::Name);
+
+    shelf.open("second.syx".to_owned(), &pack(8));
+
+    assert_eq!(shelf.query(), "", "the words were about the other pack");
+    assert_eq!(
+        shelf.showing(DEFAULT_FIRMWARE).len(),
+        8,
+        "so all of this one is on the screen"
+    );
+    assert_eq!(
+        shelf.order(),
+        Order::Name,
+        "and which way round somebody reads a shelf is about them, not about it"
+    );
+}
+
+#[test]
+fn a_program_says_what_it_calls_itself() {
+    // The library's own table, for the firmware that answered, which is the
+    // rule every other name in this window is drawn under.
+    let mut program = sound("Warm Pad", 90);
+    let category = program.set_clamped(ParamId::ProgramCategory, 1);
+    let named = ParamId::ProgramCategory.label_for(u16::from(category), DEFAULT_FIRMWARE);
+
+    let mut shelf = Shelf::new();
+    shelf.open(
+        "pad.syx".to_owned(),
+        &control::patch_to_syx(&program).expect("a sound the library can pack"),
+    );
+    let held = shelf.held().first().expect("the sound that was saved");
+
+    assert_eq!(
+        held.category(DEFAULT_FIRMWARE),
+        named,
+        "what the shelf says it is, is what the library says it is"
+    );
+    if let Some(named) = named {
+        shelf.search(named.to_owned());
+        assert_eq!(
+            shelf.showing(DEFAULT_FIRMWARE).len(),
+            1,
+            "and typing it finds the sound"
+        );
+    }
+}
+
+#[test]
 fn a_pack_can_be_read_with_nothing_plugged_in() {
     let app = browsing("browse-me.syx", 8);
     assert!(!app.is_connected(), "no port, and no need of one");
@@ -272,10 +407,13 @@ fn a_bank_read_is_a_progress_bar_and_not_a_freeze() {
         app.identity().is_some() && app.patch().confidence().is_confirmed()
     });
 
-    app.update(Message::ReadBank);
+    app.update(Message::ReadAll);
     let transfer = app.shelf().transfer().expect("a transfer in flight");
-    assert_eq!(transfer.bank, Bank::A);
-    assert_eq!(transfer.expected, 128, "a whole bank was asked for");
+    assert_eq!(transfer.bank, Bank::A, "starting from the first bank");
+    assert_eq!(
+        transfer.expected, 1024,
+        "every bank was asked for, not one: eight of a hundred and twenty-eight"
+    );
     assert_eq!(transfer.received, 0, "and none of it has arrived yet");
 
     // The unit this is reading has nothing stored, which is the silence a
@@ -285,7 +423,7 @@ fn a_bank_read_is_a_progress_bar_and_not_a_freeze() {
         app.shelf().transfer().is_none()
     });
     assert!(
-        app.status().contains("0 of 128"),
+        app.status().contains("0 programs"),
         "and says how far it got: {}",
         app.status()
     );
@@ -304,7 +442,7 @@ fn a_bank_read_can_be_called_off() {
         app.identity().is_some() && app.patch().confidence().is_confirmed()
     });
 
-    app.update(Message::ReadBank);
+    app.update(Message::ReadAll);
     assert!(app.shelf().transfer().is_some(), "a transfer in flight");
 
     app.update(Message::Cancel);

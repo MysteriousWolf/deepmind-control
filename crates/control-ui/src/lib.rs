@@ -163,10 +163,10 @@
 //! The same file holds the two faces anything is set in, [`printed`] and
 //! [`reading`], and what the parts of a window that are not
 //! parameters are drawn as: [`ground`] is the panel gradient the whole window
-//! stands on, and [`chrome`], [`selector`], [`shortlist`] and [`bay`] are a
-//! button, a picker, the list it opens and a panel of words in the instrument's
-//! own materials. A port picker is not a parameter and is still on the
-//! instrument.
+//! stands on, and [`chrome`], [`selector`], [`shortlist`], [`field`] and [`bay`]
+//! are a button, a picker, the list it opens, something typed into and a panel of
+//! words in the instrument's own materials. A port picker is not a parameter and
+//! is still on the instrument.
 //!
 //! # The theme is shared and the renderer is not
 //!
@@ -200,8 +200,8 @@ mod section;
 mod sequencer;
 mod style;
 
-pub use badge::{ABOUT, ARROW, Badge, DOWN, MAP, PANEL, PLUGGED, PORT, READ, RESCAN, SHUT};
-pub use badge::{SIDE, UP, WHO};
+pub use badge::{ABOUT, ARROW, Badge, DOWN, MAP, PANEL, PLUGGED, PORT, READ, RESCAN};
+pub use badge::{SHUT, SIDE, UP, WHO};
 pub use confidence::Confidence;
 pub use effect::width as effects_width;
 pub use fader::{Axis, Fader, fader};
@@ -209,7 +209,7 @@ pub use footer::footer;
 pub use home::{Livery, Way, band, panel, panel_width, panelled, screen, unplated, ways, ways_in};
 pub use home::{swatch as livery_swatch, ways_width};
 pub use knob::{Knob, knob};
-pub use lcd::{Band, Ink, PITCH, Screen, Size, lcd, stencil, swatch};
+pub use lcd::{Band, Ink, PITCH, PROSE, RATE, Screen, Size, lcd, stencil, swatch};
 pub use logo::logo;
 pub use mapping::{Mapper, Mapping, Reach};
 pub use modal::{margins, modal, page, sheet};
@@ -218,9 +218,9 @@ pub use panel::{Message, group};
 pub use patch::Patch;
 pub use section::{name as section_name, sections};
 pub use style::{
-    Materials, READABLE, bay, chrome, contrast, deepmind, ground, ink_on, is_negative, legible,
-    lifted, marked, materials, mix, negative, printed, reading, selector, shortlist, tint, unlit,
-    written,
+    MODULATION, Materials, PLAIN, READABLE, WAY_IN, bay, chrome, contrast, deepmind, field, ground,
+    ink_on, is_negative, legible, lifted, marked, materials, mix, negative, printed, reading,
+    selector, shortlist, tint, unlit, written,
 };
 
 /// A piece of interface, produced by the views in this crate.

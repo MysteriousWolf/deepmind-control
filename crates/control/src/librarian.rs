@@ -14,115 +14,119 @@
 //! because it is the same crate; this is the part that is not.
 
 use control_ui::materials;
-use deepmind_midi::ids::{BANK_COUNT, Bank};
-use iced::alignment::{Horizontal, Vertical};
-use iced::widget::{button, column, container, progress_bar, row, scrollable, space, text};
-use iced::{Background, Center, Element, Fill, Length, Padding, Theme, border};
+use iced::widget::{column, progress_bar, row, space, text};
+use iced::{Center, Element, Fill, Length, Theme};
 
 use crate::app::{App, Message};
-use crate::shelf::{Held, Shelf};
+use crate::shelf::Shelf;
 
-/// Width of one program on the shelf.
+/// The whole librarian: every sound, and the sheet that describes one of them.
 ///
-/// A name is sixteen characters and a slot is four, so this is the two of them
-/// side by side with room to breathe. Narrow enough that a window at its opening
-/// width shows four across, which puts a whole bank in eight screenfuls rather
-/// than in a column somebody scrolls through twice.
-const CARD: f32 = 190.0;
-
-/// Room kept clear down the right for the scroll bar.
-///
-/// A shelf that ran under its own scroll bar would be a shelf whose last column
-/// is a column somebody has to guess at.
-const GUTTER: f32 = 16.0;
-
-/// The whole librarian.
+/// **One list.** Where a sound lives is a column — see [`crate::sounds`] — and
+/// describing one to share it is a sheet over that list rather than a second
+/// list beside it: sharing is done *to one sound*, so it belongs where the
+/// sound is. It was a tab, and a tab meant leaving the table to describe a row
+/// and having no way, once there, to tell which row was being described.
 pub fn view(app: &App) -> Element<'_, Message> {
-    let shelf = app.shelf();
-    column![
-        actions(app),
-        banks(app.bank(), app.is_connected()),
-        standing(shelf),
-    ]
-    .extend(progress(shelf))
-    .push(programs(shelf))
-    .spacing(12)
-    .padding([0, 12])
-    .into()
+    let under = column![chrome(app)]
+        .push(
+            column([])
+                .extend(progress(app.shelf()))
+                .push(crate::sounds::view(app))
+                .spacing(10),
+        )
+        .spacing(12)
+        .padding([0, 12]);
+    if app.sharing().is_none() {
+        return under.into();
+    }
+    control_ui::modal(under, crate::sharing::sheet(app), Message::CloseSharing)
 }
 
-/// A button that is not a parameter, in the instrument's own materials.
+/// The one line above the table: three groups of presses, spread across it.
 ///
-/// The window's own, so that the two surfaces press the same button.
-fn chrome(label: &str) -> button::Button<'_, Message, Theme, iced::Renderer> {
-    button(text(label).size(13))
-        .padding([5, 12])
-        .style(control_ui::chrome)
-}
-
-/// What can be done to a shelf, and to the sound beside it.
-fn actions(app: &App) -> Element<'_, Message> {
-    let shelf = app.shelf();
-    let reading = shelf.transfer().is_some();
+/// **Grouped by what they act on, and the group says so.** They were two rows
+/// pushed to the far edges with a gap between — the width of two columns of
+/// nothing across the middle of the window — and the reason was that nothing
+/// said what belonged with what, so the only arrangement available was *left*
+/// and *right*. Naming the three things this window deals with, and putting
+/// each group's presses under its name, both fills the row and answers the
+/// question the gap was hiding: which of these does what to which.
+///
+/// The three are the whole of it. A sound is the row somebody chose; the shelf
+/// is what this machine is holding; the library is what other people have
+/// published. Every press here moves something between two of them.
+fn chrome(app: &App) -> Element<'_, Message> {
     row![
-        chrome("Open\u{2026}").on_press(Message::Open),
-        chrome("Save the sound\u{2026}")
-            .on_press_maybe(app.patch().is_known().then_some(Message::SavePatch)),
-        chrome("Save the shelf\u{2026}")
-            .on_press_maybe((!shelf.is_empty()).then_some(Message::SavePack)),
+        group("THIS SOUND", crate::sounds::toolbar(app)),
         space().width(Fill),
-        chrome("Stop").on_press_maybe(reading.then_some(Message::Cancel)),
+        group("SHELF", shelf_presses(app)),
+        space().width(Fill),
+        group("LIBRARY", crate::sounds::library(app.catalogue())),
     ]
-    .spacing(10)
+    .spacing(12)
     .align_y(Center)
     .into()
 }
 
-/// The eight banks, and the one a read would read.
-fn banks<'a>(chosen: Bank, open: bool) -> Element<'a, Message> {
-    let letters = (0..BANK_COUNT).filter_map(|index| Bank::new(index).ok());
-    let tabs = letters.map(|bank| {
-        let pressed = bank == chosen;
-        button(text(bank.letter()).size(12))
-            .padding([4, 10])
-            .style(move |theme: &Theme, _status| pressed_like(theme, pressed))
-            .on_press(Message::ChooseBank(bank))
-            .into()
-    });
-    row![text("Bank").size(13)]
-        .extend(tabs)
-        .push(chrome("Read it onto the shelf").on_press_maybe(open.then_some(Message::ReadBank)))
-        .spacing(6)
-        .align_y(Center)
-        .into()
+/// A named group of presses.
+///
+/// The name is printed in the ink a legend is, small and upright, so it reads
+/// as the label on a panel rather than as another press. It stands to the left
+/// of what it names rather than above it, because above would make this line
+/// two lines tall and the line is what the gap was spent on.
+fn group<'a>(name: &'a str, presses: Element<'a, Message>) -> Element<'a, Message> {
+    row![
+        text(name).size(9).style(|theme: &Theme| text::Style {
+            color: Some(materials(theme).metal_low),
+        }),
+        presses,
+    ]
+    .spacing(8)
+    .align_y(Center)
+    .into()
 }
 
-/// Where what is on the shelf came from, in words.
+/// What fills this machine's shelf, and what empties it.
 ///
-/// The one thing a librarian must never be vague about. A pack read off a
-/// synthesizer and a pack read off a disk look identical on the screen and are
-/// not the same claim, and which one somebody is about to write over the other
-/// with depends entirely on knowing which is which.
-fn standing(shelf: &Shelf) -> Element<'_, Message> {
-    let held = shelf.held().len();
-    let sound = if held == 1 { "program" } else { "programs" };
-    let where_from = match shelf.source() {
-        Some(source) => format!("{held} {sound} \u{00b7} {source}"),
-        None => "Nothing on the shelf. Open a `.syx` file, or read a bank off the synthesizer."
-            .to_owned(),
-    };
-    let unreadable = (shelf.skipped() > 0).then(|| {
-        text(format!(
-            "{} frame(s) in that file could not be read, and were skipped rather than losing the \
-             rest.",
-            shelf.skipped()
-        ))
-        .size(12)
-    });
-    column![text(where_from).size(13)]
-        .extend(unreadable.map(Element::from))
-        .spacing(4)
-        .into()
+/// Three, and each one names the other end: a shelf is filled from the
+/// synthesizer or from a file and emptied into a file, so `Read synth`,
+/// `Open file\u{2026}` and `Save shelf\u{2026}` say the whole of what they do
+/// without the group's name having to be read twice.
+fn shelf_presses(app: &App) -> Element<'_, Message> {
+    let shelf = app.shelf();
+    let reading = shelf.transfer().is_some();
+    row![
+        crate::sounds::press(
+            "Read synth",
+            app.is_connected().then_some(Message::ReadAll),
+            "Read every bank off the synthesizer onto this machine's shelf. About a \
+             minute and a half.",
+        ),
+        crate::sounds::press(
+            "Open file\u{2026}",
+            Some(Message::Open),
+            "Open a `.syx` file and put what it holds on the shelf.",
+        ),
+        crate::sounds::press(
+            "Save shelf\u{2026}",
+            (!shelf.is_empty()).then_some(Message::SavePack),
+            "Write the whole shelf out as one `.syx` pack.",
+        ),
+    ]
+    // Nothing to stop until something is going. A press that spends every
+    // moment but ninety seconds greyed out is a press that teaches somebody
+    // this line is mostly dead, and this one has a transfer to belong to.
+    .extend(reading.then(|| {
+        crate::sounds::press(
+            "Stop",
+            Some(Message::Cancel),
+            "Stop the read that is going out now.",
+        )
+    }))
+    .spacing(2)
+    .align_y(Center)
+    .into()
 }
 
 /// How far a bank read has got, while one is going.
@@ -143,59 +147,4 @@ fn progress(shelf: &Shelf) -> Option<Element<'_, Message>> {
         .spacing(4)
         .into(),
     )
-}
-
-/// Everything on the shelf, in the order it is held.
-fn programs(shelf: &Shelf) -> Element<'_, Message> {
-    let cards = shelf
-        .held()
-        .iter()
-        .enumerate()
-        .map(|(index, held)| card(index, held, shelf.loaded() == Some(index)));
-    scrollable(container(row(cards).spacing(6).wrap()).padding(Padding::ZERO.right(GUTTER)))
-        .height(Fill)
-        .into()
-}
-
-/// One program: where it lives, and what it is called.
-fn card(index: usize, held: &Held, loaded: bool) -> Element<'_, Message> {
-    let face = row![
-        container(text(held.address()).size(12))
-            .width(Length::Fixed(38.0))
-            .align_x(Horizontal::Right),
-        text(held.name()).size(13),
-    ]
-    .spacing(8)
-    .align_y(Vertical::Center);
-    button(face)
-        .width(Length::Fixed(CARD))
-        .padding([6, 8])
-        .style(move |theme: &Theme, _status| pressed_like(theme, loaded))
-        .on_press(Message::Load(index))
-        .into()
-}
-
-/// The style a chosen thing is drawn in, which is the surface switch's.
-///
-/// Not a colour of its own: the thing that has been pressed is the face plate a
-/// rack sits on, and everything else is the panel it is cut into. It is the same
-/// trick the instrument plays with a lit section button, and the librarian
-/// borrows it so that one window has one idea of what "this one" looks like.
-fn pressed_like(theme: &Theme, pressed: bool) -> button::Style {
-    let material = materials(theme);
-    let palette = theme.extended_palette();
-    button::Style {
-        background: Some(Background::Color(if pressed {
-            material.plate
-        } else {
-            material.panel
-        })),
-        text_color: palette.background.base.text,
-        border: border::rounded(3).width(1.0).color(if pressed {
-            material.lit
-        } else {
-            material.recess_edge
-        }),
-        ..button::Style::default()
-    }
 }

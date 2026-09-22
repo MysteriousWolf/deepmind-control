@@ -42,7 +42,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use deepmind_host::{Options, Pack, PortRef, open_simulator_holding};
-use deepmind_midi::ids::ProtocolVersion;
+use deepmind_midi::ids::{Bank, DeviceId, ProgramNumber, ProtocolVersion};
 use deepmind_midi::param::{Group, ParamId};
 use deepmind_midi::program::{Program, ProgramName};
 use iced::window::Screenshot;
@@ -228,6 +228,18 @@ impl Session {
         let mut app = App::new();
         let (link, _panel) = open_simulator_holding(Pack::empty(), sound(seed), Options::default());
         app.attach(PortRef::simulator(), link);
+        app.hold(SHELF, &pack(seed));
+        // And the shared library, where this machine has a checkout of it. The
+        // table's whole subject is every sound *wherever it is*, so a picture
+        // taken with nothing but a shelf in it is a picture of a third of the
+        // columns: no maker, no vocabulary, no version. It is read from the
+        // environment rather than downloaded, because a picture that needs the
+        // network is a picture that cannot be taken twice the same.
+        if let Ok(root) = std::env::var("PATCHES_CHECKOUT")
+            && let Err(trouble) = app.read_patches(std::path::Path::new(&root))
+        {
+            eprintln!("previews: {root} is not a patch library: {trouble}");
+        }
         Self {
             app,
             pages,
@@ -335,6 +347,48 @@ impl Session {
         self.pose();
         Task::none()
     }
+}
+
+/// What the pack in the picture of the librarian is called.
+const SHELF: &str = "previews.syx";
+
+/// How many programs are on it.
+///
+/// Enough to fill the grid several rows deep at the window's opening size, so
+/// that the picture shows a shelf being read rather than a shelf with a row on
+/// it. Not 128: a picture of the librarian should show the surface, and three
+/// screenfuls of it below the fold are three screenfuls nobody can see in a
+/// screenshot.
+const SHELVED: usize = 32;
+
+/// Builds the pack the librarian is photographed holding, from `seed`.
+///
+/// The same sounds the unit powers up holding, one per slot, numbered rather
+/// than named: every other value in them is drawn from the seed, the category
+/// among them, so the picture shows what the shelf actually draws — the slot as
+/// the front panel writes it, the name, and what each program calls itself —
+/// without this file inventing a pack of preset names that do not exist.
+///
+/// Written as bank A, because a pack is what a bank dump is and the addresses
+/// down the side of the picture should be ones somebody could go and look at on
+/// an instrument.
+fn pack(seed: u64) -> Vec<u8> {
+    let programs: Vec<Program> = (0..SHELVED)
+        .map(|index| {
+            let mut program = sound(seed.wrapping_add(index as u64).wrapping_add(1));
+            if let Ok(name) = ProgramName::new(&format!("Preview {}", index + 1)) {
+                program.set_name(name);
+            }
+            program
+        })
+        .collect();
+    deepmind_midi::syx::bank_to_vec(
+        DeviceId::Broadcast,
+        Bank::A,
+        ProgramNumber::FIRST,
+        &programs,
+    )
+    .unwrap_or_default()
 }
 
 /// Builds the sound the simulated unit powers up holding, from `seed`.

@@ -146,7 +146,22 @@ const SURROUND: f32 = BEZEL + MARGIN;
 /// Eight, which at this pitch is twenty points a second: slow enough to read a
 /// ten-character name without chasing it and fast enough that a name arrives
 /// rather than creeps.
-const RATE: f32 = 8.0;
+///
+/// Published with [`PROSE`] because [`Screen::marquee_at`] takes one of the two
+/// and a caller that cannot name either is a caller writing down a number this
+/// window has already decided.
+pub const RATE: f32 = 8.0;
+
+/// How fast a line of prose too long for its field travels, in dots a second.
+///
+/// Thirty, which is nearly four times [`RATE`] and is the difference between a
+/// label and a ticker. A ten-character name creeping past at twenty points a
+/// second is a name a reader waits two seconds for; a sentence of a hundred and
+/// forty characters at the same pace is a minute of waiting, and nobody points
+/// at a control for a minute. This is seventy-five points a second, which is
+/// the pace a line of words is read at rather than the pace a label is noticed
+/// at.
+pub const PROSE: f32 = 30.0;
 
 /// How long a scrolling field holds still at each end of its travel, in
 /// seconds.
@@ -552,6 +567,18 @@ impl Screen {
     /// not a fact about the sound. Every field in the window travels together
     /// on it, and it advances with the window's own redraws.
     pub fn marquee(&mut self, x: i32, y: i32, across: i32, words: &str, size: Size) {
+        self.marquee_at(x, y, across, words, size, RATE);
+    }
+
+    /// The same field, travelling at `rate` dots a second.
+    ///
+    /// The one thing about a scrolling field that is not the same everywhere.
+    /// How far a field has got is a clock this module keeps and every field in
+    /// the window is on it, but how fast it goes is a fact about what is
+    /// written in it: [`RATE`] is a label being noticed and [`PROSE`] is a
+    /// sentence being read, and a sentence at a label's pace is a minute of
+    /// waiting for the end of it.
+    pub fn marquee_at(&mut self, x: i32, y: i32, across: i32, words: &str, size: Size, rate: f32) {
         let width = Self::width_of(words, size);
         let over = width - across;
         if over <= 0 {
@@ -562,11 +589,12 @@ impl Screen {
             clippy::cast_possible_truncation,
             reason = "a count of dots the field holds still for"
         )]
-        let hold = (RATE * HOLD) as i32;
-        let gone = Self::crawl(over + hold * 2);
+        let hold = (rate * HOLD) as i32;
+        let gone = Self::crawl(over + hold * 2, rate);
         let by = (gone - hold).clamp(0, over);
         self.written(x - by, y, words, size, Some((x, across)));
     }
+
     /// How far a scrolling field has got round its lap, in dots.
     ///
     /// Off a clock this module starts the first time anything asks, which is
@@ -578,7 +606,7 @@ impl Screen {
     /// open, and not at all while the application is idle. A window with
     /// nothing to hear is a window with nothing to say, and a still label on
     /// one is not a label that has stopped working.
-    fn crawl(lap: i32) -> i32 {
+    fn crawl(lap: i32, rate: f32) -> i32 {
         static STARTED: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
         let seconds = STARTED
             .get_or_init(std::time::Instant::now)
@@ -588,7 +616,7 @@ impl Screen {
             clippy::cast_possible_truncation,
             reason = "dots since the window opened, taken back round the lap"
         )]
-        let gone = (seconds * RATE) as i32;
+        let gone = (seconds * rate) as i32;
         gone.rem_euclid(lap.max(1))
     }
 
@@ -946,94 +974,202 @@ where
         _viewport: &Rectangle,
     ) {
         let bounds = layout.bounds();
-        let mut material = materials(theme);
-        if let Some(negative) = self.polarity {
-            let (glass, glass_low, ink) = glazing(negative);
-            material.glass = glass;
-            material.glass_low = glass_low;
-            material.ink = ink;
-        }
-
-        // The glass: the lit panel, brightest where the light enters it and
-        // falling away across it, inside the dark bezel it is set into. It is
-        // the one surface in this window that is brighter than the panel around
-        // it, which is what a backlit display looks like on a dark instrument.
-        // The moulding the glass is let into. Dark, with a hairline of the
-        // panel's own metal along it: a screen on a piece of equipment sits in
-        // a surround, and the surround is the part that catches the light in
-        // the room rather than the light behind the panel.
-        renderer.fill_quad(
-            renderer::Quad {
-                bounds,
-                border: Border {
-                    color: material.lit,
-                    width: 1.0,
-                    radius: 3.into(),
-                },
-                ..renderer::Quad::default()
-            },
-            Background::Color(material.recess),
-        );
-        let glass = Rectangle {
-            x: bounds.x + BEZEL,
-            y: bounds.y + BEZEL,
-            width: (bounds.width - BEZEL * 2.0).max(0.0),
-            height: (bounds.height - BEZEL * 2.0).max(0.0),
-        };
-        renderer.fill_quad(
-            renderer::Quad {
-                bounds: glass,
-                border: Border::default().rounded(1.0),
-                ..renderer::Quad::default()
-            },
-            Background::Gradient(Gradient::Linear(
-                Linear::new(Radians(std::f32::consts::PI))
-                    .add_stop(0.0, material.glass)
-                    .add_stop(1.0, material.glass_low),
-            )),
-        );
-        // What the surround does to the glass under it: a line of its own shadow
-        // across the top, and its own lit lower edge coming back off the foot.
-        // Both land in the dead border rather than over any dot, which is what
-        // the dead border is for.
-        renderer.fill_quad(
-            renderer::Quad {
-                bounds: Rectangle {
-                    height: MARGIN,
-                    ..glass
-                },
-                ..renderer::Quad::default()
-            },
-            Background::Color(Color {
-                a: CAST,
-                ..material.recess
-            }),
-        );
-        renderer.fill_quad(
-            renderer::Quad {
-                bounds: Rectangle {
-                    y: glass.y + glass.height - MARGIN,
-                    height: MARGIN,
-                    ..glass
-                },
-                ..renderer::Quad::default()
-            },
-            Background::Color(Color {
-                a: CATCH,
-                ..material.metal_high
-            }),
-        );
-
-        // The ink is the claim's, which is the theme's answer, except on the
-        // press that turns the displays over, where the whole point is that the
-        // glass is the other one and the ink has to be the other one with it.
-        let ink = match self.polarity {
-            Some(_) => material.ink,
-            None => written(theme, self.claim),
-        };
+        let ink = glaze(renderer, theme, bounds, self.claim, self.polarity);
         print_dots(
             renderer,
             &self.screen,
+            bounds.x + SURROUND,
+            bounds.y + SURROUND,
+            ink,
+        );
+    }
+}
+
+/// Draws the glass, the moulding it is set into and the light on both, and
+/// returns the ink to print on it.
+///
+/// Every screen in this window is this surface: what changes between them is
+/// how many dots are on it and what wrote them. It is apart from the widget for
+/// [`strip`]'s sake, which is the one display here that does not know how wide
+/// it is until it is being drawn.
+fn glaze<Renderer>(
+    renderer: &mut Renderer,
+    theme: &Theme,
+    bounds: Rectangle,
+    claim: Confidence,
+    polarity: Option<bool>,
+) -> Color
+where
+    Renderer: iced_core::Renderer,
+{
+    let mut material = materials(theme);
+    if let Some(negative) = polarity {
+        let (glass, glass_low, ink) = glazing(negative);
+        material.glass = glass;
+        material.glass_low = glass_low;
+        material.ink = ink;
+    }
+
+    // The glass: the lit panel, brightest where the light enters it and falling
+    // away across it, inside the dark bezel it is set into. It is the one
+    // surface in this window that is brighter than the panel around it, which
+    // is what a backlit display looks like on a dark instrument.
+    //
+    // The moulding the glass is let into is dark, with a hairline of the
+    // panel's own metal along it: a screen on a piece of equipment sits in a
+    // surround, and the surround is the part that catches the light in the room
+    // rather than the light behind the panel.
+    renderer.fill_quad(
+        renderer::Quad {
+            bounds,
+            border: Border {
+                color: material.lit,
+                width: 1.0,
+                radius: 3.into(),
+            },
+            ..renderer::Quad::default()
+        },
+        Background::Color(material.recess),
+    );
+    let glass = Rectangle {
+        x: bounds.x + BEZEL,
+        y: bounds.y + BEZEL,
+        width: (bounds.width - BEZEL * 2.0).max(0.0),
+        height: (bounds.height - BEZEL * 2.0).max(0.0),
+    };
+    renderer.fill_quad(
+        renderer::Quad {
+            bounds: glass,
+            border: Border::default().rounded(1.0),
+            ..renderer::Quad::default()
+        },
+        Background::Gradient(Gradient::Linear(
+            Linear::new(Radians(std::f32::consts::PI))
+                .add_stop(0.0, material.glass)
+                .add_stop(1.0, material.glass_low),
+        )),
+    );
+    // What the surround does to the glass under it: a line of its own shadow
+    // across the top, and its own lit lower edge coming back off the foot. Both
+    // land in the dead border rather than over any dot, which is what the dead
+    // border is for.
+    renderer.fill_quad(
+        renderer::Quad {
+            bounds: Rectangle {
+                height: MARGIN,
+                ..glass
+            },
+            ..renderer::Quad::default()
+        },
+        Background::Color(Color {
+            a: CAST,
+            ..material.recess
+        }),
+    );
+    renderer.fill_quad(
+        renderer::Quad {
+            bounds: Rectangle {
+                y: glass.y + glass.height - MARGIN,
+                height: MARGIN,
+                ..glass
+            },
+            ..renderer::Quad::default()
+        },
+        Background::Color(Color {
+            a: CATCH,
+            ..material.metal_high
+        }),
+    );
+
+    // The ink is the claim's, which is the theme's answer, except on the press
+    // that turns the displays over, where the whole point is that the glass is
+    // the other one and the ink has to be the other one with it.
+    match polarity {
+        Some(_) => material.ink,
+        None => written(theme, claim),
+    }
+}
+
+/// Draws a display as wide as whatever it is given, written when it is drawn.
+///
+/// Every other screen in this window is built and then placed: a plate knows
+/// how wide it stands, asks [`fits`] how many dots that is, writes them, and
+/// hands over a [`Screen`] with a size of its own. A strip along the foot of a
+/// window has no such number. It is as wide as the window is, the window is as
+/// wide as somebody dragged it, and a screen cut to a width written down here
+/// would be a screen that stopped at the same place on every monitor.
+///
+/// So `line` is asked for the dots at the moment they are drawn, with a screen
+/// already cut to the room the layout gave it. That is also what lets the one
+/// line on it travel: a field that scrolls has to know how much of it does not
+/// fit, and how much does not fit is not known until the window has a width.
+#[must_use]
+pub fn strip<'a, Renderer, Line>(
+    rows: i32,
+    claim: Confidence,
+    line: Line,
+) -> crate::Element<'a, Renderer>
+where
+    Renderer: iced_core::Renderer + 'a,
+    Line: Fn(&mut Screen) + 'a,
+{
+    Element::new(Strip { rows, claim, line })
+}
+
+/// Glass with a width it is told rather than one it knows.
+#[derive(Debug)]
+struct Strip<Line> {
+    rows: i32,
+    claim: Confidence,
+    line: Line,
+}
+
+impl<Line> Strip<Line> {
+    /// How much room it takes: all of the width, and the depth of its rows.
+    fn area(&self) -> Area<Length> {
+        Area::new(
+            Length::Fill,
+            Length::Fixed(points(self.rows) * PITCH + SURROUND * 2.0),
+        )
+    }
+}
+
+impl<Message, Renderer, Line> Widget<Message, Theme, Renderer> for Strip<Line>
+where
+    Renderer: iced_core::Renderer,
+    Line: Fn(&mut Screen),
+{
+    fn size(&self) -> Area<Length> {
+        self.area()
+    }
+
+    fn layout(
+        &mut self,
+        _tree: &mut Tree,
+        _renderer: &Renderer,
+        limits: &layout::Limits,
+    ) -> layout::Node {
+        let area = self.area();
+        layout::atomic(limits, area.width, area.height)
+    }
+
+    fn draw(
+        &self,
+        _tree: &Tree,
+        renderer: &mut Renderer,
+        theme: &Theme,
+        _style: &renderer::Style,
+        layout: Layout<'_>,
+        _cursor: mouse::Cursor,
+        _viewport: &Rectangle,
+    ) {
+        let bounds = layout.bounds();
+        let ink = glaze(renderer, theme, bounds, self.claim, None);
+        let mut screen = Screen::new(fits(bounds.width), self.rows);
+        (self.line)(&mut screen);
+        print_dots(
+            renderer,
+            &screen,
             bounds.x + SURROUND,
             bounds.y + SURROUND,
             ink,

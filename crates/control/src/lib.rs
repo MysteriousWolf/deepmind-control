@@ -39,7 +39,25 @@
 //! librarian operations are desktop only; the editing surface is the crate both
 //! builds share.
 //!
-//! There is no third. One of the fourteen sections is what an `EDIT` press
+//! # And a shelf somebody else filled
+//!
+//! [`catalogue`] is the librarian's second shelf, and it is a surface now:
+//! [`deepmind-patches`](https://github.com/MysteriousWolf/deepmind-patches) is
+//! a real repository, one `.syx` and one `.toml` per sound, published as a
+//! release on every merge. It is reached either by `git clone` and a folder
+//! dialog or by fetching the newest release on a thread, and pressing anything
+//! on it puts that sound on the same [`Shelf`] every other route already fills.
+//! Describing one to share it is a sheet over the table, on the row somebody
+//! chose, rather than a second list beside it.
+//!
+//! Almost none of the format is read here. The library publishes the
+//! `deepmind-patches` crate, which is the same split `deepmind-midi` is on the
+//! protocol's side, and this application links it rather than keeping a reader
+//! of its own. See [the plan](../../../docs/presets.md) for the reasoning and
+//! [the specification](../../../docs/patches-repo.md) for what the repository
+//! is.
+//!
+//! There is no third surface. One of the fourteen sections is what an `EDIT` press
 //! opens, and it opens *over* the panel rather than instead of it: a sheet with
 //! the instrument still underneath, which is what the hardware does when a
 //! section button is pressed and its own front stays where it is. Which one is
@@ -47,13 +65,18 @@
 //! the window around it all put it away.
 
 mod app;
+mod audio;
+pub mod catalogue;
 mod files;
 mod librarian;
 #[cfg(feature = "previews")]
 pub mod preview;
+mod publish;
+mod sharing;
 mod shelf;
+mod sounds;
 mod window;
 
-pub use app::{App, Message, View};
-pub use shelf::{Held, Shelf, Source, Transfer, patch_to_syx};
+pub use app::{App, Message, Publishing, View};
+pub use shelf::{Held, ORDERS, Order, Shelf, Source, Transfer, patch_to_syx};
 pub use window::run;

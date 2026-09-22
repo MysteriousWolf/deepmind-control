@@ -494,15 +494,153 @@ There were three surfaces once, and the middle one held whichever section was
 open. It is gone with the tab bar: a section is not a third thing this
 application is.
 
-**The shelf is a grid and not a list.** A pack is 128 programs, and the one
-thing this surface can offer that the instrument's two-line display cannot is
-all of them at once: four across at the window's opening width, in slot order,
-with the slot written the way the front panel writes it and the name beside it.
-A column of 128 rows would show a quarter as much.
+**Where a sound is, is a column.** On the synthesizer, on this machine, or in
+the sounds other people have published —
+[`deepmind-patches`](https://github.com/MysteriousWolf/deepmind-patches), one
+`.syx` and one `.toml` per sound, released on every merge. One list with a
+column, and not a tab or a switch per place.
 
-**A program is drawn as a chosen thing among unchosen ones**: the one that has
-been pressed is the face plate a rack sits on, lit along its edge, and the rest
-are the panel they are cut into.
+It was a switch, and the reason it is not is worth writing down: they were
+lists of the same kind of thing, so somebody looking for a pad looked three
+times, and nothing could tell them that the pad on their shelf and the pad in
+the library were *the same sound*. A column says both at once, and the search
+and the filters run over all of it rather than over whichever third was
+showing.
+
+They are one list because the third place's answer *becomes* the second's:
+`Copy here` puts a shared patch on the shelf every other route already fills,
+where loading, saving and reading a bank already work. A catalogue is a shelf
+somebody else filled, not a third place to be.
+
+**One verb set, offered in two places and decided in one.** Play, edit, copy
+here, store, share, export, update: a toolbar along the top and a menu opened
+by a right-press on a row. Both read one rule for whether a verb applies, so a
+menu that offered what the toolbar refused is not something that can be
+written. `Store…` is drawn and greyed, because the protocol call it needs is
+[not published yet](waiting.md) and a verb left off a list reads as one nobody
+thought of.
+
+**The chrome is three named groups, and it carries no marks.** Three things
+this window moves a sound between — the sound in hand, this machine's shelf,
+the shared library — and every press belongs to one of them, under its name:
+
+| `THIS SOUND` | `Load` · `Copy` · `Write…` · `Save file…` |
+| --- | --- |
+| `SHELF` | `Read synth` · `Open file…` · `Save shelf…` |
+| `LIBRARY` | `Fetch newest` · `Open folder…` · `Copy all` |
+
+It was two rows pushed to the far edges of the window with the width of two
+columns of nothing across the middle, and the gap was a symptom: nothing said
+what belonged with what, so the only arrangement available was *left* and
+*right*. Naming the three both fills the row and answers the question the gap
+was hiding — which of these does what to which.
+
+**The marks came off, and that is a retraction.** Every one of these presses
+carried a nine-dot drawing. They were tried three ways: mark alone with the
+word in the footer, mark with the word beside it, mark with the word under it.
+The third read well enough to ship and was still wrong, for a reason the first
+two hid.
+
+There are three places a sound can go, so a direction between two of them is an
+arrow — and once every mark was an arrow, `Copy` and `Fetch newest` were both a
+triangle pointing down, `Write…` and `Open file…` were both one pointing up.
+The words underneath were doing every bit of the telling apart. A mark that
+needs its word to be read is not a mark; it is decoration with a caption, and
+it costs the height of a second line and the width of a column.
+
+What replaced it is the grouping above, which is what the marks were failing to
+do. The marks that stayed are the ones that stand alone and say something a
+word would say worse: the sort caret on a heading, the `▶` on a recording,
+the fourteen the front panel is drawn from, and the four along the window's own
+header.
+
+**Three verbs on the bar, six in the menu.** Only the ones that move a sound
+earn the width along the top — `Load`, `Copy`, `Write…` — because the rest
+are rare (`Export…`), already a press somewhere else (`Update` *is* the
+version cell), or nearly what pressing the row does already (`Edit` is `Load`
+and then the front panel). The right-press menu carries all six, always.
+
+`Save file…` stands with them and is not one of them. The six act on the row
+somebody chose; that one writes what is on the *screen*, edits and all, which
+is the same sound as the chosen row right up until a knob is turned.
+
+**The shared shelf draws the library's own pictures.** Every patch carries a 7x7
+one-bit icon and so does every category, drawn once in the repository and
+shipped in its index. They arrive as the same `Pixels` this window already blits
+a glyph and a modulation cell from, so a patch's picture is on the instrument's
+own dots at the instrument's own pitch. An author who draws one gets it drawn;
+an author who does not gets their category's. Nothing about a shared sound is
+invented here, which is the same rule the panel is under.
+
+**Almost none of the format is read here either.** The library publishes the
+`deepmind-patches` crate — the same split `deepmind-midi` is on the protocol's
+side — so this application links a reader rather than keeping one. What is left
+in `catalogue.rs` is where a catalogue is cached, how it is fetched without
+dropping a frame, and what a search field asks of it.
+
+**A patch's icon is a tile, not bare dots.** The library draws every patch and
+every category a seven-by-seven one-bit picture, which at this window's pitch
+is seventeen points: drawn as dots on the panel, lifted a little off the metal,
+forty-nine of them down a list read as specks. So each one stands on a tile
+tinted in its category's colour, at the chip's own weight, with the dots inked
+in whatever is legible *against that tint* rather than against the panel. It is
+the ground that makes a seven-dot drawing a picture. It also does what the icon
+was for: two rows of the same category share a colour somebody sees before
+reading either name.
+
+**A slot is printed, not displayed.** A bank letter and a program number are
+what the instrument's own screen shows, so they are written in its characters
+— the display's five-by-seven cell, at the pitch every other drawing here
+shares. They are stencilled on the panel rather than lit on glass, which they
+were at first: a display is a thing that *shows* something changing, and a slot
+in a list is a thing that is written, like the number on the case of a rack
+unit. Sixty lit rectangles down a list is sixty backgrounds competing with the
+rows they are in.
+
+**There is one bank filter, and it is in the column called `BANK`.** Reading a
+bank off the instrument used to be a row of eight lettered chips above the
+table, drawn with the same press the `BANK` column's own filter is. Two bank
+choosers that looked identical and did different things — one asks the
+synthesizer for a bank, the other hides rows — is not something anybody can be
+expected to tell apart by where it sits. The eight are a picker on the press
+that uses them now, and the press says `Read bank`.
+
+**The heading is two rows: one that sorts, one that narrows.** It was a single
+row of choosers standing in for the headings, and three things were wrong with
+it at once — a column's name vanished the moment somebody filtered it, three
+columns could be narrowed and five could not, and nothing told you which was
+which until you tried. Two rows is what a table with filters has always looked
+like. The names stay names and are the presses that sort, with the caret inked
+only on the column the table is under; under each name is what narrows that
+column.
+
+**Every column sorts and every column narrows.** A column whose values are a
+known set — where, bank, category, whether a version is behind — gets a
+chooser; a column whose values are open — a name, a maker, a term, a sentence
+— gets a field to type in, because a picker listing every maker in a library
+is a list nobody can use. Both write the same thing, the text a cell has to
+carry, so the table answers one question however it was asked, and each column
+sorts by the same answer it narrows by rather than by a second one that can
+disagree with it.
+
+Which replaced five fields of five types with one map from column to text. The
+old `Looking` had an `Option<Category>`, an `Option<Bank>`, an `Option<Where>`
+and a `Vec` of vocabulary terms, each with its own message, its own arm and its
+own way of being cleared — and a column added later needed a sixth of each.
+
+**The shelf is a table.** It was a grid of cards, four across, and a card can
+carry a name, a slot and a category and nothing else. What a shared library
+knows about a sound is a maker, a sentence, a vocabulary, a version and a
+drawing, and those are columns: a table can be sorted by any of them and
+narrowed from any of their headings, and a wall of cards can be sorted by
+whichever one somebody wrote the sort for.
+
+**A program is drawn as a chosen thing among unchosen ones**: the row that has
+been pressed is lit along its edge, and the rest are the panel it is cut into.
+Pressing one chooses it *and* plays it, because playing costs nothing — the
+edit buffer is the sound in front of somebody rather than one of the
+instrument's 1024 — so choosing without hearing would be two presses for the
+one thing everybody came to a list of sounds to do.
 
 **A slot that names nothing is drawn as naming nothing.** A stored dump carries
 its bank and program; an edit buffer dump carries neither, because the edit
@@ -514,6 +652,34 @@ this application saved reads back in.
 host sends the difference, and nothing has heard the instrument play any of it.
 Reading the edit buffer back is what turns the panel green, exactly as after a
 fader is dragged.
+
+**A wall of 128 names is a wall.** Showing all of them at once is what this
+surface is for and it stops being an advantage at the moment somebody is looking
+for one, so there is a field to type into and three ways round to read what is
+left. The field is one field and asks one question of everything a shelf knows
+about a sound without opening it: its name, the slot it names, and the category
+it calls itself. Typing `a12` finds `A12` and `A120` through `A128`; typing
+`pad` finds every pad by name and every program whose category is `Pad`, which
+are two questions with one answer somebody is happy with.
+
+**Neither of them moves anything on the shelf.** A save writes the pack that was
+opened, in its own order, whatever the screen is sorted by or searched for: a
+librarian that wrote out the screen would turn a search into a deletion, and a
+pack written in alphabetical order is a pack that loads into the wrong slots. So
+each row carries the place its program holds on the shelf, and a load names that
+rather than the row it was pressed on.
+
+**The count says both numbers.** `12 of 128 programs · factory.syx` while a
+search is narrowing it, and the plain count when nothing is. A librarian whose
+own count changed as somebody typed would be a librarian that had lost track of
+what it is holding.
+
+**A category is on the card, under the name, in the ink a legend is printed in.**
+It is what the shelf can be sorted and searched by, so it has to be on the card
+the sort moved; it is not what the sound is called, so it is not beside the
+name. The word is the library's own table read for the firmware that answered,
+and a program sitting on a value no table names has no category rather than an
+invented one.
 
 ## Confidence is a fill, not a colour
 
@@ -715,21 +881,49 @@ them is: `KYBD` is `VCF Keyboard Tracking`, it takes `0` to `255`, and
 controller 74 drives it. None of that fits over a lane and all of it fits along
 the bottom of a window.
 
+**It is a display.** It was a row of set type in a box: three faces, three inks
+and a sentence that wrapped, along the foot of a window that draws every other
+thing it says in dots. So it is the same glass at the same pitch as the screen
+in the middle of the panel, as wide as the window is, with one line on it. A
+DeepMind answers *what is this control* on its own display, and so does this.
+
+**One line, and it travels rather than wraps.** A sentence that wrapped made the
+footer two lines deep, then three, and moved the whole window up to make room as
+the pointer crossed from a control the library has a sentence for to one it does
+not. A strip along the foot has to be the same height whatever is on it, or it
+is not a strip. So what does not fit travels: the same hold, travel and hold a
+plate's legend gets, at the pace a sentence is read at rather than the pace a
+label is noticed at — thirty dots a second against eight, which is the
+difference between a ticker and a label. Nothing travels that fits, so a short
+answer is a still line.
+
 - **Every word of it is the library's answer.** The name, the section, the
   value's own name, the range and the controller are five questions put to
   `deepmind-midi`. The footer writes down nothing about a parameter.
-- **It opens with a picture.** `ParamId::glyph`, published in 26.5: seven dots
-  by seven before the name, on the same grid as the effects' marks and the
-  modulation sources' cells. A decay as a tail, a mix as wet against dry, a
-  pedal as a treadle. It is first because a picture is read before a word is,
-  and because somebody who points at the same control twice should stop needing
-  the word. 177 of the 242 parameters carry one; the rest are the effect slots,
-  whose picture depends on the algorithm and is on the slot itself, and the
-  seventeen characters of the program's name, which are letters rather than a
+- **It opens with a picture, and the picture does not travel.** `ParamId::glyph`,
+  published in 26.5: seven dots by seven before the name, on the same grid as
+  the effects' marks and the modulation sources' cells — which is also the grid
+  this glass writes a character on, so it stands beside the words rather than
+  among them. A decay as a tail, a mix as wet against dry, a pedal as a treadle.
+  It is first because a picture is read before a word is, and because somebody
+  who points at the same control twice should stop needing the word. It is held
+  in a lead-in of its own while the line travels past it: a picture that scrolled
+  away would leave the head of the line showing a picture of whatever used to be
+  under the pointer. 177 of the 242 parameters carry one; the rest are the effect
+  slots, whose picture depends on the algorithm and is on the slot itself, and
+  the seventeen characters of the program's name, which are letters rather than a
   control.
 - **The claim is in words here, not in a colour.** A footer is a sentence, and a
   sentence that said what backs a value by being a different colour would be
-  saying it only to the readers who see the colour.
+  saying it only to the readers who see the colour. It is the one display in the
+  window printed at full strength whatever it is showing, for the same reason:
+  this glass is not showing a value, it is saying what a control *is*, which is
+  as true of a parameter nobody has read as of one the synthesizer described.
+- **The one thing beside the glass is the routing being mapped.** A display has
+  one colour of light and nothing on it can be pressed, and that press is the
+  window's one saturated colour and the way out of a mode. So it stands on the
+  panel at the left-hand end of the strip, and everything the glass says about
+  the control under the pointer follows it.
 - **The range is in raw bytes**, never the number the synthesizer's display
   shows, because the manual prints the two ends of a range and almost never the
   curve between them. See
@@ -1844,9 +2038,28 @@ application's icon stays drawn, because it is a case with faders in it and it
 has to turn over with the theme; a wordmark is a shape and has no surfaces in it
 to light.
 
-The press and the picker beside it sit on the name's baseline rather than in the
-middle of the line it stands in. A word this size beside a twenty-four point
-press, centred, is a press floating in the middle of a word.
+**The port is a bay, not four loose controls.** A badge, a picker in a toolkit's
+own shape, a press that looks again and a press that opens it stood along the
+top of the window, each drawn correctly and none of them saying it was one
+thing: the corner of the window that decides what this application is *talking
+to* read as three unrelated marks and a drop-down that had wandered in from
+another program. They sit on a face plate now — the same plate a rack of
+parameters stands on and the same one the about badge opens its rows on — at one
+height and one spacing, in the order somebody uses them: which port, look again,
+open it, and what answered.
+
+That is also what settled the alignment. The row used to sit on the name's
+baseline, because four controls of four different heights beside a thirty-four
+point word need something to line them up and the word's own foot was the only
+straight edge in the row. The bay has its own height and its own edges, so it is
+centred on the line the name stands in: a plate hung off the bottom of a word
+reads as a plate that has slipped.
+
+**A picker is cut to the same corner as everything else.** It was rounded a
+point tighter than the presses, the plates, the sheets and the glass, which
+nobody reads as a difference: what it reads as is a control that came from
+somewhere else. Three points, written down once in `style.rs`, on the one
+control in this window a toolkit draws unaided.
 
 ## Movement
 
