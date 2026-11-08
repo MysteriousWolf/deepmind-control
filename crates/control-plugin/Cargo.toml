@@ -1,6 +1,6 @@
 [package]
 name = "control-plugin"
-description = "The DeepMind editor as a plugin: a CLAP, and the AU and VST3 wrapped around it"
+description = "The DeepMind editor as a plugin: a CLAP, with the AU and VST3 to be wrapped around it"
 publish = false
 version.workspace = true
 edition.workspace = true
@@ -8,15 +8,54 @@ license.workspace = true
 repository.workspace = true
 authors.workspace = true
 
-# The plugin is stage 6, and nothing is built two stages before it is needed:
-# `nih-plug`, `baseview` and the iced adapter arrive with the code that uses
-# them. What exists here now is the crate they will arrive into.
 [dependencies]
 control-ui = { path = "../control-ui" }
 deepmind-midi = { workspace = true }
 
-[lib]
-crate-type = ["lib"]
+# The plugin framework, and the iced adapter for it. nih-plug, which the plan
+# named, is a git dependency that crates.io will not take; `nice-plug` is its
+# maintained fork and is published, and `nice-plug-iced` 0.5 is on iced 0.14,
+# which is the pin `control-ui` is drawn against. Neither is asked for VST3: the
+# plan wraps a CLAP with clap-wrapper for that, and the exporter in the
+# framework carries terms an Apache-2.0 repository cannot ship.
+nice-plug = { version = "0.4.2", default-features = false, features = ["editor"] }
+#
+# Drawn in software. The default is wgpu, which makes a Vulkan or GL device inside
+# the host's own process, next to the one the host already has, and a plugin that
+# panics there takes the DAW with it: that is what it did on a display with no
+# GPU. This window is faders and a dot-matrix screen, which a CPU draws without
+# noticing, and it draws the same on every machine a host runs on.
+nice-plug-iced = { version = "0.5", default-features = false, features = [
+    "tiny-skia",
+    "crisp",
+    "web-colors",
+    "thread-pool",
+    "fira-sans",
+    "x11",
+] }
 
-[lints]
-workspace = true
+[dev-dependencies]
+# The test host: the CLAP interface as C structs, to load the plugin through the
+# same entry point a DAW does.
+clap-sys = "0.5"
+
+[lib]
+# A CLAP is a shared library with one exported symbol, so the crate is that
+# library. `lib` stays so that the tests and the docs have something to link.
+crate-type = ["cdylib", "lib"]
+
+# The workspace's lints, except for one. The export macro writes the `extern "C"`
+# entry point a host looks for, and a `forbid` cannot be allowed back in for one
+# module; `deny` can, and `export.rs` is the only place that does.
+[lints.rust]
+missing_docs = "warn"
+unsafe_code = "deny"
+missing_debug_implementations = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+panic = "warn"
+unwrap_used = "warn"
+expect_used = "warn"
+indexing_slicing = "warn"
