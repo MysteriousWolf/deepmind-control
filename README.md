@@ -193,10 +193,26 @@ licence, the notices and this readme.
 Actions -> Build -> Run workflow -> [x] Linux  [x] macOS  [x] Windows  [x] checksums
 ```
 
-macOS builds for Apple silicon, Linux and Windows for x86_64. The workflow is
-also `workflow_call`, so the release that comes later calls it rather than
-copying it: the binaries a release publishes are built the same way as the ones
-somebody tested.
+macOS builds for Apple silicon, Linux and Windows for x86_64. Linux also hands
+back an AppImage, a single file that needs nothing unpacked; the GPU and sound
+libraries it uses are the machine's own.
+
+### Releasing
+
+The **Release** workflow publishes a GitHub release when a version tag is
+pushed. It calls the Build workflow, so the binaries a release carries are built
+the same way as the ones somebody tested, and attaches every archive and
+`SHA256SUMS`.
+
+```
+# bump `version` in Cargo.toml and merge it, then
+tools/previews.fish --check
+git tag v26.1.0 && git push origin v26.1.0
+```
+
+The tag has to equal the version in `Cargo.toml`, or the run stops before it
+builds anything. A tag with a suffix, `v26.2.0-rc.1`, is published as a
+prerelease. The macOS and Windows binaries are not signed yet.
 
 ### Building the plugin
 

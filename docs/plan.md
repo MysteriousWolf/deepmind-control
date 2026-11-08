@@ -610,10 +610,11 @@ next. `cargo-semver-checks` holds the compatibility promise against the same
 tag. Both checks pass trivially until a release tag exists, which is the state
 this repository is in.
 
-The workflow that tags and publishes arrives with the first desktop release. A
-release job for an application is not the library's: it builds binaries for
-three platforms and signs two of them, and writing it against a release that has
-not been designed yet is writing it twice.
+The workflow that publishes is `release.yml`: pushing a tag that equals the
+version in `Cargo.toml` calls `build.yml` and attaches what it built to a GitHub
+release. It does not compute a version, because a person edits that line. It
+does not sign the macOS and Windows binaries yet; that arrives with the
+paperwork it needs.
 
 ## The window opens on the instrument
 

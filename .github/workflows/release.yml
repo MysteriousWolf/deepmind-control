@@ -1,0 +1,75 @@
+# Publishes a release when a version tag is pushed.
+#
+#   1. bump `version` in Cargo.toml and merge it
+#   2. tools/previews.fish --check
+#   3. git tag v26.1.0 && git push origin v26.1.0
+#
+# The version is a line a person edits (see "Versioning" in docs/plan.md), so
+# this job does not compute one: it checks that the tag says what the tree says,
+# builds with the same workflow somebody can run by hand, and attaches what that
+# built to a GitHub release.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: tag matches the tree
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: version
+        run: |
+          set -euo pipefail
+          version=$(grep -m1 -E '^version = ' Cargo.toml | cut -d'"' -f2)
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::the tag is $GITHUB_REF_NAME but Cargo.toml is at $version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: build
+    needs: check
+    uses: ./.github/workflows/build.yml
+
+  publish:
+    name: publish
+    needs: [check, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+
+      - name: Check what was built
+        working-directory: release
+        run: |
+          set -euo pipefail
+          ls -l
+          sha256sum --check SHA256SUMS
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # A tag with a suffix, `v26.2.0-rc.1`, is a prerelease.
+          flags=()
+          case "$GITHUB_REF_NAME" in *-*) flags+=(--prerelease) ;; esac
+          gh release create "$GITHUB_REF_NAME" release/* \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            --verify-tag \
+            "${flags[@]}"
