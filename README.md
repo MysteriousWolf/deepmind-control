@@ -93,12 +93,12 @@ mark in `docs/logo.svg`, and one file holds it for both builds.
 **A desktop application.** It owns its MIDI port, finds the synthesizer, edits
 it live, and reads and writes `.syx` files.
 
-**A plugin**, after the desktop application, so that patches travel with a
-project. AU and VST3, wrapped around a CLAP that ships too and arrives first.
-Two modes:
-
-- *Simple*, which selects programs and nothing else.
-- *Advanced*, which is the desktop editing surface in a plugin window.
+**A plugin**, so that patches travel with a project. A CLAP exists now, and the
+AU and VST3 are to be wrapped around it. It is the editing surface in a plugin
+window, whose MIDI output is the port: route it to the synthesizer and the window
+is the front of it. It keeps the sound in the session and says it again when the
+session comes back. What is still to come is reading the instrument back through
+the host and the plan's *simple* mode, which selects programs and nothing else.
 
 Editing is the same in both builds. Bank and librarian operations are desktop
 only: a preset pack is 35 kB of SysEx, and a plugin event buffer is the wrong
@@ -214,18 +214,38 @@ The tag has to equal the version in `Cargo.toml`, or the run stops before it
 builds anything. A tag with a suffix, `v26.2.0-rc.1`, is published as a
 prerelease. The macOS and Windows binaries are not signed yet.
 
-### Building the plugin
-
-The plugin comes after the desktop application and is built and bundled
-separately. The CLAP is what the other two formats are made from:
+### The plugin
 
 ```
-cargo nih-plug bundle control-plugin --release
+cargo build --release --package control-plugin
+tools/bundle-clap.sh                 # dist/DeepMind Control.clap
 ```
 
-The AU and the VST3 are wrapped around that CLAP with
-[clap-wrapper](https://github.com/free-audio/clap-wrapper), which needs CMake
-and a C++ toolchain. AU is macOS only.
+A CLAP is the library under another name on Linux and Windows and a bundle on
+macOS, so there is no tool to install: the script names it. Put it where a host
+looks for one:
+
+| | |
+| --- | --- |
+| Linux | `~/.clap` or `/usr/lib/clap` |
+| macOS | `~/Library/Audio/Plug-Ins/CLAP` |
+| Windows | `%COMMONPROGRAMFILES%\CLAP` |
+
+The plugin sends nothing but the NRPN the instrument takes, on the channel set in
+its `Channel` parameter, which has to be the synthesizer's own. It sends only
+what it is asked to: an edit, the `SEND` press, or the sound a session was saved
+with. A plugin nobody has touched says nothing, so opening a project does not
+overwrite a sound on the instrument.
+
+The window is drawn in software, on purpose. A plugin that makes its own GPU
+device inside the host's process is one more thing that can take the host down,
+and a front panel does not need one.
+
+The **Build** workflow makes it beside the editor, on all three platforms, and
+the **Release** workflow attaches it. Only Linux has been loaded in a host so far
+(see `crates/control-plugin/tests`). The AU and the VST3 are wrapped around the
+CLAP with [clap-wrapper](https://github.com/free-audio/clap-wrapper), which needs
+CMake and a C++ toolchain, and are not built yet.
 
 ### Platform dependencies
 

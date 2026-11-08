@@ -475,6 +475,15 @@ would do it silently, months later, to somebody's finished record.
 
 ## AU and VST3 are what ships, and CLAP is what is written
 
+**Where it stands.** The CLAP is written and ships. The framework is `nice-plug`
+and not `nih-plug`, which is what this section was drafted against: `nih-plug` is
+a git dependency that crates.io will not take, and `nice-plug` is its maintained,
+published fork, with an iced adapter on the iced this repository is pinned to.
+The window is drawn in software rather than on the GPU, because a plugin that
+opens its own Vulkan or GL device inside the host's process can take the host
+with it. It was loaded and shown on Linux. macOS and Windows build in CI and
+have not been run in a host.
+
 **The first thing that ships is not a plugin.** The desktop application is the
 whole editor and the whole librarian, it owns its own port, and it can be handed
 to somebody the day it works: no SDK agreement, no developer account, no host
@@ -506,7 +515,7 @@ Logic will look at it, so passing `auval` is what "AU is supported" means here,
 and the bundle is signed and notarised like any other macOS binary. AUv3, iOS
 and the App Store are not planned.
 
-The build grows a step that is not Cargo. `cargo nih-plug bundle` builds the
+The build grows a step that is not Cargo. `tools/bundle-clap.sh` names the
 CLAP; the wrapper is CMake and a C++ toolchain around that. Windows and Linux
 get VST3 and CLAP, macOS gets all three, and the CLAP is shipped rather than
 thrown away because it costs nothing to keep and is the best of the three where
