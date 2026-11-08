@@ -1,7 +1,7 @@
-# Builds the editor for the three desktops it runs on, when somebody asks.
+# Builds the editor, and the plugin, for the three desktops, when somebody asks.
 #
 # CI proves the workspace compiles on all three; this hands back something you
-# can double-click. It is run by hand from the Actions tab — tick the platforms
+# can double-click, and a CLAP a DAW can load. It is run by hand from the Actions tab — tick the platforms
 # you want and press the button — and the artifacts hang off the run for as long
 # as the repository keeps them.
 #
@@ -26,6 +26,10 @@ on:
         description: Windows (x86_64)
         type: boolean
         default: true
+      plugin:
+        description: The CLAP plugin, beside the editor
+        type: boolean
+        default: true
       checksums:
         description: SHA-256 checksums
         type: boolean
@@ -39,6 +43,9 @@ on:
         type: boolean
         default: true
       windows:
+        type: boolean
+        default: true
+      plugin:
         type: boolean
         default: true
       checksums:
@@ -161,6 +168,27 @@ jobs:
           esac
           echo "name=$name" >> "$GITHUB_OUTPUT"
 
+      # The same machine, the same cache, the same version: a second library
+      # beside the editor. A CLAP is the library under another name, and a bundle
+      # on macOS, which `tools/bundle-clap.sh` knows how to make.
+      - name: Plugin
+        id: plugin
+        if: inputs.plugin
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --release --locked --target ${{ matrix.target }} --package control-plugin
+          tools/bundle-clap.sh ${{ matrix.target }} clap
+          name="deepmind-control-clap-${{ needs.plan.outputs.version }}-${{ matrix.platform }}"
+          mkdir -p "staging/$name"
+          cp -R "clap/DeepMind Control.clap" "staging/$name/"
+          cp LICENSE NOTICE README.md "staging/$name/"
+          case "${{ matrix.archive }}" in
+            tar.gz) tar -czf "$name.tar.gz" -C staging "$name"; archive="$name.tar.gz" ;;
+            zip) 7z a -tzip "$name.zip" "./staging/$name" >/dev/null; archive="$name.zip" ;;
+          esac
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+
       # The same binary again, as one file that needs nothing unpacked. The GPU
       # and sound libraries are the machine's, as they are for the archive: an
       # AppImage that carried its own Vulkan would not find the driver.
@@ -192,7 +220,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for file in "${{ steps.package.outputs.archive }}" "${{ steps.appimage.outputs.appimage }}"; do
+          for file in "${{ steps.package.outputs.archive }}" "${{ steps.appimage.outputs.appimage }}" "${{ steps.plugin.outputs.archive }}"; do
             [ -n "$file" ] || continue
             if command -v sha256sum >/dev/null 2>&1; then
               sha256sum "$file" > "$file.sha256"
@@ -210,6 +238,8 @@ jobs:
             ${{ steps.package.outputs.archive }}.sha256
             ${{ steps.appimage.outputs.appimage }}
             ${{ steps.appimage.outputs.appimage }}.sha256
+            ${{ steps.plugin.outputs.archive }}
+            ${{ steps.plugin.outputs.archive }}.sha256
           if-no-files-found: error
 
   # One file naming every archive the run produced, which is the thing a release
