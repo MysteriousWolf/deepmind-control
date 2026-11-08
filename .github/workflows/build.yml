@@ -5,8 +5,8 @@
 # you want and press the button — and the artifacts hang off the run for as long
 # as the repository keeps them.
 #
-# It is also `workflow_call`, so the release that comes later is this file with a
-# tag in front of it rather than a second copy of it: a release builds the same
+# It is also `workflow_call`, and `release.yml` is that call with a tag in front
+# of it rather than a second copy of this file: a release builds the same
 # binaries the same way, and a binary somebody has already tested is a binary
 # somebody has already tested.
 name: Build
@@ -79,8 +79,11 @@ jobs:
           set -euo pipefail
           targets='[]'
           add() { targets=$(printf '%s' "$targets" | jq -c ". + [$1]"); }
+          # An older image than `ubuntu-latest` on purpose: a binary links the
+          # glibc it was built against, and the AppImage is meant to be taken to
+          # other distributions than the one that built it.
           if [ "${{ inputs.linux }}" = "true" ]; then
-            add '{"os":"ubuntu-latest","target":"x86_64-unknown-linux-gnu","platform":"linux-x86_64","binary":"control","archive":"tar.gz"}'
+            add '{"os":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu","platform":"linux-x86_64","binary":"control","archive":"tar.gz"}'
           fi
           # The runner is Apple silicon, which is the Mac this is built for. A
           # release that wants the Intel ones too is one more row here and a
@@ -126,7 +129,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install --no-install-recommends -y libasound2-dev
+          sudo apt-get install --no-install-recommends -y libasound2-dev librsvg2-bin
 
       - name: Build
         run: cargo build --release --locked --target ${{ matrix.target }} --package control --bin control
@@ -158,6 +161,30 @@ jobs:
           esac
           echo "name=$name" >> "$GITHUB_OUTPUT"
 
+      # The same binary again, as one file that needs nothing unpacked. The GPU
+      # and sound libraries are the machine's, as they are for the archive: an
+      # AppImage that carried its own Vulkan would not find the driver.
+      - name: AppImage
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          name="deepmind-control-${{ needs.plan.outputs.version }}-${{ matrix.platform }}.AppImage"
+          app=AppDir
+          mkdir -p "$app/usr/bin"
+          cp "target/${{ matrix.target }}/release/control" "$app/usr/bin/"
+          cp packaging/linux/deepmind-control.desktop "$app/"
+          rsvg-convert --width 256 --height 256 docs/logo.svg --output "$app/deepmind-control.png"
+          ln -s usr/bin/control "$app/AppRun"
+          curl --fail --location --silent --show-error \
+            --output appimagetool \
+            https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage
+          chmod +x appimagetool
+          # The runner has no FUSE, so the tool unpacks itself and runs from there.
+          ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 ./appimagetool --no-appstream "$app" "$name"
+          echo "appimage=$name" >> "$GITHUB_OUTPUT"
+        id: appimage
+
       # Beside the archive rather than only in the gathered list at the end, so
       # that one downloaded platform can be checked on its own.
       - name: Checksum
@@ -165,13 +192,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          archive="${{ steps.package.outputs.archive }}"
-          if command -v sha256sum >/dev/null 2>&1; then
-            sha256sum "$archive" > "$archive.sha256"
-          else
-            shasum -a 256 "$archive" > "$archive.sha256"
-          fi
-          cat "$archive.sha256"
+          for file in "${{ steps.package.outputs.archive }}" "${{ steps.appimage.outputs.appimage }}"; do
+            [ -n "$file" ] || continue
+            if command -v sha256sum >/dev/null 2>&1; then
+              sha256sum "$file" > "$file.sha256"
+            else
+              shasum -a 256 "$file" > "$file.sha256"
+            fi
+            cat "$file.sha256"
+          done
 
       - uses: actions/upload-artifact@v4
         with:
@@ -179,6 +208,8 @@ jobs:
           path: |
             ${{ steps.package.outputs.archive }}
             ${{ steps.package.outputs.archive }}.sha256
+            ${{ steps.appimage.outputs.appimage }}
+            ${{ steps.appimage.outputs.appimage }}.sha256
           if-no-files-found: error
 
   # One file naming every archive the run produced, which is the thing a release
