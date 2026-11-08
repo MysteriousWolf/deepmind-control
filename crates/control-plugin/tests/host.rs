@@ -323,7 +323,9 @@ fn the_editor_opens_and_draws() {
 
         let parent = clap_window {
             api: CLAP_WINDOW_API_X11.as_ptr(),
-            specific: clap_window_handle { x11: root_window() },
+            specific: clap_window_handle {
+                x11: root_window() as _,
+            },
         };
         assert!(gui.set_parent.expect("parent")(plugin, &parent));
         assert!(gui.show.expect("show")(plugin));
