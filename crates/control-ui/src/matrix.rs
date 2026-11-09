@@ -1756,8 +1756,8 @@ mod tests {
 
     #[test]
     fn a_group_that_is_not_a_matrix_leaves_the_rack_alone() {
-        assert!(routed(Group::Oscillators).is_empty());
-        assert!(routed(Group::Vcf).is_empty());
+        assert_eq!(routed(Group::Oscillators).len(), 0);
+        assert_eq!(routed(Group::Vcf).len(), 0);
     }
 
     #[test]
@@ -1795,7 +1795,7 @@ mod tests {
         let mut patch = Patch::new();
         // Nothing is read, so nothing is moved: a mark drawn from a value this
         // window has not seen says the instrument is doing something it may not.
-        assert!(moved(&patch, DEFAULT_FIRMWARE).is_empty());
+        assert_eq!(moved(&patch, DEFAULT_FIRMWARE).len(), 0);
 
         patch.confirm(Program::new(ProtocolVersion::V7));
         let routings = of(Group::ModMatrix).expect("the matrix is one");

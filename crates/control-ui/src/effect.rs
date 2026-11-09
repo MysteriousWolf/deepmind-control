@@ -2055,7 +2055,7 @@ mod tests {
 
         let (rows, spare) = placed(&lanes, None);
 
-        assert!(rows.is_empty());
+        assert_eq!(rows.len(), 0);
         assert_eq!(spare.len(), SLOTS_PER_ENGINE);
     }
 
@@ -2157,8 +2157,8 @@ mod tests {
         for parameter in Group::Effects.parameters() {
             assert!(drawn.contains(&parameter), "{parameter} is not drawn");
         }
-        assert!(claimed(Group::Vcf).is_empty());
-        assert!(claimed(Group::ModMatrix).is_empty());
+        assert_eq!(claimed(Group::Vcf).len(), 0);
+        assert_eq!(claimed(Group::ModMatrix).len(), 0);
     }
 
     #[test]
@@ -2331,7 +2331,7 @@ mod tests {
         // A slot the display shows names on says how many, because which one a
         // byte shows is the part nobody has published.
         assert_eq!(hint(deep.slot(1)), "11 settings");
-        assert!(hint(None).is_empty());
+        assert_eq!(hint(None).len(), 0);
     }
 
     #[test]
@@ -2454,7 +2454,7 @@ mod tests {
         }
         // And a byte the algorithm does not use still says nothing, because the
         // strip it stands on has said it already.
-        assert!(hint(None).is_empty());
+        assert_eq!(hint(None).len(), 0);
     }
 
     #[test]

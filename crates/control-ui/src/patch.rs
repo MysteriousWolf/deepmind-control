@@ -378,7 +378,7 @@ mod tests {
         let name = ProgramName::new("Bass").expect("a valid name");
         patch.rename(name);
 
-        assert!(patch.rename(name).is_empty());
+        assert_eq!(patch.rename(name).len(), 0);
     }
 
     #[test]
@@ -398,10 +398,11 @@ mod tests {
     fn a_sound_nobody_has_read_cannot_be_named() {
         let mut patch = Patch::new();
 
-        assert!(
+        assert_eq!(
             patch
                 .rename(ProgramName::new("Bass").expect("a valid name"))
-                .is_empty()
+                .len(),
+            0
         );
         assert_eq!(patch.name(), None);
     }
