@@ -93,12 +93,12 @@ mark in `docs/logo.svg`, and one file holds it for both builds.
 **A desktop application.** It owns its MIDI port, finds the synthesizer, edits
 it live, and reads and writes `.syx` files.
 
-**A plugin**, after the desktop application, so that patches travel with a
-project. AU and VST3, wrapped around a CLAP that ships too and arrives first.
-Two modes:
-
-- *Simple*, which selects programs and nothing else.
-- *Advanced*, which is the desktop editing surface in a plugin window.
+**A plugin**, so that patches travel with a project. A CLAP exists now, and the
+AU and VST3 are to be wrapped around it. It is the editing surface in a plugin
+window, whose MIDI output is the port: route it to the synthesizer and the window
+is the front of it. It keeps the sound in the session and says it again when the
+session comes back. What is still to come is reading the instrument back through
+the host and the plan's *simple* mode, which selects programs and nothing else.
 
 Editing is the same in both builds. Bank and librarian operations are desktop
 only: a preset pack is 35 kB of SysEx, and a plugin event buffer is the wrong
@@ -193,23 +193,78 @@ licence, the notices and this readme.
 Actions -> Build -> Run workflow -> [x] Linux  [x] macOS  [x] Windows  [x] checksums
 ```
 
-macOS builds for Apple silicon, Linux and Windows for x86_64. The workflow is
-also `workflow_call`, so the release that comes later calls it rather than
-copying it: the binaries a release publishes are built the same way as the ones
-somebody tested.
+macOS builds for Apple silicon, Linux and Windows for x86_64. Linux also hands
+back an AppImage, a single file that needs nothing unpacked; the GPU and sound
+libraries it uses are the machine's own.
 
-### Building the plugin
+### Releasing
 
-The plugin comes after the desktop application and is built and bundled
-separately. The CLAP is what the other two formats are made from:
+Releases come from commit messages. [Release Please](https://github.com/googleapis/release-please)
+keeps a pull request open that sets the next version in `Cargo.toml` and
+`Cargo.lock`, writes `CHANGELOG.md` from the conventional commits since the last
+release, and is merged when you want to release. Merging it tags the commit and
+creates the GitHub release; the **Release** workflow then builds with the Build
+workflow and attaches every archive and `SHA256SUMS`.
+
+The version is `YY.RELEASE.PATCH`, so every release is the next `RELEASE` of the
+year (`26.1.0`, then `26.2.0`), whatever the commits were. The first release of a
+new year is asked for by name, with a footer on any commit that is merged to
+`main`:
 
 ```
-cargo nih-plug bundle control-plugin --release
+Release-As: 27.1.0
 ```
 
-The AU and the VST3 are wrapped around that CLAP with
-[clap-wrapper](https://github.com/free-audio/clap-wrapper), which needs CMake
-and a C++ toolchain. AU is macOS only.
+A release can also be made without Release Please: bump `version` in
+`Cargo.toml` and `Cargo.lock`, merge it, and push the tag.
+
+```
+tools/previews.fish --check
+git tag v26.1.0 && git push origin v26.1.0
+```
+
+The tag has to equal the version in `Cargo.toml`, or the run stops before it
+builds anything. A tag with a suffix, `v26.1.0-rc.1`, is published as a
+prerelease. The macOS and Windows binaries are not signed yet.
+
+The repository has to allow it: Settings, Actions, General, "Allow GitHub
+Actions to create and approve pull requests". Pull requests Release Please opens
+do not start CI by themselves (a token made by a workflow cannot), so close and
+reopen the release pull request to run it, or give the workflow a personal
+access token.
+
+### The plugin
+
+```
+cargo build --release --package control-plugin
+tools/bundle-clap.sh                 # dist/DeepMind Control.clap
+```
+
+A CLAP is the library under another name on Linux and Windows and a bundle on
+macOS, so there is no tool to install: the script names it. Put it where a host
+looks for one:
+
+| | |
+| --- | --- |
+| Linux | `~/.clap` or `/usr/lib/clap` |
+| macOS | `~/Library/Audio/Plug-Ins/CLAP` |
+| Windows | `%COMMONPROGRAMFILES%\CLAP` |
+
+The plugin sends nothing but the NRPN the instrument takes, on the channel set in
+its `Channel` parameter, which has to be the synthesizer's own. It sends only
+what it is asked to: an edit, the `SEND` press, or the sound a session was saved
+with. A plugin nobody has touched says nothing, so opening a project does not
+overwrite a sound on the instrument.
+
+The window is drawn in software, on purpose. A plugin that makes its own GPU
+device inside the host's process is one more thing that can take the host down,
+and a front panel does not need one.
+
+The **Build** workflow makes it beside the editor, on all three platforms, and
+the **Release** workflow attaches it. Only Linux has been loaded in a host so far
+(see `crates/control-plugin/tests`). The AU and the VST3 are wrapped around the
+CLAP with [clap-wrapper](https://github.com/free-audio/clap-wrapper), which needs
+CMake and a C++ toolchain, and are not built yet.
 
 ### Platform dependencies
 

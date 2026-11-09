@@ -267,6 +267,6 @@ mod tests {
             terms: vec![("role".to_owned(), "bass".to_owned())],
             ..Publishing::default()
         };
-        assert!(filled.missing().is_empty());
+        assert_eq!(filled.missing().len(), 0);
     }
 }

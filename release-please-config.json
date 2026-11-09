@@ -1,0 +1,40 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "simple",
+  "versioning": "always-bump-minor",
+  "include-component-in-tag": false,
+  "include-v-in-tag": true,
+  "bootstrap-sha": "3a38b82003151bcc275fe9d12b1dbf34105fd48e",
+  "packages": {
+    ".": {
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "Cargo.toml",
+          "jsonpath": "$.workspace.package.version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name=='control')].version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name=='control-plugin')].version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name=='control-ui')].version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name=='deepmind-host')].version"
+        }
+      ]
+    }
+  }
+}

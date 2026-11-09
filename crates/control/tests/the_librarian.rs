@@ -409,7 +409,9 @@ fn a_bank_read_is_a_progress_bar_and_not_a_freeze() {
 
     app.update(Message::ReadAll);
     let transfer = app.shelf().transfer().expect("a transfer in flight");
-    assert_eq!(transfer.bank, Bank::A, "starting from the first bank");
+    // Which bank is in flight is not asserted: the unit is silent, so the run
+    // can be on its way to the last bank by the time this looks. Where it
+    // starts is the shelf's own test.
     assert_eq!(
         transfer.expected, 1024,
         "every bank was asked for, not one: eight of a hundred and twenty-eight"

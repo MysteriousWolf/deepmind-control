@@ -538,3 +538,24 @@ pub fn patch_to_syx(program: &Program) -> deepmind_midi::Result<Vec<u8>> {
     out.truncate(written);
     Ok(out)
 }
+
+#[cfg(test)]
+#[expect(
+    clippy::expect_used,
+    reason = "a failed expectation is the test failure"
+)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_bank_read_starts_where_it_was_told_to_with_nothing_arrived() {
+        let mut shelf = Shelf::default();
+
+        shelf.begin(Bank::A, 1024, "now".to_owned());
+
+        let transfer = shelf.transfer().expect("a transfer in flight");
+        assert_eq!(transfer.bank, Bank::A, "starting from the first bank");
+        assert_eq!(transfer.expected, 1024);
+        assert_eq!(transfer.received, 0);
+    }
+}

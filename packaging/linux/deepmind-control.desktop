@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=DeepMind Control
+GenericName=Synthesizer editor and librarian
+Comment=Edit and keep the sounds of a Behringer DeepMind
+Exec=control
+Icon=deepmind-control
+Terminal=false
+Categories=AudioVideo;Audio;Midi;
+Keywords=synthesizer;midi;deepmind;patch;librarian;

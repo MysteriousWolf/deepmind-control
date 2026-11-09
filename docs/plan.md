@@ -475,6 +475,15 @@ would do it silently, months later, to somebody's finished record.
 
 ## AU and VST3 are what ships, and CLAP is what is written
 
+**Where it stands.** The CLAP is written and ships. The framework is `nice-plug`
+and not `nih-plug`, which is what this section was drafted against: `nih-plug` is
+a git dependency that crates.io will not take, and `nice-plug` is its maintained,
+published fork, with an iced adapter on the iced this repository is pinned to.
+The window is drawn in software rather than on the GPU, because a plugin that
+opens its own Vulkan or GL device inside the host's process can take the host
+with it. It was loaded and shown on Linux. macOS and Windows build in CI and
+have not been run in a host.
+
 **The first thing that ships is not a plugin.** The desktop application is the
 whole editor and the whole librarian, it owns its own port, and it can be handed
 to somebody the day it works: no SDK agreement, no developer account, no host
@@ -506,7 +515,7 @@ Logic will look at it, so passing `auval` is what "AU is supported" means here,
 and the bundle is signed and notarised like any other macOS binary. AUv3, iOS
 and the App Store are not planned.
 
-The build grows a step that is not Cargo. `cargo nih-plug bundle` builds the
+The build grows a step that is not Cargo. `tools/bundle-clap.sh` names the
 CLAP; the wrapper is CMake and a C++ toolchain around that. Windows and Linux
 get VST3 and CLAP, macOS gets all three, and the CLAP is shipped rather than
 thrown away because it costs nothing to keep and is the best of the three where
@@ -591,29 +600,41 @@ in the same recess a fader's track is cut as.
 
 ## Versioning is the year and the release
 
-`Cargo.toml` holds the version and nothing else does, and the scheme is
-`deepmind-midi`'s: `YY.RELEASE.PATCH`. `26.1.0` is the first release of 2026,
-`26.1.1` its first patch, `26.2.0` the second release of the year. Cargo reads
-that as semver, so the year is the major version and a release is a minor one. A
-release within a year must not break the public API of the one crate here that
-somebody else could depend on, and a breaking change is a new year.
+`Cargo.toml` holds the version and nothing else does (the lockfile repeats it),
+and the scheme is `deepmind-midi`'s: `YY.RELEASE.PATCH`. `26.1.0` is the first
+release of 2026, `26.1.1` its first patch, `26.2.0` the second release of the
+year. Cargo reads that as semver, so the year is the major version and a release
+is a minor one. A release within a year must not break the public API of the one
+crate here that somebody else could depend on, and a breaking change is a new
+year.
 
 That crate is `deepmind-host`. `control`, `control-ui` and `control-plugin` are
 `publish = false`: two are binaries and the third is this repository's own
 furniture. They carry the same number anyway, because one repository releasing
 several numbers is a support question nobody needs.
 
-A person edits that one line, not the release job. CI fails when the number in
-the tree is not ahead of the newest release tag, so the first change merged
-after a release has to move it, and the tree always states what it will release
-next. `cargo-semver-checks` holds the compatibility promise against the same
-tag. Both checks pass trivially until a release tag exists, which is the state
-this repository is in.
+Release Please sets the number. It does not know this scheme, so the
+configuration says what it has to: `always-bump-minor` makes every release the
+next `RELEASE` of the year, which also keeps a `feat!` or a `BREAKING CHANGE`
+from moving the year, and a fix is not a `PATCH` unless somebody asks for one
+with a `Release-As: 26.1.1` footer. The year changes the same way, by naming the
+release (`Release-As: 27.1.0`), because the action reads its configuration from
+the repository and nothing can compute it per run. `Cargo.toml` and each
+workspace crate's entry in `Cargo.lock` are listed as files to update, so the
+release pull request passes `--locked`. The first release is `26.1.0`: the
+manifest starts at `26.0.0`, and `bootstrap-sha` keeps the history before the
+release workflow out of the first changelog.
 
-The workflow that tags and publishes arrives with the first desktop release. A
-release job for an application is not the library's: it builds binaries for
-three platforms and signs two of them, and writing it against a release that has
-not been designed yet is writing it twice.
+CI does not ask for a version bump, because only the release pull request moves
+the number. `cargo-semver-checks` holds the compatibility promise against the
+last release tag, and passes trivially until one exists.
+
+`release-please.yml` runs on every push to `main`. Merging the release pull
+request makes it tag the commit and create the GitHub release, and it calls
+`release.yml`, which checks the tag equals the version in `Cargo.toml`, calls
+`build.yml` and attaches what it built. Pushing a version tag by hand runs
+`release.yml` too and creates the release with generated notes. It does not sign
+the macOS and Windows binaries yet; that arrives with the paperwork it needs.
 
 ## The window opens on the instrument
 

@@ -1,0 +1,96 @@
+# Builds a release and attaches it to its GitHub release.
+#
+# Two things start it:
+#
+#   - `release-please.yml`, when the release pull request is merged. The release
+#     and its notes exist by then, and this adds the binaries to them.
+#   - A version tag pushed by hand, for a release made without Release Please:
+#     bump `version` in Cargo.toml, merge it, then
+#         git tag v26.1.0 && git push origin v26.1.0
+#     and this creates the release with generated notes.
+#
+# The version is not computed here. The job checks that the tag says what the
+# tree says, builds with the same workflow somebody can run by hand, and attaches
+# what that built.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_call:
+    inputs:
+      tag:
+        description: The release tag, which a call cannot take from its own ref
+        type: string
+        required: true
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: tag matches the tree
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: refs/tags/${{ env.TAG }}
+      - id: version
+        run: |
+          set -euo pipefail
+          version=$(grep -m1 -E '^version = ' Cargo.toml | cut -d'"' -f2)
+          if [ "$TAG" != "v$version" ]; then
+            echo "::error::the tag is $TAG but Cargo.toml is at $version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: build
+    needs: check
+    uses: ./.github/workflows/build.yml
+
+  publish:
+    name: publish
+    needs: [check, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+
+      - name: Check what was built
+        working-directory: release
+        run: |
+          set -euo pipefail
+          ls -l
+          sha256sum --check SHA256SUMS
+
+      # Release Please has already made the release, with its notes. A tag
+      # pushed by hand has not.
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" release/* --clobber
+          else
+            # A tag with a suffix, `v26.1.0-rc.1`, is a prerelease.
+            flags=()
+            case "$TAG" in *-*) flags+=(--prerelease) ;; esac
+            gh release create "$TAG" release/* \
+              --title "$TAG" \
+              --generate-notes \
+              --verify-tag \
+              "${flags[@]}"
+          fi
