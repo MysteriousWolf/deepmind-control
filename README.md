@@ -199,20 +199,39 @@ libraries it uses are the machine's own.
 
 ### Releasing
 
-The **Release** workflow publishes a GitHub release when a version tag is
-pushed. It calls the Build workflow, so the binaries a release carries are built
-the same way as the ones somebody tested, and attaches every archive and
-`SHA256SUMS`.
+Releases come from commit messages. [Release Please](https://github.com/googleapis/release-please)
+keeps a pull request open that sets the next version in `Cargo.toml` and
+`Cargo.lock`, writes `CHANGELOG.md` from the conventional commits since the last
+release, and is merged when you want to release. Merging it tags the commit and
+creates the GitHub release; the **Release** workflow then builds with the Build
+workflow and attaches every archive and `SHA256SUMS`.
+
+The version is `YY.RELEASE.PATCH`, so every release is the next `RELEASE` of the
+year (`26.1.0`, then `26.2.0`), whatever the commits were. The first release of a
+new year is asked for by name, with a footer on any commit that is merged to
+`main`:
 
 ```
-# bump `version` in Cargo.toml and merge it, then
+Release-As: 27.1.0
+```
+
+A release can also be made without Release Please: bump `version` in
+`Cargo.toml` and `Cargo.lock`, merge it, and push the tag.
+
+```
 tools/previews.fish --check
 git tag v26.1.0 && git push origin v26.1.0
 ```
 
 The tag has to equal the version in `Cargo.toml`, or the run stops before it
-builds anything. A tag with a suffix, `v26.2.0-rc.1`, is published as a
+builds anything. A tag with a suffix, `v26.1.0-rc.1`, is published as a
 prerelease. The macOS and Windows binaries are not signed yet.
+
+The repository has to allow it: Settings, Actions, General, "Allow GitHub
+Actions to create and approve pull requests". Pull requests Release Please opens
+do not start CI by themselves (a token made by a workflow cannot), so close and
+reopen the release pull request to run it, or give the workflow a personal
+access token.
 
 ### The plugin
 

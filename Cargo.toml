@@ -7,8 +7,8 @@ resolver = "3"
 # release of 2026, `26.1.1` its first patch, `26.2.0` the second release of the
 # year. Cargo reads it as semver, so the year is the major version and a release
 # is a minor one, and a release within a year must not break a published crate's
-# public API. A human edits this one line; CI fails when it is not ahead of the
-# newest release tag, so the first change merged after a release has to move it.
+# public API. Release Please sets this line (and the lockfile's) in the release
+# pull request; see release-please-config.json and "Versioning" in docs/plan.md.
 version = "26.1.0"
 edition = "2024"
 license = "Apache-2.0"

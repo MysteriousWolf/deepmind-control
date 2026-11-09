@@ -1,0 +1,54 @@
+# Keeps a release pull request open and publishes the release when it is merged.
+#
+# Release Please reads the conventional commits since the last release, opens
+# (or updates) a pull request that sets the version in `Cargo.toml` and
+# `Cargo.lock` and writes `CHANGELOG.md`, and when that pull request is merged it
+# tags the commit and creates the GitHub release. `release.yml` then builds and
+# attaches the binaries to it.
+#
+# The scheme is `YY.RELEASE.PATCH` (see "Versioning" in docs/plan.md), which is
+# not what Release Please's own strategies mean by major, minor and patch.
+# `always-bump-minor` in release-please-config.json makes every release the next
+# `RELEASE` of the year and keeps a breaking change from moving the year. The
+# first release of a new year is asked for by name: put a `Release-As: 27.1.0`
+# footer on a commit.
+name: Release Please
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+jobs:
+  please:
+    name: release pull request
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.please.outputs.release_created }}
+      tag_name: ${{ steps.please.outputs.tag_name }}
+    steps:
+      - id: please
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # A tag made with the workflow's own token does not start `release.yml`, so
+  # the release is built by calling it here.
+  release:
+    name: release
+    needs: please
+    if: needs.please.outputs.release_created == 'true'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.please.outputs.tag_name }}

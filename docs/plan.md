@@ -600,30 +600,41 @@ in the same recess a fader's track is cut as.
 
 ## Versioning is the year and the release
 
-`Cargo.toml` holds the version and nothing else does, and the scheme is
-`deepmind-midi`'s: `YY.RELEASE.PATCH`. `26.1.0` is the first release of 2026,
-`26.1.1` its first patch, `26.2.0` the second release of the year. Cargo reads
-that as semver, so the year is the major version and a release is a minor one. A
-release within a year must not break the public API of the one crate here that
-somebody else could depend on, and a breaking change is a new year.
+`Cargo.toml` holds the version and nothing else does (the lockfile repeats it),
+and the scheme is `deepmind-midi`'s: `YY.RELEASE.PATCH`. `26.1.0` is the first
+release of 2026, `26.1.1` its first patch, `26.2.0` the second release of the
+year. Cargo reads that as semver, so the year is the major version and a release
+is a minor one. A release within a year must not break the public API of the one
+crate here that somebody else could depend on, and a breaking change is a new
+year.
 
 That crate is `deepmind-host`. `control`, `control-ui` and `control-plugin` are
 `publish = false`: two are binaries and the third is this repository's own
 furniture. They carry the same number anyway, because one repository releasing
 several numbers is a support question nobody needs.
 
-A person edits that one line, not the release job. CI fails when the number in
-the tree is not ahead of the newest release tag, so the first change merged
-after a release has to move it, and the tree always states what it will release
-next. `cargo-semver-checks` holds the compatibility promise against the same
-tag. Both checks pass trivially until a release tag exists, which is the state
-this repository is in.
+Release Please sets the number. It does not know this scheme, so the
+configuration says what it has to: `always-bump-minor` makes every release the
+next `RELEASE` of the year, which also keeps a `feat!` or a `BREAKING CHANGE`
+from moving the year, and a fix is not a `PATCH` unless somebody asks for one
+with a `Release-As: 26.1.1` footer. The year changes the same way, by naming the
+release (`Release-As: 27.1.0`), because the action reads its configuration from
+the repository and nothing can compute it per run. `Cargo.toml` and each
+workspace crate's entry in `Cargo.lock` are listed as files to update, so the
+release pull request passes `--locked`. The first release is `26.1.0`: the
+manifest starts at `26.0.0`, and `bootstrap-sha` keeps the history before the
+release workflow out of the first changelog.
 
-The workflow that publishes is `release.yml`: pushing a tag that equals the
-version in `Cargo.toml` calls `build.yml` and attaches what it built to a GitHub
-release. It does not compute a version, because a person edits that line. It
-does not sign the macOS and Windows binaries yet; that arrives with the
-paperwork it needs.
+CI does not ask for a version bump, because only the release pull request moves
+the number. `cargo-semver-checks` holds the compatibility promise against the
+last release tag, and passes trivially until one exists.
+
+`release-please.yml` runs on every push to `main`. Merging the release pull
+request makes it tag the commit and create the GitHub release, and it calls
+`release.yml`, which checks the tag equals the version in `Cargo.toml`, calls
+`build.yml` and attaches what it built. Pushing a version tag by hand runs
+`release.yml` too and creates the release with generated notes. It does not sign
+the macOS and Windows binaries yet; that arrives with the paperwork it needs.
 
 ## The window opens on the instrument
 
