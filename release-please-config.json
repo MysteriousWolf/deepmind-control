@@ -4,7 +4,7 @@
   "versioning": "always-bump-minor",
   "include-component-in-tag": false,
   "include-v-in-tag": true,
-  "bootstrap-sha": "7c3954d31709ca8e1ff24221d1f0349158afd35f",
+  "bootstrap-sha": "3a38b82003151bcc275fe9d12b1dbf34105fd48e",
   "packages": {
     ".": {
       "changelog-path": "CHANGELOG.md",
